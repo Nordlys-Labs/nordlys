@@ -311,19 +311,11 @@ class ModelRouter:
         # Create FeatureExtractor with fresh model
         feature_extractor = FeatureExtractor(
             embedding_model=profile.metadata.embedding_model,
-            tfidf_max_features=profile.metadata.tfidf_max_features,
-            tfidf_ngram_range=tuple(profile.metadata.tfidf_ngram_range),  # type: ignore[arg-type]
             allow_trust_remote_code=allow_trust_remote_code,
         )
 
         # Replace the embedding model (already loaded above)
         feature_extractor.embedding_model = embedding_model
-
-        # Restore TF-IDF vocabulary
-        feature_extractor.tfidf_vectorizer.vocabulary_ = (
-            profile.tfidf_vocabulary.vocabulary
-        )
-        feature_extractor.tfidf_vectorizer.idf_ = np.array(profile.tfidf_vocabulary.idf)
 
         # Restore scaler parameters
         logger.info("Restoring scaler parameters from MinIO data...")
@@ -338,18 +330,6 @@ class ModelRouter:
         )
         feature_extractor.embedding_scaler.n_features_in_ = len(
             feature_extractor.embedding_scaler.mean_
-        )
-
-        # Restore TF-IDF scaler
-        feature_extractor.tfidf_scaler = StandardScaler()
-        feature_extractor.tfidf_scaler.mean_ = np.array(
-            profile.scaler_parameters.tfidf_scaler.mean
-        )
-        feature_extractor.tfidf_scaler.scale_ = np.array(
-            profile.scaler_parameters.tfidf_scaler.scale
-        )
-        feature_extractor.tfidf_scaler.n_features_in_ = len(
-            feature_extractor.tfidf_scaler.mean_
         )
         logger.info("Scaler parameters restored")
 
@@ -377,10 +357,6 @@ class ModelRouter:
         # Set configuration from profile
         cluster_engine.n_clusters = profile.cluster_centers.n_clusters
         cluster_engine.embedding_model = profile.metadata.embedding_model
-        cluster_engine.tfidf_max_features = profile.metadata.tfidf_max_features
-        # Convert list to tuple[int, int] for type safety
-        ngram_range = profile.metadata.tfidf_ngram_range
-        cluster_engine.tfidf_ngram_range = (int(ngram_range[0]), int(ngram_range[1]))
 
         # Set restored components
         cluster_engine.feature_extractor = feature_extractor

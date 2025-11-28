@@ -73,7 +73,6 @@ from .models.storage import (
     RouterProfile,
     ScalerParameters,
     ScalerParametersData,
-    TFIDFVocabularyData,
 )
 
 # Configuration types (YAML and routing config)
@@ -138,7 +137,6 @@ __all__ = [
     "ClusterCentersData",
     "ScalerParameters",
     "ScalerParametersData",
-    "TFIDFVocabularyData",
     # Configuration
     "ModelConfig",
     "YAMLModelsConfig",

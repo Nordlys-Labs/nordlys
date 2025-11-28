@@ -25,7 +25,6 @@ from adaptive_router.models.storage import (
     RouterProfile,
     ScalerParameters,
     ScalerParametersData,
-    TFIDFVocabularyData,
 )
 from adaptive_router.models.train import ProviderConfig, TrainingResult
 
@@ -67,8 +66,6 @@ class Trainer:
         n_clusters: int = 20,
         max_parallel: int = 10,
         embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2",
-        tfidf_max_features: int = 5000,
-        tfidf_ngram_range: tuple[int, int] = (1, 2),
         random_seed: int = 42,
     ):
         """Initialize trainer.
@@ -80,8 +77,6 @@ class Trainer:
             n_clusters: Number of clusters for K-means
             max_parallel: Maximum parallel inference requests
             embedding_model: Sentence transformer model name
-            tfidf_max_features: TF-IDF vocabulary size
-            tfidf_ngram_range: N-gram range for TF-IDF (e.g., (1, 2) for unigrams and bigrams)
             random_seed: Random seed for reproducibility
 
         Raises:
@@ -92,8 +87,6 @@ class Trainer:
         self.n_clusters = n_clusters
         self.max_parallel = max_parallel
         self.embedding_model = embedding_model
-        self.tfidf_max_features = tfidf_max_features
-        self.tfidf_ngram_range = tfidf_ngram_range
         self.random_seed = random_seed
 
         # Trained profile (set after training)
@@ -115,8 +108,6 @@ class Trainer:
             random_state=self.random_seed,
             n_init=10,
             embedding_model=self.embedding_model,
-            tfidf_max_features=self.tfidf_max_features,
-            tfidf_ngram_range=self.tfidf_ngram_range,
         )
 
         logger.info(
@@ -735,32 +726,19 @@ class Trainer:
             cluster_centers=cluster_engine.kmeans.cluster_centers_.tolist(),
         )
 
-        # Extract TF-IDF vocabulary
-        tfidf_vocab = TFIDFVocabularyData(
-            vocabulary=cluster_engine.feature_extractor.tfidf_vectorizer.vocabulary_,
-            idf=cluster_engine.feature_extractor.tfidf_vectorizer.idf_.tolist(),
-        )
-
         # Extract scaler parameters
         embedding_scaler = ScalerParametersData(
             mean=cluster_engine.feature_extractor.embedding_scaler.mean_.tolist(),
             scale=cluster_engine.feature_extractor.embedding_scaler.scale_.tolist(),
         )
-        tfidf_scaler = ScalerParametersData(
-            mean=cluster_engine.feature_extractor.tfidf_scaler.mean_.tolist(),
-            scale=cluster_engine.feature_extractor.tfidf_scaler.scale_.tolist(),
-        )
         scaler_params = ScalerParameters(
             embedding_scaler=embedding_scaler,
-            tfidf_scaler=tfidf_scaler,
         )
 
         # Build metadata
         metadata = ProfileMetadata(
             n_clusters=self.n_clusters,
             embedding_model=self.embedding_model,
-            tfidf_max_features=self.tfidf_max_features,
-            tfidf_ngram_range=list(self.tfidf_ngram_range),
             silhouette_score=float(cluster_engine.silhouette),
         )
 
@@ -768,7 +746,6 @@ class Trainer:
             cluster_centers=cluster_centers,
             models=self.models,
             llm_profiles=error_rates,
-            tfidf_vocabulary=tfidf_vocab,
             scaler_parameters=scaler_params,
             metadata=metadata,
         )

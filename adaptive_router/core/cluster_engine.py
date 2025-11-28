@@ -34,10 +34,10 @@ class ClusterStats(BaseModel):
 
 
 class ClusterEngine(BaseEstimator):
-    """Engine for clustering text inputs using K-means on hybrid features.
+    """Engine for clustering text inputs using K-means on semantic embeddings.
 
     This class handles the clustering workflow for the adaptive router:
-    1. Extracts hybrid features (embeddings + TF-IDF) from text
+    1. Extracts semantic embeddings from text
     2. Performs spherical K-means clustering (cosine similarity)
     3. Assigns new texts to clusters
 
@@ -59,8 +59,6 @@ class ClusterEngine(BaseEstimator):
         self.random_state: int | None = None
         self.n_init: int | None = None
         self.embedding_model: str | None = None
-        self.tfidf_max_features: int | None = None
-        self.tfidf_ngram_range: tuple[int, int] | None = None
         self.allow_trust_remote_code: bool = False
 
         # Components (initialized by configure() or set during restoration)
@@ -79,8 +77,6 @@ class ClusterEngine(BaseEstimator):
         random_state: int = 42,
         n_init: int = 10,
         embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2",
-        tfidf_max_features: int = 5000,
-        tfidf_ngram_range: tuple[int, int] = (1, 2),
         allow_trust_remote_code: bool = False,
     ) -> "ClusterEngine":
         """Configure cluster engine for training.
@@ -93,8 +89,6 @@ class ClusterEngine(BaseEstimator):
             random_state: Random seed for reproducibility
             n_init: Number of K-means runs with different centroid seeds
             embedding_model: HuggingFace model for semantic embeddings
-            tfidf_max_features: Maximum TF-IDF features
-            tfidf_ngram_range: N-gram range for TF-IDF (e.g., (1, 2) for unigrams and bigrams)
             allow_trust_remote_code: Allow remote code execution in embedding models
                 WARNING: Only enable for trusted models
 
@@ -106,8 +100,6 @@ class ClusterEngine(BaseEstimator):
         self.random_state = random_state
         self.n_init = n_init
         self.embedding_model = embedding_model
-        self.tfidf_max_features = tfidf_max_features
-        self.tfidf_ngram_range = tfidf_ngram_range
         self.allow_trust_remote_code = allow_trust_remote_code
 
         # Initialize heavyweight components
@@ -123,8 +115,6 @@ class ClusterEngine(BaseEstimator):
         if (
             self.n_clusters is None
             or self.embedding_model is None
-            or self.tfidf_max_features is None
-            or self.tfidf_ngram_range is None
             or self.max_iter is None
             or self.random_state is None
             or self.n_init is None
@@ -135,11 +125,9 @@ class ClusterEngine(BaseEstimator):
 
         logger.info(f"Initializing ClusterEngine with {self.n_clusters} clusters")
 
-        # Feature extractor for hybrid features
+        # Feature extractor for semantic embeddings
         self.feature_extractor = FeatureExtractor(
             embedding_model=self.embedding_model,
-            tfidf_max_features=self.tfidf_max_features,
-            tfidf_ngram_range=self.tfidf_ngram_range,
             allow_trust_remote_code=self.allow_trust_remote_code,
         )
 
@@ -192,7 +180,7 @@ class ClusterEngine(BaseEstimator):
 
         logger.info(f"Fitting clustering model on {len(inputs)} inputs")
 
-        # Extract hybrid features
+        # Extract semantic embedding features
         features = self.feature_extractor.fit_transform(inputs)
 
         # Normalize for spherical k-means (cosine similarity)

@@ -31,7 +31,6 @@ def small_cluster_engine() -> ClusterEngine:
         max_iter=10,  # Few iterations
         n_init=1,  # Single run
         embedding_model="sentence-transformers/all-MiniLM-L6-v2",
-        tfidf_max_features=100,  # Reduced features
     )
 
 
@@ -54,7 +53,6 @@ class TestClusterEngine:
             max_iter=500,
             random_state=123,
             n_init=20,
-            tfidf_max_features=3000,
         )
 
         assert engine.n_clusters == 10
@@ -236,7 +234,6 @@ class TestRouterServiceMocked:
             RouterProfile,
             ProfileMetadata,
             ClusterCentersData,
-            TFIDFVocabularyData,
             ScalerParameters,
             ScalerParametersData,
         )
@@ -246,8 +243,6 @@ class TestRouterServiceMocked:
                 n_clusters=5,
                 silhouette_score=0.5,
                 embedding_model="all-MiniLM-L6-v2",
-                tfidf_max_features=100,
-                tfidf_ngram_range=[1, 2],
             ),
             cluster_centers=ClusterCentersData(
                 n_clusters=5,
@@ -265,18 +260,10 @@ class TestRouterServiceMocked:
             llm_profiles={
                 "openai/gpt-4": [0.08] * 5,
             },
-            tfidf_vocabulary=TFIDFVocabularyData(
-                vocabulary={"test": 0},
-                idf=[1.0],
-            ),
             scaler_parameters=ScalerParameters(
                 embedding_scaler=ScalerParametersData(
                     mean=[0.0] * 100,
                     scale=[1.0] * 100,
-                ),
-                tfidf_scaler=ScalerParametersData(
-                    mean=[0.0],
-                    scale=[1.0],
                 ),
             ),
         )
