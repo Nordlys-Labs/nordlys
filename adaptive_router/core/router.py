@@ -325,7 +325,7 @@ class ModelRouter:
         # Restore K-means
         cluster_engine.kmeans = KMeans(n_clusters=profile.cluster_centers.n_clusters)
         cluster_engine.kmeans.cluster_centers_ = np.array(
-            profile.cluster_centers.cluster_centers
+            profile.cluster_centers.cluster_centers, dtype=np.float32
         )
         # Set required K-means attributes
         cluster_engine.kmeans._n_threads = 1
