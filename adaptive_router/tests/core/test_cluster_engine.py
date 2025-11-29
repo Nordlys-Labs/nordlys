@@ -25,7 +25,6 @@ def cluster_engine() -> ClusterEngine:
         n_clusters=2,
         max_iter=100,
         random_state=42,
-        tfidf_max_features=100,
     )
 
 
@@ -44,7 +43,6 @@ class TestClusterEngineInitialization:
             n_clusters=10,
             max_iter=200,
             random_state=123,
-            tfidf_max_features=1000,
         )
         assert engine.n_clusters == 10
         assert engine.max_iter == 200

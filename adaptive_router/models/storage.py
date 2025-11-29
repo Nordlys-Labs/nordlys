@@ -1,7 +1,7 @@
 """MinIO storage models for profile data structures.
 
 This module provides Pydantic models for validating profile data loaded from MinIO S3 storage.
-All profile components (cluster centers, TF-IDF vocabulary, scaler parameters, etc.) are
+All profile components (cluster centers, scaler parameters, etc.) are
 strongly typed to catch data corruption early and provide better IDE support.
 """
 
@@ -29,18 +29,6 @@ class ClusterCentersData(BaseModel):
     )
 
 
-class TFIDFVocabularyData(BaseModel):
-    """TF-IDF vocabulary and IDF scores.
-
-    Attributes:
-        vocabulary: Mapping from terms to feature indices
-        idf: Inverse document frequency scores for each term
-    """
-
-    vocabulary: Dict[str, int] = Field(..., description="Term to index mapping")
-    idf: List[float] = Field(..., description="IDF scores")
-
-
 class ScalerParametersData(BaseModel):
     """StandardScaler parameters for feature normalization.
 
@@ -58,14 +46,10 @@ class ScalerParameters(BaseModel):
 
     Attributes:
         embedding_scaler: Scaler for semantic embedding features
-        tfidf_scaler: Scaler for TF-IDF features
     """
 
     embedding_scaler: ScalerParametersData = Field(
         ..., description="Embedding scaler parameters"
-    )
-    tfidf_scaler: ScalerParametersData = Field(
-        ..., description="TF-IDF scaler parameters"
     )
 
 
@@ -75,15 +59,11 @@ class ProfileMetadata(BaseModel):
     Attributes:
         n_clusters: Number of clusters
         embedding_model: HuggingFace embedding model name
-        tfidf_max_features: Maximum TF-IDF features
-        tfidf_ngram_range: N-gram range for TF-IDF
         silhouette_score: Cluster quality metric
     """
 
     n_clusters: int = Field(..., gt=0, description="Number of clusters")
     embedding_model: str = Field(..., description="Embedding model name")
-    tfidf_max_features: int = Field(default=5000, gt=0)
-    tfidf_ngram_range: List[int] = Field(default=[1, 2])
     silhouette_score: Optional[float] = Field(default=None, ge=-1.0, le=1.0)
 
 
@@ -97,7 +77,6 @@ class RouterProfile(BaseModel):
         cluster_centers: K-means cluster centroids
         models: List of models included in this profile
         llm_profiles: Model error rates per cluster (model_id -> K error rates)
-        tfidf_vocabulary: TF-IDF vocabulary and IDF scores
         scaler_parameters: StandardScaler parameters for feature normalization
         metadata: Profile metadata (clustering config, silhouette score, etc.)
     """
@@ -107,7 +86,6 @@ class RouterProfile(BaseModel):
     llm_profiles: Dict[str, List[float]] = Field(
         ..., description="Model error rates per cluster"
     )
-    tfidf_vocabulary: TFIDFVocabularyData = Field(..., description="TF-IDF vocabulary")
     scaler_parameters: ScalerParameters = Field(..., description="Scaler parameters")
     metadata: ProfileMetadata = Field(..., description="Profile metadata")
 

@@ -1,4 +1,4 @@
-"""Feature extraction for clustering: TF-IDF + Semantic Embeddings.
+"""Feature extraction for clustering: Semantic Embeddings.
 
 Simplified for better DX - accepts only string inputs.
 """
@@ -13,7 +13,6 @@ import numpy as np
 import numpy.typing as npt
 import torch
 from sentence_transformers import SentenceTransformer
-from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.preprocessing import StandardScaler
 
 from adaptive_router.exceptions.core import FeatureExtractionError
@@ -24,21 +23,16 @@ logger = logging.getLogger(__name__)
 class FeatureInfo(TypedDict):
     embedding_model: str
     embedding_dim: int
-    tfidf_max_features: int
-    tfidf_vocabulary_size: int
-    tfidf_ngram_range: tuple[int, int]
     total_features: int
     is_fitted: bool
 
 
 class FeatureExtractor:
-    """Extract hybrid features combining TF-IDF and semantic embeddings.
+    """Extract semantic embedding features for clustering.
 
-    This class provides a two-stage feature extraction pipeline:
-    1. Semantic embeddings via SentenceTransformers (384D default)
-    2. TF-IDF features for lexical patterns (5000D default)
-    3. StandardScaler normalization for both
-    4. Concatenation into hybrid feature vector
+    This class provides semantic feature extraction using SentenceTransformers:
+    1. Semantic embeddings via SentenceTransformers (configurable model)
+    2. StandardScaler normalization
 
     Example:
         >>> extractor = FeatureExtractor()
@@ -49,8 +43,6 @@ class FeatureExtractor:
     def __init__(
         self,
         embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2",
-        tfidf_max_features: int = 5000,
-        tfidf_ngram_range: tuple[int, int] = (1, 2),
         allow_trust_remote_code: bool = False,
         batch_size: int | None = None,
     ) -> None:
@@ -58,8 +50,6 @@ class FeatureExtractor:
 
         Args:
             embedding_model: HuggingFace model for semantic embeddings
-            tfidf_max_features: Maximum TF-IDF features
-            tfidf_ngram_range: N-gram range for TF-IDF (e.g., (1, 2) for unigrams/bigrams)
             allow_trust_remote_code: Allow remote code execution in embedding models
                 WARNING: Only enable for trusted models
             batch_size: Batch size for embedding generation (default: 128 for GPU, 32 for CPU)
@@ -67,8 +57,6 @@ class FeatureExtractor:
         logger.info(f"Initializing FeatureExtractor with model: {embedding_model}")
 
         self.embedding_model_name = embedding_model
-        self.tfidf_max_features = tfidf_max_features
-        self.tfidf_ngram_range = tfidf_ngram_range
 
         # Determine device
         device = self._get_device()
@@ -86,25 +74,12 @@ class FeatureExtractor:
         )
         self.embedding_dim = self.embedding_model.get_sentence_embedding_dimension()
 
-        # TF-IDF vectorizer
-        self.tfidf_vectorizer = TfidfVectorizer(
-            max_features=tfidf_max_features,
-            ngram_range=tfidf_ngram_range,
-            stop_words="english",
-            lowercase=True,
-            strip_accents="unicode",
-        )
-
-        # Scalers for normalization
+        # Scaler for normalization
         self.embedding_scaler = StandardScaler()
-        self.tfidf_scaler = StandardScaler()
 
         self.is_fitted = False
 
-        logger.info(
-            f"Feature dimensions: {self.embedding_dim} (embeddings) + "
-            f"{tfidf_max_features} (TF-IDF) = {self.embedding_dim + tfidf_max_features} total"
-        )
+        logger.info(f"Feature dimensions: {self.embedding_dim} (embeddings)")
 
     @staticmethod
     def _get_device() -> str:
@@ -206,14 +181,14 @@ class FeatureExtractor:
     def fit_transform(
         self, texts: list[str], skip_validation: bool = False
     ) -> npt.NDArray[np.float64]:
-        """Fit on texts and transform to hybrid features.
+        """Fit on texts and transform to embedding features.
 
         Args:
             texts: List of text strings
             skip_validation: Skip input validation for trusted production inputs
 
         Returns:
-            Hybrid feature matrix (n_samples × total_features)
+            Feature matrix (n_samples × embedding_dim)
 
         Raises:
             FeatureExtractionError: If inputs are invalid
@@ -223,7 +198,7 @@ class FeatureExtractor:
 
         logger.info(f"Extracting features from {len(texts)} texts")
 
-        # 1. Generate semantic embeddings
+        # Generate semantic embeddings
         logger.info("Generating semantic embeddings...")
         embeddings = self.embedding_model.encode(
             texts,
@@ -232,37 +207,28 @@ class FeatureExtractor:
             normalize_embeddings=True,
         )
 
-        # 2. Generate TF-IDF features
-        logger.info("Generating TF-IDF features...")
-        tfidf_features = self.tfidf_vectorizer.fit_transform(texts).toarray()
-
-        # 3. Normalize features individually
+        # Normalize features
         logger.info("Normalizing features...")
         embeddings_normalized = self.embedding_scaler.fit_transform(embeddings)
-        tfidf_normalized = self.tfidf_scaler.fit_transform(tfidf_features)
-
-        # 4. Concatenate features
-        logger.info("Combining features...")
-        hybrid_features = np.concatenate(
-            [embeddings_normalized, tfidf_normalized], axis=1
-        )
 
         self.is_fitted = True
 
-        logger.info(f"Feature extraction complete. Shape: {hybrid_features.shape}")
-        return hybrid_features
+        logger.info(
+            f"Feature extraction complete. Shape: {embeddings_normalized.shape}"
+        )
+        return embeddings_normalized
 
     def transform(
         self, texts: list[str], skip_validation: bool = False
     ) -> npt.NDArray[np.float64]:
-        """Transform texts to hybrid features (must call fit_transform first).
+        """Transform texts to embedding features (must call fit_transform first).
 
         Args:
             texts: List of text strings
             skip_validation: Skip input validation for trusted production inputs
 
         Returns:
-            Hybrid feature matrix (n_samples × total_features)
+            Feature matrix (n_samples × embedding_dim)
 
         Raises:
             FeatureExtractionError: If not fitted or inputs invalid
@@ -275,7 +241,7 @@ class FeatureExtractor:
 
         logger.debug(f"Transforming {len(texts)} texts")
 
-        # 1. Generate semantic embeddings
+        # Generate semantic embeddings
         if len(texts) == 1:
             # Use cached encoding for single text (common in production)
             embeddings = np.array([self._encode_text_cached(texts[0])])
@@ -288,19 +254,10 @@ class FeatureExtractor:
                 normalize_embeddings=True,
             )
 
-        # 2. Generate TF-IDF features
-        tfidf_features = self.tfidf_vectorizer.transform(texts).toarray()
-
-        # 3. Normalize features
+        # Normalize features
         embeddings_normalized = self.embedding_scaler.transform(embeddings)
-        tfidf_normalized = self.tfidf_scaler.transform(tfidf_features)
 
-        # 4. Concatenate features
-        hybrid_features = np.concatenate(
-            [embeddings_normalized, tfidf_normalized], axis=1
-        )
-
-        return hybrid_features
+        return embeddings_normalized
 
     def get_feature_info(self) -> FeatureInfo:
         """Get information about extracted features.
@@ -311,11 +268,6 @@ class FeatureExtractor:
         return {
             "embedding_model": self.embedding_model_name,
             "embedding_dim": self.embedding_dim,
-            "tfidf_max_features": self.tfidf_max_features,
-            "tfidf_vocabulary_size": (
-                len(self.tfidf_vectorizer.vocabulary_) if self.is_fitted else 0
-            ),
-            "tfidf_ngram_range": self.tfidf_ngram_range,
-            "total_features": self.embedding_dim + self.tfidf_max_features,
+            "total_features": self.embedding_dim,
             "is_fitted": self.is_fitted,
         }

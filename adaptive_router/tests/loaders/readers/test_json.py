@@ -16,8 +16,6 @@ def valid_profile_data() -> dict:
         "metadata": {
             "n_clusters": 2,
             "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
-            "tfidf_max_features": 5000,
-            "tfidf_ngram_range": [1, 2],
             "silhouette_score": 0.45,
         },
         "cluster_centers": {

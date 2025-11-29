@@ -10,7 +10,6 @@ from adaptive_router.models.storage import (
     RouterProfile,
     ScalerParameters,
     ScalerParametersData,
-    TFIDFVocabularyData,
 )
 from adaptive_router.core.router import ModelRouter
 
@@ -28,8 +27,6 @@ def mock_router():
             n_clusters=10,
             silhouette_score=0.5,
             embedding_model="all-MiniLM-L6-v2",
-            tfidf_max_features=100,
-            tfidf_ngram_range=[1, 2],
         ),
         cluster_centers=ClusterCentersData(
             n_clusters=10,
@@ -61,18 +58,10 @@ def mock_router():
             "openai/gpt-3.5-turbo": [0.15] * 10,
             "anthropic/claude-3-sonnet-20240229": [0.10] * 10,
         },
-        tfidf_vocabulary=TFIDFVocabularyData(
-            vocabulary={"test": 0},
-            idf=[1.0],
-        ),
         scaler_parameters=ScalerParameters(
             embedding_scaler=ScalerParametersData(
                 mean=[0.0] * 100,
                 scale=[1.0] * 100,
-            ),
-            tfidf_scaler=ScalerParametersData(
-                mean=[0.0],
-                scale=[1.0],
             ),
         ),
     )

@@ -299,11 +299,6 @@ def train_router(config: TrainingConfig) -> None:
             n_clusters=config.training.n_clusters,
             max_parallel=config.training.max_parallel,
             embedding_model=config.training.embedding_model,
-            tfidf_max_features=config.training.tfidf_max_features,
-            tfidf_ngram_range=(
-                config.training.tfidf_ngram_range[0],
-                config.training.tfidf_ngram_range[1],
-            ),
             random_seed=config.training.random_seed,
         )
 

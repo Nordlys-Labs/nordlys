@@ -30,7 +30,6 @@ from .storage import (
     RouterProfile,
     ScalerParameters,
     ScalerParametersData,
-    TFIDFVocabularyData,
 )
 
 __all__ = [
@@ -52,7 +51,6 @@ __all__ = [
     "RoutingDecision",
     "ScalerParameters",
     "ScalerParametersData",
-    "TFIDFVocabularyData",
     "TrainingResult",
     "YAMLModelsConfig",
     "YAMLRoutingConfig",

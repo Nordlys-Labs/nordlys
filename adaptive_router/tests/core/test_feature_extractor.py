@@ -24,8 +24,6 @@ def feature_extractor() -> FeatureExtractor:
     """Create a FeatureExtractor with test configuration."""
     return FeatureExtractor(
         embedding_model="sentence-transformers/all-MiniLM-L6-v2",
-        tfidf_max_features=100,
-        tfidf_ngram_range=(1, 2),
     )
 
 
@@ -44,11 +42,12 @@ class TestFeatureExtractorInitialization:
         """Test FeatureExtractor with custom parameters."""
         extractor = FeatureExtractor(
             embedding_model="sentence-transformers/all-MiniLM-L6-v2",
-            tfidf_max_features=1000,
-            tfidf_ngram_range=(1, 3),
+            batch_size=64,
         )
-        assert extractor.tfidf_vectorizer.max_features == 1000
-        assert extractor.tfidf_vectorizer.ngram_range == (1, 3)
+        assert extractor.batch_size == 64
+        assert (
+            extractor.embedding_model_name == "sentence-transformers/all-MiniLM-L6-v2"
+        )
 
 
 class TestFeatureExtractorFit:
@@ -128,8 +127,8 @@ class TestFeatureExtractorFitTransform:
         self, sample_questions: list[str]
     ) -> None:
         """Test fit_transform produces same result as fit then transform."""
-        extractor1 = FeatureExtractor(tfidf_max_features=100)
-        extractor2 = FeatureExtractor(tfidf_max_features=100)
+        extractor1 = FeatureExtractor()
+        extractor2 = FeatureExtractor()
 
         features1 = extractor1.fit_transform(sample_questions)
 
