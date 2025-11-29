@@ -19,6 +19,7 @@ from adaptive_router.exceptions.core import (
     ClusterNotConfiguredError,
     ClusterNotFittedError,
 )
+from adaptive_router.models.storage import ClusteringConfig, FeatureExtractionConfig
 
 logger = logging.getLogger(__name__)
 
@@ -53,22 +54,28 @@ class ClusterEngine(BaseEstimator):
         Call configure() before training, or set attributes directly for restoration.
         This lightweight initialization allows router restoration without loading models.
         """
-        # Configuration (set by configure() or manual restoration)
+        # Configuration
         self.n_clusters: int | None = None
         self.max_iter: int | None = None
         self.random_state: int | None = None
         self.n_init: int | None = None
+        self.algorithm: str | None = None
+        self.normalization_strategy: str | None = None
         self.embedding_model: str | None = None
         self.allow_trust_remote_code: bool = False
 
-        # Components (initialized by configure() or set during restoration)
+        # Configuration objects
+        self.clustering_config: ClusteringConfig | None = None
+        self.feature_config: FeatureExtractionConfig | None = None
+
+        # Components
         self.feature_extractor: FeatureExtractor | None = None
         self.kmeans: KMeans | None = None
 
         # Fitted state
         self.cluster_assignments: npt.NDArray[np.int32] = np.array([], dtype=np.int32)
         self.silhouette: float = 0.0
-        self._is_fitted: bool = False
+        self.is_fitted_flag: bool = False
 
     def configure(
         self,
@@ -90,24 +97,36 @@ class ClusterEngine(BaseEstimator):
             n_init: Number of K-means runs with different centroid seeds
             embedding_model: HuggingFace model for semantic embeddings
             allow_trust_remote_code: Allow remote code execution in embedding models
-                WARNING: Only enable for trusted models
 
         Returns:
             Self for method chaining
         """
+        # Create configs from individual parameters
+        clustering_config = ClusteringConfig(
+            max_iter=max_iter,
+            random_state=random_state,
+            n_init=n_init,
+        )
+        feature_config = FeatureExtractionConfig()
+
+        self.clustering_config = clustering_config
+        self.feature_config = feature_config
+
         self.n_clusters = n_clusters
-        self.max_iter = max_iter
-        self.random_state = random_state
-        self.n_init = n_init
+        self.max_iter = clustering_config.max_iter
+        self.random_state = clustering_config.random_state
+        self.n_init = clustering_config.n_init
+        self.algorithm = clustering_config.algorithm
+        self.normalization_strategy = clustering_config.normalization_strategy
         self.embedding_model = embedding_model
         self.allow_trust_remote_code = allow_trust_remote_code
 
         # Initialize heavyweight components
-        self._initialize_components()
+        self.initialize_components()
         return self
 
-    def _initialize_components(self) -> None:
-        """Initialize FeatureExtractor and KMeans (internal use).
+    def initialize_components(self) -> None:
+        """Initialize FeatureExtractor and KMeans.
 
         Raises:
             ClusterNotConfiguredError: If configuration parameters not set
@@ -118,6 +137,7 @@ class ClusterEngine(BaseEstimator):
             or self.max_iter is None
             or self.random_state is None
             or self.n_init is None
+            or self.algorithm is None
         ):
             raise ClusterNotConfiguredError(
                 "Configuration incomplete. Call configure() before initializing components."
@@ -125,20 +145,30 @@ class ClusterEngine(BaseEstimator):
 
         logger.info(f"Initializing ClusterEngine with {self.n_clusters} clusters")
 
-        # Feature extractor for semantic embeddings
+        # Feature extractor
         self.feature_extractor = FeatureExtractor(
             embedding_model=self.embedding_model,
             allow_trust_remote_code=self.allow_trust_remote_code,
         )
 
-        # K-means clusterer (spherical k-means via L2 normalization)
+        # Set config on feature_extractor after creation (must be set by configure())
+        if self.feature_config is not None:
+            self.feature_extractor.config = self.feature_config
+            self.feature_extractor.normalize_embeddings = (
+                self.feature_config.normalize_embeddings
+            )
+            self.feature_extractor.embedding_cache_size = (
+                self.feature_config.embedding_cache_size
+            )
+
+        # K-means clusterer with config
         self.kmeans = KMeans(
             n_clusters=self.n_clusters,
             max_iter=self.max_iter,
             random_state=self.random_state,
             n_init=self.n_init,
             verbose=0,
-            algorithm="lloyd",
+            algorithm=self.algorithm,
         )
 
     def _check_configured(self) -> None:
@@ -156,7 +186,7 @@ class ClusterEngine(BaseEstimator):
     @property
     def is_fitted(self) -> bool:
         """Check if the engine has been fitted."""
-        return self._is_fitted
+        return self.is_fitted_flag
 
     def fit(self, inputs: list[str]) -> "ClusterEngine":
         """Fit clustering model on text inputs.
@@ -183,8 +213,9 @@ class ClusterEngine(BaseEstimator):
         # Extract semantic embedding features
         features = self.feature_extractor.fit_transform(inputs)
 
-        # Normalize for spherical k-means (cosine similarity)
-        features_normalized = normalize(features, norm="l2", copy=False)
+        # Normalize using configured strategy
+        norm_strategy = self.normalization_strategy or "l2"
+        features_normalized = normalize(features, norm=norm_strategy, copy=False)
 
         # Perform K-means clustering
         self.kmeans.fit(features_normalized)
@@ -204,7 +235,7 @@ class ClusterEngine(BaseEstimator):
                 "All points assigned to single cluster - silhouette score undefined"
             )
 
-        self._is_fitted = True
+        self.is_fitted_flag = True
         return self
 
     def predict(self, inputs: list[str]) -> npt.NDArray[np.int32]:
@@ -224,7 +255,7 @@ class ClusterEngine(BaseEstimator):
         assert self.feature_extractor is not None  # For mypy
         assert self.kmeans is not None  # For mypy
 
-        if not self._is_fitted:
+        if not self.is_fitted_flag:
             raise ClusterNotFittedError("Must call fit() before predict()")
 
         check_is_fitted(self, ["kmeans"])
@@ -232,8 +263,9 @@ class ClusterEngine(BaseEstimator):
         # Extract features
         features = self.feature_extractor.transform(inputs)
 
-        # Normalize for spherical k-means
-        features_normalized = normalize(features, norm="l2", copy=False)
+        # Normalize using configured strategy
+        norm_strategy = self.normalization_strategy or "l2"
+        features_normalized = normalize(features, norm=norm_strategy, copy=False)
 
         # Predict clusters
         return self.kmeans.predict(features_normalized).astype(np.int32)
@@ -255,7 +287,7 @@ class ClusterEngine(BaseEstimator):
         assert self.feature_extractor is not None  # For mypy
         assert self.kmeans is not None  # For mypy
 
-        if not self._is_fitted:
+        if not self.is_fitted_flag:
             raise ClusterNotFittedError("Must call fit() before assign_single()")
 
         check_is_fitted(self, ["kmeans"])
@@ -283,7 +315,7 @@ class ClusterEngine(BaseEstimator):
         Raises:
             ClusterNotFittedError: If called before fit
         """
-        if not self._is_fitted:
+        if not self.is_fitted_flag:
             raise ClusterNotFittedError(
                 "Must call fit() before accessing cluster_stats"
             )

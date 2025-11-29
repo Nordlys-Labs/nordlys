@@ -53,6 +53,64 @@ class ScalerParameters(BaseModel):
     )
 
 
+class FeatureExtractionConfig(BaseModel):
+    """Configuration for feature extraction.
+
+    Attributes:
+        batch_size_cuda: Batch size for CUDA devices
+        batch_size_cpu: Batch size for CPU devices
+        normalize_embeddings: Whether to L2-normalize embeddings
+        embedding_cache_size: LRU cache size for embeddings
+        allow_trust_remote_code: Allow remote code execution in embedding models
+    """
+
+    batch_size_cuda: int = Field(default=128, gt=0, description="Batch size for CUDA")
+    batch_size_cpu: int = Field(default=32, gt=0, description="Batch size for CPU")
+    normalize_embeddings: bool = Field(
+        default=True, description="L2-normalize embeddings"
+    )
+    embedding_cache_size: int = Field(default=50000, gt=0, description="LRU cache size")
+    allow_trust_remote_code: bool = Field(
+        default=False, description="Allow remote code execution"
+    )
+
+
+class ClusteringConfig(BaseModel):
+    """Configuration for K-means clustering.
+
+    Attributes:
+        max_iter: K-means max iterations
+        random_state: Random seed for reproducibility
+        n_init: Number of K-means initializations
+        algorithm: K-means algorithm ('lloyd' or 'elkan')
+        normalization_strategy: Feature normalization ('l2', 'l1', or 'max')
+    """
+
+    max_iter: int = Field(default=300, gt=0, description="K-means max iterations")
+    random_state: int = Field(default=42, description="Random seed")
+    n_init: int = Field(default=10, gt=0, description="K-means initializations")
+    algorithm: str = Field(default="lloyd", description="K-means algorithm")
+    normalization_strategy: str = Field(
+        default="l2", description="Feature normalization"
+    )
+
+
+class RoutingConfig(BaseModel):
+    """Configuration for routing algorithm.
+
+    Attributes:
+        lambda_min: Minimum lambda for cost-quality tradeoff
+        lambda_max: Maximum lambda for cost-quality tradeoff
+        default_cost_preference: Default cost preference (0.0=cheap, 1.0=quality)
+    """
+
+    lambda_min: float = Field(default=0.0, ge=0.0, description="Minimum lambda")
+    lambda_max: float = Field(default=2.0, ge=0.0, description="Maximum lambda")
+    default_cost_preference: float = Field(
+        default=0.5, ge=0.0, le=1.0, description="Default cost preference"
+    )
+
+
 class ProfileMetadata(BaseModel):
     """Metadata about the clustering profile.
 
@@ -60,11 +118,26 @@ class ProfileMetadata(BaseModel):
         n_clusters: Number of clusters
         embedding_model: HuggingFace embedding model name
         silhouette_score: Cluster quality metric
+        feature_extraction: Feature extraction configuration
+        clustering: Clustering configuration
+        routing: Routing algorithm configuration
     """
 
     n_clusters: int = Field(..., gt=0, description="Number of clusters")
     embedding_model: str = Field(..., description="Embedding model name")
     silhouette_score: Optional[float] = Field(default=None, ge=-1.0, le=1.0)
+
+    # Configuration sections with default factories for backward compatibility
+    feature_extraction: FeatureExtractionConfig = Field(
+        default_factory=FeatureExtractionConfig,
+        description="Feature extraction config",
+    )
+    clustering: ClusteringConfig = Field(
+        default_factory=ClusteringConfig, description="Clustering config"
+    )
+    routing: RoutingConfig = Field(
+        default_factory=RoutingConfig, description="Routing config"
+    )
 
 
 class RouterProfile(BaseModel):
@@ -88,6 +161,25 @@ class RouterProfile(BaseModel):
     )
     scaler_parameters: ScalerParameters = Field(..., description="Scaler parameters")
     metadata: ProfileMetadata = Field(..., description="Profile metadata")
+
+    @field_validator("llm_profiles", mode="before")
+    @classmethod
+    def normalize_llm_profile_keys(
+        cls, llm_profiles: Dict[str, List[float]]
+    ) -> Dict[str, List[float]]:
+        """Normalize llm_profiles keys to lowercase for consistency.
+
+        This ensures that model IDs in llm_profiles match the lowercased
+        format produced by Model.unique_id(), preventing validation errors
+        when users provide capitalized model names.
+
+        Args:
+            llm_profiles: Dictionary of model_id -> error_rates
+
+        Returns:
+            Dictionary with all keys normalized to lowercase
+        """
+        return {k.lower(): v for k, v in llm_profiles.items()}
 
     @field_validator("llm_profiles", mode="after")
     @classmethod

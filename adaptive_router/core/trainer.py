@@ -20,8 +20,11 @@ from adaptive_router.core.provider_registry import default_registry
 from adaptive_router.models.api import Model
 from adaptive_router.models.storage import (
     ClusterCentersData,
+    ClusteringConfig,
+    FeatureExtractionConfig,
     MinIOSettings,
     ProfileMetadata,
+    RoutingConfig,
     RouterProfile,
     ScalerParameters,
     ScalerParametersData,
@@ -89,6 +92,11 @@ class Trainer:
         self.embedding_model = embedding_model
         self.random_seed = random_seed
 
+        # Store configurations for profile building
+        self.feature_config = FeatureExtractionConfig()
+        self.clustering_config = ClusteringConfig(random_state=random_seed)
+        self.routing_config = RoutingConfig()
+
         # Trained profile (set after training)
         self._trained_profile: RouterProfile | None = None
 
@@ -104,11 +112,15 @@ class Trainer:
         # Initialize configured ClusterEngine (will be fitted during training)
         self.cluster_engine = ClusterEngine().configure(
             n_clusters=self.n_clusters,
-            max_iter=300,
-            random_state=self.random_seed,
-            n_init=10,
+            max_iter=self.clustering_config.max_iter,
+            random_state=self.clustering_config.random_state,
+            n_init=self.clustering_config.n_init,
             embedding_model=self.embedding_model,
         )
+
+        # Set config on cluster_engine after configure
+        self.cluster_engine.clustering_config = self.clustering_config
+        self.cluster_engine.feature_config = self.feature_config
 
         logger.info(
             f"Initialized Trainer with {len(models)} models and {n_clusters} clusters"
@@ -735,11 +747,14 @@ class Trainer:
             embedding_scaler=embedding_scaler,
         )
 
-        # Build metadata
+        # Build metadata with all configurations
         metadata = ProfileMetadata(
             n_clusters=self.n_clusters,
             embedding_model=self.embedding_model,
             silhouette_score=float(cluster_engine.silhouette),
+            feature_extraction=self.feature_config,
+            clustering=self.clustering_config,
+            routing=self.routing_config,
         )
 
         return RouterProfile(

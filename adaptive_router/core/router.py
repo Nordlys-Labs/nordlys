@@ -61,39 +61,43 @@ class ModelRouter:
     def __init__(
         self,
         profile: str | Path | dict[str, Any] | RouterProfile,
-        lambda_min: float = 0.0,
-        lambda_max: float = 2.0,
-        default_cost_preference: float = 0.5,
+        lambda_min: float | None = None,
+        lambda_max: float | None = None,
+        default_cost_preference: float | None = None,
         allow_trust_remote_code: bool = False,
     ) -> None:
-        """Initialize ModelRouter from profile.
+        """Initialize model router with clustering profile.
+
+        Lightweight initialization that doesn't load heavyweight components.
+        FeatureExtractor is only loaded when needed for inference.
 
         Args:
-            profile: Router profile as:
-                - str/Path: Local file path or S3 URL (s3://bucket/key)
-                - dict: Profile dictionary
-                - RouterProfile: Profile object
-                Models are loaded from the profile automatically.
-            lambda_min: Minimum lambda value for cost-quality tradeoff (default: 0.0)
-            lambda_max: Maximum lambda value for cost-quality tradeoff (default: 2.0)
-            default_cost_preference: Default cost preference when not specified (default: 0.5)
-            allow_trust_remote_code: Allow execution of remote code in embedding models.
-                                   WARNING: Enabling this allows arbitrary code execution from
-                                   remote sources and should only be used with trusted models.
-                                   Defaults to False for security.
+            profile: Clustering profile (file path, dict, or RouterProfile object)
+            lambda_min: Minimum lambda value (overrides profile, default: from profile)
+            lambda_max: Maximum lambda value (overrides profile, default: from profile)
+            default_cost_preference: Default cost preference (overrides profile, default: from profile)
+                                     0.0 = cheapest model, 1.0 = highest quality model
+            allow_trust_remote_code: Allow remote code execution in embedding models
+                WARNING: Only enable for trusted models
 
         Raises:
-            ModelNotFoundError: If models don't match profile.llm_profiles
+            InvalidModelFormatError: If model IDs are invalid
+            ModelNotFoundError: If no valid models found
+            FeatureExtractionError: If feature extraction fails
+            ClusterNotFittedError: If cluster engine cannot be restored
         """
-        # Load profile internally
+        # Load profile first
         profile = self._load_profile(profile)
 
         # Get models from profile
         models = profile.models
 
+        logger.info(f"Initializing ModelRouter with {len(models)} models")
+
         # Validate model IDs
         self._validate_model_ids(models)
 
+        # Store cluster metadata
         n_clusters = profile.metadata.n_clusters
         logger.info(
             f"Initializing ModelRouter with {n_clusters} clusters and {len(models)} models"
@@ -145,9 +149,19 @@ class ModelRouter:
         if not self.model_features:
             raise ModelNotFoundError("No valid model features found in llm_profiles")
 
-        self.lambda_min = lambda_min
-        self.lambda_max = lambda_max
-        self.default_cost_preference = default_cost_preference
+        # Use routing config from profile, allow overrides
+        routing_config = profile.metadata.routing
+        self.lambda_min = (
+            lambda_min if lambda_min is not None else routing_config.lambda_min
+        )
+        self.lambda_max = (
+            lambda_max if lambda_max is not None else routing_config.lambda_max
+        )
+        self.default_cost_preference = (
+            default_cost_preference
+            if default_cost_preference is not None
+            else routing_config.default_cost_preference
+        )
 
         all_costs = [f.cost_per_1m_tokens for f in self.model_features.values()]
         self.min_cost = min(all_costs)
@@ -308,10 +322,19 @@ class ModelRouter:
         from sklearn.preprocessing import StandardScaler
         from adaptive_router.core.feature_extractor import FeatureExtractor
 
-        # Create FeatureExtractor with fresh model
+        # Create FeatureExtractor
         feature_extractor = FeatureExtractor(
             embedding_model=profile.metadata.embedding_model,
             allow_trust_remote_code=allow_trust_remote_code,
+        )
+
+        # Set config from profile
+        feature_extractor.config = profile.metadata.feature_extraction
+        feature_extractor.normalize_embeddings = (
+            profile.metadata.feature_extraction.normalize_embeddings
+        )
+        feature_extractor.embedding_cache_size = (
+            profile.metadata.feature_extraction.embedding_cache_size
         )
 
         # Replace the embedding model (already loaded above)
@@ -374,7 +397,7 @@ class ModelRouter:
         )
 
         cluster_engine.silhouette = profile.metadata.silhouette_score or 0.0
-        cluster_engine._is_fitted = True  # Mark as fitted
+        cluster_engine.is_fitted_flag = True  # Mark as fitted
 
         logger.info(
             f"Built cluster engine from storage data: {profile.cluster_centers.n_clusters} clusters, "
@@ -564,9 +587,9 @@ class ModelRouter:
     def from_profile(
         cls,
         profile: RouterProfile,
-        lambda_min: float = 0.0,
-        lambda_max: float = 2.0,
-        default_cost_preference: float = 0.5,
+        lambda_min: float | None = None,
+        lambda_max: float | None = None,
+        default_cost_preference: float | None = None,
         allow_trust_remote_code: bool = False,
     ) -> ModelRouter:
         return cls(
@@ -581,9 +604,9 @@ class ModelRouter:
     def from_minio(
         cls,
         settings: MinIOSettings,
-        lambda_min: float = 0.0,
-        lambda_max: float = 2.0,
-        default_cost_preference: float = 0.5,
+        lambda_min: float | None = None,
+        lambda_max: float | None = None,
+        default_cost_preference: float | None = None,
         allow_trust_remote_code: bool = False,
     ) -> ModelRouter:
         loader = MinIOProfileLoader.from_settings(settings)
@@ -600,9 +623,9 @@ class ModelRouter:
     def from_local_file(
         cls,
         profile_path: str | Path,
-        lambda_min: float = 0.0,
-        lambda_max: float = 2.0,
-        default_cost_preference: float = 0.5,
+        lambda_min: float | None = None,
+        lambda_max: float | None = None,
+        default_cost_preference: float | None = None,
         allow_trust_remote_code: bool = False,
     ) -> ModelRouter:
         loader = LocalFileProfileLoader(profile_path=Path(profile_path))

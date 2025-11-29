@@ -16,6 +16,7 @@ from sentence_transformers import SentenceTransformer
 from sklearn.preprocessing import StandardScaler
 
 from adaptive_router.exceptions.core import FeatureExtractionError
+from adaptive_router.models.storage import FeatureExtractionConfig
 
 logger = logging.getLogger(__name__)
 
@@ -52,24 +53,39 @@ class FeatureExtractor:
             embedding_model: HuggingFace model for semantic embeddings
             allow_trust_remote_code: Allow remote code execution in embedding models
                 WARNING: Only enable for trusted models
-            batch_size: Batch size for embedding generation (default: 128 for GPU, 32 for CPU)
+            batch_size: Batch size for embedding generation (default: device-dependent)
         """
+        # Use default config
+        config = FeatureExtractionConfig()
+
+        self.config = config
+        allow_trust_remote_code = config.allow_trust_remote_code
+
         logger.info(f"Initializing FeatureExtractor with model: {embedding_model}")
 
         self.embedding_model_name = embedding_model
+        self.normalize_embeddings = config.normalize_embeddings
+        self.embedding_cache_size = config.embedding_cache_size
 
         # Determine device
-        device = self._get_device()
+        device = self.get_device()
 
-        # Set batch size
+        # Set batch size from config or explicit parameter
         if batch_size is None:
-            self.batch_size = 128 if device == "cuda" else 32
+            if device == "cuda":
+                self.batch_size = config.batch_size_cuda
+            else:
+                self.batch_size = config.batch_size_cpu
         else:
             self.batch_size = batch_size
-        logger.info(f"Loading embedding model on device: {device}")
 
-        # Load embedding model with trust_remote_code handling
-        self.embedding_model = self._load_embedding_model(
+        logger.info(f"Loading embedding model on device: {device}")
+        logger.info(
+            f"Batch size: {self.batch_size}, Normalize: {self.normalize_embeddings}, Cache: {self.embedding_cache_size}"
+        )
+
+        # Load embedding model
+        self.embedding_model = self.load_embedding_model(
             embedding_model, device, allow_trust_remote_code
         )
         self.embedding_dim = self.embedding_model.get_sentence_embedding_dimension()
@@ -77,12 +93,15 @@ class FeatureExtractor:
         # Scaler for normalization
         self.embedding_scaler = StandardScaler()
 
+        # Create cached encoder
+        self.encode_text_cached = self.create_cached_encoder()
+
         self.is_fitted = False
 
         logger.info(f"Feature dimensions: {self.embedding_dim} (embeddings)")
 
     @staticmethod
-    def _get_device() -> str:
+    def get_device() -> str:
         """Determine the appropriate device for model loading.
 
         Returns:
@@ -92,7 +111,7 @@ class FeatureExtractor:
             return "cpu"
         return "cuda" if torch.cuda.is_available() else "cpu"
 
-    def _load_embedding_model(
+    def load_embedding_model(
         self, model_name: str, device: str, allow_trust_remote_code: bool
     ) -> SentenceTransformer:
         """Load SentenceTransformer with proper error handling.
@@ -138,27 +157,33 @@ class FeatureExtractor:
 
         return model
 
-    @methodtools.lru_cache(maxsize=50000)
-    def _encode_text_cached(self, text: str) -> npt.NDArray[np.float32]:
-        """Cache embeddings for identical texts to improve performance.
-
-        Cache size increased to 50,000 for production workloads (~20MB memory for all-MiniLM-L6-v2).
-        Provides 10-100x speedup for repeated queries compared to the previous 128-entry cache.
-
-        Args:
-            text: Input text to encode
+    def create_cached_encoder(self):
+        """Create a cached encoding method with configurable cache size.
 
         Returns:
-            Normalized embedding vector
+            Cached encoding function
         """
-        return self.embedding_model.encode(
-            [text],
-            show_progress_bar=False,
-            batch_size=self.batch_size,
-            normalize_embeddings=True,
-        )[0]
 
-    def _validate_texts(self, texts: list[str]) -> None:
+        @methodtools.lru_cache(maxsize=self.embedding_cache_size)
+        def encode_cached(text: str) -> npt.NDArray[np.float32]:
+            """Cache embeddings for identical texts.
+
+            Args:
+                text: Input text to encode
+
+            Returns:
+                Embedding vector
+            """
+            return self.embedding_model.encode(
+                [text],
+                show_progress_bar=False,
+                batch_size=self.batch_size,
+                normalize_embeddings=self.normalize_embeddings,
+            )[0]
+
+        return encode_cached
+
+    def validate_texts(self, texts: list[str]) -> None:
         """Validate text inputs.
 
         Args:
@@ -194,7 +219,7 @@ class FeatureExtractor:
             FeatureExtractionError: If inputs are invalid
         """
         if not skip_validation:
-            self._validate_texts(texts)
+            self.validate_texts(texts)
 
         logger.info(f"Extracting features from {len(texts)} texts")
 
@@ -204,7 +229,7 @@ class FeatureExtractor:
             texts,
             show_progress_bar=True,
             batch_size=self.batch_size,
-            normalize_embeddings=True,
+            normalize_embeddings=self.normalize_embeddings,
         )
 
         # Normalize features
@@ -237,21 +262,21 @@ class FeatureExtractor:
             raise FeatureExtractionError("Must call fit_transform() before transform()")
 
         if not skip_validation:
-            self._validate_texts(texts)
+            self.validate_texts(texts)
 
         logger.debug(f"Transforming {len(texts)} texts")
 
         # Generate semantic embeddings
         if len(texts) == 1:
             # Use cached encoding for single text (common in production)
-            embeddings = np.array([self._encode_text_cached(texts[0])])
+            embeddings = np.array([self.encode_text_cached(texts[0])])
         else:
             # Batch encode for multiple texts
             embeddings = self.embedding_model.encode(
                 texts,
                 show_progress_bar=False,
                 batch_size=self.batch_size,
-                normalize_embeddings=True,
+                normalize_embeddings=self.normalize_embeddings,
             )
 
         # Normalize features
