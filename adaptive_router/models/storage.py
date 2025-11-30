@@ -27,35 +27,6 @@ class ClusterCentersData(BaseModel):
     )
 
 
-class ScalerParametersData(BaseModel):
-    """StandardScaler parameters for feature normalization (DEPRECATED).
-
-    This is kept for backward compatibility with old profiles but is no longer used.
-    Feature normalization now uses only L2 normalization without StandardScaler.
-
-    Attributes:
-        mean: Mean values for each feature dimension
-        scale: Scale (standard deviation) for each feature dimension
-    """
-
-    mean: list[float] = Field(..., description="Feature means")
-    scale: list[float] = Field(..., description="Feature scales")
-
-
-class ScalerParameters(BaseModel):
-    """All scaler parameters for feature normalization (DEPRECATED).
-
-    This is kept for backward compatibility with old profiles but is no longer used.
-
-    Attributes:
-        embedding_scaler: Scaler for semantic embedding features
-    """
-
-    embedding_scaler: ScalerParametersData = Field(
-        ..., description="Embedding scaler parameters (deprecated)"
-    )
-
-
 class FeatureExtractionConfig(BaseModel):
     """Configuration for feature extraction.
 
@@ -98,22 +69,6 @@ class ClusteringConfig(BaseModel):
     )
 
 
-class RoutingConfig(BaseModel):
-    """Configuration for routing algorithm.
-
-    Attributes:
-        lambda_min: Minimum lambda for cost-quality tradeoff
-        lambda_max: Maximum lambda for cost-quality tradeoff
-        default_cost_preference: Default cost preference (0.0=cheap, 1.0=quality)
-    """
-
-    lambda_min: float = Field(default=0.0, ge=0.0, description="Minimum lambda")
-    lambda_max: float = Field(default=2.0, ge=0.0, description="Maximum lambda")
-    default_cost_preference: float = Field(
-        default=0.5, ge=0.0, le=1.0, description="Default cost preference"
-    )
-
-
 class ProfileMetadata(BaseModel):
     """Metadata about the clustering profile.
 
@@ -137,9 +92,6 @@ class ProfileMetadata(BaseModel):
     )
     clustering: ClusteringConfig = Field(
         default_factory=ClusteringConfig, description="Clustering config"
-    )
-    routing: RoutingConfig = Field(
-        default_factory=RoutingConfig, description="Routing config"
     )
 
 

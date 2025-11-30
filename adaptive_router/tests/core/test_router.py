@@ -8,8 +8,6 @@ from adaptive_router.models.api import ModelSelectionRequest
 from adaptive_router.models.api import Model
 from adaptive_router.models.storage import (
     RouterProfile,
-    ScalerParameters,
-    ScalerParametersData,
 )
 from adaptive_router.core.router import ModelRouter
 
@@ -58,12 +56,6 @@ def mock_router():
             "openai/gpt-3.5-turbo": [0.15] * 10,
             "anthropic/claude-3-sonnet-20240229": [0.10] * 10,
         },
-        scaler_parameters=ScalerParameters(
-            embedding_scaler=ScalerParametersData(
-                mean=[0.0] * 100,
-                scale=[1.0] * 100,
-            ),
-        ),
     )
 
     def mock_build_cluster_engine(self, profile, allow_trust_remote_code):
