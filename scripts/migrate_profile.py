@@ -60,41 +60,21 @@ def migrate_profile_v1_to_v2(data: dict) -> dict:
 
 
 def load_data(path: str) -> dict:
-    """Load profile data from local file or MinIO."""
-    if path.startswith("minio://"):
-        logger.info(f"Loading from MinIO: {path}")
-        # Note: MinIO loading from scripts requires explicit settings
-        # For now, only support local file migration
-        raise ValueError(
-            "MinIO loading not supported in migration script. "
-            "Please download profile to local file first, migrate it, "
-            "then upload the migrated version."
-        )
-    else:
-        logger.info(f"Loading from file: {path}")
-        with open(path, "r") as f:
-            return json.load(f)
+    """Load profile data from local JSON file."""
+    logger.info(f"Loading from file: {path}")
+    with open(path, "r") as f:
+        return json.load(f)
 
 
 def save_data(data: dict, path: str) -> None:
-    """Save profile data to local file or MinIO."""
+    """Save profile data to local JSON file."""
     # Validate before saving
     profile = RouterProfile(**data)
 
-    if path.startswith("minio://"):
-        logger.info(f"Saving to MinIO: {path}")
-        # Note: MinIO saving from scripts requires explicit settings
-        # For now, only support local file migration
-        raise ValueError(
-            "MinIO saving not supported in migration script. "
-            "Please migrate to local file first, "
-            "then upload manually to MinIO."
-        )
-    else:
-        logger.info(f"Saving to file: {path}")
-        Path(path).parent.mkdir(parents=True, exist_ok=True)
-        with open(path, "w") as f:
-            json.dump(profile.model_dump(), f, indent=2)
+    logger.info(f"Saving to file: {path}")
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w") as f:
+        json.dump(profile.model_dump(), f, indent=2)
 
 
 def main():
