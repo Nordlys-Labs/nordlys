@@ -9,7 +9,7 @@ These types match the Go structs in adaptive-model-registry/internal/models/mode
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -41,9 +41,9 @@ class RegistryClientConfig(BaseModel):
 
     base_url: str
     timeout: float = 5.0
-    default_headers: Dict[str, str] | None = None
+    default_headers: dict[str, str] | None = None
 
-    def normalized_headers(self) -> Dict[str, str]:
+    def normalized_headers(self) -> dict[str, str]:
         """Return normalized headers dictionary."""
         return dict(self.default_headers or {})
 
@@ -83,7 +83,7 @@ class RegistryModel(BaseModel):
     supported_parameters: list[SupportedParameterModel] | None = Field(
         default=None, alias="supported_parameters"
     )
-    default_parameters: Dict[str, Any] | None = Field(
+    default_parameters: dict[str, Any] | None = Field(
         default=None, alias="default_parameters"
     )
     providers: list[EndpointModel] | None = None
@@ -234,17 +234,14 @@ class ModelSelectionAPIRequest(BaseModel):
     which are then resolved to Model objects internally.
     """
 
-    prompt: str
+    prompt: str = Field(..., min_length=1)
     user_id: str | None = None
-    models: list[str] | None = None
+    models: list[str] | None = Field(
+        default=None,
+        max_length=50,
+        description="Optional list of allowed models (max 50 to prevent DoS)",
+    )
     cost_bias: float | None = None
-
-    @field_validator("prompt")
-    @classmethod
-    def validate_prompt(cls, v: str) -> str:
-        if not v or not v.strip():
-            raise ValueError("Prompt cannot be empty or whitespace only")
-        return v.strip()
 
     @field_validator("cost_bias")
     @classmethod

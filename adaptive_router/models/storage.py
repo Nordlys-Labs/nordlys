@@ -6,8 +6,7 @@ strongly typed to catch data corruption early and provide better IDE support.
 """
 
 import math
-from typing import Dict, List, Optional
-
+from typing import Any
 from pydantic import BaseModel, Field, ValidationInfo, field_validator, model_validator
 
 from adaptive_router.models.api import Model
@@ -24,7 +23,7 @@ class ClusterCentersData(BaseModel):
 
     n_clusters: int = Field(..., gt=0, description="Number of clusters")
     feature_dim: int = Field(..., gt=0, description="Feature dimensionality")
-    cluster_centers: List[List[float]] = Field(
+    cluster_centers: list[list[float]] = Field(
         ..., description="K x D cluster centroids"
     )
 
@@ -40,8 +39,8 @@ class ScalerParametersData(BaseModel):
         scale: Scale (standard deviation) for each feature dimension
     """
 
-    mean: List[float] = Field(..., description="Feature means (deprecated)")
-    scale: List[float] = Field(..., description="Feature scales (deprecated)")
+    mean: list[float] = Field(..., description="Feature means")
+    scale: list[float] = Field(..., description="Feature scales")
 
 
 class ScalerParameters(BaseModel):
@@ -130,7 +129,7 @@ class ProfileMetadata(BaseModel):
 
     n_clusters: int = Field(..., gt=0, description="Number of clusters")
     embedding_model: str = Field(..., description="Embedding model name")
-    silhouette_score: Optional[float] = Field(default=None, ge=-1.0, le=1.0)
+    silhouette_score: float | None = Field(default=None, ge=-1.0, le=1.0)
 
     # Configuration sections with default factories for backward compatibility
     feature_extraction: FeatureExtractionConfig = Field(
@@ -159,8 +158,8 @@ class RouterProfile(BaseModel):
     """
 
     cluster_centers: ClusterCentersData = Field(..., description="Cluster centroids")
-    models: List[Model] = Field(..., description="Models included in this profile")
-    llm_profiles: Dict[str, List[float]] = Field(
+    models: list[Model] = Field(..., description="Models included in this profile")
+    llm_profiles: dict[str, list[float]] = Field(
         ..., description="Model error rates per cluster"
     )
     metadata: ProfileMetadata = Field(..., description="Profile metadata")
@@ -168,8 +167,8 @@ class RouterProfile(BaseModel):
     @field_validator("llm_profiles", mode="before")
     @classmethod
     def normalize_llm_profile_keys(
-        cls, llm_profiles: Dict[str, List[float]]
-    ) -> Dict[str, List[float]]:
+        cls, llm_profiles: dict[str, list[float]]
+    ) -> dict[str, list[float]]:
         """Normalize llm_profiles keys to lowercase for consistency.
 
         This ensures that model IDs in llm_profiles match the lowercased
@@ -187,8 +186,8 @@ class RouterProfile(BaseModel):
     @field_validator("llm_profiles", mode="after")
     @classmethod
     def validate_error_rates(
-        cls, llm_profiles: Dict[str, List[float]], info: ValidationInfo
-    ) -> Dict[str, List[float]]:
+        cls, llm_profiles: dict[str, list[float]], info: ValidationInfo
+    ) -> dict[str, list[float]]:
         """Validate error rates for all models.
 
         Ensures:

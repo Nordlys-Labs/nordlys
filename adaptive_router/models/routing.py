@@ -5,8 +5,6 @@ tracking routing decisions, and managing model metadata. These are the public
 API types exposed to library users.
 """
 
-from typing import Any, Dict, List
-
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -59,7 +57,7 @@ class ModelFeatureVector(BaseModel):
         cost_per_1m_output_tokens: Cost per 1M output tokens
     """
 
-    error_rates: List[float] = Field(..., description="K error rates per cluster")
+    error_rates: list[float] = Field(..., description="K error rates per cluster")
     cost_per_1m_input_tokens: float = Field(
         ..., ge=0, description="Cost per 1M input tokens"
     )
@@ -91,7 +89,7 @@ class ModelFeatures(BaseModel):
 
     model_id: str
     model_name: str
-    error_rates: List[float]  # K error rates (one per cluster)
+    error_rates: list[float]
     cost_per_1m_input_tokens: float
     cost_per_1m_output_tokens: float
     accuracy: float
@@ -133,7 +131,7 @@ class RoutingDecision(BaseModel):
     cluster_confidence: float
     lambda_param: float
     reasoning: str
-    alternatives: List[Dict[str, Any]]  # Other models and their scores
+    alternatives: list[AlternativeScore]
     routing_time_ms: float
 
 

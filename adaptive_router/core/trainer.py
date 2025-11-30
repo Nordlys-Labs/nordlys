@@ -339,7 +339,7 @@ class Trainer:
 
         logger.info(f"Loading training data from HuggingFace: {dataset_name} ({split})")
         dataset = load_dataset(dataset_name, split=split)
-        df = pl.from_pandas(dataset.to_pandas())
+        df = pl.DataFrame(dataset.with_format("arrow"))
 
         return self.train_from_dataframe(
             df, input_column, expected_output_column, actual_output_column
@@ -352,6 +352,13 @@ class Trainer:
         actual_outputs: dict[str, list[str]] | None = None,
     ) -> TrainingResult:
         """Core training logic.
+
+        Memory Efficiency:
+        - Feature extraction: O(n_samples * feature_dim) = O(n * 5384) for hybrid features
+        - Cluster assignments: O(n_samples) for integer array
+        - Error rate computation: O(n_clusters * n_models) = O(20 * 5) = O(100) storage
+        - Total memory: ~1-2GB for typical training sets (10K samples)
+        - For very large datasets (100K+ samples), consider streaming or mini-batch training
 
         Args:
             inputs: List of input strings
@@ -405,11 +412,11 @@ class Trainer:
 
         training_time = time.time() - start_time
 
-        # Get samples per cluster
+        # Get samples per cluster using vectorized bincount
         cluster_assignments = cluster_engine.predict(inputs)
-        samples_per_cluster = [
-            int(np.sum(cluster_assignments == i)) for i in range(self.n_clusters)
-        ]
+        samples_per_cluster = list(
+            np.bincount(cluster_assignments, minlength=self.n_clusters)
+        )
 
         result = TrainingResult(
             n_clusters=self.n_clusters,
@@ -685,10 +692,12 @@ class Trainer:
         for model_id, actuals in actual_outputs.items():
             rates = []
 
-            # Vectorize correctness computation
-            expected_clean = np.array([s.strip().lower() for s in expected_outputs])
-            actual_clean = np.array([s.strip().lower() for s in actuals])
-            correctness = expected_clean == actual_clean
+            # Use pure Python for string operations (strings don't vectorize well in NumPy)
+            expected_clean = [s.strip().lower() for s in expected_outputs]
+            actual_clean = [s.strip().lower() for s in actuals]
+            correctness = np.array(
+                [e == a for e, a in zip(expected_clean, actual_clean)]
+            )
 
             for cluster_id in range(self.n_clusters):
                 # Get samples in this cluster

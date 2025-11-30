@@ -71,18 +71,10 @@ class ModelSelectionRequest(BaseModel):
         token_threshold: Token count threshold for model selection
     """
 
-    # The user prompt to analyze
-    prompt: str
+    prompt: str = Field(..., min_length=1)
     user_id: str | None = None
     models: list[Model] | None = None
     cost_bias: float | None = None
-
-    @field_validator("prompt")
-    @classmethod
-    def validate_prompt(cls, v: str) -> str:
-        if not v or not v.strip():
-            raise ValueError("Prompt cannot be empty or whitespace only")
-        return v.strip()
 
     @field_validator("cost_bias")
     @classmethod
@@ -99,14 +91,7 @@ class Alternative(BaseModel):
         model_id: Model identifier (e.g., "anthropic:claude-sonnet-4-5")
     """
 
-    model_id: str
-
-    @field_validator("model_id")
-    @classmethod
-    def validate_model_id(cls, v: str) -> str:
-        if not v or not v.strip():
-            raise ValueError("Model ID cannot be empty or whitespace only")
-        return v.strip()
+    model_id: str = Field(..., min_length=1)
 
 
 class ModelSelectionResponse(BaseModel):
@@ -117,12 +102,5 @@ class ModelSelectionResponse(BaseModel):
         alternatives: List of alternative model options
     """
 
-    model_id: str
+    model_id: str = Field(..., min_length=1)
     alternatives: list[Alternative]
-
-    @field_validator("model_id")
-    @classmethod
-    def validate_model_id(cls, v: str) -> str:
-        if not v or not v.strip():
-            raise ValueError("Model ID cannot be empty or whitespace only")
-        return v.strip()

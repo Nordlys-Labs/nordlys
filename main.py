@@ -148,14 +148,38 @@ def create_app() -> FastAPI:
     )
 
     def configure_cors() -> None:
-        """Configure CORS middleware."""
+        """Configure CORS middleware based on environment.
+
+        Development: Allows all origins and methods for easier testing
+        Production: Restricts to specific origins and methods for security
+        """
         settings = app_state.settings or AppSettings()
+        origins = settings.origins_list
+        is_dev = settings.environment.value == "development"
+
+        # Security: Don't allow ["*"] with credentials
+        allow_credentials = origins != ["*"]
+
+        # Dev: allow all methods; Prod: restrict to necessary methods
+        allowed_methods = ["*"] if is_dev else ["GET", "POST"]
+
+        # Dev: allow all headers; Prod: restrict to necessary headers
+        allowed_headers = (
+            ["*"]
+            if is_dev
+            else [
+                "Content-Type",
+                "Accept",
+                "Authorization",
+            ]
+        )
+
         app.add_middleware(
             CORSMiddleware,
-            allow_origins=settings.origins_list,
-            allow_credentials=settings.origins_list != ["*"],
-            allow_methods=["*"],
-            allow_headers=["*"],
+            allow_origins=origins,
+            allow_credentials=allow_credentials,
+            allow_methods=allowed_methods,
+            allow_headers=allowed_headers,
         )
 
     configure_cors()
@@ -266,7 +290,7 @@ def create_app() -> FastAPI:
                     logger.error("Model resolution failed: %s", e, exc_info=True)
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"Model resolution failed: {e}",
+                        detail="Unable to resolve requested models. Please check your model selections.",
                     ) from e
 
             internal_request = ModelSelectionRequest(
@@ -319,7 +343,7 @@ def create_app() -> FastAPI:
             )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=str(e),
+                detail="No suitable models available for this request.",
             ) from e
 
         except ValueError as e:
@@ -332,7 +356,7 @@ def create_app() -> FastAPI:
             )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid request: validation failed",
+                detail="Invalid request parameters.",
             ) from e
 
         except Exception as e:
