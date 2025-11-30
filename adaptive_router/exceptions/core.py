@@ -39,7 +39,7 @@ class ClusterNotConfiguredError(AdaptiveRouterError):
 
     This exception is raised when:
     - fit(), predict(), or assign_single() called without configure()
-    - Components (FeatureExtractor, KMeans) not initialized
+    - Components (SentenceTransformer, KMeans) not initialized
     - Configuration parameters not set before training
     """
 

@@ -37,7 +37,6 @@ from adaptive_router.models.routing import (
 )
 from adaptive_router.models.storage import RouterProfile, MinIOSettings
 from adaptive_router.core.cluster_engine import ClusterEngine
-from adaptive_router.core.feature_extractor import FeatureExtractor
 from adaptive_router.exceptions.core import (
     ModelNotFoundError,
     InvalidModelFormatError,
@@ -317,13 +316,8 @@ class ModelRouter:
             profile.metadata.embedding_model, allow_trust_remote_code
         )
 
-        # Restore feature extractor with scalers and vocabulary
-        feature_extractor = self._restore_feature_extractor(
-            profile, embedding_model, allow_trust_remote_code
-        )
-
         # Restore cluster engine with K-means parameters
-        cluster_engine = self._restore_cluster_engine(profile, feature_extractor)
+        cluster_engine = self._restore_cluster_engine(profile, embedding_model)
 
         return cluster_engine
 
@@ -362,84 +356,16 @@ class ModelRouter:
 
         return embedding_model
 
-    def _restore_feature_extractor(
-        self,
-        profile: RouterProfile,
-        embedding_model: SentenceTransformer,
-        allow_trust_remote_code: bool,
-    ) -> FeatureExtractor:
-        """Restore FeatureExtractor from profile data.
-
-        Args:
-            profile: RouterProfile with stored parameters
-            embedding_model: Loaded SentenceTransformer model
-            allow_trust_remote_code: Trust remote code setting
-
-        Returns:
-            Configured FeatureExtractor
-        """
-        from sklearn.preprocessing import StandardScaler
-        from adaptive_router.core.feature_extractor import FeatureExtractor
-
-        # Create FeatureExtractor with fresh model
-        feature_extractor = FeatureExtractor(
-            embedding_model=profile.metadata.embedding_model,
-            tfidf_max_features=profile.metadata.tfidf_max_features,
-            tfidf_ngram_range=tuple(profile.metadata.tfidf_ngram_range),  # type: ignore[arg-type]
-            allow_trust_remote_code=allow_trust_remote_code,
-        )
-
-        # Replace the embedding model (already loaded above)
-        feature_extractor.embedding_model = embedding_model
-
-        # Restore TF-IDF vocabulary
-        feature_extractor.tfidf_vectorizer.vocabulary_ = (
-            profile.tfidf_vocabulary.vocabulary
-        )
-        feature_extractor.tfidf_vectorizer.idf_ = np.array(profile.tfidf_vocabulary.idf)
-
-        # Restore scaler parameters
-        logger.info("Restoring scaler parameters from MinIO data...")
-
-        # Restore embedding scaler
-        feature_extractor.embedding_scaler = StandardScaler()
-        feature_extractor.embedding_scaler.mean_ = np.array(
-            profile.scaler_parameters.embedding_scaler.mean
-        )
-        feature_extractor.embedding_scaler.scale_ = np.array(
-            profile.scaler_parameters.embedding_scaler.scale
-        )
-        feature_extractor.embedding_scaler.n_features_in_ = len(
-            feature_extractor.embedding_scaler.mean_
-        )
-
-        # Restore TF-IDF scaler
-        feature_extractor.tfidf_scaler = StandardScaler()
-        feature_extractor.tfidf_scaler.mean_ = np.array(
-            profile.scaler_parameters.tfidf_scaler.mean
-        )
-        feature_extractor.tfidf_scaler.scale_ = np.array(
-            profile.scaler_parameters.tfidf_scaler.scale
-        )
-        feature_extractor.tfidf_scaler.n_features_in_ = len(
-            feature_extractor.tfidf_scaler.mean_
-        )
-        logger.info("Scaler parameters restored")
-
-        feature_extractor.is_fitted = True
-
-        return feature_extractor
-
     def _restore_cluster_engine(
         self,
         profile: RouterProfile,
-        feature_extractor: FeatureExtractor,
+        embedding_model: SentenceTransformer,
     ) -> ClusterEngine:
         """Restore ClusterEngine from profile data.
 
         Args:
             profile: RouterProfile with cluster data
-            feature_extractor: Configured FeatureExtractor
+            embedding_model: Loaded SentenceTransformer model
 
         Returns:
             Configured ClusterEngine
@@ -449,14 +375,12 @@ class ModelRouter:
 
         # Set configuration from profile
         cluster_engine.n_clusters = profile.cluster_centers.n_clusters
-        cluster_engine.embedding_model = profile.metadata.embedding_model
-        cluster_engine.tfidf_max_features = profile.metadata.tfidf_max_features
-        # Convert list to tuple[int, int] for type safety
-        ngram_range = profile.metadata.tfidf_ngram_range
-        cluster_engine.tfidf_ngram_range = (int(ngram_range[0]), int(ngram_range[1]))
+        cluster_engine.embedding_model_name = profile.metadata.embedding_model
 
-        # Set restored components
-        cluster_engine.feature_extractor = feature_extractor
+        # Set the loaded embedding model directly
+        cluster_engine.embedding_model = embedding_model
+
+        # Set up K-means with restored cluster centers
         cluster_engine.kmeans = KMeans(n_clusters=profile.cluster_centers.n_clusters)
 
         cluster_engine.kmeans.cluster_centers_ = np.array(
@@ -468,7 +392,7 @@ class ModelRouter:
         )
 
         cluster_engine.silhouette = profile.metadata.silhouette_score or 0.0
-        cluster_engine._is_fitted = True  # Mark as fitted
+        cluster_engine.is_fitted_flag = True  # Mark as fitted
 
         logger.info(
             f"Built cluster engine from storage data: {profile.cluster_centers.n_clusters} clusters, "
