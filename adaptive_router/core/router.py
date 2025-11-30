@@ -105,45 +105,30 @@ class ModelRouter:
         self.cluster_engine = self._build_cluster_engine_from_data(profile)
 
         # Read routing parameters from profile with sensible defaults
-        self.lambda_min = profile.metadata.lambda_min
-        self.lambda_max = profile.metadata.lambda_max
-        self.default_cost_preference = profile.metadata.default_cost_preference
+        self.lambda_min = profile.metadata.routing.lambda_min
+        self.lambda_max = profile.metadata.routing.lambda_max
+        self.default_cost_preference = profile.metadata.routing.default_cost_preference
 
         logger.info(
             f"Loaded cluster engine: {n_clusters} clusters, "
             f"silhouette score: {profile.metadata.silhouette_score or 'N/A'}"
         )
 
-        # Create mapping from model_id to cost and model object (O(N) single pass)
-        model_costs: dict[str, float] = {
-            model.unique_id(): model.cost_per_1m_tokens for model in models
-        }
-        model_lookup: dict[str, Model] = {model.unique_id(): model for model in models}
-
+        # Direct iteration over models - no dict lookups needed
         self.model_features: dict[str, ModelFeatureVector] = {}
 
-        for model_id, error_rates in profile.llm_profiles.items():
-            if model_id not in model_costs:
-                logger.warning(f"Model {model_id} missing cost data, skipping")
-                continue
-
-            # Extract input and output costs from the model (O(1) dict lookup)
-            model = model_lookup.get(model_id)
-            if model is None:
-                logger.warning(f"Model {model_id} not found in models list, skipping")
-                continue
+        for model in profile.models:
+            model_id = model.unique_id()
 
             self.model_features[model_id] = ModelFeatureVector(
-                error_rates=error_rates,
+                error_rates=model.error_rates,
                 cost_per_1m_input_tokens=model.cost_per_1m_input_tokens,
                 cost_per_1m_output_tokens=model.cost_per_1m_output_tokens,
             )
-            logger.debug(
-                f"Loaded profile for {model_id} with cost {model_costs[model_id]}"
-            )
+            logger.debug(f"Loaded profile for {model_id}")
 
         if not self.model_features:
-            raise ModelNotFoundError("No valid model features found in llm_profiles")
+            raise ModelNotFoundError("No valid model features found in profile")
 
         all_costs = [f.cost_per_1m_tokens for f in self.model_features.values()]
         self.min_cost = min(all_costs)

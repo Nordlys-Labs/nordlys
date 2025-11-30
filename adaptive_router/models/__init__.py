@@ -20,10 +20,12 @@ from .routing import (
 from .train import ProviderConfig, TrainingResult
 from .storage import (
     ClusterCentersData,
+    ClusteringConfig,
     ClusterStats,
     MinIOSettings,
     ProfileMetadata,
     RouterProfile,
+    RoutingConfig,
 )
 
 from .config import ModelConfig
@@ -31,6 +33,7 @@ from .config import ModelConfig
 __all__ = [
     "Alternative",
     "ClusterCentersData",
+    "ClusteringConfig",
     "ClusterStats",
     "HealthResponse",
     "MinIOSettings",
@@ -45,6 +48,7 @@ __all__ = [
     "ProfileMetadata",
     "ProviderConfig",
     "RouterProfile",
+    "RoutingConfig",
     "RoutingDecision",
     "TrainingResult",
 ]

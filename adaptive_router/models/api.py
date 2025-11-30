@@ -4,6 +4,8 @@ This module contains the public-facing API models that external users interact w
 when making model selection requests to the adaptive router service.
 """
 
+import math
+
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -11,13 +13,14 @@ class Model(BaseModel):
     """Model specification for routing with cost information.
 
     Contains the essential fields needed for model identification
-    and routing decisions, including mandatory cost data.
+    and routing decisions, including mandatory cost data and per-cluster error rates.
 
     Attributes:
         provider: Model provider (e.g., "openai", "anthropic")
         model_name: Model name (e.g., "gpt-4", "claude-sonnet-4-5")
         cost_per_1m_input_tokens: Cost per 1M input tokens
         cost_per_1m_output_tokens: Cost per 1M output tokens
+        error_rates: Per-cluster error rates (K values, one per cluster)
     """
 
     provider: str
@@ -28,6 +31,36 @@ class Model(BaseModel):
     cost_per_1m_output_tokens: float = Field(
         ..., ge=0, description="Cost per 1M output tokens"
     )
+    error_rates: list[float] = Field(
+        default_factory=list, description="Per-cluster error rates (K values)"
+    )
+
+    @field_validator("error_rates")
+    @classmethod
+    def validate_error_rates(cls, v: list[float]) -> list[float]:
+        """Validate error rates are finite and in [0.0, 1.0] range.
+
+        Args:
+            v: List of error rates to validate
+
+        Returns:
+            Validated error rates
+
+        Raises:
+            ValueError: If any error rate is invalid
+        """
+        for i, rate in enumerate(v):
+            if not isinstance(rate, (int, float)):
+                raise ValueError(
+                    f"Invalid error_rate[{i}]: must be a number, got {type(rate).__name__}"
+                )
+            if not math.isfinite(rate):
+                raise ValueError(f"Invalid error_rate[{i}]: {rate} (must be finite)")
+            if not (0.0 <= rate <= 1.0):
+                raise ValueError(
+                    f"Invalid error_rate[{i}]: {rate} (must be in range [0.0, 1.0])"
+                )
+        return v
 
     @property
     def cost_per_1m_tokens(self) -> float:

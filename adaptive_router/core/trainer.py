@@ -754,10 +754,18 @@ class Trainer:
             ),
         )
 
+        # Merge error_rates into models
+        models_with_errors = []
+        for model in self.models:
+            model_id = model.unique_id()
+            model_with_errors = model.model_copy(
+                update={"error_rates": error_rates.get(model_id, [])}
+            )
+            models_with_errors.append(model_with_errors)
+
         return RouterProfile(
             cluster_centers=cluster_centers,
-            models=self.models,
-            llm_profiles=error_rates,
+            models=models_with_errors,
             metadata=metadata,
         )
 

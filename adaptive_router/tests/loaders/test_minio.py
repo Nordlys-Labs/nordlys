@@ -32,11 +32,10 @@ def valid_profile_data() -> dict:
                 "model_name": "gpt-4",
                 "cost_per_1m_input_tokens": 30.0,
                 "cost_per_1m_output_tokens": 60.0,
+                "error_rates": [0.05, 0.03],
+                "metadata": {},
             }
         ],
-        "llm_profiles": {
-            "openai/gpt-4": [0.05, 0.03],
-        },
     }
 
 
@@ -156,7 +155,8 @@ class TestMinIOProfileLoaderLoadProfile:
 
         assert profile.metadata.n_clusters == 2
         assert profile.metadata.silhouette_score == 0.45
-        assert len(profile.llm_profiles) == 1
+        assert len(profile.models) == 1
+        assert len(profile.models[0].error_rates) == 2
         assert (
             profile.metadata.embedding_model == "sentence-transformers/all-MiniLM-L6-v2"
         )

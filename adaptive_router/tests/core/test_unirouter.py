@@ -253,11 +253,9 @@ class TestRouterServiceMocked:
                     model_name="gpt-4",
                     cost_per_1m_input_tokens=30.0,
                     cost_per_1m_output_tokens=60.0,
+                    error_rates=[0.08] * 5,
                 )
             ],
-            llm_profiles={
-                "openai/gpt-4": [0.08] * 5,
-            },
         )
 
         with patch.object(ModelRouter, "_build_cluster_engine_from_data"):

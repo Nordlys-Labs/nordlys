@@ -30,11 +30,9 @@ def valid_profile_data() -> dict:
                 "model_name": "gpt-4",
                 "cost_per_1m_input_tokens": 30.0,
                 "cost_per_1m_output_tokens": 60.0,
+                "error_rates": [0.05, 0.03],
             }
         ],
-        "llm_profiles": {
-            "openai/gpt-4": [0.05, 0.03],
-        },
     }
 
 

@@ -5,8 +5,7 @@ All profile components (cluster centers, scaler parameters, etc.) are
 strongly typed to catch data corruption early and provide better IDE support.
 """
 
-import math
-from pydantic import BaseModel, Field, ValidationInfo, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from adaptive_router.models.api import Model
 
@@ -51,6 +50,29 @@ class ClusteringConfig(BaseModel):
     )
 
 
+class RoutingConfig(BaseModel):
+    """Configuration for routing algorithm.
+
+    Attributes:
+        lambda_min: Minimum lambda for cost-quality tradeoff
+        lambda_max: Maximum lambda for cost-quality tradeoff
+        default_cost_preference: Default cost preference (0.0=cheap, 1.0=quality)
+    """
+
+    lambda_min: float = Field(
+        default=0.0, ge=0.0, description="Minimum lambda for cost-quality tradeoff"
+    )
+    lambda_max: float = Field(
+        default=2.0, ge=0.0, description="Maximum lambda for cost-quality tradeoff"
+    )
+    default_cost_preference: float = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description="Default cost preference (0.0=cheap, 1.0=quality)",
+    )
+
+
 class ClusterStats(BaseModel):
     """Statistics about clustering results.
 
@@ -77,37 +99,30 @@ class ProfileMetadata(BaseModel):
     """Metadata about the clustering profile.
 
     Attributes:
-        n_clusters: Number of clusters
+        n_clusters: Number of clusters (K in K-means)
         embedding_model: HuggingFace embedding model name
-        silhouette_score: Cluster quality metric
-        feature_extraction: Feature extraction configuration
-        clustering: Clustering configuration
+        silhouette_score: Cluster quality metric (-1 to 1, higher is better)
+        allow_trust_remote_code: Allow remote code execution for embedding models
+        clustering: K-means clustering configuration
         routing: Routing algorithm configuration
-        lambda_min: Minimum lambda value for cost-quality tradeoff
-        lambda_max: Maximum lambda value for cost-quality tradeoff
-        default_cost_preference: Default cost preference when not specified (0.0=cheap, 1.0=quality)
     """
 
+    # Core clustering parameters
     n_clusters: int = Field(..., gt=0, description="Number of clusters")
     embedding_model: str = Field(..., description="Embedding model name")
-    silhouette_score: float | None = Field(default=None, ge=-1.0, le=1.0)
+    silhouette_score: float | None = Field(
+        default=None, ge=-1.0, le=1.0, description="Cluster quality metric"
+    )
+
+    # Configuration
     allow_trust_remote_code: bool = Field(
-        default=False, description="Allow remote code execution"
+        default=False, description="Allow remote code execution for embedding models"
     )
     clustering: ClusteringConfig = Field(
-        default_factory=ClusteringConfig, description="Clustering config"
+        default_factory=ClusteringConfig, description="K-means clustering configuration"
     )
-    lambda_min: float = Field(
-        default=0.0, ge=0.0, description="Minimum lambda for cost-quality tradeoff"
-    )
-    lambda_max: float = Field(
-        default=2.0, ge=0.0, description="Maximum lambda for cost-quality tradeoff"
-    )
-    default_cost_preference: float = Field(
-        default=0.5,
-        ge=0.0,
-        le=1.0,
-        description="Default cost preference (0.0=cheap, 1.0=quality)",
+    routing: RoutingConfig = Field(
+        default_factory=RoutingConfig, description="Routing algorithm configuration"
     )
 
 
@@ -119,153 +134,38 @@ class RouterProfile(BaseModel):
 
     Attributes:
         cluster_centers: K-means cluster centroids
-        models: List of models included in this profile
-        llm_profiles: Model error rates per cluster (model_id -> K error rates)
+        models: List of models with integrated error rates per cluster
         metadata: Profile metadata (clustering config, silhouette score, etc.)
     """
 
     cluster_centers: ClusterCentersData = Field(..., description="Cluster centroids")
-    models: list[Model] = Field(..., description="Models included in this profile")
-    llm_profiles: dict[str, list[float]] = Field(
-        ..., description="Model error rates per cluster"
-    )
+    models: list[Model] = Field(..., description="Models with error rates")
     metadata: ProfileMetadata = Field(..., description="Profile metadata")
 
-    @field_validator("llm_profiles", mode="before")
-    @classmethod
-    def normalize_llm_profile_keys(
-        cls, llm_profiles: dict[str, list[float]]
-    ) -> dict[str, list[float]]:
-        """Normalize llm_profiles keys to lowercase for consistency.
-
-        This ensures that model IDs in llm_profiles match the lowercased
-        format produced by Model.unique_id(), preventing validation errors
-        when users provide capitalized model names.
-
-        Args:
-            llm_profiles: Dictionary of model_id -> error_rates
-
-        Returns:
-            Dictionary with all keys normalized to lowercase
-        """
-        return {k.lower(): v for k, v in llm_profiles.items()}
-
-    @field_validator("llm_profiles", mode="after")
-    @classmethod
-    def validate_error_rates(
-        cls, llm_profiles: dict[str, list[float]], info: ValidationInfo
-    ) -> dict[str, list[float]]:
-        """Validate error rates for all models.
-
-        Ensures:
-        1. Each model has error_rates with length matching n_clusters
-        2. All error rates are finite numbers within [0.0, 1.0]
-
-        Args:
-            llm_profiles: Dictionary of model_id -> error_rates
-            info: ValidationInfo containing other field values
-
-        Returns:
-            Validated llm_profiles dictionary
-
-        Raises:
-            ValueError: If validation fails for any model
-        """
-        # Get n_clusters from metadata (if available)
-        metadata = info.data.get("metadata")
-        if metadata is None:
-            # metadata hasn't been validated yet, skip cluster count validation
-            # (will be caught if metadata is missing/invalid)
-            return llm_profiles
-
-        expected_clusters = metadata.n_clusters
-
-        # Track invalid models for comprehensive error reporting
-        validation_errors = []
-
-        for model_id, error_rates in llm_profiles.items():
-            # Check 1: Verify error_rates is a list
-            if not isinstance(error_rates, list):
-                validation_errors.append(
-                    f"Model '{model_id}': error_rates must be a list, got {type(error_rates).__name__}"
-                )
-                continue
-
-            # Check 2: Verify length matches n_clusters
-            if len(error_rates) != expected_clusters:
-                validation_errors.append(
-                    f"Model '{model_id}': error_rates length mismatch - "
-                    f"expected {expected_clusters} clusters, got {len(error_rates)}"
-                )
-                continue
-
-            # Check 3: Validate each error rate value
-            for i, rate in enumerate(error_rates):
-                # Check if it's a number
-                if not isinstance(rate, (int, float)):
-                    validation_errors.append(
-                        f"Model '{model_id}': error_rates[{i}] is not a number - "
-                        f"got {type(rate).__name__}"
-                    )
-                    break
-
-                # Check if finite (not NaN or Inf)
-                if not math.isfinite(rate):
-                    validation_errors.append(
-                        f"Model '{model_id}': error_rates[{i}] is not finite - "
-                        f"got {rate}"
-                    )
-                    break
-
-                # Check range [0.0, 1.0]
-                if not (0.0 <= rate <= 1.0):
-                    validation_errors.append(
-                        f"Model '{model_id}': error_rates[{i}] out of range [0.0, 1.0] - "
-                        f"got {rate}"
-                    )
-                    break
-
-        if validation_errors:
-            error_msg = "LLM profiles validation failed:\n" + "\n".join(
-                f"  - {err}" for err in validation_errors
-            )
-            raise ValueError(error_msg)
-
-        return llm_profiles
-
     @model_validator(mode="after")
-    def validate_models_consistency(self) -> "RouterProfile":
-        """Validate consistency between models and llm_profiles.
+    def validate_error_rates_consistency(self) -> "RouterProfile":
+        """Validate all models have correct number of error rates.
 
-        Ensures that model IDs in the models list match the keys in llm_profiles.
+        Ensures each model's error_rates list matches the n_clusters in metadata.
 
         Returns:
             Self for method chaining
 
         Raises:
-            ValueError: If model IDs are inconsistent
+            ValueError: If error rates count doesn't match n_clusters
         """
-        model_ids_in_models = {m.unique_id() for m in self.models}
-        model_ids_in_llm = set(self.llm_profiles.keys())
+        expected = self.metadata.n_clusters
+        errors = []
 
-        if model_ids_in_models != model_ids_in_llm:
-            missing_in_llm = model_ids_in_models - model_ids_in_llm
-            extra_in_llm = model_ids_in_llm - model_ids_in_models
-
-            errors = []
-            if missing_in_llm:
+        for model in self.models:
+            if len(model.error_rates) != expected:
                 errors.append(
-                    f"Models present in 'models' but missing in 'llm_profiles': {missing_in_llm}"
-                )
-            if extra_in_llm:
-                errors.append(
-                    f"Models present in 'llm_profiles' but missing in 'models': {extra_in_llm}"
+                    f"Model '{model.unique_id()}': expected {expected} "
+                    f"error rates, got {len(model.error_rates)}"
                 )
 
-            error_msg = "Model IDs inconsistency:\n" + "\n".join(
-                f"  - {err}" for err in errors
-            )
-            raise ValueError(error_msg)
+        if errors:
+            raise ValueError("Error rates validation failed:\n" + "\n".join(errors))
 
         return self
 

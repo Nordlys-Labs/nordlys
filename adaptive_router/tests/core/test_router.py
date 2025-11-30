@@ -37,25 +37,23 @@ def mock_router():
                 model_name="gpt-4",
                 cost_per_1m_input_tokens=30.0,
                 cost_per_1m_output_tokens=60.0,
+                error_rates=[0.08] * 10,
             ),
             Model(
                 provider="openai",
                 model_name="gpt-3.5-turbo",
                 cost_per_1m_input_tokens=1.5,
                 cost_per_1m_output_tokens=2.0,
+                error_rates=[0.15] * 10,
             ),
             Model(
                 provider="anthropic",
                 model_name="claude-3-sonnet-20240229",
                 cost_per_1m_input_tokens=3.0,
                 cost_per_1m_output_tokens=15.0,
+                error_rates=[0.10] * 10,
             ),
         ],
-        llm_profiles={
-            "openai/gpt-4": [0.08] * 10,
-            "openai/gpt-3.5-turbo": [0.15] * 10,
-            "anthropic/claude-3-sonnet-20240229": [0.10] * 10,
-        },
     )
 
     def mock_build_cluster_engine(self, profile):
