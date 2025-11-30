@@ -314,7 +314,9 @@ class ClusterEngine(BaseEstimator):
 
         # Normalize
         norm_strategy = self.normalization_strategy or "l2"
-        embeddings_normalized = self._normalize_features(embeddings, norm=norm_strategy)
+        embeddings_normalized = self._normalize_features(
+            embeddings, norm=norm_strategy
+        ).astype(np.float32)
 
         # Predict clusters
         return self.kmeans.predict(embeddings_normalized).astype(np.int32)
@@ -348,7 +350,9 @@ class ClusterEngine(BaseEstimator):
 
         # Normalize
         norm_strategy = self.normalization_strategy or "l2"
-        embeddings_normalized = self._normalize_features(embeddings, norm=norm_strategy)
+        embeddings_normalized = self._normalize_features(
+            embeddings, norm=norm_strategy
+        ).astype(np.float32)
 
         # Predict cluster and compute distance
         cluster_id = int(self.kmeans.predict(embeddings_normalized)[0])
@@ -434,7 +438,7 @@ class ClusterEngine(BaseEstimator):
 
         # Create KMeans with fitted state
         engine.kmeans = KMeans(n_clusters=n_clusters)
-        engine.kmeans.cluster_centers_ = cluster_centers
+        engine.kmeans.cluster_centers_ = cluster_centers.astype(np.float32)
         engine.kmeans.n_iter_ = clustering_config.n_iter if clustering_config else 0
         engine.kmeans.n_features_in_ = cluster_centers.shape[1]
         engine.kmeans._n_threads = 1  # Runtime default for sklearn 1.4+
