@@ -4,7 +4,6 @@ This module contains configuration models for model metadata, YAML configuration
 parsing, and routing algorithm parameters.
 """
 
-
 from pydantic import BaseModel
 
 
