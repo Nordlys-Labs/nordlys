@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """One-time migration script for RouterProfile v1 to v2 format.
 
-This script migrates existing profiles by merging llm_profiles into models.
+This script migrates existing profiles with the following changes:
+1. Merges llm_profiles dict into models list as error_rates field
+2. Restructures metadata: moves lambda_min, lambda_max, and
+   default_cost_preference into a nested routing config
+
 After migration, the v1 format is no longer supported.
 
 Usage:
@@ -54,6 +58,16 @@ def migrate_profile_v1_to_v2(data: dict) -> dict:
     # Remove llm_profiles
     migrated = data.copy()
     migrated.pop("llm_profiles", None)
+
+    # Migrate metadata routing config
+    metadata = migrated.get("metadata", {})
+    routing_config = {
+        "lambda_min": metadata.pop("lambda_min", 0.0),
+        "lambda_max": metadata.pop("lambda_max", 2.0),
+        "default_cost_preference": metadata.pop("default_cost_preference", 0.5),
+    }
+    metadata["routing"] = routing_config
+    migrated["metadata"] = metadata
 
     logger.info(f"Migration complete: {len(models)} models updated")
     return migrated

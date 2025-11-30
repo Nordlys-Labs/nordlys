@@ -78,7 +78,7 @@ class ModelRouter:
                                    Defaults to False for security.
 
         Raises:
-            ModelNotFoundError: If models don't match profile.llm_profiles
+            ModelNotFoundError: If model validation fails or profile models are invalid
         """
         # Load profile internally
         profile = self._load_profile(profile)
