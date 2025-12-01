@@ -195,6 +195,11 @@ datasets/
 # Railway
 .railway/
 
+# Modal
+.modal/
+modal_secrets/
+*.modal
+
 # Docker
 .dockerignore
 

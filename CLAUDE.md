@@ -22,7 +22,7 @@ For documentation needs, use Ref MCP tools:
 
 ## Overview
 
-The adaptive_router service is a unified Python ML package that provides intelligent model selection for the Adaptive LLM infrastructure. It uses cluster-based intelligent routing with per-cluster error rates to select optimal LLM models. The service supports two deployment modes: Library (import and use directly in Python code) and FastAPI (HTTP API server with local GPU/CPU inference).
+The adaptive_router service is a unified Python ML package that provides intelligent model selection for the Adaptive LLM infrastructure. It uses cluster-based intelligent routing with per-cluster error rates to select optimal LLM models. The service supports two deployment modes: Library (import and use directly in Python code) and FastAPI (HTTP API server with GPU-accelerated inference on T4 GPUs).
 
 ## Key Features
 
@@ -30,16 +30,16 @@ The adaptive_router service is a unified Python ML package that provides intelli
 - **Flexible Deployment**: Python library import or FastAPI HTTP server
 - **Cost Optimization**: Balances performance vs. cost based on configurable preferences
 - **High-Performance API**: FastAPI framework with Hypercorn ASGI server, OpenAPI documentation
-- **MinIO S3 Storage**: Loads cluster profiles from Railway-hosted MinIO storage
+- **Modal Serverless Deployment**: T4 GPU-accelerated inference with automatic scaling to zero
 - **Local ML Inference**: Sentence transformers and scikit-learn for feature extraction and clustering
 
 ## Technology Stack
 
-- **ML Framework**: PyTorch 2.2+ with sentence-transformers for semantic embeddings
+- **ML Framework**: PyTorch 2.2+ with CUDA 11.8 for sentence-transformers GPU acceleration
 - **Clustering**: scikit-learn for K-means clustering and feature scaling
 - **API Framework**: FastAPI 0.118+ for HTTP server mode
 - **ASGI Server**: Hypercorn 0.17+ with HTTP/1.1, HTTP/2, and WebSocket support
-- **Storage**: boto3 for MinIO S3 integration (Railway deployment)
+- **Serverless Deployment**: Modal.com with T4 GPU (16GB VRAM) for cost-efficient inference
 - **LLM Integration**: LangChain for orchestration and provider abstraction
 - **Configuration**: Pydantic Settings for type-safe configuration management
 - **Logging**: Standard Python logging with structured JSON output
@@ -113,20 +113,17 @@ adaptive_router/
 
 ```bash
 # Server Configuration
-HOST=0.0.0.0                     # Hypercorn host
-PORT=8000                        # Hypercorn port
+HOST=0.0.0.0                     # Server host
+PORT=8000                        # Server port
 
 # FastAPI Configuration
-FASTAPI_WORKERS=1                # Number of workers (ignored in programmatic mode)
-FASTAPI_RELOAD=false             # Auto-reload on code changes (dev only - not supported)
+FASTAPI_WORKERS=1                # Number of workers
+FASTAPI_RELOAD=false             # Auto-reload on code changes (dev only)
 FASTAPI_ACCESS_LOG=true          # Enable access logging
-FASTAPI_LOG_LEVEL=info           # Hypercorn log level
+FASTAPI_LOG_LEVEL=info           # Log level
 
-# MinIO S3 Storage Configuration (Railway deployment)
-S3_BUCKET_NAME=adaptive-router-profiles  # MinIO bucket name
-MINIO_PUBLIC_ENDPOINT=https://minio.railway.app  # MinIO endpoint URL
-MINIO_ROOT_USER=your_minio_user          # MinIO access key
-MINIO_ROOT_PASSWORD=your_minio_password  # MinIO secret key
+# Profile Storage Configuration (Modal Volume)
+PROFILE_PATH=/data/profile.json  # Path to router profile in Modal Volume
 ```
 
 ### Optional Configuration
@@ -149,56 +146,59 @@ LOG_LEVEL=INFO                  # Logging level
 Use adaptive_router as a Python library in your code:
 
 ```python
-from core.router import ModelRouter
-from models.routing import RoutingRequest
-from loaders.minio import MinIOProfileLoader
+from adaptive_router.core.router import ModelRouter
+from adaptive_router.models.api import ModelSelectionRequest
+from adaptive_router.loaders.local import LocalFileProfileLoader
 
-# Initialize profile loader from MinIO
-loader = MinIOProfileLoader.from_env()
+# Initialize profile loader from local file
+loader = LocalFileProfileLoader("/path/to/profile.json")
 
 # Initialize router with loaded profile
-router = ModelRouter(loader)
+router = ModelRouter.from_local_file("/path/to/profile.json")
 
 # Select optimal model based on prompt
-request = RoutingRequest(
+request = ModelSelectionRequest(
     prompt="Write a Python function to sort a list",
-    cost_preference=0.5  # 0.0 = cheapest, 1.0 = most capable
+    cost_bias=0.5  # 0.0 = cheapest, 1.0 = most capable
 )
-response = router.route(request)
-print(f"Selected: {response.provider} / {response.model}")
-print(f"Reasoning: {response.reasoning}")
+response = router.select_model(request)
+print(f"Selected: {response.model_id}")
+print(f"Alternatives: {[alt.model_id for alt in response.alternatives]}")
 ```
 
-### 2. FastAPI Server Mode
+### 2. FastAPI Server Mode (Modal Deployment)
 
-Run as HTTP API server for production deployment:
+Run as HTTP API server on Modal with T4 GPU acceleration:
 
 ```bash
 # Install dependencies
 uv install
 
-# Start FastAPI server (development mode with auto-reload)
-fastapi dev app/main.py
+# Deploy to Modal (requires Modal CLI and account)
+modal deploy main.py
 
-# Or use Hypercorn for production
-hypercorn app.main:create_app() --bind 0.0.0.0:8000
+# Or run locally in development
+fastapi dev main.py
 
 # Server starts on http://0.0.0.0:8000
 # API docs available at http://localhost:8000/docs
 # ReDoc available at http://localhost:8000/redoc
 # Health check at http://localhost:8000/health
-
-# Custom port
-PORT=8001 hypercorn app.main:create_app() --bind 0.0.0.0:8001
-
-# Enable debug logging
-DEBUG=true hypercorn app.main:create_app() --bind 0.0.0.0:8000
 ```
 
 **API Endpoints:**
 
-- `POST /select_model` - Select optimal model based on prompt
+- `POST /select-model` - Select optimal model based on prompt
 - `GET /health` - Health check endpoint
+
+**Modal Deployment Configuration:**
+
+- **GPU**: NVIDIA T4 (16GB VRAM) for GPU-accelerated embedding computation
+- **Memory**: 8GB baseline memory allocation
+- **Scaling**: Automatically scales to 0 when idle (60-second timeout)
+- **Concurrency**: Handles up to 100 concurrent requests per container
+- **Storage**: Modal Volume at `/data` for router profile persistence
+- **Model Cache**: Modal Volume at `/root/.cache` for sentence-transformer models
 
 Access interactive API docs at `http://localhost:8000/docs`
 
@@ -211,9 +211,9 @@ Access interactive API docs at `http://localhost:8000/docs`
 uv install
 
 # Start the FastAPI server (development mode with auto-reload)
-fastapi dev app/main.py
+fastapi dev main.py
 
-# Or use Hypercorn directly (production mode)
+# Or use Hypercorn directly (production-like)
 hypercorn app.main:create_app() --bind 0.0.0.0:8000
 
 # Start with custom configuration
@@ -431,12 +431,12 @@ The `ClusterEngine` handles K-means clustering operations:
 
 The `FeatureExtractor` converts prompts to feature vectors:
 
-- Sentence transformer embeddings using `all-MiniLM-L6-v2` (384D)
-- TF-IDF features for lexical patterns (5000D)
-- StandardScaler normalization for both feature types
-- Concatenated 5384D feature vectors
-- Local GPU/CPU inference (no external API calls)
-- Cached models for fast subsequent requests
+- **Sentence transformer embeddings using `all-MiniLM-L6-v2` (384D)
+- **TF-IDF features for lexical patterns (5000D)
+- **StandardScaler normalization for both feature types
+- **Concatenated 5384D feature vectors
+- **GPU-accelerated inference on T4 GPUs (Modal deployment)
+- **Cached models for fast subsequent requests
 
 ### Profile Loaders
 
@@ -534,18 +534,18 @@ Integration with external model registry service for model metadata:
 
 ### Storage Integration
 
-- **MinIO S3**: Loads cluster profiles from Railway-hosted MinIO on startup
-- **Profile Caching**: Cluster centers, error rates, and scalers loaded once at init
-- **Connection Pooling**: boto3 handles S3 connection pooling automatically
-- **Health Checks**: Validates MinIO connectivity during startup
+- **Modal Volumes**: Stores cluster profiles and model cache for persistence
+- **Profile Caching**: Router profile loaded once at service initialization
+- **Model Cache**: Sentence transformers cached in `/root/.cache` for fast startup
+- **Request Processing**: All computations done locally in-memory
 
 ### Request Processing
 
-- **Feature Extraction**: Local sentence transformers + TF-IDF (no external API calls)
+- **Feature Extraction**: GPU-accelerated sentence transformers + TF-IDF on T4 GPU
 - **Cluster Assignment**: Fast K-means predict using pre-loaded centroids
 - **Model Selection**: In-memory scoring of models based on cluster assignment
-- **Response Time**: <100ms end-to-end for typical requests
-- **Throughput**: 100+ requests/second on standard hardware
+- **Response Time**: <100ms end-to-end for typical requests (T4 GPU acceleration)
+- **Throughput**: 100+ requests/second on T4 GPU
 
 ## Configuration
 
@@ -575,21 +575,18 @@ Model metadata (pricing, capabilities, context limits) is now fetched from an **
 
 ### Cluster Profile Configuration
 
-Cluster profiles (centers, error rates, scalers) are loaded from **MinIO S3 storage** via the profile loader system:
+Cluster profiles (centers, error rates, scalers) are stored in **Modal Volumes** for serverless deployment:
 
-**MinIO Configuration** (Environment Variables):
+**Profile Storage Configuration**:
 
-- `S3_BUCKET_NAME` - MinIO bucket name for cluster profiles
-- `MINIO_PUBLIC_ENDPOINT` - MinIO endpoint URL
-- `MINIO_ROOT_USER` - MinIO access key
-- `MINIO_ROOT_PASSWORD` - MinIO secret key
+- `PROFILE_PATH` environment variable points to the profile JSON file
+- Default location in Modal: `/data/profile.json` (mounted to adaptive-router-data volume)
 
 **Profile Structure**:
 
-- `cluster_centers.pkl` - K-means cluster centroids (numpy array)
-- `error_rates.json` - Per-cluster error rates for each model
-- `scaler.pkl` - StandardScaler for feature normalization
-- `metadata.json` - Cluster quality metrics and metadata
+- JSON format containing model configurations and metadata
+- Loaded once at service startup
+- Persisted in Modal Volume for durability across deployments
 
 ## Monitoring and Observability
 
@@ -618,39 +615,62 @@ Cluster profiles (centers, error rates, scalers) are loaded from **MinIO S3 stor
 
 ### Docker
 
+The service is deployed on Modal.com with GPU acceleration rather than Docker. For local development:
+
 ```dockerfile
-FROM pytorch/pytorch:2.7.1-cuda11.8-cudnn9-runtime
+FROM nvidia/cuda:11.8.0-runtime-ubuntu22.04
 
 WORKDIR /app
+RUN apt-get update && apt-get install -y python3.11 python3-pip
 COPY pyproject.toml uv.lock ./
-RUN pip install uv && uv sync --all-extras --no-dev
+RUN pip install uv && uv sync
 
 COPY . .
 EXPOSE 8000
 
-CMD ["uv", "run", "adaptive-ai"]
+CMD ["fastapi", "dev", "main.py"]
 ```
 
-### Docker Compose
+### Modal Deployment
 
-The service is included in the root `docker-compose.yml` with proper networking and resource allocation.
+**Production Deployment** (GPU-accelerated on Modal.com):
+
+```bash
+# Deploy to Modal
+modal deploy main.py
+
+# View logs
+modal logs main.py
+
+# Stop deployment
+modal cancel main.py
+```
+
+**Modal Configuration** (in `main.py`):
+
+- GPU: T4 (16GB VRAM)
+- Memory: 8GB
+- CPU: Shared resources via Modal
+- Scaling: min_containers=0, scales down after 60 seconds of inactivity
+- Concurrency: 100 max concurrent inputs per container
+- Volumes: Model cache and profile data persisted across deployments
 
 ### Resource Requirements
 
 #### Library Mode
 
 - **CPU**: 2-4 cores for feature extraction and clustering
-- **GPU**: Optional (macOS uses CPU, Linux can use CUDA if available)
+- **GPU**: Optional (NVIDIA GPU with CUDA for acceleration)
 - **Memory**: 2-4GB RAM for sentence transformers and scikit-learn
 - **Storage**: 1-2GB for HuggingFace model cache (~500MB for all-MiniLM-L6-v2)
 
-#### FastAPI Server Mode
+#### FastAPI Server Mode (Modal Deployment)
 
-- **CPU**: 2-4 cores for concurrent requests + feature extraction
-- **GPU**: Optional (sentence transformers work well on CPU)
-- **Memory**: 2-4GB RAM for models, API server, and request processing
-- **Storage**: 1-2GB for models, cluster profiles, and logs
-- **Network**: Connection to MinIO S3 (Railway) for loading cluster profiles
+- **GPU**: NVIDIA T4 (16GB VRAM) - required for production
+- **CPU**: Shared resources via Modal platform
+- **Memory**: 8GB baseline allocation
+- **Storage**: Modal Volumes for profile and model cache persistence
+- **Network**: Outbound connectivity for HuggingFace Hub (first startup only)
 
 ### Hypercorn Benefits
 
@@ -659,49 +679,55 @@ The service is included in the root `docker-compose.yml` with proper networking 
 - **Graceful Shutdown**: Built-in signal handling and graceful shutdown support
 - **Sans-IO Architecture**: Modern implementation using sans-io hyper libraries
 
+### Modal Benefits (Production Deployment)
+
+- **Automatic Scaling**: Scales from 0 to N containers based on load
+- **Cost Efficiency**: Pay only for compute when handling requests
+- **GPU Support**: Easy GPU provisioning without infrastructure management
+- **Built-in Caching**: Modal Volumes for persistent storage across deploys
+- **Serverless**: No container management, automatic deployment and scaling
+
 ## Troubleshooting
 
 ### Common Issues
 
 **Service won't start**
 
-- Check Python version (3.10+ required)
+- Check Python version (3.11+ required)
 - Verify all dependencies installed: `uv install`
 - Check port availability (default: 8000)
-- Review environment variable configuration (especially MinIO settings)
-- Verify Hypercorn is correctly installed: `hypercorn --version`
-- Ensure you're using the correct command: `fastapi dev app/main.py` or `hypercorn app.main:create_app() --bind 0.0.0.0:8000`
+- For Modal deployment: verify Modal CLI is installed and authenticated
+- Ensure you're using the correct command: `fastapi dev main.py` (local) or `modal deploy main.py` (Modal)
 
-**MinIO connection failures**
+**Modal deployment issues**
 
-- Verify S3_BUCKET_NAME environment variable is set
-- Check MINIO_PUBLIC_ENDPOINT is accessible from your deployment
-- Validate MINIO_ROOT_USER and MINIO_ROOT_PASSWORD credentials
-- Test MinIO connectivity: use boto3 client to list buckets
-- Check Railway MinIO service status if using Railway deployment
+- Verify Modal account and authentication: `modal token new`
+- Check volume creation: `modal volume ls`
+- Review deployment logs: `modal logs <app_name>`
+- Ensure CUDA wheels installed: `pip list | grep torch`
 
 **Model loading failures**
 
 - Verify sentence-transformers is installed: `uv sync`
 - Check HuggingFace Hub connectivity for model downloads
-- Verify CUDA drivers if using GPU: `python -c "import torch; print(torch.cuda.is_available())"`
+- For GPU deployment: verify CUDA 11.8 wheels installed
 - Check available disk space for model cache (~500MB for all-MiniLM-L6-v2)
 - On macOS, CPU mode is used automatically (no CUDA required)
 
 **Routing errors**
 
-- Verify input format matches RoutingRequest schema
+- Verify input format matches ModelSelectionRequest schema
 - Check prompt length is reasonable (no hard limit, but very long prompts are slower)
-- Ensure MinIO profile data contains required cluster centers and error rates
-- Enable debug logging: `DEBUG=true fastapi dev app/main.py`
+- Ensure router profile loaded correctly (check startup logs)
+- Enable debug logging: `DEBUG=true fastapi dev main.py`
 
 **Performance issues**
 
-- Monitor CPU usage during feature extraction
+- Monitor GPU utilization on T4 (Modal deployment)
 - Check memory usage (sentence transformers ~1-2GB)
-- Verify cluster profile loaded successfully at startup (check logs)
-- For production, consider using CUDA if available (Linux only)
-- Review batch processing if handling multiple requests concurrently
+- Verify profile loaded successfully at startup (check logs)
+- Review Modal concurrent request limits if handling high load
+- For local development: consider using CUDA if GPU available
 
 ### Debug Commands
 
@@ -710,65 +736,69 @@ The service is included in the root `docker-compose.yml` with proper networking 
 ```bash
 # Test model router
 python -c "
-from core.router import ModelRouter
-from models.routing import RoutingRequest
-from loaders.minio import MinIOProfileLoader
+from adaptive_router.core.router import ModelRouter
+from adaptive_router.loaders.local import LocalFileProfileLoader
 
-loader = MinIOProfileLoader.from_env()
-router = ModelRouter(loader)
-request = RoutingRequest(prompt='Explain quantum computing', cost_preference=0.5)
-response = router.route(request)
-print(f'Provider: {response.provider}, Model: {response.model}')
-print(f'Reasoning: {response.reasoning}')
+loader = LocalFileProfileLoader('/path/to/profile.json')
+router = ModelRouter.from_local_file('/path/to/profile.json')
+request = ModelSelectionRequest(prompt='Explain quantum computing', cost_bias=0.5)
+response = router.select_model(request)
+print(f'Selected: {response.model_id}')
 "
 
-# Check CUDA availability (Linux only)
+# Check CUDA availability on GPU
 python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}')"
 
 # Monitor memory usage
 python -c "import psutil; print(f'Memory: {psutil.virtual_memory().percent}%')"
 ```
 
-**FastAPI Server Mode:**
+**FastAPI Server Mode (Local):**
 
 ```bash
 # Start with debug logging
-DEBUG=true hypercorn app.main:create_app() --bind 0.0.0.0:8000
+DEBUG=true fastapi dev main.py
 
 # Check service health
 curl -X GET http://localhost:8000/health
 
 # Test model selection endpoint
-curl -X POST http://localhost:8000/select_model \
+curl -X POST http://localhost:8000/select-model \
   -H "Content-Type: application/json" \
-  -d '{"prompt": "Write a sorting algorithm", "cost_preference": 0.5}'
+  -d '{"prompt": "Write a sorting algorithm", "cost_bias": 0.5}'
+```
 
-# Check MinIO connectivity
-python -c "
-from loaders.minio import MinIOProfileLoader
-loader = MinIOProfileLoader.from_env()
-profile = loader.load_profile()
-print(f'MinIO connection successful - loaded {len(profile.cluster_centers)} clusters')
-"
+**Modal Deployment:**
+
+```bash
+# Deploy to Modal
+modal deploy main.py
+
+# View logs
+modal logs main.py
+
+# Check GPU availability
+modal run main.py -c "python -c 'import torch; print(torch.cuda.is_available())'"
 ```
 
 ## Performance Benchmarks
 
-### Library/FastAPI Mode
+### FastAPI Mode (T4 GPU - Modal Deployment)
 
-- **Feature Extraction**: 20-50ms per request (sentence transformers + TF-IDF)
+- **Feature Extraction**: 10-20ms per request (GPU-accelerated embeddings)
 - **Cluster Assignment**: <5ms (K-means predict on pre-loaded centroids)
 - **Model Selection**: <5ms (scoring and ranking models)
-- **Total Latency**: 30-60ms end-to-end per request
-- **Throughput**: 100-500 requests/second (depends on CPU cores)
+- **Total Latency**: 15-30ms end-to-end per request (GPU acceleration)
+- **Throughput**: 100-500 requests/second (T4 GPU dependent)
 - **Memory Usage**: 2-4GB (sentence transformers + cluster profiles)
-- **First Request**: Slower (~2-5s) due to loading models from HuggingFace
+- **First Request**: Slower (~5-10s) due to loading models from HuggingFace
 
 ### Startup Performance
 
-- **MinIO Profile Load**: 1-3 seconds (downloads cluster centers, error rates, scalers)
+- **Profile Load**: Instant (from Modal Volume)
 - **Model Download**: 5-10 seconds first time (HuggingFace cache), instant after that
-- **Total Startup**: 5-15 seconds depending on network and cache state
+- **GPU Initialization**: 2-5 seconds (CUDA/cuDNN initialization)
+- **Total Startup**: 5-15 seconds depending on cache state and GPU availability
 
 ### Routing Quality
 
