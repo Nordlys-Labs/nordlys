@@ -77,21 +77,21 @@ jobs:
     needs: [test, lint]
     if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
+       - name: Checkout
+         uses: actions/checkout@v6
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
+       - name: Setup uv and Python
+         uses: astral-sh/setup-uv@v7
+         with:
+           python-version: ${{ env.PYTHON_VERSION }}
+           enable-cache: true
 
-      - name: Install Modal
-        run: pip install modal>=1.2.4
+       - name: Install dependencies
+         run: uv sync
 
-      - name: Deploy to Modal
-        run: modal deploy main.py
-        env:
-          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
-          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
-          MODAL_ENVIRONMENT: dev
-
+       - name: Deploy to Modal
+         run: uv run modal deploy main.py
+         env:
+           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+           MODAL_ENVIRONMENT: dev
