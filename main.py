@@ -395,7 +395,7 @@ image = (
 @app.cls(
     image=image,
     secrets=[modal.Secret.from_name("adaptive-router-secrets")],
-    gpu="T4",
+    gpu="L40S",
     memory=8192,
     scaledown_window=600,
     min_containers=0,
