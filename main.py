@@ -380,6 +380,9 @@ image = (
         "httpx>=0.28.1",
         "methodtools>=0.4.7",
         "einops>=0.8.1",
+        "polars>=1.35.2",
+        "boto3>=1.34.0,<2",
+        "datasets>=4.4.1",
     )
     .env({"SENTENCE_TRANSFORMERS_HOME": "/vol/model_cache"})
     .add_local_dir("adaptive_router", remote_path="/root/adaptive_router")
