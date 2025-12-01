@@ -354,7 +354,7 @@ def create_app() -> FastAPI:
 # Deploy with: modal deploy main.py
 # Modal secrets and volumes are configured below.
 # Ensure the profile.json file is available in the adaptive-router-data volume.
-modal_app = modal.App("adaptive-router")
+app = modal.App("adaptive-router")
 
 model_cache = modal.Volume.from_name(
     "sentence-transformer-cache", create_if_missing=True
@@ -387,25 +387,26 @@ image = (
 )
 
 
-@modal_app.cls(
+@app.cls(
     image=image,
     secrets=[modal.Secret.from_name("adaptive-router-secrets")],
     gpu="T4",
     memory=8192,
-    container_idle_timeout=60,
-    allow_concurrent_inputs=100,
-    keep_warm=0,  # Scale to 0 when idle - no always-running containers
+    scaledown_window=60,
+    min_containers=0,
     volumes={
         "/root/.cache": model_cache,
         "/data": profile_data,
     },
 )
+@modal.concurrent(max_inputs=100)
 class AdaptiveRouterService:
     """Modal service class for Adaptive Router serverless deployment.
 
-    Scales to 0 containers when idle (keep_warm=0) for cost efficiency.
+    Scales to 0 containers when idle (min_containers=0) for cost efficiency.
     Uses T4 GPU (16GB VRAM) for efficient embedding model inference.
-    Container idle timeout is 60 seconds before shutdown.
+    Scaledown window is 60 seconds before shutdown.
+    Supports up to 100 concurrent inputs via @modal.concurrent(max_inputs=100).
     """
 
     @modal.asgi_app()
