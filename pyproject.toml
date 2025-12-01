@@ -27,19 +27,17 @@ dependencies = [
   "pydantic>=2.11.5,<3",
   "pydantic-settings>=2.0.0,<3",
   # ML Framework & Models
-  "torch>=2.2.0,<2.3.0",
+  "torch>=2.2.0,<3.0.0",
   "numpy>=1.24.0,<2.0",
   # UniRouter ML Dependencies
   "sentence-transformers>=2.7.0,<3",
   # Utilities
   "python-dotenv>=1.0.0,<2",
   "fastapi>=0.118.2",
-  "hypercorn>=0.17.0,<1.0",
   # S3 Storage
   "boto3>=1.34.0,<2",
   "httpx>=0.28.1",
   "methodtools>=0.4.7",
-  "uvicorn>=0.38.0",
   "deepeval>=3.7.0",
   "datasets>=4.4.1",
   "polars>=1.35.2",
@@ -47,6 +45,7 @@ dependencies = [
   "tomli>=2.0.0,<3; python_version < '3.11'",
   "einops>=0.8.1",
   "scikit-learn>=1.7.2",
+  "modal>=1.2.4",
 ]
 
 [project.urls]

@@ -26,6 +26,6 @@ class HealthCheckResponse(BaseModel):
     """Complete health check response."""
 
     status: HealthStatus
-    registry: ServiceHealth
+    models: ServiceHealth
     router: ServiceHealth
     timestamp: float = Field(default_factory=time.time)

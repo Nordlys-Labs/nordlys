@@ -1,6 +1,7 @@
 """FastAPI application for adaptive_router service.
 
 Provides HTTP API endpoints for intelligent model selection using cluster-based routing.
+Supports Modal serverless deployment with automatic model caching.
 """
 
 import logging
@@ -9,10 +10,9 @@ import sys
 import time
 from contextlib import asynccontextmanager
 from functools import lru_cache
-from pathlib import Path
 from typing import Annotated, AsyncIterator
 
-from dotenv import load_dotenv
+import modal
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -27,17 +27,6 @@ from app.health import HealthCheckResponse, HealthStatus, ServiceHealth
 from app.models import ModelSelectionAPIResponse
 
 from app.utils import resolve_models
-
-
-_ENV_PATHS = [
-    Path(".env"),
-    Path(__file__).resolve().parent.parent / ".env",
-]
-
-for env_path in _ENV_PATHS:
-    if env_path.exists():
-        load_dotenv(env_path)
-        break
 
 log_level_name = os.getenv("LOG_LEVEL", "INFO").upper()
 log_level = getattr(logging, log_level_name, logging.INFO)
@@ -57,38 +46,23 @@ def extract_model_ids_from_profile(profile: RouterProfile) -> list[str]:
 
 
 async def create_model_router(
-    settings: AppSettings,
+    profile_path: str = "/data/profile.json",
 ) -> tuple[ModelRouter, RouterProfile]:
-    """Create ModelRouter and return the loaded profile."""
-    logger.info("Creating ModelRouter...")
+    """Create ModelRouter from profile stored in Modal Volume.
 
-    from adaptive_router.models.storage import MinIOSettings
-    from adaptive_router.loaders.minio import MinIOProfileLoader
+    Args:
+        profile_path: Path to the RouterProfile JSON file (default: Modal Volume mount)
 
-    endpoint = settings.minio_endpoint
-    if settings.minio_private_endpoint and settings.minio_private_endpoint.strip():
-        endpoint_source = "private"
-    elif settings.minio_public_endpoint and settings.minio_public_endpoint.strip():
-        endpoint_source = "public"
-    else:
-        endpoint_source = "default"
-    logger.info("Using %s MinIO endpoint: %s", endpoint_source, endpoint)
+    Returns:
+        Tuple of (ModelRouter, RouterProfile)
+    """
+    logger.info("Creating ModelRouter from profile: %s", profile_path)
 
-    minio_settings = MinIOSettings(
-        endpoint_url=endpoint,
-        root_user=settings.minio_root_user,
-        root_password=settings.minio_root_password,
-        bucket_name=settings.s3_bucket_name,
-        region=settings.s3_region,
-        profile_key=settings.s3_profile_key,
-        connect_timeout=int(settings.s3_connect_timeout),
-        read_timeout=int(settings.s3_read_timeout),
-    )
+    from adaptive_router.loaders.local import LocalFileProfileLoader
 
-    loader = MinIOProfileLoader.from_settings(minio_settings)
+    loader = LocalFileProfileLoader(profile_path)
     profile = loader.load_profile()
-
-    router = ModelRouter.from_profile(profile=profile)
+    router = ModelRouter.from_local_file(profile_path)
 
     logger.info("ModelRouter created successfully")
 
@@ -119,7 +93,7 @@ def create_app() -> FastAPI:
             logger.info("API Docs available at /docs once server is running")
 
             logger.info("Loading router profile and initializing services...")
-            router, profile = await create_model_router(app_state.settings)
+            router, profile = await create_model_router()
             app_state.router = router
             app_state.available_models = list(profile.models)
             logger.info(
@@ -194,9 +168,8 @@ def create_app() -> FastAPI:
     async def get_router() -> ModelRouter:
         """Get ModelRouter dependency."""
         if app_state.router is None:
-            settings = get_settings()
             logger.info("Lazy-initializing ModelRouter...")
-            router, profile = await create_model_router(settings)
+            router, profile = await create_model_router()
             app_state.router = router
             app_state.available_models = list(profile.models)
             logger.info("ModelRouter initialized successfully")
@@ -224,13 +197,13 @@ def create_app() -> FastAPI:
         overall_status = HealthStatus.HEALTHY
 
         if app_state.available_models:
-            registry_health = ServiceHealth(
+            models_health = ServiceHealth(
                 status=HealthStatus.HEALTHY,
                 message=f"{len(app_state.available_models)} models loaded from profile",
             )
         else:
             overall_status = HealthStatus.UNHEALTHY
-            registry_health = ServiceHealth(
+            models_health = ServiceHealth(
                 status=HealthStatus.UNHEALTHY,
                 message="Router profile not loaded",
             )
@@ -253,7 +226,7 @@ def create_app() -> FastAPI:
 
         return HealthCheckResponse(
             status=overall_status,
-            registry=registry_health,
+            models=models_health,
             router=router_health,
         )
 
@@ -375,4 +348,73 @@ def create_app() -> FastAPI:
     return app
 
 
-app = create_app()
+# ============================================================================
+# Modal Serverless Deployment
+# ============================================================================
+# Deploy with: modal deploy main.py
+# Modal secrets and volumes are configured below.
+# Ensure the profile.json file is available in the adaptive-router-data volume.
+app = modal.App("adaptive-router")
+
+model_cache = modal.Volume.from_name(
+    "sentence-transformer-cache", create_if_missing=True
+)
+
+profile_data = modal.Volume.from_name("adaptive-router-data", create_if_missing=True)
+
+# Custom image with dependencies
+image = (
+    modal.Image.debian_slim(python_version="3.11")
+    .pip_install(
+        "torch>=2.9.1,<3.0.0",
+        extra_index_url="https://download.pytorch.org/whl/cu118",
+    )
+    .pip_install(
+        "fastapi[standard]>=0.118.2",
+        "pydantic>=2.11.5,<3",
+        "pydantic-settings>=2.0.0,<3",
+        "sentence-transformers>=2.7.0,<3",
+        "python-dotenv>=1.0.0,<2",
+        "numpy>=1.24.0,<2.0",
+        "scikit-learn>=1.7.2",
+        "httpx>=0.28.1",
+        "methodtools>=0.4.7",
+        "einops>=0.8.1",
+        "polars>=1.35.2",
+        "boto3>=1.34.0,<2",
+        "datasets>=4.4.1",
+        "deepeval>=3.7.0",
+    )
+    .env({"SENTENCE_TRANSFORMERS_HOME": "/vol/model_cache"})
+    .add_local_dir("adaptive_router", remote_path="/root/adaptive_router")
+    .add_local_dir("app", remote_path="/root/app")
+    .add_local_file("main.py", remote_path="/root/main.py")
+)
+
+
+@app.cls(
+    image=image,
+    secrets=[modal.Secret.from_name("adaptive-router-secrets")],
+    gpu="T4",
+    memory=8192,
+    scaledown_window=60,
+    min_containers=0,
+    volumes={
+        "/vol/model_cache": model_cache,
+        "/data": profile_data,
+    },
+)
+@modal.concurrent(max_inputs=100)
+class AdaptiveRouterService:
+    """Modal service class for Adaptive Router serverless deployment.
+
+    Scales to 0 containers when idle (min_containers=0) for cost efficiency.
+    Uses T4 GPU (16GB VRAM) for efficient embedding model inference.
+    Scaledown window is 60 seconds before shutdown.
+    Supports up to 100 concurrent inputs via @modal.concurrent(max_inputs=100).
+    """
+
+    @modal.asgi_app()
+    def web_app(self) -> FastAPI:
+        """Return FastAPI application for Modal ASGI serving."""
+        return create_app()
