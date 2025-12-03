@@ -25,10 +25,6 @@ classifiers = [
 dependencies = [
   # Data Validation
   "pydantic>=2.11.5,<3",
-  # ML Framework & Models
-  "torch>=2.2.0,<3.0.0",
-  "numpy>=1.24.0,<2.0",
-  # UniRouter ML Dependencies
   "sentence-transformers>=2.7.0,<3",
   "scikit-learn>=1.7.2",
   # S3 Storage
