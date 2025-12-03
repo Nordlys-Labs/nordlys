@@ -381,8 +381,14 @@ image = (
         "datasets>=4.4.1",
         "deepeval>=3.7.0",
     )
-    .env({"SENTENCE_TRANSFORMERS_HOME": "/vol/model_cache"})
+    .env(
+        {
+            "SENTENCE_TRANSFORMERS_HOME": "/vol/model_cache",
+            "PYTHONPATH": "/root/adaptive_router_app:/root/adaptive_router:${PYTHONPATH}",
+        }
+    )
     .add_local_dir("../adaptive_router", remote_path="/root/adaptive_router")
+    .run_commands("cd /root/adaptive_router && pip install -e .")
     .add_local_dir(".", remote_path="/root/adaptive_router_app")
 )
 
