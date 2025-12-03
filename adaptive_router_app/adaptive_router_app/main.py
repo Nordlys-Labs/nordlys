@@ -418,5 +418,5 @@ class AdaptiveRouterService:
 
 
 # Expose FastAPI app for Railway deployment
-# Railway will run: hypercorn adaptive_router_app.main:app --bind "[::]:$PORT"
-app = create_app()
+# Railway will run: hypercorn adaptive_router_app.main:fastapi_app --bind "[::]:$PORT"
+fastapi_app = create_app()

@@ -91,7 +91,7 @@ exclude = [
     "adaptive_router/tests/",
     "adaptive_router_app/tests/",
     "scripts/models/",
-    "adaptive_router/",  # Library is now a separate package
+    "adaptive_router/",  # Library is a separate package with py.typed marker (PEP 561)
 ]
 no_implicit_optional = true
 warn_return_any = false
