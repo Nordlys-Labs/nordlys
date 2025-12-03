@@ -370,7 +370,9 @@ image = (
             "SENTENCE_TRANSFORMERS_HOME": "/vol/model_cache",
         }
     )
-    .add_local_dir("adaptive_router_app")
+    .add_local_dir(
+        "adaptive_router_app", remote_path="/root/adaptive_router_app", copy=True
+    )
     .uv_sync(".", frozen=True)
 )
 
