@@ -383,16 +383,7 @@ image = (
     )
     .env({"SENTENCE_TRANSFORMERS_HOME": "/vol/model_cache"})
     .add_local_dir("../adaptive_router", remote_path="/root/adaptive_router")
-    .add_local_dir("adaptive_router_app", remote_path="/root/adaptive_router_app")
-    .add_local_dir(
-        ".", remote_path="/root/adaptive_router_app"
-    )  # Add adaptive_router_app directory for pyproject.toml
-    .pip_install(
-        "-e", "/root/adaptive_router"
-    )  # Install library package in editable mode
-    .pip_install(
-        "-e", "/root/adaptive_router_app"
-    )  # Install app package in editable mode
+    .add_local_dir(".", remote_path="/root/adaptive_router_app")
 )
 
 
