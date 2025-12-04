@@ -108,12 +108,6 @@ module = [
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-markers = [
-  "integration: marks tests as integration tests (requiring running service)",
-  "unit: marks tests as unit tests (no external dependencies)",
-  "asyncio: marks tests as async tests",
-  "slow: marks tests as slow tests (ML model loading, training, etc.)",
-]
 addopts = "-v --strict-markers"
 
 [tool.coverage.report]
