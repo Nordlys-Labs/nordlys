@@ -191,11 +191,46 @@ class ModelSelectionResponse(BaseModel):
 - **Latency**: <50ms routing (semantic embeddings + clustering)
 - **Throughput**: 1000+ requests/second
 
+## Architecture
+
+```
+adaptive_router/
+├── adaptive_router/        # Python ML library (core routing logic)
+├── adaptive_router_app/    # FastAPI HTTP server (Modal deployment)
+└── adaptive_router_core/   # C++ inference core (optional, 10x faster)
+```
+
+## High-Performance C++ Core
+
+For production deployments requiring maximum throughput, Adaptive Router includes an optional C++ inference core:
+
+- **10x faster** than pure Python (5,000 routes/second vs 500/second)
+- **Zero-copy** Python integration via nanobind
+- **C FFI API** for integration with Rust, Go, Julia, and other languages
+- **Zero heap allocations** per routing request
+
+```python
+from sentence_transformers import SentenceTransformer
+from adaptive_core_ext import Router
+
+# Python: Compute embeddings
+model = SentenceTransformer('all-MiniLM-L6-v2')
+embedding = model.encode("prompt").tolist()
+
+# C++: Fast routing
+router = Router.from_file("profile.json")
+response = router.route(embedding, cost_bias=0.5)
+print(f"Selected: {response.selected_model}")
+```
+
+See [adaptive_router_core/README.md](adaptive_router_core/README.md) for build instructions and API reference.
+
 ## Development
 
-The project is structured as a **UV workspace** with two packages:
-- **`adaptive_router/`**: Core library package (ML routing logic)
-- **`adaptive_router_app/`**: FastAPI application (depends on library)
+The project is structured as a **UV workspace** with three packages:
+- **`adaptive_router/`**: Core Python ML library (routing logic, profile management)
+- **`adaptive_router_app/`**: FastAPI HTTP server (Modal/Railway deployment)
+- **`adaptive_router_core/`**: C++ inference core (optional, high-performance routing)
 
 ```bash
 # Setup
