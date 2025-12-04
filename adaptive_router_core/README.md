@@ -52,13 +52,15 @@ Embedding (384D) → ClusterEngine → Cluster ID → ModelScorer → Ranked Mod
 
 ### Building from Source
 
+**Linux/macOS:**
+
 ```bash
 cd adaptive_router_core
 
 # Install dependencies via Conan
-conan install . --output-folder=build --build=missing
+conan install . --output-folder=build --build=missing --settings=build_type=Release
 
-# Configure CMake
+# Configure CMake (use conan-release preset)
 cmake --preset conan-release
 
 # Build
@@ -67,6 +69,26 @@ cmake --build build/build/Release
 # Run tests (optional)
 ctest --test-dir build/build/Release --output-on-failure
 ```
+
+**Windows:**
+
+```bash
+cd adaptive_router_core
+
+# Install dependencies via Conan
+conan install . --output-folder=build --build=missing --settings=build_type=Release
+
+# Configure CMake (use conan-default preset on Windows)
+cmake --preset conan-default
+
+# Build
+cmake --build build
+
+# Run tests (optional)
+ctest --test-dir build --output-on-failure
+```
+
+**Note**: Conan generates different preset names on Windows (`conan-default`) vs Linux/macOS (`conan-release`, `conan-debug`).
 
 ### Python Package Installation
 
@@ -392,6 +414,8 @@ adaptive_router_core/
 
 ### Building with Tests
 
+**Linux/macOS:**
+
 ```bash
 # Configure with testing enabled
 cmake --preset conan-release -DBUILD_TESTING=ON
@@ -406,6 +430,22 @@ ctest --test-dir build/build/Release --output-on-failure
 ctest --test-dir build/build/Release -V
 ```
 
+**Windows:**
+
+```bash
+# Configure with testing enabled
+cmake --preset conan-default -DBUILD_TESTING=ON
+
+# Build
+cmake --build build --config Release
+
+# Run tests
+ctest --test-dir build -C Release --output-on-failure
+
+# Run tests with verbose output
+ctest --test-dir build -C Release -V
+```
+
 ### Code Quality
 
 ```bash
@@ -415,8 +455,11 @@ find include src -name "*.hpp" -o -name "*.cpp" | xargs clang-format -i
 # Static analysis (requires clang-tidy)
 cmake --build build/build/Release --target clang-tidy
 
-# Generate compile_commands.json for IDE support
+# Generate compile_commands.json for IDE support (Linux/macOS)
 cmake --preset conan-release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+# Generate compile_commands.json for IDE support (Windows)
+cmake --preset conan-default -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 ```
 
 ## Troubleshooting

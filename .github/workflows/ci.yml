@@ -190,7 +190,7 @@ jobs:
         shell: bash
         run: |
           if [ "${{ runner.os }}" = "Windows" ]; then
-            MODULE_PATH="${{ github.workspace }}/adaptive_router_core/build/bindings/python/${{ matrix.build_type }}"
+            MODULE_PATH="${{ github.workspace }}/adaptive_router_core/build/build/${{ matrix.build_type }}/bindings/python"
           else
             MODULE_PATH="${{ github.workspace }}/adaptive_router_core/build/build/${{ matrix.build_type }}/bindings/python"
           fi

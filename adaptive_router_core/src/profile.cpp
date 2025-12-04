@@ -1,6 +1,8 @@
 #include "profile.hpp"
 
+#include <cstdint>
 #include <fstream>
+#include <limits>
 #include <msgpack.hpp>
 #include <nlohmann/json.hpp>
 #include <sstream>
@@ -77,6 +79,23 @@ RouterProfile RouterProfile::from_json_string(const std::string& json_str) {
     int n_clusters = centers_json.at("n_clusters").get<int>();
     int feature_dim = centers_json.at("feature_dim").get<int>();
     const auto& centers_data = centers_json.at("cluster_centers");
+
+    // Validate n_clusters and feature_dim are positive
+    if (n_clusters <= 0) {
+      throw std::invalid_argument("n_clusters must be positive, got " + std::to_string(n_clusters));
+    }
+    if (feature_dim <= 0) {
+      throw std::invalid_argument("feature_dim must be positive, got " + std::to_string(feature_dim));
+    }
+
+    // Check for overflow: promote to uint64_t before multiplication
+    uint64_t total_elements = static_cast<uint64_t>(n_clusters) * static_cast<uint64_t>(feature_dim);
+    uint64_t total_bytes = total_elements * sizeof(float);
+    if (total_elements > static_cast<uint64_t>(std::numeric_limits<Eigen::Index>::max())) {
+      throw std::invalid_argument("Cluster centers dimensions overflow: n_clusters="
+                                  + std::to_string(n_clusters) + ", feature_dim="
+                                  + std::to_string(feature_dim));
+    }
 
     if (!centers_data.is_array()) {
       throw std::invalid_argument("cluster_centers.cluster_centers must be an array");
@@ -162,7 +181,25 @@ RouterProfile RouterProfile::from_binary(const std::string& path) {
     int feature_dim = centers_map.at("feature_dim").as<int>();
     std::string centers_bytes = centers_map.at("data").as<std::string>();
 
-    size_t expected_size = n_clusters * feature_dim * sizeof(float);
+    // Validate n_clusters and feature_dim are positive
+    if (n_clusters <= 0) {
+      throw std::invalid_argument("n_clusters must be positive, got " + std::to_string(n_clusters));
+    }
+    if (feature_dim <= 0) {
+      throw std::invalid_argument("feature_dim must be positive, got " + std::to_string(feature_dim));
+    }
+
+    // Check for overflow: promote to uint64_t before multiplication
+    uint64_t total_elements = static_cast<uint64_t>(n_clusters) * static_cast<uint64_t>(feature_dim);
+    uint64_t expected_size_u64 = total_elements * sizeof(float);
+    if (total_elements > static_cast<uint64_t>(std::numeric_limits<Eigen::Index>::max())) {
+      throw std::invalid_argument("Cluster centers dimensions overflow: n_clusters="
+                                  + std::to_string(n_clusters) + ", feature_dim="
+                                  + std::to_string(feature_dim));
+    }
+
+    // Safe to cast to size_t after validation
+    size_t expected_size = static_cast<size_t>(expected_size_u64);
     if (centers_bytes.size() != expected_size) {
       throw std::invalid_argument("cluster_centers data size mismatch: expected "
                                   + std::to_string(expected_size) + " bytes, got "
@@ -231,8 +268,6 @@ RouterProfile RouterProfile::from_binary(const std::string& path) {
       profile.metadata.silhouette_score = 0.0f;
     }
 
-  } catch (const std::invalid_argument&) {
-    throw;  // Re-throw our custom errors
   } catch (const std::exception& e) {
     throw std::invalid_argument(std::string("Error parsing MessagePack data: ") + e.what());
   }
