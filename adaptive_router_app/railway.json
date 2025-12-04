@@ -4,6 +4,6 @@
     "builder": "RAILPACK"
   },
   "deploy": {
-    "startCommand": "hypercorn main:app --bind \"[::]:$PORT\""
+    "startCommand": "hypercorn adaptive_router_app.main:app --bind \"[::]:$PORT\""
   }
 }

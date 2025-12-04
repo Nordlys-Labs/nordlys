@@ -1,0 +1,124 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "adaptive_router"
+version = "0.1.0"
+description = "Intelligent LLM Infrastructure with Smart Model Selection"
+authors = [{ name = "Botir Khaltaev", email = "botirkhaltaev@llmadaptive.uk" }]
+requires-python = ">=3.12,<4.0"
+readme = "README.md"
+license = "MIT"
+keywords = ["llm", "ai", "model-selection", "machine-learning", "adaptive"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Typing :: Typed",
+]
+dependencies = [
+  # Data Validation
+  "pydantic>=2.11.5,<3",
+  "sentence-transformers>=2.7.0,<3",
+  "scikit-learn>=1.7.2",
+  # S3 Storage
+  "boto3>=1.34.0,<2",
+  # Data Processing
+  "datasets>=4.4.1",
+  "polars>=1.35.2",
+  # Evaluation
+  "deepeval>=3.7.0",
+  "einops>=0.8.1",
+]
+
+[project.urls]
+Homepage = "https://llmadaptive.uk"
+Repository = "https://github.com/Egham-7/adaptive"
+Documentation = "https://docs.llmadaptive.uk"
+"Bug Tracker" = "https://github.com/Egham-7/adaptive/issues"
+
+[project.optional-dependencies]
+
+[dependency-groups]
+dev = [
+  "mypy>=1.15.0,<2",
+  "black>=25.1.0,<26",
+  "ruff>=0.11.11,<0.14",
+  "types-pyyaml>=6.0.12.20250516,<7",
+  "types-pyjwt>=1.7.1",
+  "pytest>=8.4.1",
+  "pytest-cov>=6.2.1",
+  "pytest-asyncio>=0.26.0",
+]
+test = ["pytest>=8.4.1,<9", "pytest-cov>=6.2.1,<8", "pytest-asyncio>=0.24.0,<1"]
+
+[tool.black]
+line-length = 88
+target-version = ['py312']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.mypy]
+plugins = ["pydantic.mypy"]
+exclude = [
+  "tests/",
+]
+no_implicit_optional = true
+warn_return_any = false
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = [
+  "pydantic.*",
+  "torch.*",
+  "numpy.*",
+  "sentence_transformers.*",
+  "sklearn.*",
+  "boto3.*",
+  "botocore.*",
+  "datasets.*",
+  "polars.*",
+  "deepeval.*",
+  "pytest.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+markers = [
+  "integration: marks tests as integration tests (requiring running service)",
+  "unit: marks tests as unit tests (no external dependencies)",
+  "asyncio: marks tests as async tests",
+  "slow: marks tests as slow tests (ML model loading, training, etc.)",
+]
+addopts = "-v --strict-markers"
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "def __repr__",
+  "if self.debug:",
+  "if settings.DEBUG",
+  "raise AssertionError",
+  "raise NotImplementedError",
+  "if 0:",
+  "if __name__ == .__main__.:",
+  "class .*\\bProtocol\\):",
+  "@(abc\\.)?abstractmethod",
+]

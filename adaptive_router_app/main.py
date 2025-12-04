@@ -21,12 +21,12 @@ from adaptive_router.models.api import Model, ModelSelectionRequest
 from adaptive_router.models.storage import RouterProfile
 from adaptive_router.exceptions.core import ModelNotFoundError
 
-from app.models import ModelSelectionAPIRequest
-from app.config import AppSettings
-from app.health import HealthCheckResponse, HealthStatus, ServiceHealth
-from app.models import ModelSelectionAPIResponse
+from adaptive_router_app.models import ModelSelectionAPIRequest
+from adaptive_router_app.config import AppSettings
+from adaptive_router_app.health import HealthCheckResponse, HealthStatus, ServiceHealth
+from adaptive_router_app.models import ModelSelectionAPIResponse
 
-from app.utils import resolve_models
+from adaptive_router_app.utils import resolve_models
 
 log_level_name = os.getenv("LOG_LEVEL", "INFO").upper()
 log_level = getattr(logging, log_level_name, logging.INFO)
@@ -351,7 +351,7 @@ def create_app() -> FastAPI:
 # ============================================================================
 # Modal Serverless Deployment
 # ============================================================================
-# Deploy with: modal deploy main.py
+# Deploy with: modal deploy adaptive_router_app/main.py
 # Modal secrets and volumes are configured below.
 # Ensure the profile.json file is available in the adaptive-router-data volume.
 app = modal.App("adaptive-router")
@@ -363,32 +363,26 @@ model_cache = modal.Volume.from_name(
 profile_data = modal.Volume.from_name("adaptive-router-data", create_if_missing=True)
 
 # Custom image with dependencies
+# NOTE: Modal's uv_sync does NOT support UV workspaces, so we:
+# 1. Add both packages as Python source first (so adaptive-router is available)
+# 2. Install library dependencies from adaptive_router/pyproject.toml
+# 3. Install app dependencies manually (excluding adaptive-router workspace dependency)
+#    since pip doesn't understand UV workspace syntax
 image = (
-    modal.Image.debian_slim(python_version="3.11")
-    .pip_install(
-        "torch>=2.9.1,<3.0.0",
-        extra_index_url="https://download.pytorch.org/whl/cu118",
+    modal.Image.debian_slim(python_version="3.12")
+    .env(
+        {
+            "SENTENCE_TRANSFORMERS_HOME": "/vol/model_cache",
+        }
     )
+    .add_local_python_source("adaptive_router", copy=True)  # Add library package first (so it's available)
+    .add_local_python_source("adaptive_router_app", copy=True)  # Add app package
+    .pip_install_from_pyproject("../adaptive_router/pyproject.toml")  # Install library dependencies
     .pip_install(
-        "fastapi[standard]>=0.118.2",
-        "pydantic>=2.11.5,<3",
         "pydantic-settings>=2.0.0,<3",
-        "sentence-transformers>=2.7.0,<3",
-        "python-dotenv>=1.0.0,<2",
-        "numpy>=1.24.0,<2.0",
-        "scikit-learn>=1.7.2",
-        "httpx>=0.28.1",
-        "methodtools>=0.4.7",
-        "einops>=0.8.1",
-        "polars>=1.35.2",
-        "boto3>=1.34.0,<2",
-        "datasets>=4.4.1",
-        "deepeval>=3.7.0",
-    )
-    .env({"SENTENCE_TRANSFORMERS_HOME": "/vol/model_cache"})
-    .add_local_dir("adaptive_router", remote_path="/root/adaptive_router")
-    .add_local_dir("app", remote_path="/root/app")
-    .add_local_file("main.py", remote_path="/root/main.py")
+        "fastapi>=0.118.2",
+        "modal>=1.2.4",
+    )  # Install app dependencies (excluding adaptive-router, already available as source)
 )
 
 
@@ -417,3 +411,8 @@ class AdaptiveRouterService:
     def web_app(self) -> FastAPI:
         """Return FastAPI application for Modal ASGI serving."""
         return create_app()
+
+
+# Expose FastAPI app for Railway deployment
+# Railway will run: hypercorn adaptive_router_app.main:fastapi_app --bind "[::]:$PORT"
+fastapi_app = create_app()

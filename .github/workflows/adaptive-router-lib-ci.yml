@@ -1,0 +1,77 @@
+name: Adaptive Router Library CI
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - 'adaptive_router/**'
+      - '.github/workflows/adaptive-router-lib-ci.yml'
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - 'adaptive_router/**'
+      - '.github/workflows/adaptive-router-lib-ci.yml'
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.12"
+  WORKING_DIR: "adaptive_router"
+
+jobs:
+  test-library:
+    name: Test & Coverage - Library
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIR }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      
+      - name: Setup uv and Python
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+      
+      - name: Install dependencies
+        run: uv sync --group dev --group test
+      
+      - name: Run library tests
+        run: uv run pytest tests/ --cov=adaptive_router --cov-report=xml -v
+      
+      - name: Upload coverage
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage.xml
+          flags: library-python
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  lint-library:
+    name: Lint & Format - Library
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIR }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      
+      - name: Setup uv and Python
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+      
+      - name: Install dependencies
+        run: uv sync --group dev
+      
+      - name: Run type checking
+        run: uv run mypy adaptive_router/
+      
+      - name: Run linting
+        run: uv run ruff check adaptive_router/ --output-format=github
+      
+      - name: Check formatting
+        run: uv run black adaptive_router/ --check --diff --fast
