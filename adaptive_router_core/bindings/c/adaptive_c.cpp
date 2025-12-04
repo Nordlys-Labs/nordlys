@@ -17,6 +17,10 @@ static char* str_duplicate(const std::string& str) {
 extern "C" {
 
 AdaptiveRouter* adaptive_router_create(const char* profile_path) {
+    if (!profile_path) {
+        return nullptr;
+    }
+
     try {
         auto* router = new Router(
             Router::from_file(profile_path)
@@ -28,6 +32,10 @@ AdaptiveRouter* adaptive_router_create(const char* profile_path) {
 }
 
 AdaptiveRouter* adaptive_router_create_from_json(const char* json_str) {
+    if (!json_str) {
+        return nullptr;
+    }
+
     try {
         auto* router = new Router(
             Router::from_json_string(json_str)
@@ -39,6 +47,10 @@ AdaptiveRouter* adaptive_router_create_from_json(const char* json_str) {
 }
 
 AdaptiveRouter* adaptive_router_create_from_binary(const char* path) {
+    if (!path) {
+        return nullptr;
+    }
+
     try {
         auto* router = new Router(
             Router::from_binary(path)
