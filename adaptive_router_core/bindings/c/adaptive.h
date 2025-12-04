@@ -5,17 +5,17 @@
 
 /* Cross-platform DLL export/import macros */
 #if defined(_WIN32) || defined(_WIN64)
-    #ifdef ADAPTIVE_C_EXPORTS
-        #define ADAPTIVE_API __declspec(dllexport)
-    #else
-        #define ADAPTIVE_API __declspec(dllimport)
-    #endif
+#  ifdef ADAPTIVE_C_EXPORTS
+#    define ADAPTIVE_API __declspec(dllexport)
+#  else
+#    define ADAPTIVE_API __declspec(dllimport)
+#  endif
 #else
-    #if __GNUC__ >= 4
-        #define ADAPTIVE_API __attribute__((visibility("default")))
-    #else
-        #define ADAPTIVE_API
-    #endif
+#  if __GNUC__ >= 4
+#    define ADAPTIVE_API __attribute__((visibility("default")))
+#  else
+#    define ADAPTIVE_API
+#  endif
 #endif
 
 #ifdef __cplusplus
@@ -31,11 +31,11 @@ typedef struct AdaptiveRouter AdaptiveRouter;
  * Route result structure
  */
 typedef struct {
-    char* selected_model;       /**< Selected model ID (caller must free with adaptive_string_free) */
-    char** alternatives;        /**< Array of alternative model IDs */
-    size_t alternatives_count;  /**< Number of alternatives */
-    int cluster_id;            /**< Assigned cluster ID */
-    float cluster_distance;     /**< Distance to cluster centroid */
+  char* selected_model;      /**< Selected model ID (caller must free with adaptive_string_free) */
+  char** alternatives;       /**< Array of alternative model IDs */
+  size_t alternatives_count; /**< Number of alternatives */
+  int cluster_id;            /**< Assigned cluster ID */
+  float cluster_distance;    /**< Distance to cluster centroid */
 } AdaptiveRouteResult;
 
 /**
@@ -73,12 +73,9 @@ ADAPTIVE_API void adaptive_router_destroy(AdaptiveRouter* router);
  * @param cost_bias Cost bias (0.0 = prefer accuracy, 1.0 = prefer low cost)
  * @return Route result (caller must free with adaptive_route_result_free)
  */
-ADAPTIVE_API AdaptiveRouteResult* adaptive_router_route(
-    AdaptiveRouter* router,
-    const float* embedding,
-    size_t embedding_size,
-    float cost_bias
-);
+ADAPTIVE_API AdaptiveRouteResult* adaptive_router_route(AdaptiveRouter* router,
+                                                        const float* embedding,
+                                                        size_t embedding_size, float cost_bias);
 
 /**
  * Simple routing - returns just the selected model ID
@@ -88,12 +85,8 @@ ADAPTIVE_API AdaptiveRouteResult* adaptive_router_route(
  * @param cost_bias Cost bias
  * @return Selected model ID (caller must free with adaptive_string_free)
  */
-ADAPTIVE_API char* adaptive_router_route_simple(
-    AdaptiveRouter* router,
-    const float* embedding,
-    size_t embedding_size,
-    float cost_bias
-);
+ADAPTIVE_API char* adaptive_router_route_simple(AdaptiveRouter* router, const float* embedding,
+                                                size_t embedding_size, float cost_bias);
 
 /**
  * Free a route result

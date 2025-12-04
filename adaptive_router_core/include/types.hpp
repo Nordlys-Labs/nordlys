@@ -1,7 +1,7 @@
 #pragma once
+#include <Eigen/Dense>
 #include <string>
 #include <vector>
-#include <Eigen/Dense>
 
 using EmbeddingVector = Eigen::VectorXf;
 using EmbeddingMatrix = Eigen::MatrixXf;
