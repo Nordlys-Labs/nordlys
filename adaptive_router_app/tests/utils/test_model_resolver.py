@@ -3,7 +3,7 @@
 import pytest
 
 from adaptive_router.models.api import Model
-from app.utils.model_resolver import resolve_models
+from adaptive_router_app.utils.model_resolver import resolve_models
 
 
 def _make_model(provider: str, name: str) -> Model:

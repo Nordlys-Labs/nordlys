@@ -1,0 +1,150 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "adaptive-router-app"
+version = "0.1.0"
+description = "FastAPI application for Adaptive Router intelligent model selection service"
+authors = [{ name = "Botir Khaltaev", email = "botirkhaltaev@llmadaptive.uk" }]
+requires-python = ">=3.12,<4.0"
+readme = "README.md"
+license = "MIT"
+keywords = ["llm", "ai", "model-selection", "fastapi", "api"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+  "Typing :: Typed",
+]
+dependencies = [
+  # Core library dependency (local editable path)
+  "adaptive-router",
+  # Data Validation
+  "pydantic-settings>=2.0.0,<3",
+  # API Framework
+  "fastapi>=0.118.2",
+  # Serverless Deployment
+  "modal>=1.2.4",
+]
+
+[tool.uv.sources]
+# Workspace member dependency
+adaptive-router = { workspace = true }
+
+[project.urls]
+Homepage = "https://llmadaptive.uk"
+Repository = "https://github.com/Egham-7/adaptive"
+Documentation = "https://docs.llmadaptive.uk"
+"Bug Tracker" = "https://github.com/Egham-7/adaptive/issues"
+
+[project.optional-dependencies]
+
+
+[dependency-groups]
+dev = [
+  "mypy>=1.15.0,<2",
+  "black>=25.1.0,<26",
+  "ruff>=0.11.11,<0.14",
+  "types-pyyaml>=6.0.12.20250516,<7",
+  "types-pyjwt>=1.7.1",
+  "pytest>=8.4.1",
+  "pytest-cov>=6.2.1",
+  "pytest-asyncio>=0.26.0",
+]
+test = ["pytest>=8.4.1,<9", "pytest-cov>=6.2.1,<8", "pytest-asyncio>=0.24.0,<1"]
+docs = ["mkdocs>=1.5.0,<2", "mkdocs-material>=9.0.0,<10"]
+
+
+[tool.black]
+line-length = 88
+target-version = ['py312']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+
+[tool.hatchling.build]
+# Include adaptive_router_app package
+packages = ["adaptive_router_app"]
+
+[tool.mypy]
+plugins = ["pydantic.mypy"]
+exclude = [
+    "model_data/",
+    "adaptive_router/tests/",
+    "adaptive_router_app/tests/",
+    "scripts/models/",
+    "adaptive_router/",  # Library is a separate package with py.typed marker (PEP 561)
+]
+no_implicit_optional = true
+warn_return_any = false
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = [
+  "pydantic.*",
+  "pydantic_settings.*",
+  "langchain.*",
+  "langchain_core.*",
+  "langchain_openai.*",
+  "langchain_anthropic.*",
+  "langchain_groq.*",
+  "langchain_google_genai.*",
+  "hypercorn.*",
+  "fastapi.*",
+  "pythonjsonlogger.*",
+  "langgraph.*",
+  "transformers.*",
+  "torch.*",
+  "huggingface_hub.*",
+  "accelerate.*",
+  "pytest.*",
+  "sentence_transformers.*",
+  "sklearn.*",
+  "datasets.*",
+  "tqdm.*",
+  "polars.*",
+  "rich.*",
+  "boto3.*",
+  "botocore.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+markers = [
+  "integration: marks tests as integration tests (requiring running service)",
+  "unit: marks tests as unit tests (no external dependencies)",
+  "asyncio: marks tests as async tests",
+  "slow: marks tests as slow tests (ML model loading, training, etc.)",
+]
+addopts = "-v --strict-markers"
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "def __repr__",
+  "if self.debug:",
+  "if settings.DEBUG",
+  "raise AssertionError",
+  "raise NotImplementedError",
+  "if 0:",
+  "if __name__ == .__main__.:",
+  "class .*\\bProtocol\\):",
+  "@(abc\\.)?abstractmethod",
+]

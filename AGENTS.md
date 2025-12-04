@@ -7,7 +7,7 @@
 - **Test Unit**: `uv run pytest -m unit` (fast, no external deps)
 - **Test Single**: `uv run pytest tests/unit/services/test_model_router.py::TestModelRouter::test_initialization -vv`
 - **Coverage**: `uv run pytest --cov --cov-report=html`
-- **Run Server**: `fastapi dev main.py` (dev) or `hypercorn adaptive_router.app:app --bind 0.0.0.0:8000` (prod)
+- **Run Server**: `fastapi dev adaptive_router_app/main.py` (dev) or `hypercorn adaptive_router_app.main:app --bind 0.0.0.0:8000` (prod)
 
 ## Code Style
 

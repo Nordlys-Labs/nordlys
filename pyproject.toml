@@ -1,158 +1,23 @@
+[project]
+name = "adaptive-router-workspace"
+version = "0.1.0"
+requires-python = ">=3.12,<4.0"
+description = "Workspace root for Adaptive Router monorepo"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[project]
-name = "adaptive-router"
-version = "0.1.0"
-description = "Intelligent LLM Infrastructure with Smart Model Selection"
-authors = [{ name = "Botir Khaltaev", email = "botirkhaltaev@llmadaptive.uk" }]
-requires-python = ">=3.10,<4.0"
-readme = "README.md"
-license = "MIT"
-keywords = ["llm", "ai", "model-selection", "machine-learning", "adaptive"]
-classifiers = [
-  "Development Status :: 3 - Alpha",
-  "Intended Audience :: Developers",
-  "License :: OSI Approved :: MIT License",
-  "Operating System :: OS Independent",
-  "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.12",
-  "Topic :: Scientific/Engineering :: Artificial Intelligence",
-  "Topic :: Software Development :: Libraries :: Python Modules",
-  "Typing :: Typed",
-]
-dependencies = [
-  # Data Validation
-  "pydantic>=2.11.5,<3",
-  "pydantic-settings>=2.0.0,<3",
-  # ML Framework & Models
-  "torch>=2.2.0,<3.0.0",
-  "numpy>=1.24.0,<2.0",
-  # UniRouter ML Dependencies
-  "sentence-transformers>=2.7.0,<3",
-  # Utilities
-  "python-dotenv>=1.0.0,<2",
-  "fastapi>=0.118.2",
-  # S3 Storage
-  "boto3>=1.34.0,<2",
-  "httpx>=0.28.1",
-  "methodtools>=0.4.7",
-  "deepeval>=3.7.0",
-  "datasets>=4.4.1",
-  "polars>=1.35.2",
-  # TOML parsing for training script (Python < 3.11)
-  "tomli>=2.0.0,<3; python_version < '3.11'",
-  "einops>=0.8.1",
-  "scikit-learn>=1.7.2",
-  "modal>=1.2.4",
+[tool.hatch.build.targets.wheel]
+packages = ["adaptive_router_workspace"]
+
+[tool.uv.workspace]
+members = [
+    "adaptive_router",
+    "adaptive_router_app",
 ]
 
-[project.urls]
-Homepage = "https://llmadaptive.uk"
-Repository = "https://github.com/Egham-7/adaptive"
-Documentation = "https://docs.llmadaptive.uk"
-"Bug Tracker" = "https://github.com/Egham-7/adaptive/issues"
-
-[project.optional-dependencies]
-
-
-[dependency-groups]
-dev = [
-  "mypy>=1.15.0,<2",
-  "black>=25.1.0,<26",
-  "ruff>=0.11.11,<0.14",
-  "types-pyyaml>=6.0.12.20250516,<7",
-  "types-pyjwt>=1.7.1",
-  "pytest>=8.4.1",
-  "pytest-cov>=6.2.1",
-  "pytest-asyncio>=0.26.0",
-]
-test = ["pytest>=8.4.1,<9", "pytest-cov>=6.2.1,<8", "pytest-asyncio>=0.24.0,<1"]
-docs = ["mkdocs>=1.5.0,<2", "mkdocs-material>=9.0.0,<10"]
-
-
-[tool.black]
-line-length = 88
-target-version = ['py311']
-include = '\.pyi?$'
-extend-exclude = '''
-/(
-  \.eggs
-  | \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | build
-  | dist
-)/
-'''
-
-
-[tool.mypy]
-plugins = ["pydantic.mypy"]
-exclude = [
-  "model_data/",
-  "adaptive_router/tests/",
-  "app/tests/",
-  "scripts/models/",
-]
-no_implicit_optional = true
-warn_return_any = false
-warn_unused_ignores = true
-
-[[tool.mypy.overrides]]
-module = [
-  "pydantic.*",
-  "pydantic_settings.*",
-  "langchain.*",
-  "langchain_core.*",
-  "langchain_openai.*",
-  "langchain_anthropic.*",
-  "langchain_groq.*",
-  "langchain_google_genai.*",
-  "hypercorn.*",
-  "fastapi.*",
-  "httpx.*",
-  "pythonjsonlogger.*",
-  "langgraph.*",
-  "transformers.*",
-  "torch.*",
-  "huggingface_hub.*",
-  "accelerate.*",
-  "pytest.*",
-  "sentence_transformers.*",
-  "sklearn.*",
-  "datasets.*",
-  "tqdm.*",
-  "polars.*",
-  "rich.*",
-  "boto3.*",
-  "botocore.*",
-  "methodtools.*",
-]
-ignore_missing_imports = true
-
-[tool.pytest.ini_options]
-markers = [
-  "integration: marks tests as integration tests (requiring running service)",
-  "unit: marks tests as unit tests (no external dependencies)",
-  "asyncio: marks tests as async tests",
-  "slow: marks tests as slow tests (ML model loading, training, etc.)",
-]
-addopts = "-v --strict-markers"
-
-[tool.coverage.report]
-exclude_lines = [
-  "pragma: no cover",
-  "def __repr__",
-  "if self.debug:",
-  "if settings.DEBUG",
-  "raise AssertionError",
-  "raise NotImplementedError",
-  "if 0:",
-  "if __name__ == .__main__.:",
-  "class .*\\bProtocol\\):",
-  "@(abc\\.)?abstractmethod",
-]
+[tool.uv.sources]
+# Workspace members can reference each other
+adaptive-router = { workspace = true }
+adaptive-router-app = { workspace = true }
