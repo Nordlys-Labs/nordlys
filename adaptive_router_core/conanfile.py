@@ -27,4 +27,5 @@ class AdaptiveRouterCoreConan(ConanFile):
     def validate(self):
         # Validate compiler supports C++23
         from conan.tools.build import check_min_cppstd
+
         check_min_cppstd(self, "23")
