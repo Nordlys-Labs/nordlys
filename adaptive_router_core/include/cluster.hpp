@@ -22,7 +22,7 @@ public:
   [[nodiscard]] std::pair<int, float> assign(const EmbeddingVector& embedding);
 
   // Get number of clusters
-  [[nodiscard]] int get_n_clusters() const;
+  [[nodiscard]] int get_n_clusters() const noexcept;
 
 private:
   EmbeddingMatrix centroids_;

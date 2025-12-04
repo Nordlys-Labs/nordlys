@@ -90,7 +90,6 @@ RouterProfile RouterProfile::from_json_string(const std::string& json_str) {
 
     // Check for overflow: promote to uint64_t before multiplication
     uint64_t total_elements = static_cast<uint64_t>(n_clusters) * static_cast<uint64_t>(feature_dim);
-    uint64_t total_bytes = total_elements * sizeof(float);
     if (total_elements > static_cast<uint64_t>(std::numeric_limits<Eigen::Index>::max())) {
       throw std::invalid_argument("Cluster centers dimensions overflow: n_clusters="
                                   + std::to_string(n_clusters) + ", feature_dim="
@@ -106,16 +105,20 @@ RouterProfile RouterProfile::from_json_string(const std::string& json_str) {
           + ") does not match n_clusters (" + std::to_string(n_clusters) + ")");
     }
 
+    auto n_clusters_u = static_cast<std::size_t>(n_clusters);
+    auto feature_dim_u = static_cast<std::size_t>(feature_dim);
+
     profile.cluster_centers.resize(n_clusters, feature_dim);
-    for (int i = 0; i < n_clusters; ++i) {
-      if (!centers_data[i].is_array() || static_cast<int>(centers_data[i].size()) != feature_dim) {
+    for (std::size_t i = 0; i < n_clusters_u; ++i) {
+      if (!centers_data[i].is_array() || centers_data[i].size() != feature_dim_u) {
         throw std::invalid_argument("Invalid cluster center dimensions at index "
                                     + std::to_string(i) + ": expected "
                                     + std::to_string(feature_dim) + " dimensions, got "
                                     + std::to_string(centers_data[i].size()));
       }
-      for (int j_idx = 0; j_idx < feature_dim; ++j_idx) {
-        profile.cluster_centers(i, j_idx) = centers_data[i][j_idx].get<float>();
+      for (std::size_t j_idx = 0; j_idx < feature_dim_u; ++j_idx) {
+        profile.cluster_centers(static_cast<Eigen::Index>(i), static_cast<Eigen::Index>(j_idx))
+            = centers_data[i][j_idx].get<float>();
       }
     }
 

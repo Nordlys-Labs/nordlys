@@ -6,12 +6,12 @@
 #include <unordered_map>
 #include <unordered_set>
 
-float ModelScorer::normalize_cost(float cost) const {
+float ModelScorer::normalize_cost(float cost) const noexcept {
   if (cost_range_ <= 0.0f) return 0.0f;
   return (cost - min_cost_) / cost_range_;
 }
 
-float ModelScorer::calculate_lambda(float cost_bias) const {
+float ModelScorer::calculate_lambda(float cost_bias) const noexcept {
   // cost_bias: 0.0 = prefer accuracy, 1.0 = prefer low cost
   return lambda_min_ + cost_bias * (lambda_max_ - lambda_min_);
 }
@@ -74,7 +74,7 @@ std::vector<ModelScore> ModelScorer::score_models(int cluster_id, float cost_bia
                                   + " error rates");
     }
 
-    float error_rate = model.error_rates[cluster_id];
+    float error_rate = model.error_rates[static_cast<std::size_t>(cluster_id)];
     float cost = model.cost_per_1m_tokens();
     float normalized_cost = normalize_cost(cost);
 

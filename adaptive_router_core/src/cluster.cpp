@@ -32,4 +32,4 @@ std::pair<int, float> ClusterEngine::assign(const EmbeddingVector& embedding) {
   return {best_cluster, std::sqrt(best_distance)};
 }
 
-int ClusterEngine::get_n_clusters() const { return n_clusters_; }
+int ClusterEngine::get_n_clusters() const noexcept { return n_clusters_; }

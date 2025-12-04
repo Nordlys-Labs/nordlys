@@ -20,7 +20,7 @@ struct ModelFeatures {
   float cost_per_1m_output_tokens;
 
   // Average cost per 1M tokens
-  [[nodiscard]] float cost_per_1m_tokens() const {
+  [[nodiscard]] constexpr float cost_per_1m_tokens() const noexcept {
     return (cost_per_1m_input_tokens + cost_per_1m_output_tokens) / 2.0f;
   }
 };
@@ -51,8 +51,8 @@ public:
                                                      const std::vector<std::string>& filter = {});
 
 private:
-  float normalize_cost(float cost) const;
-  float calculate_lambda(float cost_bias) const;
+  [[nodiscard]] float normalize_cost(float cost) const noexcept;
+  [[nodiscard]] float calculate_lambda(float cost_bias) const noexcept;
 
   std::vector<ModelFeatures> models_;
   float min_cost_ = 0.0f;

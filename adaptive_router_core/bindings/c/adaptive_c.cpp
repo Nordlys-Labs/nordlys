@@ -78,6 +78,11 @@ AdaptiveRouteResult* adaptive_router_route(AdaptiveRouter* router, const float* 
     }
 
     result->selected_model = str_duplicate(response.selected_model);
+    if (!result->selected_model) {
+      free(result);
+      return nullptr;
+    }
+
     result->cluster_id = response.cluster_id;
     result->cluster_distance = response.cluster_distance;
 
@@ -86,9 +91,23 @@ AdaptiveRouteResult* adaptive_router_route(AdaptiveRouter* router, const float* 
     if (result->alternatives_count > 0) {
       result->alternatives
           = static_cast<char**>(malloc(sizeof(char*) * result->alternatives_count));
-      if (result->alternatives) {
-        for (size_t i = 0; i < result->alternatives_count; ++i) {
-          result->alternatives[i] = str_duplicate(response.alternatives[i]);
+      if (!result->alternatives) {
+        free(result->selected_model);
+        free(result);
+        return nullptr;
+      }
+
+      for (size_t i = 0; i < result->alternatives_count; ++i) {
+        result->alternatives[i] = str_duplicate(response.alternatives[i]);
+        if (!result->alternatives[i]) {
+          // Cleanup previously allocated strings
+          for (size_t j = 0; j < i; ++j) {
+            free(result->alternatives[j]);
+          }
+          free(result->alternatives);
+          free(result->selected_model);
+          free(result);
+          return nullptr;
         }
       }
     } else {

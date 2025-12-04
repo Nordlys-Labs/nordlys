@@ -51,8 +51,8 @@ public:
 
   // Introspection
   [[nodiscard]] std::vector<std::string> get_supported_models() const;
-  [[nodiscard]] int get_n_clusters() const;
-  [[nodiscard]] int get_embedding_dim() const;
+  [[nodiscard]] int get_n_clusters() const noexcept;
+  [[nodiscard]] int get_embedding_dim() const noexcept;
 
 private:
   void initialize(const RouterProfile& prof);

@@ -59,6 +59,32 @@ target_link_libraries(adaptive_core PUBLIC
 
 target_compile_features(adaptive_core PUBLIC cxx_std_23)
 
+# Comprehensive compiler warnings
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  target_compile_options(adaptive_core PRIVATE
+    -Wall -Wextra -Wpedantic -Werror
+    -Wconversion -Wsign-conversion
+    -Wnon-virtual-dtor -Woverloaded-virtual
+    -Wold-style-cast
+  )
+elseif(MSVC)
+  target_compile_options(adaptive_core PRIVATE /W4 /WX)
+endif()
+
+# Sanitizer support (off by default)
+option(ENABLE_SANITIZERS "Enable address and undefined sanitizers" OFF)
+if(ENABLE_SANITIZERS)
+  if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(adaptive_core PRIVATE
+      -fsanitize=address,undefined
+      -fno-omit-frame-pointer
+    )
+    target_link_options(adaptive_core PRIVATE
+      -fsanitize=address,undefined
+    )
+  endif()
+endif()
+
 # Python bindings
 add_subdirectory(bindings/python)
 

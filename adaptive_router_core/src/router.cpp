@@ -1,5 +1,7 @@
 #include "router.hpp"
 
+#include <algorithm>
+#include <ranges>
 #include <stdexcept>
 
 void Router::initialize(const RouterProfile& prof) {
@@ -34,25 +36,32 @@ Router Router::from_binary(const std::string& path) {
 }
 
 RouteResponse Router::route(const RouteRequest& request) {
-  // Convert span to Eigen vector
-  EmbeddingVector embedding(static_cast<Eigen::Index>(request.embedding.size()));
-  for (size_t i = 0; i < request.embedding.size(); ++i) {
-    embedding(static_cast<Eigen::Index>(i)) = request.embedding[i];
-  }
+  // Zero-copy: map span to Eigen vector view
+  Eigen::Map<const EmbeddingVector> embedding(
+    request.embedding.data(),
+    static_cast<Eigen::Index>(request.embedding.size())
+  );
 
   return route(embedding, request.cost_bias);
 }
 
 RouteResponse Router::route(const float* embedding_data, size_t embedding_size, float cost_bias) {
-  EmbeddingVector embedding(static_cast<Eigen::Index>(embedding_size));
-  for (size_t i = 0; i < embedding_size; ++i) {
-    embedding(static_cast<Eigen::Index>(i)) = embedding_data[i];
-  }
+  // Zero-copy: map raw pointer to Eigen vector view
+  Eigen::Map<const EmbeddingVector> embedding(
+    embedding_data,
+    static_cast<Eigen::Index>(embedding_size)
+  );
 
   return route(embedding, cost_bias);
 }
 
 RouteResponse Router::route(const EmbeddingVector& embedding, float cost_bias) {
+  // Validate cost_bias range [0.0, 1.0]
+  if (cost_bias < 0.0f || cost_bias > 1.0f) {
+    throw std::invalid_argument("cost_bias must be in range [0.0, 1.0], got "
+                                + std::to_string(cost_bias));
+  }
+
   // Validate embedding dimensions
   if (embedding.size() != embedding_dim_) {
     throw std::invalid_argument("Embedding dimension mismatch: expected "
@@ -73,10 +82,13 @@ RouteResponse Router::route(const EmbeddingVector& embedding, float cost_bias) {
   if (!scores.empty()) {
     response.selected_model = scores[0].model_id;
 
-    // Add alternatives (skip first, which is selected)
+    // Add alternatives using modern C++ (skip first, which is selected)
     int max_alt = profile_.metadata.routing.max_alternatives;
-    for (size_t i = 1; i < scores.size() && static_cast<int>(i) <= max_alt; ++i) {
-      response.alternatives.push_back(scores[i].model_id);
+    auto alt_count = std::min(static_cast<int>(scores.size()) - 1, max_alt);
+    response.alternatives.reserve(static_cast<std::size_t>(alt_count));
+
+    for (int i = 1; i <= alt_count; ++i) {
+      response.alternatives.push_back(scores[static_cast<std::size_t>(i)].model_id);
     }
   }
 
@@ -84,13 +96,11 @@ RouteResponse Router::route(const EmbeddingVector& embedding, float cost_bias) {
 }
 
 std::vector<std::string> Router::get_supported_models() const {
-  std::vector<std::string> models;
-  for (const auto& m : profile_.models) {
-    models.push_back(m.model_id);
-  }
-  return models;
+  auto model_ids = profile_.models
+    | std::views::transform([](const auto& m) { return m.model_id; });
+  return {model_ids.begin(), model_ids.end()};
 }
 
-int Router::get_n_clusters() const { return cluster_engine_.get_n_clusters(); }
+int Router::get_n_clusters() const noexcept { return cluster_engine_.get_n_clusters(); }
 
-int Router::get_embedding_dim() const { return embedding_dim_; }
+int Router::get_embedding_dim() const noexcept { return embedding_dim_; }
