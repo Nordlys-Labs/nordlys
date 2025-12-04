@@ -1,0 +1,23 @@
+[build-system]
+requires = ["scikit-build-core>=0.10.7", "nanobind>=2.2.0"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "adaptive_router_core"
+version = "0.1.0"
+description = "C++ inference core for Adaptive Router"
+authors = [{ name = "Botir Khaltaev", email = "botirkhaltaev@llmadaptive.uk" }]
+requires-python = ">=3.12,<4.0"
+license = "MIT"
+dependencies = []
+
+[tool.scikit-build]
+minimum-version = "build-system.requires"
+build-dir = "build/{wheel_tag}"
+wheel.packages = []  # Pure extension module
+cmake.build-type = "Release"
+cmake.minimum-version = "3.30"
+
+[tool.scikit-build.cmake.define]
+CMAKE_EXPORT_COMPILE_COMMANDS = "ON"
+CMAKE_CXX_STANDARD = "26"

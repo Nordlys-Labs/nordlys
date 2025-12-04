@@ -15,9 +15,11 @@ packages = ["adaptive_router_workspace"]
 members = [
     "adaptive_router",
     "adaptive_router_app",
+    "adaptive_router_core",
 ]
 
 [tool.uv.sources]
 # Workspace members can reference each other
 adaptive-router = { workspace = true }
 adaptive-router-app = { workspace = true }
+adaptive-router-core = { workspace = true }

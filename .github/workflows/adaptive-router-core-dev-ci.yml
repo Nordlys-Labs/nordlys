@@ -1,0 +1,190 @@
+name: Adaptive Router Core Dev CI
+
+on:
+  push:
+    branches: [ dev ]
+    paths:
+      - 'adaptive_router_core/**'
+      - '.github/workflows/adaptive-router-core-dev-ci.yml'
+  pull_request:
+    branches: [ dev ]
+    paths:
+      - 'adaptive_router_core/**'
+      - '.github/workflows/adaptive-router-core-dev-ci.yml'
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    name: ${{ matrix.os }} - ${{ matrix.arch }} - ${{ matrix.build_type }}
+    runs-on: ${{ matrix.runner }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux x86_64
+          - os: linux
+            runner: ubuntu-22.04
+            arch: x86_64
+            build_type: Release
+            conan_arch: x86_64
+
+          - os: linux
+            runner: ubuntu-22.04
+            arch: x86_64
+            build_type: Debug
+            conan_arch: x86_64
+
+          # Linux ARM64
+          - os: linux
+            runner: ubuntu-22.04
+            arch: aarch64
+            build_type: Release
+            conan_arch: armv8
+
+          # macOS x86_64 (Intel)
+          - os: macos
+            runner: macos-13
+            arch: x86_64
+            build_type: Release
+            conan_arch: x86_64
+
+          # macOS ARM64 (Apple Silicon)
+          - os: macos
+            runner: macos-14
+            arch: arm64
+            build_type: Release
+            conan_arch: armv8
+
+          # Windows x86_64
+          - os: windows
+            runner: windows-2022
+            arch: x86_64
+            build_type: Release
+            conan_arch: x86_64
+
+          - os: windows
+            runner: windows-2022
+            arch: x86_64
+            build_type: Debug
+            conan_arch: x86_64
+
+    defaults:
+      run:
+        working-directory: adaptive_router_core
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install Conan
+      run: |
+        pip install conan>=2.0
+        conan --version
+
+    - name: Create Conan profile
+      shell: bash
+      run: |
+        conan profile detect --force
+        conan profile show default
+
+        # Update profile with C++23 and architecture
+        conan profile update "compiler.cppstd=23" default
+        conan profile update "settings.arch=${{ matrix.conan_arch }}" default
+        conan profile update "settings.build_type=${{ matrix.build_type }}" default
+
+        # Windows-specific settings
+        if [ "${{ runner.os }}" = "Windows" ]; then
+          conan profile update "compiler.runtime=dynamic" default
+        fi
+
+        conan profile show default
+
+    - name: Set up QEMU (for ARM64 on Linux)
+      if: matrix.os == 'linux' && matrix.arch == 'aarch64'
+      uses: docker/setup-qemu-action@v3
+      with:
+        platforms: arm64
+
+    - name: Install dependencies with Conan
+      shell: bash
+      run: |
+        conan install . --output-folder=build --build=missing \
+          -s build_type=${{ matrix.build_type }} \
+          -s arch=${{ matrix.conan_arch }}
+
+    - name: Configure CMake
+      shell: bash
+      run: |
+        if [ "${{ runner.os }}" = "Windows" ]; then
+          cmake --preset conan-default -DBUILD_TESTING=ON
+        else
+          cmake --preset conan-release -DBUILD_TESTING=ON
+        fi
+
+    - name: Build
+      shell: bash
+      run: |
+        if [ "${{ runner.os }}" = "Windows" ]; then
+          cmake --build build/build/Release --config ${{ matrix.build_type }} --parallel 4
+        else
+          cmake --build build/build/Release --parallel 4
+        fi
+
+    - name: Run C++ tests
+      shell: bash
+      working-directory: adaptive_router_core/build/build/Release
+      run: |
+        if [ "${{ runner.os }}" = "Windows" ]; then
+          ctest --output-on-failure -C ${{ matrix.build_type }}
+        else
+          ctest --output-on-failure
+        fi
+
+    - name: Test Python bindings (non-ARM Linux)
+      if: matrix.arch != 'aarch64'
+      shell: bash
+      run: |
+        if [ "${{ runner.os }}" = "Windows" ]; then
+          export PYTHONPATH="build/build/Release/bindings/python/${{ matrix.build_type }}"
+        else
+          export PYTHONPATH="build/build/Release/bindings/python"
+        fi
+
+        python3 -c "
+        import adaptive_core_ext as adaptive
+        print(f'Module imported: version {adaptive.__version__}')
+        print(f'Router class: {adaptive.Router}')
+        print(f'Methods: {[m for m in dir(adaptive.Router) if not m.startswith(\"_\")]}')
+        "
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: adaptive-router-core-dev-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.build_type }}
+        path: |
+          adaptive_router_core/build/build/Release/libadaptive_core.*
+          adaptive_router_core/build/build/Release/libadaptive_c.*
+          adaptive_router_core/build/build/Release/adaptive_c.*
+          adaptive_router_core/build/build/Release/bindings/python/adaptive_core_ext.*
+        retention-days: 3
+
+  build-summary:
+    name: Build Summary
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: always()
+    steps:
+      - name: Check build results
+        run: |
+          echo "Adaptive Router Core Dev CI completed"
+          if [ "${{ needs.build-and-test.result }}" != "success" ]; then
+            echo "Some builds failed"
+            exit 1
+          fi
+          echo "All builds passed"
