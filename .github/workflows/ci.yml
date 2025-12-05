@@ -169,16 +169,17 @@ jobs:
        - name: Sync workspace
          run: uv sync
 
-       # ---- Install nanobind (required for CMake configuration) ----
-       - name: Install nanobind
-         run: uv pip install nanobind
+       # ---- Install build dependencies for manual CMake testing ----
+       # (from adaptive_router_core/pyproject.toml build-system.requires)
+       - name: Install C++ build dependencies
+         run: pip install nanobind cmake ninja conan
 
        # ---- CMake: Configure & Build ----
        - name: Configure CMake
          working-directory: adaptive_router_core
          shell: bash
          run: |
-           NANOBIND_DIR=$(cd .. && uv run python -c "import nanobind; print(nanobind.cmake_dir())")
+           NANOBIND_DIR=$(python -c "import nanobind; print(nanobind.cmake_dir())")
            cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DBUILD_TESTING=ON -Dnanobind_DIR="${NANOBIND_DIR}"
 
       - name: Build
