@@ -1,6 +1,6 @@
 [build-system]
-requires = ["scikit-build-core>=0.10.7", "nanobind>=2.9.2"]
-build-backend = "scikit_build_core.build"
+requires = ["scikit-build-core>=0.10.7", "scikit-build-core-conan>=0.1.0", "nanobind>=2.9.2"]
+build-backend = "scikit_build_core_conan.build"
 
 [project]
 name = "adaptive-router-core"
@@ -31,3 +31,6 @@ cmake.version = ">=3.24"
 [tool.scikit-build.cmake.define]
 CMAKE_EXPORT_COMPILE_COMMANDS = "ON"
 CMAKE_CXX_STANDARD = "23"
+
+[tool.scikit-build-core-conan]
+build = "missing"
