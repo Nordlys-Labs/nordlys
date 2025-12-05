@@ -173,6 +173,7 @@ jobs:
         env:
           CMAKE_TOOLCHAIN_FILE: ${{ github.workspace }}/adaptive_router_core/build/build/${{ matrix.build_type }}/generators/conan_toolchain.cmake
           CMAKE_PREFIX_PATH: ${{ github.workspace }}/adaptive_router_core/build/build/${{ matrix.build_type }}/generators
+          SKBUILD_CMAKE_BUILD_TYPE: ${{ matrix.build_type }}
         run: uv sync
 
       # ---- CMake: Configure & Build ----
