@@ -34,3 +34,4 @@ CMAKE_CXX_STANDARD = "23"
 
 [tool.scikit-build-core-conan]
 build = "missing"
+settings = ["compiler.cppstd=23"]
