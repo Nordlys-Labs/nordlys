@@ -165,17 +165,21 @@ jobs:
             conan-${{ runner.os }}-${{ matrix.build_type }}-
             conan-${{ runner.os }}-
 
-      # ---- UV: Sync Python packages (build backend handles Conan) ----
-      - name: Sync workspace
-        run: uv sync
+       # ---- UV: Sync Python packages (build backend handles Conan) ----
+       - name: Sync workspace
+         run: uv sync
 
-      # ---- CMake: Configure & Build ----
-      - name: Configure CMake
-        working-directory: adaptive_router_core
-        shell: bash
-        run: |
-          NANOBIND_DIR=$(cd .. && uv run python -c "import nanobind; print(nanobind.cmake_dir())")
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DBUILD_TESTING=ON -Dnanobind_DIR="${NANOBIND_DIR}"
+       # ---- Install nanobind (required for CMake configuration) ----
+       - name: Install nanobind
+         run: uv pip install nanobind
+
+       # ---- CMake: Configure & Build ----
+       - name: Configure CMake
+         working-directory: adaptive_router_core
+         shell: bash
+         run: |
+           NANOBIND_DIR=$(cd .. && uv run python -c "import nanobind; print(nanobind.cmake_dir())")
+           cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DBUILD_TESTING=ON -Dnanobind_DIR="${NANOBIND_DIR}"
 
       - name: Build
         working-directory: adaptive_router_core
