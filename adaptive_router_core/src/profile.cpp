@@ -209,7 +209,9 @@ RouterProfile RouterProfile::from_binary(const std::string& path) {
                                   + std::to_string(centers_bytes.size()) + " bytes");
     }
 
+    // Resize to n_clusters x feature_dim (row-major storage)
     profile.cluster_centers.resize(n_clusters, feature_dim);
+    // Copy row-major serialized bytes directly into row-major Eigen matrix
     std::memcpy(profile.cluster_centers.data(), centers_bytes.data(), expected_size);
 
     // Parse models
@@ -269,6 +271,43 @@ RouterProfile RouterProfile::from_binary(const std::string& path) {
       profile.metadata.silhouette_score = meta.at("silhouette_score").as<float>();
     } else {
       profile.metadata.silhouette_score = 0.0f;
+    }
+
+    // Parse optional clustering config
+    if (meta.count("clustering")) {
+      auto clustering_map = meta.at("clustering").as<std::map<std::string, msgpack::object>>();
+      if (clustering_map.count("max_iter")) {
+        profile.metadata.clustering.max_iter = clustering_map.at("max_iter").as<int>();
+      }
+      if (clustering_map.count("random_state")) {
+        profile.metadata.clustering.random_state = clustering_map.at("random_state").as<int>();
+      }
+      if (clustering_map.count("n_init")) {
+        profile.metadata.clustering.n_init = clustering_map.at("n_init").as<int>();
+      }
+      if (clustering_map.count("algorithm")) {
+        profile.metadata.clustering.algorithm = clustering_map.at("algorithm").as<std::string>();
+      }
+      if (clustering_map.count("normalization_strategy")) {
+        profile.metadata.clustering.normalization_strategy = clustering_map.at("normalization_strategy").as<std::string>();
+      }
+    }
+
+    // Parse optional routing config
+    if (meta.count("routing")) {
+      auto routing_map = meta.at("routing").as<std::map<std::string, msgpack::object>>();
+      if (routing_map.count("lambda_min")) {
+        profile.metadata.routing.lambda_min = routing_map.at("lambda_min").as<float>();
+      }
+      if (routing_map.count("lambda_max")) {
+        profile.metadata.routing.lambda_max = routing_map.at("lambda_max").as<float>();
+      }
+      if (routing_map.count("default_cost_preference")) {
+        profile.metadata.routing.default_cost_preference = routing_map.at("default_cost_preference").as<float>();
+      }
+      if (routing_map.count("max_alternatives")) {
+        profile.metadata.routing.max_alternatives = routing_map.at("max_alternatives").as<int>();
+      }
     }
 
   } catch (const std::exception& e) {

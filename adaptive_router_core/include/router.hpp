@@ -38,7 +38,8 @@ public:
 
   // Main routing API - templated to accept any floating point type
   template<typename Scalar>
-  [[nodiscard]] RouteResponse route(const Scalar* embedding_data, size_t embedding_size, float cost_bias = 0.5f);
+  [[nodiscard]] RouteResponse route(const Scalar* embedding_data, size_t embedding_size, float cost_bias = 0.5f,
+                                   const std::vector<std::string>& models = {});
 
   [[nodiscard]] std::vector<std::string> get_supported_models() const;
   [[nodiscard]] int get_n_clusters() const noexcept;
@@ -85,7 +86,8 @@ ClusterEngineT<Scalar>& Router::get_cluster_engine() {
 }
 
 template<typename Scalar>
-RouteResponse Router::route(const Scalar* embedding_data, size_t embedding_size, float cost_bias) {
+RouteResponse Router::route(const Scalar* embedding_data, size_t embedding_size, float cost_bias,
+                           const std::vector<std::string>& models) {
   if (embedding_size != static_cast<size_t>(embedding_dim_)) {
     throw std::invalid_argument("Embedding dimension mismatch: expected "
                                 + std::to_string(embedding_dim_) + " but got "
@@ -99,8 +101,8 @@ RouteResponse Router::route(const Scalar* embedding_data, size_t embedding_size,
 
   auto [cluster_id, distance] = engine.assign(embedding);
 
-  // Score models for this cluster
-  auto scores = scorer_.score_models(cluster_id, cost_bias);
+   // Score models for this cluster
+   auto scores = scorer_.score_models(cluster_id, cost_bias, models);
 
   RouteResponse response;
   response.cluster_id = cluster_id;
@@ -110,13 +112,15 @@ RouteResponse Router::route(const Scalar* embedding_data, size_t embedding_size,
     response.selected_model = scores[0].model_id;
 
     int max_alt = profile_.metadata.routing.max_alternatives;
-    auto alt_count = std::min(static_cast<int>(scores.size()) - 1, max_alt);
-    response.alternatives.reserve(static_cast<std::size_t>(alt_count));
+    int alt_count = std::max(0, std::min<int>(static_cast<int>(scores.size()) - 1, max_alt));
+    if (alt_count > 0) {
+      response.alternatives.reserve(static_cast<std::size_t>(alt_count));
+    }
 
     for (int i = 1; i <= alt_count; ++i) {
       response.alternatives.push_back(scores[static_cast<std::size_t>(i)].model_id);
     }
   }
 
-  return response;
+   return response;
 }

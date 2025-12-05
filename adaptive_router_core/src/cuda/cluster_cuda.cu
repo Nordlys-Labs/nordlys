@@ -5,6 +5,7 @@
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
 #include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
 #include <thrust/extrema.h>
 
 #include <cmath>
@@ -155,15 +156,18 @@ std::pair<int, float> CudaClusterBackendT<float>::assign(const float* embedding,
   // 4. Epilogue kernel: dist²[i] = ||c_i||² + ||e||² - 2*dot[i]
   constexpr int kBlockSize = 256;
   int grid_size = (n_clusters_ + kBlockSize - 1) / kBlockSize;
-  epilogue_kernel<float><<<grid_size, kBlockSize, 0, stream_>>>(
-      d_centroid_norms_, embed_norm, d_dots_, d_distances_, n_clusters_);
+   epilogue_kernel<float><<<grid_size, kBlockSize, 0, stream_>>>(
+       d_centroid_norms_, embed_norm, d_dots_, d_distances_, n_clusters_);
 
-  // 5. Synchronize before Thrust
-  CUDA_CHECK(cudaStreamSynchronize(stream_));
+   // Check for kernel launch errors
+   CUDA_CHECK(cudaGetLastError());
 
-  // 6. Argmin using Thrust
-  thrust::device_ptr<float> ptr(d_distances_);
-  auto min_it = thrust::min_element(ptr, ptr + n_clusters_);
+   // 5. Argmin using Thrust on the same stream
+   thrust::device_ptr<float> ptr(d_distances_);
+   auto min_it = thrust::min_element(thrust::cuda::par.on(stream_), ptr, ptr + n_clusters_);
+
+   // 6. Synchronize to ensure Thrust completes before reading result
+   CUDA_CHECK(cudaStreamSynchronize(stream_));
   int best = static_cast<int>(min_it - ptr);
   float best_dist = std::sqrt(*min_it);
 
@@ -283,15 +287,18 @@ std::pair<int, double> CudaClusterBackendT<double>::assign(const double* embeddi
   // 4. Epilogue kernel: dist²[i] = ||c_i||² + ||e||² - 2*dot[i]
   constexpr int kBlockSize = 256;
   int grid_size = (n_clusters_ + kBlockSize - 1) / kBlockSize;
-  epilogue_kernel<double><<<grid_size, kBlockSize, 0, stream_>>>(
-      d_centroid_norms_, embed_norm, d_dots_, d_distances_, n_clusters_);
+   epilogue_kernel<double><<<grid_size, kBlockSize, 0, stream_>>>(
+       d_centroid_norms_, embed_norm, d_dots_, d_distances_, n_clusters_);
 
-  // 5. Synchronize before Thrust
-  CUDA_CHECK(cudaStreamSynchronize(stream_));
+   // Check for kernel launch errors
+   CUDA_CHECK(cudaGetLastError());
 
-  // 6. Argmin using Thrust
-  thrust::device_ptr<double> ptr(d_distances_);
-  auto min_it = thrust::min_element(ptr, ptr + n_clusters_);
+   // 5. Argmin using Thrust on the same stream
+   thrust::device_ptr<double> ptr(d_distances_);
+   auto min_it = thrust::min_element(thrust::cuda::par.on(stream_), ptr, ptr + n_clusters_);
+
+   // 6. Synchronize to ensure Thrust completes before reading result
+   CUDA_CHECK(cudaStreamSynchronize(stream_));
   int best = static_cast<int>(min_it - ptr);
   double best_dist = std::sqrt(*min_it);
 

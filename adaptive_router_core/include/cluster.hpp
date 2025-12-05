@@ -9,8 +9,9 @@
 template<typename Scalar>
 using EmbeddingVectorT = Eigen::Matrix<Scalar, Eigen::Dynamic, 1>;
 
+// Row-major storage to match serialized binary format
 template<typename Scalar>
-using EmbeddingMatrixT = Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>;
+using EmbeddingMatrixT = Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
 
 template<typename Scalar = float>
 class ClusterEngineT {
