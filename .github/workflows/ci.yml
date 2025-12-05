@@ -155,34 +155,33 @@ jobs:
         with:
           enable-cache: true
 
-       # ---- Conan Cache ----
-       - name: Cache Conan packages
-         uses: actions/cache@v4
-         with:
-           path: ~/.conan2
-           key: conan-${{ runner.os }}-${{ matrix.build_type }}-${{ hashFiles('adaptive_router_core/conanfile.py') }}
-           restore-keys: |
-             conan-${{ runner.os }}-${{ matrix.build_type }}-
-             conan-${{ runner.os }}-
+      # ---- Conan Cache ----
+      - name: Cache Conan packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.conan2
+          key: conan-${{ runner.os }}-${{ matrix.build_type }}-${{ hashFiles('adaptive_router_core/conanfile.py') }}
+          restore-keys: |
+            conan-${{ runner.os }}-${{ matrix.build_type }}-
+            conan-${{ runner.os }}-
 
-       # ---- UV: Sync Python packages (build backend handles Conan) ----
-       - name: Sync workspace
-         run: uv sync
+      # ---- UV: Sync Python packages (build backend handles Conan) ----
+      - name: Sync workspace
+        run: uv sync
 
-       # ---- Install build dependencies for manual CMake testing ----
-       # (from adaptive_router_core/pyproject.toml build-system.requires)
-       - name: Install C++ build dependencies
-         run: pip install nanobind cmake ninja conan
+      # ---- Install build dependencies for CMake ----
+      - name: Install C++ build dependencies
+        run: pip install nanobind cmake ninja conan
 
-       # ---- CMake: Configure & Build ----
-       - name: Configure CMake
-         working-directory: adaptive_router_core
-         shell: bash
-         run: |
-           NANOBIND_DIR=$(python -c "import nanobind; print(nanobind.cmake_dir())")
-           cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DBUILD_TESTING=ON -Dnanobind_DIR="${NANOBIND_DIR}"
+      # ---- CMake: Configure & Build ----
+      - name: Configure CMake
+        working-directory: adaptive_router_core
+        shell: bash
+        run: |
+          NANOBIND_DIR=$(python -c "import nanobind; print(nanobind.cmake_dir())")
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DBUILD_TESTING=ON -Dnanobind_DIR="${NANOBIND_DIR}"
 
-       - name: Build
+      - name: Build
         working-directory: adaptive_router_core
         shell: bash
         run: |
