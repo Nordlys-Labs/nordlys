@@ -1,15 +1,5 @@
-[project]
-name = "adaptive-router-workspace"
-version = "0.1.0"
-requires-python = ">=3.11,<4.0"
-description = "Workspace root for Adaptive Router monorepo"
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-[tool.hatch.build.targets.wheel]
-packages = ["adaptive_router_workspace"]
+# Workspace configuration only - NOT a buildable package
+# Root has NO code, only workspace config per uv best practices
 
 [tool.uv.workspace]
 members = [
@@ -19,12 +9,21 @@ members = [
 ]
 
 [dependency-groups]
+# Shared development dependencies for all workspace members
 dev = [
-    "nanobind>=2.9.2",
+    "mypy>=1.15.0,<2",
+    "ruff>=0.11.11,<0.14",
+    "pytest>=8.4.1",
+    "pytest-cov>=6.2.1",
+    "pytest-asyncio>=0.26.0",
+    "types-pyyaml>=6.0.12.20250516,<7",
+    "types-pyjwt>=1.7.1",
 ]
 
-[tool.uv.sources]
-# Workspace members can reference each other
-adaptive-router = { workspace = true }
-adaptive-router-app = { workspace = true }
-adaptive-router-core = { workspace = true }
+# Optional: Shared tool configurations
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.mypy]
+python_version = "3.12"

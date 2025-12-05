@@ -43,22 +43,6 @@ Repository = "https://github.com/Egham-7/adaptive"
 Documentation = "https://docs.llmadaptive.uk"
 "Bug Tracker" = "https://github.com/Egham-7/adaptive/issues"
 
-[project.optional-dependencies]
-
-
-[dependency-groups]
-dev = [
-  "mypy>=1.15.0,<2",
-  "ruff>=0.11.11,<0.14",
-  "types-pyyaml>=6.0.12.20250516,<7",
-  "types-pyjwt>=1.7.1",
-  "pytest>=8.4.1",
-  "pytest-cov>=6.2.1",
-  "pytest-asyncio>=0.26.0",
-]
-test = ["pytest>=8.4.1,<9", "pytest-cov>=6.2.1,<8", "pytest-asyncio>=0.24.0,<1"]
-docs = ["mkdocs>=1.5.0,<2", "mkdocs-material>=9.0.0,<10"]
-
 
 [tool.hatchling.build]
 # Include adaptive_router_app package

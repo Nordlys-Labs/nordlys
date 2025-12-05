@@ -7,14 +7,24 @@ name = "adaptive-router-core"
 version = "0.1.0"
 description = "C++ inference core for Adaptive Router"
 authors = [{ name = "Botir Khaltaev", email = "botirkhaltaev@llmadaptive.uk" }]
-requires-python = ">=3.11,<4.0"
+requires-python = ">=3.12,<4.0"
 license = "MIT"
 dependencies = []
+
+[tool.uv]
+cache-keys = [
+  { file = "CMakeLists.txt" },
+  { glob = "src/**/*.cpp" },
+  { glob = "src/**/*.cu" },
+  { glob = "include/**/*.hpp" },
+  { glob = "bindings/**/*.cpp" },
+  { glob = "bindings/**/*.h" },
+]
 
 [tool.scikit-build]
 minimum-version = "build-system.requires"
 build-dir = "build/{wheel_tag}"
-wheel.packages = []  # Pure extension module
+wheel.packages = []                       # Pure extension module
 cmake.build-type = "Release"
 cmake.version = ">=3.24"
 
