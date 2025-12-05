@@ -62,7 +62,7 @@ jobs:
       - name: Test
         run: uv run pytest -v --tb=short
 
-        # Test C++ core (using CMake presets from Conan)
+      # Test C++ core (using CMake presets from Conan)
       - name: Test C++ core
         working-directory: adaptive_router_core
         shell: bash
@@ -70,7 +70,7 @@ jobs:
           pip install nanobind conan cmake ninja
           conan profile detect --force
           conan install . --build=missing -of=build
-          cmake --preset conan-release -DBUILD_TESTING=ON
+          cmake --preset conan-release -DBUILD_TESTING=ON -Dnanobind_DIR=$(python -c "import nanobind; print(nanobind.cmake_dir())")
           cmake --build build/Release --parallel
           ctest --test-dir build/Release --output-on-failure
 
