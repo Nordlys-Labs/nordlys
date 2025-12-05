@@ -13,52 +13,23 @@ concurrency:
 
 jobs:
   # ============================================================
-  # Python Workspace: Lint & Type Check
+  # Python Packages: Lint, Type Check & Test
+  # (adaptive_router + adaptive_router_app - no C++ deps)
   # ============================================================
-  lint:
-    name: Lint & Type Check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Setup uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
-
-      - name: Setup Python
-        run: uv python install 3.12
-
-      - name: Sync workspace
-        run: uv sync
-
-      - name: Lint library
-        run: uv run --package adaptive-router ruff check --output-format=github
-
-      - name: Lint app
-        run: uv run --package adaptive-router-app ruff check --output-format=github
-
-      - name: Format check
-        run: uv run ruff format --check
-
-      - name: Type check library
-        working-directory: adaptive_router
-        run: uv run mypy .
-
-      - name: Type check app
-        working-directory: adaptive_router_app
-        run: uv run mypy .
-
-  # ============================================================
-  # Python Workspace: Test Library & App
-  # ============================================================
-  test-python:
-    name: Test Python (${{ matrix.python }})
+  python:
+    name: Python ${{ matrix.python }} - ${{ matrix.task }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         python: ['3.11', '3.12', '3.13']
+        task: [lint, test]
+        exclude:
+          # Only run lint once on Python 3.12
+          - python: '3.11'
+            task: lint
+          - python: '3.13'
+            task: lint
     steps:
       - uses: actions/checkout@v6
 
@@ -70,42 +41,66 @@ jobs:
       - name: Setup Python ${{ matrix.python }}
         run: uv python install ${{ matrix.python }}
 
-      - name: Sync workspace
-        run: uv sync
+      - name: Sync Python packages (skip C++ core)
+        run: uv sync --no-install-package adaptive-router-core
 
-      - name: Test library with coverage
+      # Lint tasks (only on Python 3.12)
+      - name: Ruff check
+        if: matrix.task == 'lint'
+        run: uv run ruff check --output-format=github
+
+      - name: Ruff format check
+        if: matrix.task == 'lint'
+        run: uv run ruff format --check
+
+      - name: Type check library
+        if: matrix.task == 'lint'
+        working-directory: adaptive_router
+        run: uv run mypy .
+
+      - name: Type check app
+        if: matrix.task == 'lint'
+        working-directory: adaptive_router_app
+        run: uv run mypy .
+
+      # Test tasks (all Python versions)
+      - name: Test library
+        if: matrix.task == 'test'
         run: uv run --package adaptive-router pytest -v --tb=short --cov=adaptive_router --cov-report=xml
 
-      - name: Test app with coverage
+      - name: Test app
+        if: matrix.task == 'test'
         run: uv run --package adaptive-router-app pytest -v --tb=short --cov=adaptive_router_app --cov-report=xml --cov-append
 
-      - name: Upload coverage to Codecov
+      - name: Upload coverage
+        if: matrix.task == 'test' && matrix.python == '3.12'
         uses: codecov/codecov-action@v4
-        if: matrix.python == '3.12'
         with:
           files: ./coverage.xml
           flags: python
           fail_ci_if_error: false
 
   # ============================================================
-  # C++ Core: Build & Test
+  # C++ Core: Build & Test (adaptive_router_core)
   # ============================================================
-  build-cpp:
-    name: C++ ${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.build_type }}-py${{ matrix.python }}
+  cpp:
+    name: C++ ${{ matrix.os }}-${{ matrix.build_type }}-py${{ matrix.python }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { os: linux, runner: ubuntu-24.04, arch: x86_64, build_type: Release, python: '3.11' }
-          - { os: linux, runner: ubuntu-24.04, arch: x86_64, build_type: Release, python: '3.12' }
-          - { os: linux, runner: ubuntu-24.04, arch: x86_64, build_type: Release, python: '3.13' }
-          - { os: linux, runner: ubuntu-24.04, arch: x86_64, build_type: Debug, python: '3.11' }
-          - { os: macos, runner: macos-15, arch: x86_64, build_type: Release, python: '3.11' }
-          - { os: macos, runner: macos-15, arch: armv8, build_type: Release, python: '3.12' }
-          - { os: windows, runner: windows-2025, arch: x86_64, build_type: Release, python: '3.11' }
-          - { os: windows, runner: windows-2025, arch: x86_64, build_type: Debug, python: '3.11' }
+          # Linux
+          - { os: linux, runner: ubuntu-24.04, build_type: Release, python: '3.11' }
+          - { os: linux, runner: ubuntu-24.04, build_type: Release, python: '3.12' }
+          - { os: linux, runner: ubuntu-24.04, build_type: Release, python: '3.13' }
+          - { os: linux, runner: ubuntu-24.04, build_type: Debug, python: '3.11' }
+          # macOS
+          - { os: macos, runner: macos-15, build_type: Release, python: '3.12' }
+          # Windows
+          - { os: windows, runner: windows-2025, build_type: Release, python: '3.11' }
+          - { os: windows, runner: windows-2025, build_type: Debug, python: '3.11' }
 
     steps:
       - uses: actions/checkout@v6
@@ -123,42 +118,38 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.conan2
-          key: conan-${{ runner.os }}-${{ matrix.arch }}-${{ hashFiles('adaptive_router_core/conanfile.py') }}
+          key: conan-${{ runner.os }}-${{ matrix.build_type }}-${{ hashFiles('adaptive_router_core/conanfile.py') }}
           restore-keys: |
-            conan-${{ runner.os }}-${{ matrix.arch }}-
+            conan-${{ runner.os }}-${{ matrix.build_type }}-
             conan-${{ runner.os }}-
 
-      - name: Sync workspace (includes nanobind)
-        run: uv sync
-
+      # ---- Conan: Install C++ dependencies ----
       - name: Install Conan
         run: uv tool install conan==2.23.0
 
-      - name: Configure Conan
+      - name: Configure Conan profile
         run: conan profile detect --force
 
-      - name: Verify Compiler (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          gcc --version
-          g++ --version
-
-      - name: Install Conan dependencies
+      - name: Install C++ dependencies (Conan)
         working-directory: adaptive_router_core
         shell: bash
         run: |
-          conan install . --output-folder=build --build=missing -s build_type=${{ matrix.build_type }} -s compiler.cppstd=23
+          conan install . --output-folder=build --build=missing \
+            -s build_type=${{ matrix.build_type }} \
+            -s compiler.cppstd=23
 
+      # ---- UV: Sync Python packages (for nanobind) ----
+      - name: Sync workspace
+        run: uv sync
+
+      # ---- CMake: Configure & Build ----
       - name: Configure CMake
         working-directory: adaptive_router_core
         shell: bash
         run: |
-          # Conan generates different preset names on Windows vs Linux/macOS
           if [ "${{ runner.os }}" = "Windows" ]; then
-            # Windows uses conan-default regardless of build type
             PRESET_NAME="default"
           else
-            # Linux/macOS uses conan-release or conan-debug
             PRESET_NAME="${{ matrix.build_type == 'Debug' && 'debug' || 'release' }}"
           fi
           NANOBIND_DIR=$(cd .. && uv run python -c "import nanobind; print(nanobind.cmake_dir())")
@@ -169,13 +160,12 @@ jobs:
         shell: bash
         run: |
           if [ "${{ runner.os }}" = "Windows" ]; then
-            # Windows: CMake preset creates files in build/build/ (uses --config at build time)
             cmake --build build/build --config ${{ matrix.build_type }} --parallel
           else
-            # Linux/macOS: CMake preset creates files in build/build/{Release|Debug}
             cmake --build build/build/${{ matrix.build_type }} --parallel
           fi
 
+      # ---- Test ----
       - name: Test C++
         working-directory: adaptive_router_core
         shell: bash
@@ -196,14 +186,14 @@ jobs:
           fi
           python -c "import sys; sys.path.insert(0, '${MODULE_PATH}'); import adaptive_core_ext; print(f'Module version: {adaptive_core_ext.__version__}')"
 
-      - name: Upload artifacts
+      # ---- Artifacts ----
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: adaptive-core-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.build_type }}-py${{ matrix.python }}
+          name: adaptive-core-${{ matrix.os }}-${{ matrix.build_type }}-py${{ matrix.python }}
           path: |
-            adaptive_router_core/build/${{ runner.os == 'Windows' && '' || 'build/' }}${{ matrix.build_type }}/*adaptive_core.*
-            adaptive_router_core/build/${{ runner.os == 'Windows' && '' || 'build/' }}${{ matrix.build_type }}/*adaptive_c*
-            adaptive_router_core/build/${{ runner.os == 'Windows' && '' || 'build/' }}${{ matrix.build_type }}/bindings/python/*adaptive_core_ext*
+            adaptive_router_core/build/**/bindings/python/*adaptive_core_ext*
+            adaptive_router_core/build/**/*adaptive_c*
           retention-days: 7
 
   # ============================================================
@@ -212,7 +202,7 @@ jobs:
   deploy:
     name: Deploy to Modal (${{ matrix.environment }})
     runs-on: ubuntu-latest
-    needs: [lint, test-python, build-cpp]
+    needs: [python, cpp]
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
     strategy:
       matrix:
@@ -238,8 +228,8 @@ jobs:
         run: uv python install 3.12
 
       - if: github.ref == matrix.branch
-        name: Sync workspace
-        run: uv sync
+        name: Sync workspace (skip C++ core)
+        run: uv sync --no-install-package adaptive-router-core
 
       - if: github.ref == matrix.branch
         name: Deploy to Modal

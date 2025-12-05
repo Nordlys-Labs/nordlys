@@ -35,9 +35,21 @@ NB_MODULE(adaptive_core_ext, m) {
 
             // Handle different dtypes by calling the appropriate C++ template
             if (embedding.dtype() == nb::dtype<float>()) {
+              // Check for contiguity: stride(0) should equal sizeof(float) for contiguous elements
+              if (embedding.stride(0) != sizeof(float)) {
+                throw std::invalid_argument(
+                    "Input array must be contiguous. "
+                    "Use numpy.ascontiguousarray() to convert non-contiguous arrays.");
+              }
               const float* data = static_cast<const float*>(embedding.data());
               return self.route(data, size, cost_bias);
             } else if (embedding.dtype() == nb::dtype<double>()) {
+              // Check for contiguity: stride(0) should equal sizeof(double) for contiguous elements
+              if (embedding.stride(0) != sizeof(double)) {
+                throw std::invalid_argument(
+                    "Input array must be contiguous. "
+                    "Use numpy.ascontiguousarray() to convert non-contiguous arrays.");
+              }
               const double* data = static_cast<const double*>(embedding.data());
               return self.route(data, size, cost_bias);  // Uses templated method
             } else {
@@ -67,20 +79,36 @@ NB_MODULE(adaptive_core_ext, m) {
             // Handle different dtypes
             if (embeddings.dtype() == nb::dtype<float>()) {
               const float* data = static_cast<const float*>(embeddings.data());
-              size_t stride = embeddings.stride(0) / sizeof(float);
+
+              // Check for C-contiguity: stride(1) should equal sizeof(float) for contiguous row elements
+              if (embeddings.stride(1) != sizeof(float)) {
+                throw std::invalid_argument(
+                    "Input array must be C-contiguous (row-major). "
+                    "Use numpy.ascontiguousarray() to convert non-contiguous arrays.");
+              }
+
+              size_t row_stride = embeddings.stride(0) / sizeof(float);
 
               for (size_t i = 0; i < n_embeddings; ++i) {
                 results.push_back(
-                    self.route(data + i * stride, embedding_dim, cost_bias)
+                    self.route(data + i * row_stride, embedding_dim, cost_bias)
                 );
               }
             } else if (embeddings.dtype() == nb::dtype<double>()) {
               const double* data = static_cast<const double*>(embeddings.data());
-              size_t stride = embeddings.stride(0) / sizeof(double);
+
+              // Check for C-contiguity: stride(1) should equal sizeof(double) for contiguous row elements
+              if (embeddings.stride(1) != sizeof(double)) {
+                throw std::invalid_argument(
+                    "Input array must be C-contiguous (row-major). "
+                    "Use numpy.ascontiguousarray() to convert non-contiguous arrays.");
+              }
+
+              size_t row_stride = embeddings.stride(0) / sizeof(double);
 
               for (size_t i = 0; i < n_embeddings; ++i) {
                 results.push_back(
-                    self.route(data + i * stride, embedding_dim, cost_bias)  // Uses templated method
+                    self.route(data + i * row_stride, embedding_dim, cost_bias)  // Uses templated method
                 );
               }
             } else {
