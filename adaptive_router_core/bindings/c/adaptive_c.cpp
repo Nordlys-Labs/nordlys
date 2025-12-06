@@ -133,12 +133,12 @@ AdaptiveRouteResult* adaptive_router_route(AdaptiveRouter* router, const float* 
         return nullptr;
       }
 
-      for (size_t i = 0; i < result->alternatives_count; ++i) {
-        result->alternatives[i] = str_duplicate(response.alternatives[i]);
-        if (!result->alternatives[i]) {
+      for (size_t alt_idx = 0; alt_idx < result->alternatives_count; ++alt_idx) {
+        result->alternatives[alt_idx] = str_duplicate(response.alternatives[alt_idx]);
+        if (!result->alternatives[alt_idx]) {
           // Cleanup previously allocated strings
-          for (size_t j = 0; j < i; ++j) {
-            free(result->alternatives[j]);
+          for (size_t cleanup_idx = 0; cleanup_idx < alt_idx; ++cleanup_idx) {
+            free(result->alternatives[cleanup_idx]);
           }
           free(result->alternatives);
           free(result->selected_model);
@@ -213,12 +213,12 @@ AdaptiveRouteResult* adaptive_router_route_double(AdaptiveRouter* router, const 
         return nullptr;
       }
 
-      for (size_t i = 0; i < result->alternatives_count; ++i) {
-        result->alternatives[i] = str_duplicate(response.alternatives[i]);
-        if (!result->alternatives[i]) {
+      for (size_t alt_idx = 0; alt_idx < result->alternatives_count; ++alt_idx) {
+        result->alternatives[alt_idx] = str_duplicate(response.alternatives[alt_idx]);
+        if (!result->alternatives[alt_idx]) {
           // Cleanup previously allocated strings
-          for (size_t j = 0; j < i; ++j) {
-            free(result->alternatives[j]);
+          for (size_t cleanup_idx = 0; cleanup_idx < alt_idx; ++cleanup_idx) {
+            free(result->alternatives[cleanup_idx]);
           }
           free(result->alternatives);
           free(result->selected_model);
@@ -270,21 +270,21 @@ AdaptiveBatchRouteResult* adaptive_router_route_batch(
     std::fill_n(batch_result->results, n_embeddings, AdaptiveRouteResult{});
 
     // Route each embedding
-    for (size_t i = 0; i < n_embeddings; ++i) {
-      const float* embedding_ptr = embeddings + (i * embedding_size);
+    for (size_t result_idx = 0; result_idx < n_embeddings; ++result_idx) {
+      const float* embedding_ptr = embeddings + (result_idx * embedding_size);
 
       // Call single route
       auto* result = adaptive_router_route(router, embedding_ptr, embedding_size, cost_bias);
 
       if (result) {
         // Transfer ownership of data
-        batch_result->results[i] = *result;
+        batch_result->results[result_idx] = *result;
         // Free only the result struct, not the data inside
         free(result);
       } else {
         // If routing fails, clean up previously allocated results
-        for (size_t j = 0; j < i; ++j) {
-          cleanup_route_result_contents(&batch_result->results[j]);
+        for (size_t cleanup_idx = 0; cleanup_idx < result_idx; ++cleanup_idx) {
+          cleanup_route_result_contents(&batch_result->results[cleanup_idx]);
         }
         free(batch_result->results);
         free(batch_result);
@@ -351,18 +351,18 @@ AdaptiveBatchRouteResult* adaptive_router_route_batch_double(
     std::fill_n(batch_result->results, n_embeddings, AdaptiveRouteResult{});
 
     // Route each embedding using the double version
-    for (size_t i = 0; i < n_embeddings; ++i) {
-      const double* embedding_ptr = embeddings + (i * embedding_size);
+    for (size_t result_idx = 0; result_idx < n_embeddings; ++result_idx) {
+      const double* embedding_ptr = embeddings + (result_idx * embedding_size);
 
       auto* result = adaptive_router_route_double(router, embedding_ptr, embedding_size, cost_bias);
 
       if (result) {
-        batch_result->results[i] = *result;
+        batch_result->results[result_idx] = *result;
         free(result);
       } else {
         // If routing fails, clean up previously allocated results
-        for (size_t j = 0; j < i; ++j) {
-          cleanup_route_result_contents(&batch_result->results[j]);
+        for (size_t cleanup_idx = 0; cleanup_idx < result_idx; ++cleanup_idx) {
+          cleanup_route_result_contents(&batch_result->results[cleanup_idx]);
         }
         free(batch_result->results);
         free(batch_result);
@@ -425,12 +425,12 @@ char** adaptive_router_get_supported_models(AdaptiveRouter* router, size_t* coun
       return nullptr;
     }
 
-    for (size_t i = 0; i < models.size(); ++i) {
-      result[i] = str_duplicate(models[i]);
-      if (!result[i]) {
+    for (size_t str_idx = 0; str_idx < models.size(); ++str_idx) {
+      result[str_idx] = str_duplicate(models[str_idx]);
+      if (!result[str_idx]) {
         // Allocation failed, clean up all previously allocated strings
-        for (size_t j = 0; j < i; ++j) {
-          free(result[j]);
+        for (size_t cleanup_idx = 0; cleanup_idx < str_idx; ++cleanup_idx) {
+          free(result[cleanup_idx]);
         }
         free(result);
         *count = 0;

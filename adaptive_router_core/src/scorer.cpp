@@ -23,7 +23,7 @@ void ModelScorer::load_models(const std::vector<ModelFeatures>& models) {
 
   // Calculate cost range using ranges::minmax_element with projection
   if (!models.empty()) {
-    auto cost_projection = [](const auto& m) { return m.cost_per_1m_tokens(); };
+    auto cost_projection = [](const auto& model) { return model.cost_per_1m_tokens(); };
     auto [min_it, max_it] = std::ranges::minmax_element(models, {}, cost_projection);
 
     min_cost_ = cost_projection(*min_it);
