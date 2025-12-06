@@ -375,7 +375,6 @@ image = (
             "SENTENCE_TRANSFORMERS_HOME": "/vol/model_cache",
         }
     )
-<<<<<<<< HEAD:adaptive_router_app/adaptive_router_app/main.py
     .add_local_python_source(
         "adaptive_router", copy=True
     )  # Add library package first (so it's available)
@@ -383,11 +382,6 @@ image = (
     .pip_install_from_pyproject(
         "../adaptive_router/pyproject.toml"
     )  # Install library dependencies
-========
-    .add_local_python_source("adaptive_router", copy=True)  # Add library package first (so it's available)
-    .add_local_python_source("adaptive_router_app", copy=True)  # Add app package
-    .pip_install_from_pyproject("../adaptive_router/pyproject.toml")  # Install library dependencies
->>>>>>>> main:adaptive_router_app/main.py
     .pip_install(
         "pydantic-settings>=2.0.0,<3",
         "fastapi>=0.118.2",
