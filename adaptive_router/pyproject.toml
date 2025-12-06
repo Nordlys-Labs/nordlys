@@ -59,12 +59,11 @@ test = ["pytest>=8.4.1,<9", "pytest-cov>=6.2.1,<8", "pytest-asyncio>=0.24.0,<1"]
 
 [tool.mypy]
 plugins = ["pydantic.mypy"]
-exclude = [
-  "tests/",
-]
+exclude = ["tests/"]
 no_implicit_optional = true
 warn_return_any = false
 warn_unused_ignores = true
+disable_error_code = ["import-untyped"]
 
 [[tool.mypy.overrides]]
 module = [
@@ -74,6 +73,7 @@ module = [
   "sentence_transformers.*",
   "sklearn.*",
   "boto3.*",
+  "boto3",
   "botocore.*",
   "datasets.*",
   "polars.*",

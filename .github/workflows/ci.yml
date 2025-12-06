@@ -50,13 +50,14 @@ jobs:
       - name: Build all packages
         run: uv sync
 
-      # Lint (only on one matrix entry to avoid redundancy)
+        # Lint (only on one matrix entry to avoid redundancy)
       - name: Lint
         if: matrix.os == 'linux' && matrix.python == '3.12'
         run: |
           uv run ruff check --output-format=github
           uv run ruff format --check
-          uv run mypy adaptive_router adaptive_router_app
+          uv run mypy adaptive_router --config-file=adaptive_router/pyproject.toml
+          uv run mypy adaptive_router_app --config-file=adaptive_router_app/pyproject.toml
 
       # Test all packages
       - name: Test

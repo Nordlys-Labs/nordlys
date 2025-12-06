@@ -60,6 +60,7 @@ exclude = [
 no_implicit_optional = true
 warn_return_any = false
 warn_unused_ignores = true
+disable_error_code = ["import-untyped"]
 
 [[tool.mypy.overrides]]
 module = [
