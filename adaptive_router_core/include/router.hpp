@@ -1,5 +1,7 @@
 #pragma once
 #include <expected>
+#include <memory>
+#include <mutex>
 #include <optional>
 #include <span>
 #include <string>
@@ -56,6 +58,10 @@ private:
   std::optional<ClusterEngineT<float>> cluster_engine_float_;
   std::optional<ClusterEngineT<double>> cluster_engine_double_;
 
+  // Thread-safety for lazy initialization (unique_ptr to make Router movable)
+  std::unique_ptr<std::once_flag> init_flag_float_ = std::make_unique<std::once_flag>();
+  std::unique_ptr<std::once_flag> init_flag_double_ = std::make_unique<std::once_flag>();
+
   ModelScorer scorer_;
   RouterProfile profile_;
   int embedding_dim_ = 0;
@@ -65,19 +71,19 @@ private:
 template<typename Scalar>
 ClusterEngineT<Scalar>& Router::get_cluster_engine() {
   if constexpr (std::is_same_v<Scalar, float>) {
-    if (!cluster_engine_float_) {
+    std::call_once(*init_flag_float_, [this]() {
       cluster_engine_float_.emplace();
       // Convert centroids to float (they're already float in profile)
       cluster_engine_float_->load_centroids(profile_.cluster_centers);
-    }
+    });
     return *cluster_engine_float_;
   } else if constexpr (std::is_same_v<Scalar, double>) {
-    if (!cluster_engine_double_) {
+    std::call_once(*init_flag_double_, [this]() {
       cluster_engine_double_.emplace();
       // Convert centroids from float to double
       EmbeddingMatrixT<double> centers_double = profile_.cluster_centers.cast<double>();
       cluster_engine_double_->load_centroids(centers_double);
-    }
+    });
     return *cluster_engine_double_;
   } else {
     static_assert(std::is_same_v<Scalar, float> || std::is_same_v<Scalar, double>,

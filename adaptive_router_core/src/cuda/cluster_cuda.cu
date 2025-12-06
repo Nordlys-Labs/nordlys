@@ -170,10 +170,14 @@ std::pair<int, float> CudaClusterBackendT<float>::assign(const float* embedding,
    thrust::device_ptr<float> ptr(d_distances_);
    auto min_it = thrust::min_element(thrust::cuda::par.on(stream_), ptr, ptr + n_clusters_);
 
+   // Explicitly copy the minimum value from device to host
+   float host_min_value;
+   thrust::copy(thrust::cuda::par.on(stream_), min_it, min_it + 1, &host_min_value);
+
    // 6. Synchronize to ensure Thrust completes before reading result
    CUDA_CHECK(cudaStreamSynchronize(stream_));
   int best = static_cast<int>(min_it - ptr);
-  float best_dist = std::sqrt(std::max(*min_it, 0.0f));
+  float best_dist = std::sqrt(std::max(host_min_value, 0.0f));
 
   return {best, best_dist};
 }
@@ -305,10 +309,14 @@ std::pair<int, double> CudaClusterBackendT<double>::assign(const double* embeddi
    thrust::device_ptr<double> ptr(d_distances_);
    auto min_it = thrust::min_element(thrust::cuda::par.on(stream_), ptr, ptr + n_clusters_);
 
+   // Explicitly copy the minimum value from device to host
+   double host_min_value;
+   thrust::copy(thrust::cuda::par.on(stream_), min_it, min_it + 1, &host_min_value);
+
    // 6. Synchronize to ensure Thrust completes before reading result
    CUDA_CHECK(cudaStreamSynchronize(stream_));
   int best = static_cast<int>(min_it - ptr);
-  double best_dist = std::sqrt(std::max(*min_it, 0.0));
+  double best_dist = std::sqrt(std::max(host_min_value, 0.0));
 
   return {best, best_dist};
 }

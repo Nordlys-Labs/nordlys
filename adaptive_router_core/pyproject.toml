@@ -7,7 +7,7 @@ name = "adaptive-router-core"
 version = "0.1.0"
 description = "C++ inference core for Adaptive Router"
 authors = [{ name = "Botir Khaltaev", email = "botirkhaltaev@llmadaptive.uk" }]
-requires-python = ">=3.12,<4.0"
+requires-python = ">=3.10,<4.0"
 license = "MIT"
 dependencies = []
 

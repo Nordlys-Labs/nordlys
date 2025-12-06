@@ -33,6 +33,14 @@ NB_MODULE(adaptive_core_ext, m) {
           [](Router& self, nb::ndarray<nb::numpy, nb::ndim<1>> embedding, float cost_bias) {
             size_t size = embedding.shape(0);
 
+            // Validate embedding dimension matches expected
+            if (size != static_cast<size_t>(self.get_embedding_dim())) {
+              throw std::invalid_argument(
+                  "Embedding dimension mismatch: expected " +
+                  std::to_string(self.get_embedding_dim()) +
+                  ", got " + std::to_string(size));
+            }
+
             // Handle different dtypes by calling the appropriate C++ template
             if (embedding.dtype() == nb::dtype<float>()) {
               // Check for contiguity: stride(0) should equal sizeof(float) for contiguous elements

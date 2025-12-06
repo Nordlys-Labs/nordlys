@@ -6,10 +6,12 @@ add_executable(test_adaptive_core
     test_router.cpp
     test_cluster.cpp
     test_scorer.cpp
+    test_c_ffi.cpp
 )
 
 target_link_libraries(test_adaptive_core PRIVATE
     adaptive_core
+    adaptive_c
     GTest::gtest
     GTest::gtest_main
 )

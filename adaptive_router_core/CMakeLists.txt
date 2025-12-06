@@ -1,7 +1,29 @@
 cmake_minimum_required(VERSION 3.24)
 
-# Optional CUDA support - must be set before project()
-option(ENABLE_CUDA "Enable CUDA GPU acceleration for cluster assignment" OFF)
+# CUDA support options - auto-detect by default, can be explicitly enabled/disabled
+option(ENABLE_CUDA "Enable CUDA GPU acceleration for cluster assignment (AUTO=auto-detect)" AUTO)
+
+# Optional Python bindings - can be disabled if nanobind is not available
+option(BUILD_PYTHON_BINDINGS "Build Python bindings" ON)
+
+# Auto-detect CUDA if set to AUTO
+if(ENABLE_CUDA STREQUAL "AUTO")
+  include(CheckLanguage)
+  check_language(CUDA)
+  if(CMAKE_CUDA_COMPILER)
+    set(ENABLE_CUDA ON)
+    message(STATUS "CUDA auto-detected: ${CMAKE_CUDA_COMPILER}")
+  else()
+    set(ENABLE_CUDA OFF)
+    message(STATUS "CUDA not found - GPU acceleration disabled")
+  endif()
+endif()
+
+# CUDA standard must be set BEFORE project() to prevent Conan toolchain from applying C++23 to CUDA
+if(ENABLE_CUDA)
+  set(CMAKE_CUDA_STANDARD 17)
+  set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+endif()
 
 if(ENABLE_CUDA)
   project(adaptive_router_core VERSION 0.1.0 LANGUAGES CXX CUDA)
@@ -142,11 +164,13 @@ if(ENABLE_CUDA)
   target_link_libraries(adaptive_core PRIVATE adaptive_core_cuda)
   target_compile_definitions(adaptive_core PUBLIC ADAPTIVE_HAS_CUDA=1)
 else()
-  message(STATUS "CUDA GPU acceleration disabled (use -DENABLE_CUDA=ON to enable)")
+  message(STATUS "CUDA GPU acceleration disabled (CUDA not found or -DENABLE_CUDA=OFF)")
 endif()
 
-# Python bindings
-add_subdirectory(bindings/python)
+# Python bindings (optional)
+if(BUILD_PYTHON_BINDINGS)
+  add_subdirectory(bindings/python)
+endif()
 
 # C API
 add_library(adaptive_c SHARED bindings/c/adaptive_c.cpp)

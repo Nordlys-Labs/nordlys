@@ -14,6 +14,23 @@ static char* str_duplicate(const std::string& str) {
   return result;
 }
 
+// Internal helper to clean up route result contents (but not the struct itself)
+static void cleanup_route_result_contents(AdaptiveRouteResult* result) {
+  if (!result) return;
+
+  free(result->selected_model);
+  result->selected_model = nullptr;
+
+  if (result->alternatives) {
+    for (size_t i = 0; i < result->alternatives_count; ++i) {
+      free(result->alternatives[i]);
+    }
+    free(result->alternatives);
+    result->alternatives = nullptr;
+  }
+  result->alternatives_count = 0;
+}
+
 // C API implementation
 extern "C" {
 
@@ -133,16 +150,9 @@ char* adaptive_router_route_simple(AdaptiveRouter* router, const float* embeddin
 }
 
 void adaptive_route_result_free(AdaptiveRouteResult* result) {
-  if (result) {
-    free(result->selected_model);
-    if (result->alternatives) {
-      for (size_t i = 0; i < result->alternatives_count; ++i) {
-        free(result->alternatives[i]);
-      }
-      free(result->alternatives);
-    }
-    free(result);
-  }
+  if (!result) return;
+  cleanup_route_result_contents(result);
+  free(result);
 }
 
 AdaptiveRouteResult* adaptive_router_route_double(AdaptiveRouter* router, const double* embedding,
@@ -250,9 +260,9 @@ AdaptiveBatchRouteResult* adaptive_router_route_batch(
         // Free only the result struct, not the data inside
         free(result);
       } else {
-        // If routing fails, clean up and return nullptr
+        // If routing fails, clean up previously allocated results
         for (size_t j = 0; j < i; ++j) {
-          adaptive_route_result_free(&batch_result->results[j]);
+          cleanup_route_result_contents(&batch_result->results[j]);
         }
         free(batch_result->results);
         free(batch_result);
@@ -329,14 +339,9 @@ AdaptiveBatchRouteResult* adaptive_router_route_batch_double(
         batch_result->results[i] = *result;
         free(result);
       } else {
+        // If routing fails, clean up previously allocated results
         for (size_t j = 0; j < i; ++j) {
-          free(batch_result->results[j].selected_model);
-          if (batch_result->results[j].alternatives) {
-            for (size_t k = 0; k < batch_result->results[j].alternatives_count; ++k) {
-              free(batch_result->results[j].alternatives[k]);
-            }
-            free(batch_result->results[j].alternatives);
-          }
+          cleanup_route_result_contents(&batch_result->results[j]);
         }
         free(batch_result->results);
         free(batch_result);
