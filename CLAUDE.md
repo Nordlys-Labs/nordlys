@@ -449,12 +449,12 @@ The `ClusterEngine` handles K-means clustering operations:
 
 The `FeatureExtractor` converts prompts to feature vectors:
 
-- \*\*Sentence transformer embeddings using `all-MiniLM-L6-v2` (384D)
-- \*\*TF-IDF features for lexical patterns (5000D)
-- \*\*StandardScaler normalization for both feature types
-- \*\*Concatenated 5384D feature vectors
-- \*\*GPU-accelerated inference on T4 GPUs (Modal deployment)
-- \*\*Cached models for fast subsequent requests
+- **Sentence transformer embeddings** using `all-MiniLM-L6-v2` (384D)
+- **TF-IDF features** for lexical patterns (5000D)
+- **StandardScaler normalization** for both feature types
+- **Concatenated 5384D feature vectors**
+- **GPU-accelerated inference** on T4 GPUs (Modal deployment)
+- **Cached models** for fast subsequent requests
 
 ### Profile Loaders
 
