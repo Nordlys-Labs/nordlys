@@ -76,7 +76,7 @@ jobs:
           ctest --preset conan-release --output-on-failure
 
   deploy:
-    name: Deploy to Modal (${{ matrix.environment }})
+    name: Deploy to Modal
     runs-on: ubuntu-latest
     needs: [build-and-test]
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')

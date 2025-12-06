@@ -4,7 +4,7 @@ High-performance C++ inference core for Adaptive Router with Python bindings and
 
 ## Overview
 
-The Adaptive Router Core is a C++23 implementation of the cluster-based routing algorithm, providing 10x performance improvements over pure Python implementations. It features:
+The Adaptive Router Core is a C++20 implementation of the cluster-based routing algorithm, providing 10x performance improvements over pure Python implementations. It features:
 
 - **Ultra-fast cluster assignment** using Eigen for linear algebra
 - **Zero-copy Python integration** via nanobind
@@ -31,12 +31,13 @@ Embedding (384D) → ClusterEngine → Cluster ID → ModelScorer → Ranked Mod
 
 ### Build Requirements
 
-- **C++23 compiler**:
-  - GCC 12+ (Linux)
-  - Clang 15+ (macOS/Linux)
-  - MSVC 19.30+ / VS 2022 17.0+ (Windows)
+- **C++20 compiler**:
+  - GCC 10+ (Linux) - GCC 11+ recommended for full C++20 support
+  - Clang 12+ (macOS/Linux) - Clang 13+ recommended
+  - MSVC 19.29+ / VS 2019 16.11+ (Windows) - VS 2022 recommended
 - **CMake** 3.24+
 - **Conan** 2.x (package manager)
+- **CUDA** 11.8+ (optional, for GPU acceleration)
 
 ### Dependencies
 
@@ -61,12 +62,18 @@ cd adaptive_router_core
 conan install . --output-folder=build --build=missing --settings=build_type=Release
 
 # Configure CMake (use conan-release preset)
+# Available options:
+#   -DADAPTIVE_ENABLE_CUDA=ON/OFF/AUTO  (default: AUTO - auto-detect CUDA)
+#   -DADAPTIVE_BUILD_PYTHON=ON/OFF      (default: ON)
+#   -DADAPTIVE_BUILD_TESTS=ON/OFF       (default: OFF)
+#   -DADAPTIVE_ENABLE_SANITIZERS=ON/OFF (default: OFF)
+#   -DADAPTIVE_WARNINGS_AS_ERRORS=ON/OFF (default: ON)
 cmake --preset conan-release
 
 # Build
 cmake --build build/build/Release
 
-# Run tests (optional)
+# Run tests (if enabled with -DADAPTIVE_BUILD_TESTS=ON)
 ctest --test-dir build/build/Release --output-on-failure
 ```
 
@@ -79,16 +86,31 @@ cd adaptive_router_core
 conan install . --output-folder=build --build=missing --settings=build_type=Release
 
 # Configure CMake (use conan-default preset on Windows)
-cmake --preset conan-default
+cmake --preset conan-default -DADAPTIVE_BUILD_TESTS=ON
 
 # Build
 cmake --build build
 
-# Run tests (optional)
+# Run tests
 ctest --test-dir build --output-on-failure
 ```
 
 **Note**: Conan generates different preset names on Windows (`conan-default`) vs Linux/macOS (`conan-release`, `conan-debug`).
+
+### CMake Build Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `ADAPTIVE_ENABLE_CUDA` | `AUTO` | Enable CUDA GPU acceleration (AUTO=auto-detect, ON=force enable, OFF=disable) |
+| `ADAPTIVE_BUILD_PYTHON` | `ON` | Build Python bindings (requires nanobind) |
+| `ADAPTIVE_BUILD_TESTS` | `OFF` | Build test suite (requires GTest) |
+| `ADAPTIVE_ENABLE_SANITIZERS` | `OFF` | Enable address and undefined behavior sanitizers (Debug builds only) |
+| `ADAPTIVE_WARNINGS_AS_ERRORS` | `ON` | Treat compiler warnings as errors |
+
+**Example with CUDA enabled:**
+```bash
+cmake --preset conan-release -DADAPTIVE_ENABLE_CUDA=ON -DADAPTIVE_BUILD_TESTS=ON
+```
 
 ### Python Package Installation
 
@@ -442,7 +464,7 @@ adaptive_router_core/
 
 ```bash
 # Configure with testing enabled
-cmake --preset conan-release -DBUILD_TESTING=ON
+cmake --preset conan-release -DADAPTIVE_BUILD_TESTS=ON
 
 # Build
 cmake --build build/build/Release
@@ -458,7 +480,7 @@ ctest --test-dir build/build/Release -V
 
 ```bash
 # Configure with testing enabled
-cmake --preset conan-default -DBUILD_TESTING=ON
+cmake --preset conan-default -DADAPTIVE_BUILD_TESTS=ON
 
 # Build
 cmake --build build --config Release
@@ -470,32 +492,28 @@ ctest --test-dir build -C Release --output-on-failure
 ctest --test-dir build -C Release -V
 ```
 
-### Code Quality
+### Code Formatting
+
+The project includes CMake targets for code formatting:
 
 ```bash
-# Format code (requires clang-format)
-find include src -name "*.hpp" -o -name "*.cpp" | xargs clang-format -i
+# Format all source files (modifies files in-place)
+cmake --build build/build/Release --target format
 
-# Static analysis (requires clang-tidy)
-cmake --build build/build/Release --target clang-tidy
-
-# Generate compile_commands.json for IDE support (Linux/macOS)
-cmake --preset conan-release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-
-# Generate compile_commands.json for IDE support (Windows)
-cmake --preset conan-default -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+# Check formatting without modifying files (useful for CI)
+cmake --build build/build/Release --target format-check
 ```
 
 ## Troubleshooting
 
 ### Common Issues
 
-**"C++23 not supported" error**
+**"C++20 not supported" error**
 
 Ensure you have a compatible compiler:
-- GCC 12+: `g++ --version`
-- Clang 15+: `clang++ --version`
-- MSVC 2022+: Visual Studio 17.0+
+- GCC 10+: `g++ --version`
+- Clang 12+: `clang++ --version`
+- MSVC 2019 16.11+: Visual Studio 2019+
 
 **"Eigen not found" error**
 
@@ -529,15 +547,15 @@ conan profile detect --force
 ### Platform-Specific Notes
 
 **Linux:**
-- GCC 12+ available in Ubuntu 22.04+
-- Install via: `sudo apt install g++-12 cmake`
+- GCC 10+ available in Ubuntu 20.04+, GCC 11+ in Ubuntu 22.04+
+- Install via: `sudo apt install g++-11 cmake` (or g++-12, g++-13)
 
 **macOS:**
-- Clang 15+ included in Xcode 14.3+
+- Clang 12+ included in Xcode 13+, Clang 13+ in Xcode 14+
 - Install via: `xcode-select --install`
 
 **Windows:**
-- Visual Studio 2022 (17.0+) includes C++23 support
+- Visual Studio 2019 (16.11+) or Visual Studio 2022 includes C++20 support
 - Ensure "Desktop development with C++" workload is installed
 
 ## Integration with Python Library

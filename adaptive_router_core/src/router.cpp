@@ -13,36 +13,36 @@ void Router::initialize(const RouterProfile& prof) {
   scorer_.set_lambda_params(prof.metadata.routing.lambda_min, prof.metadata.routing.lambda_max);
 }
 
-std::expected<Router, std::string> Router::from_file(const std::string& profile_path) noexcept {
+Result<Router, std::string> Router::from_file(const std::string& profile_path) noexcept {
   try {
     Router router;
     auto profile = RouterProfile::from_json(profile_path);
     router.initialize(profile);
     return router;
   } catch (const std::exception& e) {
-    return std::unexpected(e.what());
+    return Unexpected(std::string(e.what()));
   }
 }
 
-std::expected<Router, std::string> Router::from_json_string(const std::string& json_str) noexcept {
+Result<Router, std::string> Router::from_json_string(const std::string& json_str) noexcept {
   try {
     Router router;
     auto profile = RouterProfile::from_json_string(json_str);
     router.initialize(profile);
     return router;
   } catch (const std::exception& e) {
-    return std::unexpected(e.what());
+    return Unexpected(std::string(e.what()));
   }
 }
 
-std::expected<Router, std::string> Router::from_binary(const std::string& path) noexcept {
+Result<Router, std::string> Router::from_binary(const std::string& path) noexcept {
   try {
     Router router;
     auto profile = RouterProfile::from_binary(path);
     router.initialize(profile);
     return router;
   } catch (const std::exception& e) {
-    return std::unexpected(e.what());
+    return Unexpected(std::string(e.what()));
   }
 }
 

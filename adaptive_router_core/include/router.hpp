@@ -1,14 +1,15 @@
 #pragma once
-#include <expected>
 #include <memory>
 #include <mutex>
 #include <optional>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
 #include "cluster.hpp"
 #include "profile.hpp"
+#include "result.hpp"
 #include "scorer.hpp"
 
 struct RouteRequest {
@@ -26,9 +27,9 @@ struct RouteResponse {
 
 class Router {
 public:
-  [[nodiscard]] static std::expected<Router, std::string> from_file(const std::string& profile_path) noexcept;
-  [[nodiscard]] static std::expected<Router, std::string> from_json_string(const std::string& json_str) noexcept;
-  [[nodiscard]] static std::expected<Router, std::string> from_binary(const std::string& path) noexcept;
+  [[nodiscard]] static Result<Router, std::string> from_file(const std::string& profile_path) noexcept;
+  [[nodiscard]] static Result<Router, std::string> from_json_string(const std::string& json_str) noexcept;
+  [[nodiscard]] static Result<Router, std::string> from_binary(const std::string& path) noexcept;
 
   Router() = default;
   ~Router() = default;
@@ -103,7 +104,7 @@ RouteResponse Router::route(const Scalar* embedding_data, size_t embedding_size,
   auto& engine = get_cluster_engine<Scalar>();
 
   EmbeddingVectorT<Scalar> embedding = Eigen::Map<const EmbeddingVectorT<Scalar>>(
-      embedding_data, embedding_size);
+      embedding_data, static_cast<Eigen::Index>(embedding_size));
 
    auto [cluster_id, distance] = engine.assign(embedding);
 

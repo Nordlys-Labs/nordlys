@@ -41,25 +41,7 @@ __global__ void epilogue_kernel(const Scalar* c_norms, Scalar e_norm, const Scal
   }
 }
 
-// Template specialization for float
-template<>
-CudaClusterBackendT<float>::CudaClusterBackendT() {
-  CUDA_CHECK(cudaStreamCreate(&stream_));
-  CUBLAS_CHECK(cublasCreate(&cublas_handle_));
-  CUBLAS_CHECK(cublasSetStream(cublas_handle_, stream_));
-}
-
-template<>
-CudaClusterBackendT<float>::~CudaClusterBackendT() {
-  free_device_memory();
-  if (cublas_handle_) {
-    cublasDestroy(cublas_handle_);
-  }
-  if (stream_) {
-    cudaStreamDestroy(stream_);
-  }
-}
-
+// Template specialization for float - free_device_memory must come first (called by destructor)
 template<>
 void CudaClusterBackendT<float>::free_device_memory() {
   if (d_centroids_) {
@@ -81,6 +63,24 @@ void CudaClusterBackendT<float>::free_device_memory() {
   if (d_distances_) {
     cudaFree(d_distances_);
     d_distances_ = nullptr;
+  }
+}
+
+template<>
+CudaClusterBackendT<float>::CudaClusterBackendT() {
+  CUDA_CHECK(cudaStreamCreate(&stream_));
+  CUBLAS_CHECK(cublasCreate(&cublas_handle_));
+  CUBLAS_CHECK(cublasSetStream(cublas_handle_, stream_));
+}
+
+template<>
+CudaClusterBackendT<float>::~CudaClusterBackendT() {
+  free_device_memory();
+  if (cublas_handle_) {
+    cublasDestroy(cublas_handle_);
+  }
+  if (stream_) {
+    cudaStreamDestroy(stream_);
   }
 }
 
@@ -182,25 +182,7 @@ std::pair<int, float> CudaClusterBackendT<float>::assign(const float* embedding,
   return {best, best_dist};
 }
 
-// Template specialization for double
-template<>
-CudaClusterBackendT<double>::CudaClusterBackendT() {
-  CUDA_CHECK(cudaStreamCreate(&stream_));
-  CUBLAS_CHECK(cublasCreate(&cublas_handle_));
-  CUBLAS_CHECK(cublasSetStream(cublas_handle_, stream_));
-}
-
-template<>
-CudaClusterBackendT<double>::~CudaClusterBackendT() {
-  free_device_memory();
-  if (cublas_handle_) {
-    cublasDestroy(cublas_handle_);
-  }
-  if (stream_) {
-    cudaStreamDestroy(stream_);
-  }
-}
-
+// Template specialization for double - free_device_memory must come first (called by destructor)
 template<>
 void CudaClusterBackendT<double>::free_device_memory() {
   if (d_centroids_) {
@@ -222,6 +204,24 @@ void CudaClusterBackendT<double>::free_device_memory() {
   if (d_distances_) {
     cudaFree(d_distances_);
     d_distances_ = nullptr;
+  }
+}
+
+template<>
+CudaClusterBackendT<double>::CudaClusterBackendT() {
+  CUDA_CHECK(cudaStreamCreate(&stream_));
+  CUBLAS_CHECK(cublasCreate(&cublas_handle_));
+  CUBLAS_CHECK(cublasSetStream(cublas_handle_, stream_));
+}
+
+template<>
+CudaClusterBackendT<double>::~CudaClusterBackendT() {
+  free_device_memory();
+  if (cublas_handle_) {
+    cublasDestroy(cublas_handle_);
+  }
+  if (stream_) {
+    cudaStreamDestroy(stream_);
   }
 }
 

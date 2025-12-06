@@ -12,8 +12,8 @@ nanobind_add_module(adaptive_core_ext
 
 target_link_libraries(adaptive_core_ext PRIVATE adaptive_core)
 
-# Set C++23 for cross-platform compatibility
-target_compile_features(adaptive_core_ext PRIVATE cxx_std_23)
+# Set C++20 for cross-platform compatibility
+target_compile_features(adaptive_core_ext PRIVATE cxx_std_20)
 
 # Install module
 install(TARGETS adaptive_core_ext LIBRARY DESTINATION .)

@@ -30,8 +30,8 @@ cmake.version = ">=3.24"
 
 [tool.scikit-build.cmake.define]
 CMAKE_EXPORT_COMPILE_COMMANDS = "ON"
-CMAKE_CXX_STANDARD = "23"
+CMAKE_CXX_STANDARD = "20"
 
 [tool.scikit-build-core-conan]
 build = "missing"
-settings = ["compiler.cppstd=23"]
+settings = ["compiler.cppstd=20"]

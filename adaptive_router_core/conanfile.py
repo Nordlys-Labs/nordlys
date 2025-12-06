@@ -21,12 +21,12 @@ class AdaptiveRouterCoreConan(ConanFile):
         cmake_layout(self)
 
     def configure(self):
-        # Set C++23 standard explicitly to ensure gtest and other dependencies
+        # Set C++20 standard explicitly to ensure gtest and other dependencies
         # are built with compatible standards across all platforms
-        self.settings.compiler.cppstd = "23"
+        self.settings.compiler.cppstd = "20"
 
     def validate(self):
-        # Validate compiler supports C++23
+        # Validate compiler supports C++20
         from conan.tools.build import check_min_cppstd
 
-        check_min_cppstd(self, "23")
+        check_min_cppstd(self, "20")
