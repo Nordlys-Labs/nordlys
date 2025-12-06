@@ -1,7 +1,10 @@
 #pragma once
+#include <algorithm>
+#include <format>
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <ranges>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -96,9 +99,10 @@ template<typename Scalar>
 RouteResponse Router::route(const Scalar* embedding_data, size_t embedding_size, float cost_bias,
                            const std::vector<std::string>& models) {
   if (embedding_size != static_cast<size_t>(embedding_dim_)) {
-    throw std::invalid_argument("Embedding dimension mismatch: expected "
-                                + std::to_string(embedding_dim_) + " but got "
-                                + std::to_string(embedding_size));
+    throw std::invalid_argument(
+      std::format("Embedding dimension mismatch: expected {} but got {}",
+                  embedding_dim_, embedding_size)
+    );
   }
 
   auto& engine = get_cluster_engine<Scalar>();
@@ -126,12 +130,15 @@ RouteResponse Router::route(const Scalar* embedding_data, size_t embedding_size,
 
     int max_alt = profile_.metadata.routing.max_alternatives;
     int alt_count = std::max(0, std::min<int>(static_cast<int>(scores.size()) - 1, max_alt));
-    if (alt_count > 0) {
-      response.alternatives.reserve(static_cast<std::size_t>(alt_count));
-    }
 
-    for (int i = 1; i <= alt_count; ++i) {
-      response.alternatives.push_back(scores[static_cast<std::size_t>(i)].model_id);
+    // Extract alternatives using ranges: drop first, take N, extract model_id
+    if (alt_count > 0) {
+      auto alternatives_view = scores
+        | std::views::drop(1)
+        | std::views::take(alt_count)
+        | std::views::transform(&ModelScore::model_id);
+
+      response.alternatives.assign(alternatives_view.begin(), alternatives_view.end());
     }
   }
 

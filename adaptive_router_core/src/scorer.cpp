@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <format>
+#include <ranges>
 #include <stdexcept>
 #include <unordered_map>
 #include <unordered_set>
@@ -19,16 +21,13 @@ float ModelScorer::calculate_lambda(float cost_bias) const noexcept {
 void ModelScorer::load_models(const std::vector<ModelFeatures>& models) {
   models_ = models;
 
-  // Calculate cost range
+  // Calculate cost range using ranges::minmax_element with projection
   if (!models.empty()) {
-    min_cost_ = std::numeric_limits<float>::max();
-    max_cost_ = std::numeric_limits<float>::lowest();
+    auto cost_projection = [](const auto& m) { return m.cost_per_1m_tokens(); };
+    auto [min_it, max_it] = std::ranges::minmax_element(models, {}, cost_projection);
 
-    for (const auto& m : models) {
-      float cost = m.cost_per_1m_tokens();
-      min_cost_ = std::min(min_cost_, cost);
-      max_cost_ = std::max(max_cost_, cost);
-    }
+    min_cost_ = cost_projection(*min_it);
+    max_cost_ = cost_projection(*max_it);
     cost_range_ = max_cost_ - min_cost_;
   }
 }
@@ -48,11 +47,10 @@ std::vector<ModelScore> ModelScorer::score_models(int cluster_id, float cost_bia
                                                   const std::vector<std::string>& filter) {
   // Validate cluster_id
   if (cluster_id < 0) {
-    throw std::invalid_argument("cluster_id must be non-negative, got "
-                                + std::to_string(cluster_id));
+    throw std::invalid_argument(
+      std::format("cluster_id must be non-negative, got {}", cluster_id)
+    );
   }
-
-  std::vector<ModelScore> scores;
 
   // Build filter set if provided
   std::unordered_set<std::string> filter_set(filter.begin(), filter.end());
@@ -60,39 +58,43 @@ std::vector<ModelScore> ModelScorer::score_models(int cluster_id, float cost_bia
 
   float lambda = calculate_lambda(cost_bias);
 
-  for (const auto& model : models_) {
-    // Apply filter if provided
-    if (use_filter && filter_set.find(model.model_id) == filter_set.end()) {
-      continue;
-    }
-
+  // Create scoring function
+  auto create_score = [&](const ModelFeatures& model) -> ModelScore {
     // Validate cluster_id is within bounds for this model's error_rates
     if (cluster_id >= static_cast<int>(model.error_rates.size())) {
-      throw std::invalid_argument("cluster_id " + std::to_string(cluster_id)
-                                  + " is out of bounds for model '" + model.model_id
-                                  + "' which has " + std::to_string(model.error_rates.size())
-                                  + " error rates");
+      throw std::invalid_argument(
+        std::format("cluster_id {} is out of bounds for model '{}' which has {} error rates",
+                    cluster_id, model.model_id, model.error_rates.size())
+      );
     }
 
     float error_rate = model.error_rates[static_cast<std::size_t>(cluster_id)];
     float cost = model.cost_per_1m_tokens();
     float normalized_cost = normalize_cost(cost);
 
-    // Score = error_rate + lambda * normalized_cost
-    // Lower score is better
+    // Score = error_rate + lambda * normalized_cost (lower is better)
     float score = error_rate + lambda * normalized_cost;
 
-    scores.push_back(ModelScore{.model_id = model.model_id,
-                                .score = score,
-                                .error_rate = error_rate,
-                                .accuracy = 1.0f - error_rate,
-                                .cost = cost,
-                                .normalized_cost = normalized_cost});
-  }
+    return ModelScore{
+      .model_id = model.model_id,
+      .score = score,
+      .error_rate = error_rate,
+      .accuracy = 1.0f - error_rate,
+      .cost = cost,
+      .normalized_cost = normalized_cost
+    };
+  };
 
-  // Sort by score (ascending - lower is better)
-  std::sort(scores.begin(), scores.end(),
-            [](const ModelScore& a, const ModelScore& b) { return a.score < b.score; });
+  // Filter models and transform to scores using ranges pipeline
+  auto filtered_models = models_
+    | std::views::filter([&](const auto& model) {
+        return !use_filter || filter_set.contains(model.model_id);
+      })
+    | std::views::transform(create_score);
+
+  // Convert to vector and sort
+  std::vector<ModelScore> scores(filtered_models.begin(), filtered_models.end());
+  std::ranges::sort(scores, {}, &ModelScore::score);
 
   return scores;
 }

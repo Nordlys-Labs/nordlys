@@ -1,6 +1,9 @@
+#include <algorithm>
 #include <cstring>
 #include <exception>
 #include <memory>
+#include <ranges>
+#include <span>
 
 #include "adaptive.h"
 #include "router.hpp"
@@ -9,7 +12,8 @@
 static char* str_duplicate(const std::string& str) {
   char* result = static_cast<char*>(malloc(str.length() + 1));
   if (result) {
-    std::strcpy(result, str.c_str());
+    std::ranges::copy(str, result);
+    result[str.length()] = '\0';
   }
   return result;
 }
@@ -22,9 +26,9 @@ static void cleanup_route_result_contents(AdaptiveRouteResult* result) {
   result->selected_model = nullptr;
 
   if (result->alternatives) {
-    for (size_t i = 0; i < result->alternatives_count; ++i) {
-      free(result->alternatives[i]);
-    }
+    // Use ranges to free alternatives
+    auto alternatives_span = std::span(result->alternatives, result->alternatives_count);
+    std::ranges::for_each(alternatives_span, [](char* str) { free(str); });
     free(result->alternatives);
     result->alternatives = nullptr;
   }
@@ -245,7 +249,7 @@ AdaptiveBatchRouteResult* adaptive_router_route_batch(
     }
 
     // Initialize all results to zero
-    std::memset(batch_result->results, 0, sizeof(AdaptiveRouteResult) * n_embeddings);
+    std::fill_n(batch_result->results, n_embeddings, AdaptiveRouteResult{});
 
     // Route each embedding
     for (size_t i = 0; i < n_embeddings; ++i) {
@@ -280,17 +284,16 @@ void adaptive_batch_route_result_free(AdaptiveBatchRouteResult* result) {
   if (!result) return;
 
   if (result->results) {
-    // Free each individual result's data
-    for (size_t i = 0; i < result->count; ++i) {
-      // Free strings inside each result
-      free(result->results[i].selected_model);
-      if (result->results[i].alternatives) {
-        for (size_t j = 0; j < result->results[i].alternatives_count; ++j) {
-          free(result->results[i].alternatives[j]);
-        }
-        free(result->results[i].alternatives);
+    // Free each individual result's data using ranges
+    auto results_span = std::span(result->results, result->count);
+    std::ranges::for_each(results_span, [](AdaptiveRouteResult& res) {
+      free(res.selected_model);
+      if (res.alternatives) {
+        auto alternatives_span = std::span(res.alternatives, res.alternatives_count);
+        std::ranges::for_each(alternatives_span, [](char* str) { free(str); });
+        free(res.alternatives);
       }
-    }
+    });
     free(result->results);
   }
   free(result);
@@ -327,7 +330,7 @@ AdaptiveBatchRouteResult* adaptive_router_route_batch_double(
     }
 
     // Initialize all results to zero
-    std::memset(batch_result->results, 0, sizeof(AdaptiveRouteResult) * n_embeddings);
+    std::fill_n(batch_result->results, n_embeddings, AdaptiveRouteResult{});
 
     // Route each embedding using the double version
     for (size_t i = 0; i < n_embeddings; ++i) {
@@ -426,9 +429,8 @@ char** adaptive_router_get_supported_models(AdaptiveRouter* router, size_t* coun
 
 void adaptive_string_array_free(char** strings, size_t count) {
   if (strings) {
-    for (size_t i = 0; i < count; ++i) {
-      free(strings[i]);
-    }
+    auto strings_span = std::span(strings, count);
+    std::ranges::for_each(strings_span, [](char* str) { free(str); });
     free(strings);
   }
 }

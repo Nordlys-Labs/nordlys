@@ -1,8 +1,10 @@
 #pragma once
 #include <Eigen/Dense>
+#include <algorithm>
 #include <cmath>
 #include <limits>
 #include <memory>
+#include <ranges>
 #include <utility>
 
 // Backend type enumeration
@@ -65,19 +67,22 @@ public:
     // Map embedding to Eigen vector (zero-copy)
     Eigen::Map<const Eigen::Matrix<Scalar, Eigen::Dynamic, 1>> emb(embedding, dim);
 
-    // Find nearest centroid using vectorized operations
-    int best_cluster = 0;
-    Scalar best_distance = std::numeric_limits<Scalar>::max();
+    // Find nearest centroid using ranges
+    auto cluster_indices = std::views::iota(0, n_clusters_);
 
-    for (int i = 0; i < n_clusters_; ++i) {
+    auto distance_calc = [&](int i) -> std::pair<int, Scalar> {
       Scalar dist = (centroids_.row(i).transpose() - emb).squaredNorm();
-      if (dist < best_distance) {
-        best_distance = dist;
-        best_cluster = i;
-      }
-    }
+      return {i, dist};
+    };
 
-    return {best_cluster, std::sqrt(best_distance)};
+    auto distances = cluster_indices | std::views::transform(distance_calc);
+    auto [best_cluster, best_squared_dist] = std::ranges::min(
+      distances,
+      {},
+      [](const auto& p) { return p.second; }
+    );
+
+    return {best_cluster, std::sqrt(best_squared_dist)};
   }
 
   [[nodiscard]] int get_n_clusters() const noexcept override { return n_clusters_; }
