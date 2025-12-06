@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cstring>
 #include <format>
 #include <fstream>
 #include <limits>
@@ -168,10 +169,10 @@ RouterProfile RouterProfile::from_binary(const std::string& path) {
   }
 
   profile.cluster_centers.resize(n_clusters, feature_dim);
-  std::ranges::copy_n(
-    reinterpret_cast<const float*>(centers_bytes.data()),
-    static_cast<std::ptrdiff_t>(total_elements),
-    profile.cluster_centers.data()
+  std::memcpy(
+    profile.cluster_centers.data(),
+    centers_bytes.data(),
+    static_cast<size_t>(total_elements) * sizeof(float)
   );
 
   // Parse models
