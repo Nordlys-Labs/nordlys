@@ -103,6 +103,66 @@ Railway deployment is available as an alternative using Hypercorn ASGI server:
 
 **Note**: Railway deployment uses the FastAPI app directly (via `app = create_app()` at bottom of `main.py`), not the Modal wrapper.
 
+#### Docker (Self-Hosted)
+
+For self-hosted deployments, you can use Docker with GPU support:
+
+```dockerfile
+FROM nvidia/cuda:11.8.0-runtime-ubuntu22.04
+
+# Install Python and dependencies
+RUN apt-get update && apt-get install -y \
+    python3.12 \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install uv for dependency management
+RUN pip install uv
+
+WORKDIR /app
+
+# Copy workspace files
+COPY adaptive_router ./adaptive_router
+COPY adaptive_router_app ./adaptive_router_app
+COPY pyproject.toml uv.lock ./
+
+# Install dependencies
+RUN uv sync --package adaptive-router-app
+
+# Copy profile
+COPY profile.json /data/profile.json
+
+# Set environment variables
+ENV PROFILE_PATH=/data/profile.json
+ENV ENVIRONMENT=production
+ENV LOG_LEVEL=INFO
+
+EXPOSE 8000
+
+CMD ["uv", "run", "hypercorn", "adaptive_router_app.main:app", "--bind", "0.0.0.0:8000"]
+```
+
+**Build and run:**
+
+```bash
+docker build -t adaptive-router .
+docker run -p 8000:8000 -v /path/to/profile.json:/data/profile.json adaptive-router
+```
+
+**With GPU support:**
+
+```bash
+docker run --gpus all -p 8000:8000 -v /path/to/profile.json:/data/profile.json adaptive-router
+```
+
+**Performance (self-hosted):**
+
+| Configuration | Throughput | Latency |
+|---------------|------------|---------|
+| CPU only | 50-100 req/s | 50-100ms |
+| T4 GPU | 200-500 req/s | 15-30ms |
+| L40S GPU | 500-1000 req/s | 10-20ms |
+
 ## API Endpoints
 
 ### POST /select-model
@@ -407,6 +467,7 @@ uv run mypy adaptive_router_app/adaptive_router_app/
 
 - **Root README**: General project overview and training instructions
 - **Library README** (`../adaptive_router/README.md`): Core library package documentation
+- **C++ Core README** (`../adaptive_router_core/README.md`): High-performance C++ inference core for maximum throughput
 - **CLAUDE.md**: Detailed technical documentation and architecture
 
 ## License

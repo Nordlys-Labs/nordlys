@@ -12,7 +12,6 @@ logger = logging.getLogger(__name__)
 
 
 class MinIOProfileLoader(ProfileLoader):
-
     def __init__(
         self,
         bucket_name: str,

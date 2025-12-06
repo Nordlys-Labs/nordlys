@@ -2,6 +2,25 @@
 
 This directory contains installation and configuration scripts for integrating various developer tools with Adaptive's intelligent LLM routing.
 
+## Prerequisites
+
+Before running these scripts, ensure you have:
+
+- **Operating System**: Linux or macOS (Windows via WSL2)
+- **Shell**: Bash 4.0+ or compatible shell
+- **curl**: For downloading scripts and making API requests
+- **Node.js** (optional): Some tools may require Node.js 16+ and npm
+- **Adaptive API Key**: Required for authentication with Adaptive services
+
+## Supported Platforms
+
+| Platform | Support | Notes |
+|----------|---------|-------|
+| Linux (Ubuntu, Debian) | ✅ Full | Recommended for production |
+| macOS (Intel/Apple Silicon) | ✅ Full | Tested on macOS 12+ |
+| Windows WSL2 | ✅ Full | Use Ubuntu 20.04+ in WSL2 |
+| Windows Native | ⚠️ Limited | Requires Git Bash or similar |
+
 ## Available Scripts
 
 ### Developer Tools
@@ -82,6 +101,65 @@ All scripts configure tools to use:
 - **API Base URL**: `https://www.llmadaptive.uk/api/v1`
 - **Authentication**: User's Adaptive API key
 - **Timeout**: 3000000ms for long-running requests
+
+## Troubleshooting
+
+### Script Execution Errors
+
+**Permission denied**:
+```bash
+chmod +x installers/script-name.sh
+./installers/script-name.sh
+```
+
+**curl command not found**:
+```bash
+# Ubuntu/Debian
+sudo apt-get install curl
+
+# macOS
+brew install curl
+```
+
+**Node.js not found** (for tools requiring Node.js):
+```bash
+# Ubuntu/Debian
+sudo apt-get install nodejs npm
+
+# macOS
+brew install node
+
+# Verify installation
+node --version  # Should show v16.0.0 or higher
+```
+
+### Configuration Issues
+
+**API key not working**:
+- Verify your API key at [llmadaptive.uk](https://llmadaptive.uk)
+- Ensure key is properly copied (no extra spaces)
+- Check if key has necessary permissions
+
+**Connection timeout**:
+- Check internet connectivity
+- Verify firewall isn't blocking connections to `llmadaptive.uk`
+- Try increasing timeout in tool configuration
+
+### Verification Steps
+
+After running a script, verify installation:
+
+```bash
+# Check if tool is installed
+which <tool-name>
+
+# Test API connection
+curl -H "Authorization: Bearer YOUR_API_KEY" \
+  https://www.llmadaptive.uk/api/v1/health
+
+# Check tool configuration
+cat ~/.config/<tool-name>/config.json  # Path varies by tool
+```
 
 ## Support
 

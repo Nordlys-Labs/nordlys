@@ -43,41 +43,6 @@ Repository = "https://github.com/Egham-7/adaptive"
 Documentation = "https://docs.llmadaptive.uk"
 "Bug Tracker" = "https://github.com/Egham-7/adaptive/issues"
 
-[project.optional-dependencies]
-
-
-[dependency-groups]
-dev = [
-  "mypy>=1.15.0,<2",
-  "black>=25.1.0,<26",
-  "ruff>=0.11.11,<0.14",
-  "types-pyyaml>=6.0.12.20250516,<7",
-  "types-pyjwt>=1.7.1",
-  "pytest>=8.4.1",
-  "pytest-cov>=6.2.1",
-  "pytest-asyncio>=0.26.0",
-]
-test = ["pytest>=8.4.1,<9", "pytest-cov>=6.2.1,<8", "pytest-asyncio>=0.24.0,<1"]
-docs = ["mkdocs>=1.5.0,<2", "mkdocs-material>=9.0.0,<10"]
-
-
-[tool.black]
-line-length = 88
-target-version = ['py312']
-include = '\.pyi?$'
-extend-exclude = '''
-/(
-  \.eggs
-  | \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | build
-  | dist
-)/
-'''
-
 
 [tool.hatchling.build]
 # Include adaptive_router_app package
@@ -95,6 +60,7 @@ exclude = [
 no_implicit_optional = true
 warn_return_any = false
 warn_unused_ignores = true
+disable_error_code = ["import-untyped"]
 
 [[tool.mypy.overrides]]
 module = [
@@ -127,13 +93,9 @@ module = [
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-markers = [
-  "integration: marks tests as integration tests (requiring running service)",
-  "unit: marks tests as unit tests (no external dependencies)",
-  "asyncio: marks tests as async tests",
-  "slow: marks tests as slow tests (ML model loading, training, etc.)",
-]
 addopts = "-v --strict-markers"
+pythonpath = ["."]
+testpaths = ["tests"]
 
 [tool.coverage.report]
 exclude_lines = [

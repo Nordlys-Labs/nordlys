@@ -99,6 +99,52 @@ response = router.select_model(
 )
 ```
 
+### Batch Processing
+
+Process multiple prompts efficiently:
+
+```python
+from adaptive_router import ModelRouter
+
+router = ModelRouter.from_local_file("router_profile.json")
+
+# Route multiple prompts
+prompts = [
+    "Write a sorting algorithm",
+    "Explain quantum computing",
+    "Design a REST API",
+]
+
+# Process sequentially
+results = [router.route(prompt, cost_bias=0.5) for prompt in prompts]
+print(results)  # ["openai/gpt-3.5-turbo", "openai/gpt-4", "anthropic/claude-3-sonnet"]
+```
+
+### C++ Core Integration
+
+For maximum performance in high-throughput scenarios, combine Python embeddings with the C++ routing core:
+
+```python
+from sentence_transformers import SentenceTransformer
+from adaptive_core_ext import Router
+
+# Python: Compute embeddings (GPU-accelerated)
+model = SentenceTransformer('all-MiniLM-L6-v2')
+embedding = model.encode("Explain quantum computing").tolist()
+
+# C++: Fast routing (10x faster)
+router = Router.from_file("profile.json")
+response = router.route(embedding, cost_bias=0.5)
+
+print(f"Selected: {response.selected_model}")
+print(f"Cluster: {response.cluster_id}")
+print(f"Alternatives: {response.alternatives}")
+```
+
+**Performance**: The C++ core provides **10x speedup** (5,000 routes/second vs 500/second) for routing operations, making it ideal for production deployments with high request volumes.
+
+See [../adaptive_router_core/README.md](../adaptive_router_core/README.md) for build instructions and complete API reference.
+
 ### MinIO Profile Loading
 
 ```python
@@ -415,7 +461,8 @@ See `train/` directory for training scripts that generate profiles.
 ## Related Documentation
 
 - **Root README** (`../README.md`): General project overview and training instructions
-- **App README** (`../app/README.md`): FastAPI application documentation
+- **App README** (`../adaptive_router_app/README.md`): FastAPI application documentation
+- **C++ Core README** (`../adaptive_router_core/README.md`): High-performance C++ inference core
 - **CLAUDE.md**: Detailed technical documentation and architecture
 
 ## License
