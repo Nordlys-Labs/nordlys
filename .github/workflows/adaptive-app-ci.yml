@@ -95,7 +95,7 @@ jobs:
         name: Setup uv
         uses: astral-sh/setup-uv@v7
         with:
-          enable-cache: true
+          enable-cache: false
           python-version: "3.12"
 
       - if: github.ref == matrix.branch
