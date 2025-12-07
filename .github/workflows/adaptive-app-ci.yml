@@ -29,14 +29,14 @@ jobs:
       run:
         working-directory: adaptive_router_app
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
@@ -65,14 +65,14 @@ jobs:
           - { os: macos, runner: macos-15 }
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
@@ -101,11 +101,11 @@ jobs:
             modal_env: dev
     steps:
       - if: github.ref == matrix.branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - if: github.ref == matrix.branch
         name: Setup uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
@@ -119,7 +119,7 @@ jobs:
 
       - if: github.ref == matrix.branch
         name: Deploy to Modal
-        run: uv run modal deploy main.py
+        run: uv run modal deploy adaptive_router_app/main.py
         env:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
