@@ -29,7 +29,7 @@ jobs:
       run:
         working-directory: adaptive_router_app
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-python@v6
         with:
@@ -65,7 +65,7 @@ jobs:
           - { os: macos, runner: macos-15 }
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-python@v6
         with:
@@ -101,7 +101,7 @@ jobs:
             modal_env: dev
     steps:
       - if: github.ref == matrix.branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - if: github.ref == matrix.branch
         name: Setup uv
