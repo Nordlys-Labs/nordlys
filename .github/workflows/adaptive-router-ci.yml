@@ -4,15 +4,15 @@ on:
   push:
     branches: [main, dev]
     paths:
-      - 'adaptive_router/**'
-      - 'pyproject.toml'
-      - 'uv.lock'
+      - "adaptive_router/**"
+      - "pyproject.toml"
+      - "uv.lock"
   pull_request:
     branches: [main, dev]
     paths:
-      - 'adaptive_router/**'
-      - 'pyproject.toml'
-      - 'uv.lock'
+      - "adaptive_router/**"
+      - "pyproject.toml"
+      - "uv.lock"
   workflow_dispatch:
 
 concurrency:
@@ -21,8 +21,15 @@ concurrency:
 
 jobs:
   lint:
-    name: Lint
-    runs-on: ubuntu-latest
+    name: Lint (${{ matrix.os }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: linux, runner: ubuntu-latest }
+          - { os: macos, runner: macos-latest }
+          - { os: windows, runner: windows-latest }
     defaults:
       run:
         working-directory: adaptive_router
@@ -47,7 +54,7 @@ jobs:
           uv run ruff format --check .
           uv run mypy .
 
-  test:
+  build-test:
     name: Test (py${{ matrix.python }}, ${{ matrix.os }})
     needs: lint
     runs-on: ${{ matrix.runner }}
@@ -83,6 +90,9 @@ jobs:
 
       - name: Install package
         run: uv sync
+
+      - name: Build distribution
+        run: uv build
 
       - name: Test
         run: uv run pytest tests -v --tb=short
