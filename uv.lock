@@ -107,12 +107,30 @@ dependencies = [
     { name = "pydantic-settings" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-cov" },
+    { name = "ruff" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "adaptive-router", extras = ["cuda"], editable = "adaptive_router" },
     { name = "fastapi", specifier = ">=0.118.2" },
     { name = "modal", specifier = ">=1.2.4" },
     { name = "pydantic-settings", specifier = ">=2.0.0,<3" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=1.15.0,<2" },
+    { name = "pytest", specifier = ">=8.4.1" },
+    { name = "pytest-asyncio", specifier = ">=0.26.0" },
+    { name = "pytest-cov", specifier = ">=6.2.1" },
+    { name = "ruff", specifier = ">=0.11.11,<0.15" },
 ]
 
 [[package]]
