@@ -4,22 +4,6 @@
 
 **IMPORTANT**: When working on this service, remember to:
 
-### Memory Management
-
-Use ByteRover MCP for persistent memory across sessions:
-
-- **Before adding memories**: Always search first with `mcp__byterover-mcp__byterover-retrieve-knowledge` to avoid duplicates
-- **Add memories**: Use `mcp__byterover-mcp__byterover-store-knowledge` for ML model configurations, training results, troubleshooting solutions
-- **Search memories**: Use `mcp__byterover-mcp__byterover-retrieve-knowledge` to recall previous conversations and solutions
-- **Best practices for memory storage**: Only commit meaningful, reusable information like ML model patterns, PyTorch configurations, classification algorithms, cost optimization strategies, and implementation details that provide value beyond common knowledge
-
-### Documentation
-
-For documentation needs, use Ref MCP tools:
-
-- **Search docs**: Use `mcp__Ref__ref_search_documentation` for Python, FastAPI, PyTorch, HuggingFace, scikit-learn documentation
-- **Read specific docs**: Use `mcp__Ref__ref_read_url` to read documentation pages
-
 ## Overview
 
 The adaptive_router service is a unified Python ML package that provides intelligent model selection for the Adaptive LLM infrastructure. It uses cluster-based intelligent routing with per-cluster error rates to select optimal LLM models. The service supports two deployment modes: Library (import and use directly in Python code) and FastAPI (HTTP API server with GPU-accelerated inference on T4 GPUs).
@@ -95,7 +79,7 @@ adaptive_router/  # Repository root (workspace root)
 │           └── services/
 ├── adaptive_router_app/                      # FastAPI HTTP server (separate package)
 │   ├── __init__.py
-│   ├── main.py                               # FastAPI entry point (Modal deployment)
+│   ├── main.py                               # FastAPI entry point (inside package)
 │   ├── pyproject.toml                        # App package configuration
 │   ├── railway.json                          # Railway deployment configuration
 │   ├── config.py                             # App configuration (env vars)
@@ -118,6 +102,7 @@ adaptive_router/  # Repository root (workspace root)
 ```
 
 **Package Dependencies:**
+
 - The library (`adaptive_router/`) has its own `pyproject.toml` with ML dependencies (PyTorch, sentence-transformers, scikit-learn, etc.)
 - The app (`pyproject.toml` root) depends on `adaptive-router` via local path dependency
 - Both packages are installed in editable mode during development
@@ -191,10 +176,10 @@ uv sync
 
 # Deploy to Modal (requires Modal CLI and account)
 # Deploy from repository root - Modal will use workspace structure
-modal deploy adaptive_router_app/main.py
+modal deploy adaptive_router_app/adaptive_router_app/main.py
 
 # Or run locally in development
-fastapi dev adaptive_router_app/main.py
+fastapi dev adaptive_router_app/adaptive_router_app/main.py
 
 # Server starts on http://0.0.0.0:8000
 # API docs available at http://localhost:8000/docs
@@ -244,7 +229,7 @@ uv sync --package adaptive-router-app
 uv run --package adaptive-router-app pytest
 
 # Start the FastAPI server (development mode with auto-reload)
-fastapi dev adaptive_router_app/main.py
+fastapi dev adaptive_router_app/adaptive_router_app/main.py
 
 # Or use Hypercorn directly (production-like)
 hypercorn adaptive_router_app.main:app --bind 0.0.0.0:8000
@@ -464,12 +449,12 @@ The `ClusterEngine` handles K-means clustering operations:
 
 The `FeatureExtractor` converts prompts to feature vectors:
 
-- **Sentence transformer embeddings using `all-MiniLM-L6-v2` (384D)
-- **TF-IDF features for lexical patterns (5000D)
-- **StandardScaler normalization for both feature types
-- **Concatenated 5384D feature vectors
-- **GPU-accelerated inference on T4 GPUs (Modal deployment)
-- **Cached models for fast subsequent requests
+- **Sentence transformer embeddings** using `all-MiniLM-L6-v2` (384D)
+- **TF-IDF features** for lexical patterns (5000D)
+- **StandardScaler normalization** for both feature types
+- **Concatenated 5384D feature vectors**
+- **GPU-accelerated inference** on T4 GPUs (Modal deployment)
+- **Cached models** for fast subsequent requests
 
 ### Profile Loaders
 
@@ -661,7 +646,7 @@ RUN pip install uv && uv sync
 COPY . .
 EXPOSE 8000
 
-CMD ["fastapi", "dev", "main.py"]
+CMD ["fastapi", "dev", "adaptive_router_app/adaptive_router_app/main.py"]
 ```
 
 ### Modal Deployment
@@ -670,7 +655,7 @@ CMD ["fastapi", "dev", "main.py"]
 
 ```bash
 # Deploy to Modal
-modal deploy adaptive_router_app/main.py
+modal deploy adaptive_router_app/adaptive_router_app/main.py
 
 # View logs
 modal logs adaptive-router
@@ -679,7 +664,7 @@ modal logs adaptive-router
 modal cancel adaptive-router
 ```
 
-**Modal Configuration** (in `adaptive_router_app/main.py`):
+**Modal Configuration** (in `adaptive_router_app/adaptive_router_app/main.py`):
 
 - GPU: T4 (16GB VRAM)
 - Memory: 8GB
@@ -730,7 +715,7 @@ modal cancel adaptive-router
 - Verify all dependencies installed: `uv install`
 - Check port availability (default: 8000)
 - For Modal deployment: verify Modal CLI is installed and authenticated
-- Ensure you're using the correct command: `fastapi dev adaptive_router_app/adaptive_router_app/main.py` (local) or `modal deploy adaptive_router_app/main.py` (Modal)
+- Ensure you're using the correct command: `fastapi dev adaptive_router_app/adaptive_router_app/main.py` (local) or `modal deploy adaptive_router_app/adaptive_router_app/main.py` (Modal)
 
 **Modal deployment issues**
 
@@ -752,7 +737,7 @@ modal cancel adaptive-router
 - Verify input format matches ModelSelectionRequest schema
 - Check prompt length is reasonable (no hard limit, but very long prompts are slower)
 - Ensure router profile loaded correctly (check startup logs)
-- Enable debug logging: `DEBUG=true fastapi dev adaptive_router_app/main.py`
+- Enable debug logging: `DEBUG=true fastapi dev adaptive_router_app/adaptive_router_app/main.py`
 
 **Performance issues**
 
@@ -790,7 +775,7 @@ python -c "import psutil; print(f'Memory: {psutil.virtual_memory().percent}%')"
 
 ```bash
 # Start with debug logging
-DEBUG=true fastapi dev adaptive_router_app/main.py
+DEBUG=true fastapi dev adaptive_router_app/adaptive_router_app/main.py
 
 # Check service health
 curl -X GET http://localhost:8000/health
@@ -805,7 +790,7 @@ curl -X POST http://localhost:8000/select-model \
 
 ```bash
 # Deploy to Modal
-modal deploy adaptive_router_app/main.py
+modal deploy adaptive_router_app/adaptive_router_app/main.py
 
 # View logs
 modal logs adaptive-router

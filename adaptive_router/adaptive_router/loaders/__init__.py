@@ -1,5 +1,17 @@
-from adaptive_router.loaders.base import ProfileLoader
-from adaptive_router.loaders.local import LocalFileProfileLoader
-from adaptive_router.loaders.minio import MinIOProfileLoader
+"""Profile loaders for adaptive router.
 
-__all__ = ["ProfileLoader", "LocalFileProfileLoader", "MinIOProfileLoader"]
+This module provides different strategies for loading router profiles:
+- LocalFileProfileLoader: Load profiles from local JSON/YAML files
+- MinIOProfileLoader: Load profiles from MinIO object storage
+- ProfileLoader: Abstract base class for custom implementations
+"""
+
+from .base import ProfileLoader
+from .local import LocalFileProfileLoader
+from .minio import MinIOProfileLoader
+
+__all__ = [
+    "ProfileLoader",
+    "LocalFileProfileLoader",
+    "MinIOProfileLoader",
+]

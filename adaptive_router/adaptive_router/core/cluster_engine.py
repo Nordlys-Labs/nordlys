@@ -381,6 +381,9 @@ class ClusterEngine(BaseEstimator):
         if len(self.cluster_assignments) == 0:
             raise ClusterNotFittedError("No cluster assignments available")
 
+        if self.n_clusters is None:
+            raise ClusterNotConfiguredError("n_clusters is not configured")
+
         unique, counts = np.unique(self.cluster_assignments, return_counts=True)
 
         return ClusterStats(

@@ -3,19 +3,16 @@
 ## Executive Summary
 
 Migrate the adaptive_router **inference core only** from Python to C++ to enable:
-
 1. **Faster inference** via C++ with ONNX Runtime + CUDA
 2. **FFI bindings** for multiple languages (Python, Go, Node.js in future)
 3. **Single source of truth** for routing logic across all platforms
 
 **What stays in Python:**
-
 - FastAPI server (Modal deployment unchanged)
 - Training pipeline (PyTorch, sklearn, DeepEval)
 - Profile generation and export (JSON + binary format for C++ core)
 
 **What moves to C++:**
-
 - Embedding extraction (ONNX Runtime)
 - K-means cluster assignment
 - Model scoring algorithm
@@ -67,14 +64,14 @@ Migrate the adaptive_router **inference core only** from Python to C++ to enable
 
 ## Key Decisions
 
-| Decision       | Choice                     | Rationale                                         |
-| -------------- | -------------------------- | ------------------------------------------------- |
-| Server         | **Python/FastAPI (Modal)** | Keep existing deployment, just swap inference     |
-| Training       | **Pure Python**            | Uses PyTorch, sklearn, DeepEval - no need to port |
-| C++ Core       | **Library only**           | Exposed via Python bindings (nanobind)            |
-| GPU Support    | **CUDA via ONNX Runtime**  | T4 GPU on Modal                                   |
-| Profile Format | **JSON + Binary**          | JSON for dev, MessagePack for production          |
-| Go Integration | **HTTP API initially**     | Later: direct cgo to C++ core                     |
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Server | **Python/FastAPI (Modal)** | Keep existing deployment, just swap inference |
+| Training | **Pure Python** | Uses PyTorch, sklearn, DeepEval - no need to port |
+| C++ Core | **Library only** | Exposed via Python bindings (nanobind) |
+| GPU Support | **CUDA via ONNX Runtime** | T4 GPU on Modal |
+| Profile Format | **JSON + Binary** | JSON for dev, MessagePack for production |
+| Go Integration | **HTTP API initially** | Later: direct cgo to C++ core |
 
 ---
 
@@ -146,7 +143,6 @@ adaptive-router-core/
 ### 1. Embedding Extraction
 
 **Python** (`cluster_engine.py:191-214`):
-
 ```python
 embeddings = self.embedding_model.encode(
     texts, batch_size=32, normalize_embeddings=False
@@ -155,7 +151,6 @@ embeddings_normalized = normalize(embeddings, norm='l2')
 ```
 
 **C++** (`embeddings.hpp`):
-
 ```cpp
 class EmbeddingModel {
 public:
@@ -180,7 +175,6 @@ private:
 ### 2. Cluster Assignment
 
 **Python** (`cluster_engine.py:324-362`):
-
 ```python
 def assign_single(self, text: str) -> tuple[int, float]:
     embeddings = self._extract_embeddings([text])
@@ -191,7 +185,6 @@ def assign_single(self, text: str) -> tuple[int, float]:
 ```
 
 **C++** (`cluster.hpp`):
-
 ```cpp
 class ClusterEngine {
 public:
@@ -213,7 +206,6 @@ private:
 ### 3. Model Scoring
 
 **Python** (`router.py:174-204`):
-
 ```python
 def _score_models(self, models_to_score, cluster_id, lambda_param):
     scored_models = []
@@ -226,7 +218,6 @@ def _score_models(self, models_to_score, cluster_id, lambda_param):
 ```
 
 **C++** (`scorer.hpp`):
-
 ```cpp
 struct ModelScore {
     std::string model_id;
@@ -263,7 +254,6 @@ private:
 ### 4. Main Router
 
 **C++** (`router.hpp`):
-
 ```cpp
 struct RouteRequest {
     std::string prompt;
@@ -304,7 +294,6 @@ private:
 ### 5. Profile Data Structures
 
 **C++** (`profile.hpp`):
-
 ```cpp
 struct ModelFeatures {
     std::string model_id;
@@ -485,7 +474,6 @@ NB_MODULE(adaptive_core, m) {
 ### Binary Format (Production, faster loading)
 
 **Python Trainer Export** (`savers/binary.py`):
-
 ```python
 import msgpack
 import numpy as np
@@ -530,7 +518,6 @@ class BinaryProfileSaver:
 ```
 
 **C++ Binary Loader** (`profile.cpp`):
-
 ```cpp
 #include <msgpack.hpp>
 #include <fstream>
@@ -567,7 +554,6 @@ RouterProfile RouterProfile::from_binary(const std::string& path) {
 **Goals**: Set up C++ project, export ONNX model, validate embeddings
 
 **Tasks**:
-
 1. Create CMake project structure
 2. Set up Conan dependencies (onnxruntime, Eigen, nlohmann_json, msgpack)
 3. Export `all-MiniLM-L6-v2` to ONNX format
@@ -580,7 +566,6 @@ RouterProfile RouterProfile::from_binary(const std::string& path) {
 **Goals**: Implement clustering and scoring logic
 
 **Tasks**:
-
 1. Implement `ClusterEngine` with Eigen
 2. Implement `ModelScorer` with heap-based selection
 3. Implement profile loading from JSON and binary
@@ -592,7 +577,6 @@ RouterProfile RouterProfile::from_binary(const std::string& path) {
 **Goals**: Create bindings for Python
 
 **Tasks**:
-
 1. Implement C API (`adaptive.h`)
 2. Create nanobind Python module
 3. Integration tests for Python bindings
@@ -603,7 +587,6 @@ RouterProfile RouterProfile::from_binary(const std::string& path) {
 **Goals**: Package for Modal deployment
 
 **Tasks**:
-
 1. Package C++ library for Modal
 2. Update Modal image with C++ dependencies (ONNX Runtime + CUDA)
 3. Test C++ core loading on Modal T4 GPU
@@ -614,7 +597,6 @@ RouterProfile RouterProfile::from_binary(const std::string& path) {
 **Goals**: Validate production readiness
 
 **Tasks**:
-
 1. Shadow deployment (run both C++ and Python, compare results)
 2. Load testing (target: 1000 req/s)
 3. Accuracy validation (10,000 prompts)
@@ -625,14 +607,12 @@ RouterProfile RouterProfile::from_binary(const std::string& path) {
 **Goals**: Update Python router to use C++ core, extend Trainer
 
 **Tasks**:
-
 1. Update `ModelRouter` to use C++ core via nanobind
 2. Add `BinaryProfileSaver` to `adaptive_router/savers/`
 3. Update `Trainer.train()` to export both JSON and binary formats
 4. Update documentation
 
 **Updated Python Usage**:
-
 ```python
 # Training (exports both formats)
 from adaptive_router.core.trainer import Trainer
@@ -650,29 +630,29 @@ result = router.route("Hello", cost_bias=0.5)
 
 ## Performance Benchmarks
 
-| Metric               | Python Baseline | C++ Target (GPU) |
-| -------------------- | --------------- | ---------------- |
-| Embedding (single)   | 10-20ms GPU     | 5-10ms           |
-| Embedding (batch 32) | 50-100ms GPU    | 20-40ms          |
-| Cluster assignment   | <5ms            | <1ms             |
-| Model scoring        | <5ms            | <0.5ms           |
-| **Total latency**    | **15-30ms**     | **7-15ms**       |
-| Memory footprint     | 2-4GB           | 200-500MB        |
-| Cold start           | 5-10s           | 1-2s             |
+| Metric | Python Baseline | C++ Target (GPU) |
+|--------|-----------------|------------------|
+| Embedding (single) | 10-20ms GPU | 5-10ms |
+| Embedding (batch 32) | 50-100ms GPU | 20-40ms |
+| Cluster assignment | <5ms | <1ms |
+| Model scoring | <5ms | <0.5ms |
+| **Total latency** | **15-30ms** | **7-15ms** |
+| Memory footprint | 2-4GB | 200-500MB |
+| Cold start | 5-10s | 1-2s |
 
 ---
 
 ## Risk Mitigation
 
-| Risk                   | Mitigation                                      |
-| ---------------------- | ----------------------------------------------- |
-| Embedding mismatch     | Validate 10,000+ samples before deployment      |
-| ONNX export issues     | Use official `optimum` library for export       |
-| Tokenizer differences  | Use HuggingFace tokenizers-cpp (same as Python) |
-| Memory leaks           | Use smart pointers, ASAN in tests               |
-| Build complexity       | Docker for reproducible builds, CI/CD           |
-| Performance regression | Benchmark before/after, gradual rollout         |
-| CUDA version mismatch  | Pin CUDA 11.8 (same as Modal T4 deployment)     |
+| Risk | Mitigation |
+|------|------------|
+| Embedding mismatch | Validate 10,000+ samples before deployment |
+| ONNX export issues | Use official `optimum` library for export |
+| Tokenizer differences | Use HuggingFace tokenizers-cpp (same as Python) |
+| Memory leaks | Use smart pointers, ASAN in tests |
+| Build complexity | Docker for reproducible builds, CI/CD |
+| Performance regression | Benchmark before/after, gradual rollout |
+| CUDA version mismatch | Pin CUDA 11.8 (same as Modal T4 deployment) |
 
 ---
 
@@ -691,13 +671,11 @@ result = router.route("Hello", cost_bias=0.5)
 ## Critical Files Reference
 
 ### Python Files to Modify
-
 - `adaptive_router/core/router.py` - Wrap C++ core instead of Python implementation
 - `adaptive_router/core/trainer.py` - Add binary export after training
 - `adaptive_router/savers/binary.py` - **New file**: BinaryProfileSaver class
 
 ### Python Files to Port to C++
-
 - `adaptive_router/core/router.py:174-204` - Scoring algorithm
 - `adaptive_router/core/router.py:611-639` - Lambda/cost normalization
 - `adaptive_router/core/cluster_engine.py:324-362` - Cluster assignment
@@ -706,9 +684,7 @@ result = router.route("Hello", cost_bias=0.5)
 - `adaptive_router/models/routing.py:49-72` - ModelFeatureVector
 
 ### Go Files (No Changes Needed)
-
 - `adaptive-proxy/internal/services/model_router/client.go` - HTTP client unchanged
 
 ### Modal Files (Minor Updates)
-
 - `main.py` - Update Modal Image with C++ dependencies

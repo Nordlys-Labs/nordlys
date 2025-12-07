@@ -111,7 +111,7 @@ class ProviderRegistry:
         if factory is None:
             available = ", ".join(sorted(self._factories.keys()))
             raise ValueError(
-                f"Unsupported provider: '{alias}'. " f"Available providers: {available}"
+                f"Unsupported provider: '{alias}'. Available providers: {available}"
             )
         return factory
 

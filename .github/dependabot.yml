@@ -1,11 +1,11 @@
-# Dependabot configuration for adaptive multi-service repository
+# Dependabot configuration for adaptive_router project
 # https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
 
 version: 2
 updates:
-  # Go backend service
-  - package-ecosystem: "gomod"
-    directory: "/adaptive-backend"
+  # UV workspace (Python dependencies)
+  - package-ecosystem: "pip"
+    directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -14,160 +14,9 @@ updates:
     target-branch: "dev"
     labels:
       - "dependencies"
-      - "backend"
-      - "go"
-    commit-message:
-      prefix: "deps(backend)"
-      include: "scope"
-
-  # Next.js frontend app
-  - package-ecosystem: "npm"
-    directory: "/adaptive-app"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-    open-pull-requests-limit: 5
-    target-branch: "dev"
-    labels:
-      - "dependencies"
-      - "frontend"
-      - "npm"
-    commit-message:
-      prefix: "deps(frontend)"
-      include: "scope"
-
-  # Model Router
-  - package-ecosystem: "pip"
-    directory: "/adaptive_ai/model_router"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-    open-pull-requests-limit: 5
-    target-branch: "dev"
-    labels:
-      - "dependencies"
-      - "model_router"
       - "python"
     commit-message:
-      prefix: "deps(model_router)"
-      include: "scope"
-
-  # Prompt classifier
-  - package-ecosystem: "pip"
-    directory: "/adaptive_ai/prompt_task_complexity_classifier"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-    open-pull-requests-limit: 3
-    target-branch: "dev"
-    labels:
-      - "dependencies"
-      - "classifier"
-      - "python"
-    commit-message:
-      prefix: "deps(prompt_task_complexity_classifier)"
-      include: "scope"
-
-  # Benchmarks - genai-perf
-  - package-ecosystem: "pip"
-    directory: "/benchmarks/genai-perf"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-    open-pull-requests-limit: 3
-    target-branch: "dev"
-    labels:
-      - "dependencies"
-      - "benchmarks"
-      - "python"
-    commit-message:
-      prefix: "deps(benchmarks)"
-      include: "scope"
-
-  # Benchmarks - MMLU
-  - package-ecosystem: "pip"
-    directory: "/benchmarks/MMLU benchmark"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-    open-pull-requests-limit: 3
-    target-branch: "dev"
-    labels:
-      - "dependencies"
-      - "benchmarks"
-      - "python"
-    commit-message:
-      prefix: "deps(benchmarks)"
-      include: "scope"
-
-  # Docker images
-  - package-ecosystem: "docker"
-    directory: "/adaptive-app"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-    open-pull-requests-limit: 3
-    target-branch: "dev"
-    labels:
-      - "dependencies"
-      - "docker"
-      - "frontend"
-    commit-message:
-      prefix: "deps(docker-frontend)"
-      include: "scope"
-
-  - package-ecosystem: "docker"
-    directory: "/adaptive-backend"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-    open-pull-requests-limit: 3
-    target-branch: "dev"
-    labels:
-      - "dependencies"
-      - "docker"
-      - "backend"
-    commit-message:
-      prefix: "deps(docker-backend)"
-      include: "scope"
-
-  - package-ecosystem: "docker"
-    directory: "/adaptive_ai"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-    open-pull-requests-limit: 3
-    target-branch: "dev"
-    labels:
-      - "dependencies"
-      - "docker"
-      - "ai-service"
-    commit-message:
-      prefix: "deps(docker-ai)"
-      include: "scope"
-
-  - package-ecosystem: "docker"
-    directory: "/monitoring"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-    open-pull-requests-limit: 3
-    target-branch: "dev"
-    labels:
-      - "dependencies"
-      - "docker"
-      - "monitoring"
-    commit-message:
-      prefix: "deps(docker-monitoring)"
+      prefix: "deps(python)"
       include: "scope"
 
   # GitHub Actions
@@ -186,4 +35,3 @@ updates:
     commit-message:
       prefix: "deps(ci)"
       include: "scope"
-

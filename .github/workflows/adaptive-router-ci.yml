@@ -1,0 +1,83 @@
+name: Adaptive Router Library CI
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - 'adaptive_router/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - 'adaptive_router/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: adaptive_router
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install package
+        run: uv sync
+
+      - name: Lint
+        run: |
+          uv run ruff check --output-format=github .
+          uv run ruff format --check .
+          uv run mypy .
+
+  test:
+    name: Test (py${{ matrix.python }}, ${{ matrix.os }})
+    needs: lint
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: adaptive_router
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: linux, runner: ubuntu-24.04, python: "3.11" }
+          - { os: linux, runner: ubuntu-24.04, python: "3.12" }
+          - { os: linux, runner: ubuntu-24.04, python: "3.13" }
+          - { os: macos, runner: macos-15, python: "3.12" }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install package
+        run: uv sync
+
+      - name: Test
+        run: uv run pytest tests -v --tb=short

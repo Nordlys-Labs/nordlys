@@ -431,6 +431,144 @@ TRAINING COMPLETED SUCCESSFULLY
 - Higher values = faster training, but may hit rate limits
 - Lower values = slower training, more reliable
 
+## Dataset Size Recommendations
+
+The quality of your router profile depends significantly on dataset size:
+
+| Clusters | Min Samples | Recommended | Notes |
+|----------|-------------|-------------|-------|
+| 5-10 | 50-100 | 200-500 | Good for simple categorization |
+| 15-25 | 150-250 | 500-1000 | Balanced for general use |
+| 30-40 | 300-400 | 1000-2000 | Better routing accuracy |
+| 50+ | 500+ | 2000+ | Production-grade routing |
+
+**Rule of thumb**: Aim for **50-100 samples per cluster** for reliable error rate estimation.
+
+**Diverse prompts**: Include variety in prompt types, lengths, and complexity levels to ensure good cluster separation.
+
+## Profile Optimization Tips
+
+### Improving Cluster Quality
+
+1. **Silhouette Score**: Target 0.3-0.5 for good cluster separation
+   - Score < 0.2: Consider fewer clusters or more data
+   - Score > 0.5: Excellent separation, may need more clusters for finer routing
+
+2. **Feature Engineering**:
+   ```toml
+   [training]
+   tfidf_max_features = 10000    # More vocabulary coverage
+   tfidf_ngram_range = [1, 3]    # Include trigrams for context
+   ```
+
+3. **Embedding Model**: The default `all-MiniLM-L6-v2` works well for most cases
+   - For multilingual: Use `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`
+   - For long prompts: Use `sentence-transformers/all-mpnet-base-v2`
+
+### Reducing Error Rates
+
+1. **More training samples**: Error rates become more accurate with more data
+2. **Model-specific prompts**: Include prompts that highlight each model's strengths
+3. **Cost-quality balance**: Ensure models span different price/capability ranges
+
+### Profile Size Optimization
+
+For production with the C++ core:
+
+```toml
+[training]
+n_clusters = 20                  # Good balance: smaller profile, fast routing
+tfidf_max_features = 5000        # Standard vocabulary
+```
+
+Larger profiles (40+ clusters) provide finer routing but:
+- Increase memory usage
+- Require more training samples
+- May slow down routing slightly
+
+## Expected Training Output
+
+### Sample Training Log
+
+```
+[2024-01-15 10:30:00] Starting training with config: train_with_pricing.toml
+[2024-01-15 10:30:01] Loading dataset from train/examples/datasets/qa_dataset.csv
+[2024-01-15 10:30:01] Dataset loaded: 500 samples
+[2024-01-15 10:30:02] Computing embeddings with all-MiniLM-L6-v2...
+[2024-01-15 10:30:15] Embedding shape: (500, 384)
+[2024-01-15 10:30:15] Computing TF-IDF features...
+[2024-01-15 10:30:16] TF-IDF shape: (500, 5000)
+[2024-01-15 10:30:16] Running K-means clustering with 20 clusters...
+[2024-01-15 10:30:18] Clustering completed. Silhouette score: 0.42
+[2024-01-15 10:30:18] Running inference to compute error rates...
+[2024-01-15 10:32:45] Inference completed for 3 models
+
+================================================================================
+TRAINING RESULTS
+================================================================================
+Total samples: 500
+Number of clusters: 20
+Silhouette score: 0.4234
+Training time: 165.32 seconds
+Inference time: 147.21 seconds
+
+Model Error Rates (across all clusters):
+  openai/gpt-4: 3.2% avg (range: 0.8% - 8.4%)
+  openai/gpt-3.5-turbo: 11.4% avg (range: 5.2% - 22.1%)
+  anthropic/claude-3-sonnet: 4.8% avg (range: 1.2% - 12.3%)
+
+Cost Summary:
+  Cheapest: openai/gpt-3.5-turbo ($0.50/1M input)
+  Most expensive: openai/gpt-4 ($30.00/1M input)
+  Best quality: openai/gpt-4 (3.2% error rate)
+
+Profile saved to: profile_with_pricing.json (1.2 MB)
+================================================================================
+TRAINING COMPLETED SUCCESSFULLY
+================================================================================
+```
+
+### Profile JSON Structure
+
+```json
+{
+  "metadata": {
+    "n_clusters": 20,
+    "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+    "silhouette_score": 0.4234,
+    "created_at": "2024-01-15T10:32:45Z",
+    "sample_count": 500,
+    "clustering": {
+      "max_iter": 300,
+      "random_state": 42,
+      "algorithm": "lloyd"
+    },
+    "routing": {
+      "lambda_min": 0.0,
+      "lambda_max": 2.0,
+      "default_cost_preference": 0.5
+    }
+  },
+  "cluster_centers": [...],
+  "models": [
+    {
+      "model_id": "openai/gpt-4",
+      "provider": "openai",
+      "model_name": "gpt-4",
+      "error_rates": [0.032, 0.045, ...],
+      "cost_per_1m_input_tokens": 30.0,
+      "cost_per_1m_output_tokens": 60.0
+    }
+  ],
+  "scalers": {
+    "embedding_mean": [...],
+    "embedding_std": [...],
+    "tfidf_mean": [...],
+    "tfidf_std": [...]
+  }
+}
+```
+
 ## Next Steps
 
 1. **Create your own dataset** with domain-specific prompts

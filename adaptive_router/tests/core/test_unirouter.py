@@ -34,7 +34,6 @@ def small_cluster_engine() -> ClusterEngine:
     )
 
 
-@pytest.mark.unit
 class TestClusterEngine:
     """Test ClusterEngine core functionality."""
 
@@ -60,7 +59,6 @@ class TestClusterEngine:
         assert engine.random_state == 123
         assert engine.n_init == 20
 
-    @pytest.mark.slow
     def test_fit(
         self, small_cluster_engine: ClusterEngine, sample_questions: List[str]
     ) -> None:
@@ -84,7 +82,6 @@ class TestClusterEngine:
         # Should have silhouette score
         assert -1.0 <= engine.silhouette <= 1.0
 
-    @pytest.mark.slow
     def test_predict_before_fit_raises_error(
         self, small_cluster_engine: ClusterEngine, sample_questions: List[str]
     ) -> None:
@@ -94,7 +91,6 @@ class TestClusterEngine:
         with pytest.raises(Exception, match="Must call fit"):
             engine.predict(sample_questions)
 
-    @pytest.mark.slow
     def test_predict_after_fit(
         self, small_cluster_engine: ClusterEngine, sample_questions: List[str]
     ) -> None:
@@ -111,7 +107,6 @@ class TestClusterEngine:
         assert small_cluster_engine.n_clusters is not None
         assert all(0 <= p < small_cluster_engine.n_clusters for p in predictions)
 
-    @pytest.mark.slow
     def test_assign_single(
         self, small_cluster_engine: ClusterEngine, sample_questions: List[str]
     ) -> None:
@@ -129,7 +124,6 @@ class TestClusterEngine:
         assert isinstance(distance, float)
         assert distance >= 0.0
 
-    @pytest.mark.slow
     def test_assign_single_before_fit_raises_error(
         self, small_cluster_engine: ClusterEngine
     ) -> None:
@@ -139,7 +133,6 @@ class TestClusterEngine:
         with pytest.raises(Exception, match="Must call fit"):
             engine.assign_single("Test question")
 
-    @pytest.mark.slow
     def test_get_cluster_info(
         self, small_cluster_engine: ClusterEngine, sample_questions: List[str]
     ) -> None:
@@ -163,7 +156,6 @@ class TestClusterEngine:
             _ = small_cluster_engine.cluster_stats
 
 
-@pytest.mark.unit
 class TestClusterEngineEdgeCases:
     """Test edge cases for ClusterEngine."""
 
@@ -175,7 +167,6 @@ class TestClusterEngineEdgeCases:
         with pytest.raises(ValueError):
             engine.fit([])
 
-    @pytest.mark.slow
     def test_single_question(self, small_cluster_engine: ClusterEngine) -> None:
         """Test fitting with a single question."""
         engine = small_cluster_engine
@@ -190,7 +181,6 @@ class TestClusterEngineEdgeCases:
             # Some ML libraries might complain about insufficient data
             pass
 
-    @pytest.mark.slow
     def test_predict_different_size_batch(
         self, small_cluster_engine: ClusterEngine, sample_questions: List[str]
     ) -> None:
@@ -206,7 +196,6 @@ class TestClusterEngineEdgeCases:
         multiple_pred = engine.predict(sample_questions[:3])
         assert len(multiple_pred) == 3
 
-    @pytest.mark.slow
     def test_cluster_distribution(
         self, small_cluster_engine: ClusterEngine, sample_questions: List[str]
     ) -> None:
@@ -224,7 +213,6 @@ class TestClusterEngineEdgeCases:
         assert info.min_cluster_size <= info.avg_cluster_size <= info.max_cluster_size
 
 
-@pytest.mark.unit
 class TestRouterServiceMocked:
     """Test ModelRouter with mocked dependencies (no real ML models)."""
 
@@ -268,11 +256,9 @@ class TestRouterServiceMocked:
         pass
 
 
-@pytest.mark.unit
 class TestModelSelectionIntegration:
     """Test integration of ClusterEngine with model selection."""
 
-    @pytest.mark.slow
     def test_cluster_assignment_consistency(
         self, small_cluster_engine: ClusterEngine, sample_questions: List[str]
     ) -> None:
@@ -290,7 +276,6 @@ class TestModelSelectionIntegration:
         # Should be consistent
         assert cluster_id1 == cluster_id2 == cluster_id3
 
-    @pytest.mark.slow
     def test_similar_questions_same_cluster(
         self, small_cluster_engine: ClusterEngine, sample_questions: List[str]
     ) -> None:
@@ -311,11 +296,9 @@ class TestModelSelectionIntegration:
         # (A real test would use many more questions and larger clusters)
 
 
-@pytest.mark.unit
 class TestClusterEnginePerformance:
     """Test performance characteristics of ClusterEngine."""
 
-    @pytest.mark.slow
     def test_fit_performance(self, sample_questions: List[str]) -> None:
         """Test that fitting completes in reasonable time."""
         import time
@@ -329,7 +312,6 @@ class TestClusterEnginePerformance:
         # With only 5 questions, 2 clusters, and 10 iterations, should be very fast
         assert elapsed < 30.0  # 30 seconds should be more than enough
 
-    @pytest.mark.slow
     def test_predict_performance(
         self, small_cluster_engine: ClusterEngine, sample_questions: List[str]
     ) -> None:
@@ -350,7 +332,6 @@ class TestClusterEnginePerformance:
         # 100 predictions should be fast
         assert elapsed < 30.0
 
-    @pytest.mark.slow
     def test_assign_single_performance(
         self, small_cluster_engine: ClusterEngine, sample_questions: List[str]
     ) -> None:

@@ -1,0 +1,50 @@
+name: Workspace CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build-all:
+    name: Build All Packages (${{ matrix.os }}, py${{ matrix.python }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: linux, runner: ubuntu-24.04, python: "3.12" }
+          - { os: macos, runner: macos-15, python: "3.12" }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Cache Conan packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.conan2
+          key: conan-${{ runner.os }}-${{ hashFiles('adaptive_router_core/conanfile.py') }}
+          restore-keys: |
+            conan-${{ runner.os }}-
+
+      - name: Build all packages (workspace)
+        run: uv sync
+
+      - name: Test workspace
+        run: uv run pytest -v --tb=short
