@@ -1,15 +1,15 @@
-name: Adaptive Router App Prod
+name: Adaptive Router App Dev
 
 on:
   push:
-    branches: [main]
+    branches: [dev]
     paths:
       - 'adaptive_router_app/**'
       - 'adaptive_router/**'
       - 'pyproject.toml'
       - 'uv.lock'
   pull_request:
-    branches: [main]
+    branches: [dev]
     paths:
       - 'adaptive_router_app/**'
       - 'adaptive_router/**'
@@ -51,11 +51,11 @@ jobs:
       - name: Test
         run: uv run pytest -v --tb=short
 
-  deploy-prod:
-    name: Deploy to Modal (Prod)
+  deploy-dev:
+    name: Deploy to Modal (Dev)
     runs-on: ubuntu-latest
     needs: [test]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
     defaults:
       run:
         working-directory: adaptive_router_app
@@ -93,4 +93,4 @@ jobs:
         env:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
-          MODAL_ENVIRONMENT: main
+          MODAL_ENVIRONMENT: dev
