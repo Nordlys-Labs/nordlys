@@ -20,43 +20,8 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  lint:
-    name: Lint (${{ matrix.os }})
-    runs-on: ${{ matrix.runner }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { os: linux, runner: ubuntu-latest }
-          - { os: macos, runner: macos-latest }
-          - { os: windows, runner: windows-latest }
-    defaults:
-      run:
-        working-directory: adaptive_router
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-
-      - name: Setup uv
-        uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: true
-
-      - name: Install package
-        run: uv sync
-
-      - name: Lint
-        run: |
-          uv run ruff check --output-format=github .
-          uv run ruff format --check .
-          uv run mypy .
-
   build-test:
     name: Test (py${{ matrix.python }}, ${{ matrix.os }})
-    needs: lint
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     defaults:
@@ -67,7 +32,7 @@ jobs:
       matrix:
         include:
           - { os: linux, runner: ubuntu-latest, python: "3.11" }
-          - { os: linux, runner: ubuntu-latest, python: "3.12" }
+          - { os: linux, runner: ubuntu-latest, python: "3.12", lint: true }
           - { os: linux, runner: ubuntu-latest, python: "3.13" }
           - { os: macos, runner: macos-latest, python: "3.11" }
           - { os: macos, runner: macos-latest, python: "3.12" }
@@ -79,17 +44,21 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/setup-python@v6
-        with:
-          python-version: ${{ matrix.python }}
-
       - name: Setup uv
         uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
+          python-version: ${{ matrix.python }}
 
       - name: Install package
         run: uv sync
+
+      - name: Lint
+        if: matrix.lint
+        run: |
+          uv run ruff check --output-format=github .
+          uv run ruff format --check .
+          uv run mypy .
 
       - name: Build distribution
         run: uv build
