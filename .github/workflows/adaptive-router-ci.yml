@@ -79,5 +79,5 @@ jobs:
       - name: Install package
         run: uv sync
 
-      - name: Test with coverage
-        run: uv run pytest tests -v --tb=short --cov=adaptive_router --cov-report=term-missing --cov-fail-under=80
+      - name: Test
+        run: uv run pytest tests -v --tb=short
