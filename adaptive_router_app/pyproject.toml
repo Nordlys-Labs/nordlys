@@ -37,6 +37,12 @@ dependencies = [
 # Workspace member dependency
 adaptive-router = { workspace = true }
 
+[project.optional-dependencies]
+cuda = [
+  # Enable CUDA-enabled core through the library extra
+  "adaptive-router[cuda]",
+]
+
 [project.urls]
 Homepage = "https://llmadaptive.uk"
 Repository = "https://github.com/Egham-7/adaptive"

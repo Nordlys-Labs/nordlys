@@ -104,13 +104,20 @@ dependencies = [
     { name = "pydantic-settings" },
 ]
 
+[package.optional-dependencies]
+cuda = [
+    { name = "adaptive-router", extras = ["cuda"] },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "adaptive-router", editable = "adaptive_router" },
+    { name = "adaptive-router", extras = ["cuda"], marker = "extra == 'cuda'", editable = "adaptive_router" },
     { name = "fastapi", specifier = ">=0.118.2" },
     { name = "modal", specifier = ">=1.2.4" },
     { name = "pydantic-settings", specifier = ">=2.0.0,<3" },
 ]
+provides-extras = ["cuda"]
 
 [[package]]
 name = "adaptive-router-core"
