@@ -62,7 +62,7 @@ async def create_model_router(
 
     loader = LocalFileProfileLoader(profile_path)
     profile = loader.load_profile()
-    router = ModelRouter.from_local_file(profile_path)
+    router = ModelRouter.from_profile(profile)
 
     logger.info("ModelRouter created successfully")
 
