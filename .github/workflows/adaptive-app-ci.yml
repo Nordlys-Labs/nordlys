@@ -46,12 +46,6 @@ jobs:
           docker-images: true
           swap-storage: false
 
-      - name: Install CUDA Toolkit
-        uses: Jimver/cuda-toolkit@v0.2.29
-        with:
-          cuda: '13.0.2'
-          method: 'network'
-
       - name: Setup uv
         uses: astral-sh/setup-uv@v7
         with:
@@ -91,12 +85,6 @@ jobs:
           large-packages: true
           docker-images: true
           swap-storage: false
-
-      - name: Install CUDA Toolkit
-        uses: Jimver/cuda-toolkit@v0.2.29
-        with:
-          cuda: '13.0.2'
-          method: 'network'
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v7

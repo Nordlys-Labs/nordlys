@@ -30,11 +30,13 @@ dependencies = [
   "fastapi>=0.118.2",
   # Serverless Deployment
   "modal>=1.2.4",
+  # Adaptive Router library (CPU core by default)
+  "adaptive-router>=0.1.0,<1",
 ]
 
 [tool.uv.sources]
-# Workspace member dependency
-adaptive-router = { workspace = true }
+# Use local path for Modal uv_sync (no workspace support)
+adaptive-router = { path = "../adaptive_router" }
 
 [tool.uv]
 default-groups = ["cpu"]
@@ -46,9 +48,9 @@ cuda = ["adaptive-router[cuda]"]
 dev = [
   "mypy>=1.15.0,<2",
   "ruff>=0.11.11,<0.15",
-  "pytest>=8.4.1",
-  "pytest-cov>=6.2.1",
-  "pytest-asyncio>=0.26.0",
+  "pytest>=8.4.1,<9",
+  "pytest-cov>=6.2.1,<8",
+  "pytest-asyncio>=0.26.0,<1",
 ]
 
 [project.urls]
