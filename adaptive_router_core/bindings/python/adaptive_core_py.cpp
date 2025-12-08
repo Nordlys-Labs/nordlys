@@ -23,7 +23,7 @@ NB_MODULE(adaptive_core_ext, m) {
   nb::class_<Router>(m, "Router")
       // Factory methods - wrap to convert Result<Router, string> errors to exceptions
       .def_static(
-          "from_file",
+          "from_json_file",
           [](const std::string& path) {
             auto result = Router::from_file(path);
             if (!result) {
@@ -41,9 +41,9 @@ NB_MODULE(adaptive_core_ext, m) {
             }
             return std::move(result.value());
           },
-          "json_str"_a, "Load router from JSON string")
+          "json_str"_a, "Load router from JSON string (in-memory)")
       .def_static(
-          "from_binary",
+          "from_msgpack_file",
           [](const std::string& path) {
             auto result = Router::from_binary(path);
             if (!result) {
@@ -51,7 +51,7 @@ NB_MODULE(adaptive_core_ext, m) {
             }
             return std::move(result.value());
           },
-          "path"_a, "Load router from binary MessagePack profile")
+          "path"_a, "Load router from MessagePack binary profile file")
 
       // Route - accepts any floating point numpy array (float32, float64, etc.)
       .def(

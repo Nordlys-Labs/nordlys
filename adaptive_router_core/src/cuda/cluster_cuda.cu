@@ -9,9 +9,38 @@
 #include <thrust/extrema.h>
 
 #include <cmath>
+#include <numeric>
+#include <ranges>
 #include <stdexcept>
 #include <string>
 #include <vector>
+
+namespace {
+
+template<typename Scalar>
+std::vector<Scalar> to_col_major(const Scalar* data, size_t n_clusters, size_t dim) {
+  std::vector<Scalar> result(n_clusters * dim);
+  const size_t total = n_clusters * dim;
+  std::ranges::for_each(std::views::iota(size_t{0}, total), [&](size_t idx) {
+    const size_t d = idx / dim;
+    const size_t k = idx % dim;
+    result[idx] = data[k * dim + d];
+  });
+  return result;
+}
+
+template<typename Scalar>
+std::vector<Scalar> compute_norms(const Scalar* data, size_t n_clusters, size_t dim) {
+  std::vector<Scalar> norms(n_clusters);
+  std::ranges::transform(std::views::iota(size_t{0}, n_clusters), norms.begin(),
+                         [&](size_t k) {
+                           const Scalar* row = data + k * dim;
+                           return std::inner_product(row, row + dim, row, static_cast<Scalar>(0));
+                         });
+  return norms;
+}
+
+}  // namespace
 
 // CUDA error checking macro
 #define CUDA_CHECK(call)                                                                           \
@@ -94,39 +123,28 @@ void CudaClusterBackendT<float>::load_centroids(const float* data, int n_cluster
 
   n_clusters_ = n_clusters;
   dim_ = dim;
+  const size_t n_clusters_sz = static_cast<size_t>(n_clusters_);
+  const size_t dim_sz = static_cast<size_t>(dim_);
 
   // Allocate device memory
-  size_t centroids_size = static_cast<size_t>(n_clusters) * dim * sizeof(float);
+  const size_t centroids_size = n_clusters_sz * dim_sz * sizeof(float);
   CUDA_CHECK(cudaMalloc(&d_centroids_, centroids_size));
-  CUDA_CHECK(cudaMalloc(&d_centroid_norms_, static_cast<size_t>(n_clusters) * sizeof(float)));
-  CUDA_CHECK(cudaMalloc(&d_embedding_, static_cast<size_t>(dim) * sizeof(float)));
-  CUDA_CHECK(cudaMalloc(&d_dots_, static_cast<size_t>(n_clusters) * sizeof(float)));
-  CUDA_CHECK(cudaMalloc(&d_distances_, static_cast<size_t>(n_clusters) * sizeof(float)));
+  CUDA_CHECK(cudaMalloc(&d_centroid_norms_, n_clusters_sz * sizeof(float)));
+  CUDA_CHECK(cudaMalloc(&d_embedding_, dim_sz * sizeof(float)));
+  CUDA_CHECK(cudaMalloc(&d_dots_, n_clusters_sz * sizeof(float)));
+  CUDA_CHECK(cudaMalloc(&d_distances_, n_clusters_sz * sizeof(float)));
 
   // Convert row-major [K][D] to column-major [D][K] for cuBLAS
-  std::vector<float> centroids_col_major(n_clusters * dim);
-  for (int k = 0; k < n_clusters; ++k) {
-    for (int d = 0; d < dim; ++d) {
-      centroids_col_major[d * n_clusters + k] = data[k * dim + d];
-    }
-  }
+  std::vector<float> centroids_col_major = to_col_major(data, n_clusters_sz, dim_sz);
 
   // Compute centroid norms: ||c_i||²
-  std::vector<float> centroid_norms(n_clusters);
-  for (int k = 0; k < n_clusters; ++k) {
-    float norm = 0.0f;
-    for (int d = 0; d < dim; ++d) {
-      float val = data[k * dim + d];
-      norm += val * val;
-    }
-    centroid_norms[k] = norm;
-  }
+  std::vector<float> centroid_norms = compute_norms(data, n_clusters_sz, dim_sz);
 
   // Upload to device
   CUDA_CHECK(cudaMemcpy(d_centroids_, centroids_col_major.data(), centroids_size,
                         cudaMemcpyHostToDevice));
   CUDA_CHECK(cudaMemcpy(d_centroid_norms_, centroid_norms.data(),
-                        static_cast<size_t>(n_clusters) * sizeof(float), cudaMemcpyHostToDevice));
+                        n_clusters_sz * sizeof(float), cudaMemcpyHostToDevice));
 }
 
 template<>
@@ -136,10 +154,9 @@ std::pair<int, float> CudaClusterBackendT<float>::assign(const float* embedding,
   }
 
   // 1. Compute embedding norm on host
-  float embed_norm = 0.0f;
-  for (int d = 0; d < dim; d++) {
-    embed_norm += embedding[d] * embedding[d];
-  }
+  const size_t dim_sz = static_cast<size_t>(dim);
+  const float embed_norm =
+      std::inner_product(embedding, embedding + dim_sz, embedding, static_cast<float>(0));
 
   // 2. Copy embedding to device
   CUDA_CHECK(cudaMemcpyAsync(d_embedding_, embedding, static_cast<size_t>(dim) * sizeof(float),
@@ -159,7 +176,8 @@ std::pair<int, float> CudaClusterBackendT<float>::assign(const float* embedding,
 
   // 4. Epilogue kernel: dist²[i] = ||c_i||² + ||e||² - 2*dot[i]
   constexpr int kBlockSize = 256;
-  int grid_size = (n_clusters_ + kBlockSize - 1) / kBlockSize;
+  const unsigned int grid_size = static_cast<unsigned int>(
+      (n_clusters_ + kBlockSize - 1) / kBlockSize);
    epilogue_kernel<float><<<grid_size, kBlockSize, 0, stream_>>>(
        d_centroid_norms_, embed_norm, d_dots_, d_distances_, n_clusters_);
 
@@ -235,33 +253,22 @@ void CudaClusterBackendT<double>::load_centroids(const double* data, int n_clust
 
   n_clusters_ = n_clusters;
   dim_ = dim;
+  const size_t n_clusters_sz = static_cast<size_t>(n_clusters_);
+  const size_t dim_sz = static_cast<size_t>(dim_);
 
   // Allocate device memory
-  size_t centroids_size = static_cast<size_t>(n_clusters) * dim * sizeof(double);
+  const size_t centroids_size = n_clusters_sz * dim_sz * sizeof(double);
   CUDA_CHECK(cudaMalloc(&d_centroids_, centroids_size));
-  CUDA_CHECK(cudaMalloc(&d_centroid_norms_, static_cast<size_t>(n_clusters) * sizeof(double)));
-  CUDA_CHECK(cudaMalloc(&d_embedding_, static_cast<size_t>(dim) * sizeof(double)));
-  CUDA_CHECK(cudaMalloc(&d_dots_, static_cast<size_t>(n_clusters) * sizeof(double)));
-  CUDA_CHECK(cudaMalloc(&d_distances_, static_cast<size_t>(n_clusters) * sizeof(double)));
+  CUDA_CHECK(cudaMalloc(&d_centroid_norms_, n_clusters_sz * sizeof(double)));
+  CUDA_CHECK(cudaMalloc(&d_embedding_, dim_sz * sizeof(double)));
+  CUDA_CHECK(cudaMalloc(&d_dots_, n_clusters_sz * sizeof(double)));
+  CUDA_CHECK(cudaMalloc(&d_distances_, n_clusters_sz * sizeof(double)));
 
   // Convert row-major [K][D] to column-major [D][K] for cuBLAS
-  std::vector<double> centroids_col_major(n_clusters * dim);
-  for (int k = 0; k < n_clusters; ++k) {
-    for (int d = 0; d < dim; ++d) {
-      centroids_col_major[d * n_clusters + k] = data[k * dim + d];
-    }
-  }
+  std::vector<double> centroids_col_major = to_col_major(data, n_clusters_sz, dim_sz);
 
   // Compute centroid norms: ||c_i||²
-  std::vector<double> centroid_norms(n_clusters);
-  for (int k = 0; k < n_clusters; ++k) {
-    double norm = 0.0;
-    for (int d = 0; d < dim; ++d) {
-      double val = data[k * dim + d];
-      norm += val * val;
-    }
-    centroid_norms[k] = norm;
-  }
+  std::vector<double> centroid_norms = compute_norms(data, n_clusters_sz, dim_sz);
 
   // Upload to device
   CUDA_CHECK(cudaMemcpy(d_centroids_, centroids_col_major.data(), centroids_size,
@@ -278,10 +285,9 @@ std::pair<int, double> CudaClusterBackendT<double>::assign(const double* embeddi
   }
 
   // 1. Compute embedding norm on host
-  double embed_norm = 0.0;
-  for (int d = 0; d < dim; d++) {
-    embed_norm += embedding[d] * embedding[d];
-  }
+  const size_t dim_sz = static_cast<size_t>(dim);
+  const double embed_norm =
+      std::inner_product(embedding, embedding + dim_sz, embedding, static_cast<double>(0));
 
   // 2. Copy embedding to device
   CUDA_CHECK(cudaMemcpyAsync(d_embedding_, embedding, static_cast<size_t>(dim) * sizeof(double),
@@ -298,7 +304,8 @@ std::pair<int, double> CudaClusterBackendT<double>::assign(const double* embeddi
 
   // 4. Epilogue kernel: dist²[i] = ||c_i||² + ||e||² - 2*dot[i]
   constexpr int kBlockSize = 256;
-  int grid_size = (n_clusters_ + kBlockSize - 1) / kBlockSize;
+  const unsigned int grid_size = static_cast<unsigned int>(
+      (n_clusters_ + kBlockSize - 1) / kBlockSize);
    epilogue_kernel<double><<<grid_size, kBlockSize, 0, stream_>>>(
        d_centroid_norms_, embed_norm, d_dots_, d_distances_, n_clusters_);
 

@@ -1,20 +1,20 @@
-name: Adaptive Router Library Prod
+name: Adaptive Router Library Dev
 
 on:
   push:
-    branches: [main]
+    branches: [dev]
     paths:
       - "adaptive_router/**"
       - "pyproject.toml"
       - "uv.lock"
-      - ".github/workflows/adaptive-router-ci.yml"
+      - ".github/workflows/adaptive-router-ci-dev.yml"
   pull_request:
-    branches: [main]
+    branches: [dev]
     paths:
       - "adaptive_router/**"
       - "pyproject.toml"
       - "uv.lock"
-      - ".github/workflows/adaptive-router-ci.yml"
+      - ".github/workflows/adaptive-router-ci-dev.yml"
   workflow_dispatch:
 
 concurrency:
@@ -54,8 +54,8 @@ jobs:
         run: uv sync --group dev --extra cpu
 
       - name: Lint
-        if: matrix.lint
         working-directory: adaptive_router
+        if: matrix.lint
         run: |
           uv run ruff check --output-format=github .
           uv run ruff format --check .
@@ -68,28 +68,3 @@ jobs:
       - name: Test
         working-directory: adaptive_router
         run: uv run pytest tests -v --tb=short
-
-  publish:
-    name: Publish to PyPI
-    needs: [build-test]
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Setup uv
-        uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: true
-          python-version: "3.12"
-
-      - name: Build distribution
-        working-directory: adaptive_router
-        run: uv build
-
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          packages-dir: adaptive_router/dist
-          password: ${{ secrets.PYPI_TOKEN }}

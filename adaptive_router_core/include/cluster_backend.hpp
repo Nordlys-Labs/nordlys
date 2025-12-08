@@ -61,7 +61,7 @@ public:
 
   [[nodiscard]] std::pair<int, Scalar> assign(const Scalar* embedding, int dim) override {
     if (n_clusters_ == 0 || dim != dim_) {
-      return {-1, Scalar(0)};
+      return {-1, static_cast<Scalar>(0)};
     }
 
     // Map embedding to Eigen vector (zero-copy)

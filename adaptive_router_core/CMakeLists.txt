@@ -116,7 +116,7 @@ find_package(msgpack-cxx REQUIRED)
 function(adaptive_target_compile_options target)
   # Warnings
   if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    target_compile_options(${target} PRIVATE
+    set(_warn_base
       -Wall
       -Wextra
       -Wpedantic
@@ -129,22 +129,45 @@ function(adaptive_target_compile_options target)
       -Wformat=2
       -Wimplicit-fallthrough
       -Wmissing-include-dirs
-      $<$<BOOL:${ADAPTIVE_WARNINGS_AS_ERRORS}>:-Werror>
+    )
+    set(_warn_base_cuda ${_warn_base})
+    list(REMOVE_ITEM _warn_base_cuda -Wpedantic -Wold-style-cast)
+    set(_warn_base_cuda_prefixed)
+    foreach(_w IN LISTS _warn_base_cuda)
+      list(APPEND _warn_base_cuda_prefixed "-Xcompiler=${_w}")
+    endforeach()
+
+    # Apply host warnings for both C++ and CUDA compilations
+    target_compile_options(${target} PRIVATE
+      $<$<COMPILE_LANGUAGE:CXX>:${_warn_base}>
+      $<$<COMPILE_LANGUAGE:CUDA>:${_warn_base_cuda_prefixed}>
+      $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<BOOL:${ADAPTIVE_WARNINGS_AS_ERRORS}>>:-Werror>
+      $<$<AND:$<COMPILE_LANGUAGE:CUDA>,$<BOOL:${ADAPTIVE_WARNINGS_AS_ERRORS}>>:-Xcompiler=-Werror>
+      $<$<COMPILE_LANGUAGE:CUDA>:--expt-relaxed-constexpr>
     )
 
     # GCC-specific warnings
     if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-      target_compile_options(${target} PRIVATE
+      set(_warn_gcc
         -Wlogical-op
         -Wduplicated-cond
         -Wduplicated-branches
+      )
+      set(_warn_gcc_cuda)
+      foreach(_w IN LISTS _warn_gcc)
+        list(APPEND _warn_gcc_cuda "-Xcompiler=${_w}")
+      endforeach()
+      target_compile_options(${target} PRIVATE
+        $<$<COMPILE_LANGUAGE:CXX>:${_warn_gcc}>
+        $<$<COMPILE_LANGUAGE:CUDA>:${_warn_gcc_cuda}>
       )
     endif()
 
     # Clang-specific warnings
     if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
       target_compile_options(${target} PRIVATE
-        -Wshadow-all
+        $<$<COMPILE_LANGUAGE:CXX>:-Wshadow-all>
+        $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=-Wshadow-all>
       )
     endif()
 
@@ -161,9 +184,9 @@ function(adaptive_target_compile_options target)
   # Sanitizers (Debug builds only)
   if(ADAPTIVE_ENABLE_SANITIZERS AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(${target} PRIVATE
-      $<$<CONFIG:Debug>:-fsanitize=address,undefined>
-      $<$<CONFIG:Debug>:-fno-omit-frame-pointer>
-      $<$<CONFIG:Debug>:-fno-sanitize-recover=all>
+      $<$<AND:$<CONFIG:Debug>,$<COMPILE_LANGUAGE:CXX>>:-fsanitize=address,undefined>
+      $<$<AND:$<CONFIG:Debug>,$<COMPILE_LANGUAGE:CXX>>:-fno-omit-frame-pointer>
+      $<$<AND:$<CONFIG:Debug>,$<COMPILE_LANGUAGE:CXX>>:-fno-sanitize-recover=all>
     )
     target_link_options(${target} PRIVATE
       $<$<CONFIG:Debug>:-fsanitize=address,undefined>
@@ -208,6 +231,10 @@ if(ADAPTIVE_ENABLE_CUDA)
 
   find_package(CUDAToolkit REQUIRED)
 
+  if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES OR CMAKE_CUDA_ARCHITECTURES STREQUAL "")
+    set(CMAKE_CUDA_ARCHITECTURES "80;86;90" CACHE STRING "CUDA architectures to build (semicolon-separated)" FORCE)
+  endif()
+
   add_library(adaptive_core_cuda STATIC)
   add_library(adaptive::cuda ALIAS adaptive_core_cuda)
 
@@ -218,6 +245,7 @@ if(ADAPTIVE_ENABLE_CUDA)
   target_include_directories(adaptive_core_cuda
     PUBLIC
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+      $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
   )
 
   target_link_libraries(adaptive_core_cuda
@@ -231,15 +259,19 @@ if(ADAPTIVE_ENABLE_CUDA)
     CUDA_STANDARD 20
     CUDA_STANDARD_REQUIRED ON
     CUDA_SEPARABLE_COMPILATION ON
-    CUDA_ARCHITECTURES native  # Auto-detect GPU architecture
+    CUDA_ARCHITECTURES ${CMAKE_CUDA_ARCHITECTURES}
   )
 
   # Define CUDA macro so the .cu file sees it during compilation
   target_compile_definitions(adaptive_core_cuda PRIVATE ADAPTIVE_HAS_CUDA=1)
+  adaptive_target_compile_options(adaptive_core_cuda)
 
   # Link CUDA support into core library
-  target_link_libraries(adaptive_core PRIVATE adaptive_core_cuda)
+  target_link_libraries(adaptive_core PUBLIC adaptive_core_cuda)
   target_compile_definitions(adaptive_core PUBLIC ADAPTIVE_HAS_CUDA=1)
+  # Provide CUDA include paths to adaptive_core since it includes CUDA headers
+  # Treat CUDA toolkit headers as system to avoid propagating their warnings
+  target_include_directories(adaptive_core SYSTEM PUBLIC ${CUDAToolkit_INCLUDE_DIRS})
 else()
   message(STATUS "[adaptive_router_core] CUDA GPU acceleration disabled")
 endif()
@@ -343,7 +375,13 @@ endif()
 # -----------------------------------------------------------------------------
 include(CMakePackageConfigHelpers)
 
-install(TARGETS adaptive_core adaptive_c
+# Build list of targets to install
+set(_install_targets adaptive_core adaptive_c)
+if(ADAPTIVE_ENABLE_CUDA)
+  list(APPEND _install_targets adaptive_core_cuda)
+endif()
+
+install(TARGETS ${_install_targets}
   EXPORT adaptive_router_coreTargets
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}

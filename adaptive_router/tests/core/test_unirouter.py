@@ -1,11 +1,9 @@
 """Unit tests for Router cluster-based routing."""
 
 from typing import List
-from unittest.mock import patch
 
 import pytest
 
-from adaptive_router.models.api import Model
 from adaptive_router.core.cluster_engine import ClusterEngine
 from adaptive_router.core.router import ModelRouter
 
@@ -218,38 +216,33 @@ class TestRouterServiceMocked:
 
     def test_initialization_mocked(self) -> None:
         """Test ModelRouter initialization with mocked components."""
-        from adaptive_router.models.storage import (
-            RouterProfile,
-            ProfileMetadata,
-            ClusterCentersData,
+        from unittest.mock import Mock
+
+        # Mock the C++ CoreRouter
+        mock_core_router = Mock()
+        mock_core_router.get_n_clusters.return_value = 5
+        mock_core_router.get_embedding_dim.return_value = 100
+
+        # Mock the embedding model
+        mock_embedding_model = Mock()
+
+        # Mock profile metadata
+        mock_metadata = Mock()
+        mock_metadata.routing = Mock()
+        mock_metadata.routing.default_cost_preference = 0.5
+        mock_metadata.embedding_model = "all-MiniLM-L6-v2"
+        mock_metadata.n_clusters = 5
+
+        # Create router with mocked components
+        router = ModelRouter(
+            core_router=mock_core_router,
+            embedding_model=mock_embedding_model,
+            profile_metadata=mock_metadata,
         )
 
-        mock_profile = RouterProfile(
-            metadata=ProfileMetadata(
-                n_clusters=5,
-                silhouette_score=0.5,
-                embedding_model="all-MiniLM-L6-v2",
-            ),
-            cluster_centers=ClusterCentersData(
-                n_clusters=5,
-                feature_dim=100,
-                cluster_centers=[[0.0] * 100 for _ in range(5)],
-            ),
-            models=[
-                Model(
-                    provider="openai",
-                    model_name="gpt-4",
-                    cost_per_1m_input_tokens=30.0,
-                    cost_per_1m_output_tokens=60.0,
-                    error_rates=[0.08] * 5,
-                )
-            ],
-        )
-
-        with patch.object(ModelRouter, "_build_cluster_engine_from_data"):
-            router = ModelRouter(profile=mock_profile)
-
-            assert router is not None
+        assert router is not None
+        assert router._core_router is mock_core_router
+        assert router._embedding_model is mock_embedding_model
 
     def test_select_model_validates_request(self) -> None:
         """Test that select_model validates the request."""

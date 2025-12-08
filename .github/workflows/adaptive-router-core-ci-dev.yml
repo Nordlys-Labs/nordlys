@@ -1,16 +1,16 @@
-name: Adaptive Router Core Prod
+name: Adaptive Router Core Dev
 
 on:
   push:
-    branches: [main]
+    branches: [dev]
     paths:
       - 'adaptive_router_core/**'
-      - '.github/workflows/adaptive-router-core-ci.yml'
+      - '.github/workflows/adaptive-router-core-ci-dev.yml'
   pull_request:
-    branches: [main]
+    branches: [dev]
     paths:
       - 'adaptive_router_core/**'
-      - '.github/workflows/adaptive-router-core-ci.yml'
+      - '.github/workflows/adaptive-router-core-ci-dev.yml'
   workflow_dispatch:
 
 concurrency:

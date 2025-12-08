@@ -1,13 +1,13 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["uv_build>=0.9.16,<0.10.0"]
+build-backend = "uv_build"
 
 [project]
 name = "adaptive_router"
 version = "0.1.0"
 description = "Intelligent LLM Infrastructure with Smart Model Selection"
 authors = [{ name = "Botir Khaltaev", email = "botirkhaltaev@llmadaptive.uk" }]
-requires-python = ">=3.12,<4.0"
+requires-python = ">=3.11,<4.0"
 readme = "README.md"
 license = "MIT"
 keywords = ["llm", "ai", "model-selection", "machine-learning", "adaptive"]
@@ -17,6 +17,7 @@ classifiers = [
   "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
   "Topic :: Software Development :: Libraries :: Python Modules",
@@ -26,7 +27,6 @@ dependencies = [
   # Data Validation
   "pydantic>=2.11.5,<3",
   "sentence-transformers>=2.7.0,<3",
-  "scikit-learn>=1.7.2",
   # S3 Storage
   "boto3>=1.34.0,<2",
   # Data Processing
@@ -35,7 +35,9 @@ dependencies = [
   # Evaluation
   "deepeval>=3.7.0",
   "einops>=0.8.1",
+  "msgpack>=1.1.2,<2",
 ]
+
 
 [project.urls]
 Homepage = "https://llmadaptive.uk"
@@ -43,9 +45,19 @@ Repository = "https://github.com/Egham-7/adaptive"
 Documentation = "https://docs.llmadaptive.uk"
 "Bug Tracker" = "https://github.com/Egham-7/adaptive/issues"
 
+
 [project.optional-dependencies]
+cpu = ["adaptive-router-core>=0.1.0,<1"]
+cu12 = ["adaptive-router-core-cu12>=0.1.0,<1"]
+
+
+[tool.uv.sources]
+adaptive-router-core = { workspace = true }
+adaptive-router-core-cu12 = { workspace = true }
+
 
 [dependency-groups]
+
 dev = [
   "mypy>=1.15.0,<2",
   "ruff>=0.11.11,<0.14",
@@ -56,6 +68,9 @@ dev = [
   "pytest-asyncio>=0.26.0",
 ]
 test = ["pytest>=8.4.1,<9", "pytest-cov>=6.2.1,<8", "pytest-asyncio>=0.24.0,<1"]
+
+[tool.uv-build]
+packages = ["adaptive_router"]
 
 [tool.mypy]
 plugins = ["pydantic.mypy"]
@@ -71,7 +86,6 @@ module = [
   "torch.*",
   "numpy.*",
   "sentence_transformers.*",
-  "sklearn.*",
   "boto3.*",
   "boto3",
   "botocore.*",
@@ -79,6 +93,7 @@ module = [
   "polars.*",
   "deepeval.*",
   "pytest.*",
+  "adaptive_core_ext.*",
 ]
 ignore_missing_imports = true
 

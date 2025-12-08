@@ -1,72 +1,56 @@
 """Unit tests for ModelRouter service."""
 
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pytest
 
 from adaptive_router.models.api import ModelSelectionRequest
 from adaptive_router.models.api import Model
-from adaptive_router.models.storage import (
-    RouterProfile,
-)
 from adaptive_router.core.router import ModelRouter
 
 
 @pytest.fixture
 def mock_router():
-    """Create a mock ModelRouter with patched __init__ method."""
-    from adaptive_router.models.storage import (
-        ProfileMetadata,
-        ClusterCentersData,
+    """Create a mock ModelRouter with mocked C++ core and embedding model."""
+    # Mock the C++ CoreRouter
+    mock_core_router = Mock()
+    mock_route_response = Mock()
+    mock_route_response.selected_model = "openai/gpt-4"
+    mock_route_response.alternatives = [
+        "anthropic/claude-3-sonnet-20240229",
+        "openai/gpt-3.5-turbo",
+    ]
+    mock_route_response.cluster_id = 5
+    mock_route_response.cluster_distance = 0.15
+    mock_core_router.route.return_value = mock_route_response
+    mock_core_router.get_supported_models.return_value = [
+        "openai/gpt-4",
+        "openai/gpt-3.5-turbo",
+        "anthropic/claude-3-sonnet-20240229",
+    ]
+    mock_core_router.get_n_clusters.return_value = 10
+    mock_core_router.get_embedding_dim.return_value = 384
+
+    # Mock the embedding model
+    mock_embedding_model = Mock()
+    import numpy as np
+
+    mock_embedding_model.encode.return_value = np.zeros(384)  # Return fake embedding
+
+    # Mock profile metadata
+    mock_metadata = Mock()
+    mock_metadata.routing = Mock()
+    mock_metadata.routing.default_cost_preference = 0.5
+    mock_metadata.embedding_model = "all-MiniLM-L6-v2"
+
+    # Create router with mocked components
+    router = ModelRouter(
+        core_router=mock_core_router,
+        embedding_model=mock_embedding_model,
+        profile_metadata=mock_metadata,
     )
 
-    mock_profile = RouterProfile(
-        metadata=ProfileMetadata(
-            n_clusters=10,
-            silhouette_score=0.5,
-            embedding_model="all-MiniLM-L6-v2",
-        ),
-        cluster_centers=ClusterCentersData(
-            n_clusters=10,
-            feature_dim=100,
-            cluster_centers=[[0.0] * 100 for _ in range(10)],
-        ),
-        models=[
-            Model(
-                provider="openai",
-                model_name="gpt-4",
-                cost_per_1m_input_tokens=30.0,
-                cost_per_1m_output_tokens=60.0,
-                error_rates=[0.08] * 10,
-            ),
-            Model(
-                provider="openai",
-                model_name="gpt-3.5-turbo",
-                cost_per_1m_input_tokens=1.5,
-                cost_per_1m_output_tokens=2.0,
-                error_rates=[0.15] * 10,
-            ),
-            Model(
-                provider="anthropic",
-                model_name="claude-3-sonnet-20240229",
-                cost_per_1m_input_tokens=3.0,
-                cost_per_1m_output_tokens=15.0,
-                error_rates=[0.10] * 10,
-            ),
-        ],
-    )
-
-    def mock_build_cluster_engine(self, profile):
-        mock_engine = Mock()
-        mock_engine.n_clusters = 10
-        mock_engine.assign_single = Mock(return_value=(5, 0.15))
-        return mock_engine
-
-    with patch.object(
-        ModelRouter, "_build_cluster_engine_from_data", mock_build_cluster_engine
-    ):
-        router = ModelRouter(profile=mock_profile)
-        return router
+    return router
 
 
 class TestModelRouter:
