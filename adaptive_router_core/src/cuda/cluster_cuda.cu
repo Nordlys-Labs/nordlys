@@ -22,8 +22,8 @@ std::vector<Scalar> to_col_major(const Scalar* data, size_t n_clusters, size_t d
   std::vector<Scalar> result(n_clusters * dim);
   const size_t total = n_clusters * dim;
   std::ranges::for_each(std::views::iota(size_t{0}, total), [&](size_t idx) {
-    const size_t d = idx / n_clusters;
-    const size_t k = idx % n_clusters;
+    const size_t d = idx / dim;
+    const size_t k = idx % dim;
     result[idx] = data[k * dim + d];
   });
   return result;

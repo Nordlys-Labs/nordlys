@@ -232,7 +232,7 @@ if(ADAPTIVE_ENABLE_CUDA)
   find_package(CUDAToolkit REQUIRED)
 
   if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES OR CMAKE_CUDA_ARCHITECTURES STREQUAL "")
-    set(CMAKE_CUDA_ARCHITECTURES 86 CACHE STRING "CUDA architectures to build (semicolon-separated)" FORCE)
+    set(CMAKE_CUDA_ARCHITECTURES "80;86;90" CACHE STRING "CUDA architectures to build (semicolon-separated)" FORCE)
   endif()
 
   add_library(adaptive_core_cuda STATIC)
