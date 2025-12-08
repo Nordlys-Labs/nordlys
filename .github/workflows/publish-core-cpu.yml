@@ -3,7 +3,7 @@ name: Publish adaptive-router-core (CPU)
 on:
   push:
     tags:
-      - 'core-v*'
+      - "core-v*"
 
 permissions:
   id-token: write
@@ -14,7 +14,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-13, macos-14]
+        os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
       - uses: actions/checkout@v4
@@ -25,7 +25,7 @@ jobs:
       - name: Install CMake
         uses: jwlawson/actions-setup-cmake@v2
         with:
-          cmake-version: '3.24'
+          cmake-version: "3.24"
 
       - name: Install Conan
         run: uv tool install conan
