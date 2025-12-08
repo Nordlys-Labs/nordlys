@@ -51,7 +51,7 @@ jobs:
           python-version: ${{ matrix.python }}
 
       - name: Install package
-        run: uv sync
+        run: uv sync --group dev
 
       - name: Lint
         if: matrix.lint

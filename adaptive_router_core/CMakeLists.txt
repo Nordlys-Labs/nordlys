@@ -240,6 +240,8 @@ if(ADAPTIVE_ENABLE_CUDA)
   # Link CUDA support into core library
   target_link_libraries(adaptive_core PRIVATE adaptive_core_cuda)
   target_compile_definitions(adaptive_core PUBLIC ADAPTIVE_HAS_CUDA=1)
+  # Provide CUDA include paths to adaptive_core since it includes CUDA headers
+  target_include_directories(adaptive_core PUBLIC ${CUDAToolkit_INCLUDE_DIRS})
 else()
   message(STATUS "[adaptive_router_core] CUDA GPU acceleration disabled")
 endif()
