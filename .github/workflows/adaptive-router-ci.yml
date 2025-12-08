@@ -55,6 +55,7 @@ jobs:
 
       - name: Lint
         if: matrix.lint
+        working-directory: adaptive_router
         run: |
           uv run ruff check --output-format=github .
           uv run ruff format --check .

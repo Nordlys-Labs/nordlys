@@ -54,6 +54,7 @@ jobs:
         run: uv sync --group dev --extra cpu
 
       - name: Lint
+        working-directory: adaptive_router
         if: matrix.lint
         run: |
           uv run ruff check --output-format=github .
