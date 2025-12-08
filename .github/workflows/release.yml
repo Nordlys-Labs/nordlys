@@ -31,9 +31,7 @@ jobs:
         run: uv version ${{ steps.version.outputs.VERSION }} --no-sync
 
       - name: Build package with uv
-        working-directory: adaptive_router
-        run: uv build --no-sources
+        run: uv build --no-sources --package adaptive_router
 
       - name: Publish to PyPI with uv (Trusted Publishing)
-        working-directory: adaptive_router
-        run: uv publish
+        run: uv publish dist/*
