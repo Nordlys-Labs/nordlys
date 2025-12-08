@@ -11,6 +11,7 @@ resolution-markers = [
 members = [
     "adaptive-router",
     "adaptive-router-core",
+    "adaptive-router-core-cu12",
 ]
 
 [manifest.dependency-groups]

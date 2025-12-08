@@ -5,6 +5,7 @@
 members = [
   "adaptive_router",
   "adaptive_router_core",
+  "adaptive_router_core_cu12",
 ]
 
 [dependency-groups]

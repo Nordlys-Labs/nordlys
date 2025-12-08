@@ -51,8 +51,7 @@ Documentation = "https://docs.llmadaptive.uk"
 
 [tool.uv.sources]
 adaptive-router-core = { workspace = true }
-# Only needed when the cuda extra is selected; keep out of the workspace to avoid building in CPU-only CI.
-adaptive-router-core-cu12 = { path = "../adaptive_router_core_cu12", editable = true, extra = "cuda" }
+adaptive-router-core-cu12 = { workspace = true, extra = "cuda" }
 
 [dependency-groups]
 dev = [
