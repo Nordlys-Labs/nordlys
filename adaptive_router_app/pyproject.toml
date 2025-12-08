@@ -1,6 +1,6 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["uv_build>=0.9.16,<0.10.0"]
+build-backend = "uv_build"
 
 [project]
 name = "adaptive-router-app"
@@ -59,9 +59,7 @@ Repository = "https://github.com/Egham-7/adaptive"
 Documentation = "https://docs.llmadaptive.uk"
 "Bug Tracker" = "https://github.com/Egham-7/adaptive/issues"
 
-
-[tool.hatchling.build]
-# Include adaptive_router_app package
+[tool.uv-build]
 packages = ["adaptive_router_app"]
 
 [tool.mypy]
