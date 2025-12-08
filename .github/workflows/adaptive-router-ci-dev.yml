@@ -26,9 +26,6 @@ jobs:
     name: Test (py${{ matrix.python }}, ${{ matrix.os }})
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
-    defaults:
-      run:
-        working-directory: adaptive_router
     strategy:
       fail-fast: false
       matrix:
@@ -53,6 +50,7 @@ jobs:
           python-version: ${{ matrix.python }}
 
       - name: Install package (dev + CPU backend)
+        working-directory: adaptive_router
         run: uv sync --group dev
 
       - name: Lint
@@ -63,7 +61,9 @@ jobs:
           uv run mypy .
 
       - name: Build distribution
+        working-directory: adaptive_router
         run: uv build
 
       - name: Test
+        working-directory: adaptive_router
         run: uv run pytest tests -v --tb=short

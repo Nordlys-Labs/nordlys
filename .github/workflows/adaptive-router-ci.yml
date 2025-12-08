@@ -26,9 +26,6 @@ jobs:
     name: Test (py${{ matrix.python }}, ${{ matrix.os }})
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
-    defaults:
-      run:
-        working-directory: adaptive_router
     strategy:
       fail-fast: false
       matrix:
@@ -53,6 +50,7 @@ jobs:
           python-version: ${{ matrix.python }}
 
       - name: Install package (dev + CPU backend)
+        working-directory: adaptive_router
         run: uv sync --group dev
 
       - name: Lint
@@ -63,9 +61,11 @@ jobs:
           uv run mypy .
 
       - name: Build distribution
+        working-directory: adaptive_router
         run: uv build
 
       - name: Test
+        working-directory: adaptive_router
         run: uv run pytest tests -v --tb=short
 
   publish:
@@ -74,9 +74,6 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: adaptive_router
     steps:
       - uses: actions/checkout@v6
 
@@ -87,6 +84,7 @@ jobs:
           python-version: "3.12"
 
       - name: Build distribution
+        working-directory: adaptive_router
         run: uv build
 
       - name: Publish to PyPI
