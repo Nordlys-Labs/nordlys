@@ -38,6 +38,7 @@ jobs:
           CIBW_BEFORE_ALL_LINUX: "dnf install -y cmake"
           CIBW_BEFORE_ALL_MACOS: "brew install cmake"
           CIBW_BEFORE_BUILD: "pip install conan && conan profile detect --force"
+          CIBW_ENVIRONMENT: "PATH=/opt/rh/gcc-toolset-14/root/usr/bin:$PATH LD_LIBRARY_PATH=/opt/rh/gcc-toolset-14/root/usr/lib64:$LD_LIBRARY_PATH CC=gcc CXX=g++"
         with:
           package-dir: ./adaptive_router_core
 
