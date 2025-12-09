@@ -14,23 +14,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.22
+        uses: pypa/cibuildwheel@v3.3.0
         env:
           CIBW_BUILD: "cp311-* cp312-* cp313-*"
-          CIBW_SKIP: "*-musllinux_*"
+          CIBW_SKIP: "*-musllinux_* *_i686"
           CIBW_BUILD_VERBOSITY: 1
-          CIBW_MANYLINUX_X86_64_IMAGE: "manylinux2014"
+          CIBW_MANYLINUX_X86_64_IMAGE: "manylinux_2_28"
           CIBW_BEFORE_ALL_LINUX: |
-            yum install -y wget
-            wget https://developer.download.nvidia.com/compute/cuda/12.9.1/local_installers/cuda-repo-rhel7-12-9-local-12.9.1_560.35.05-1.x86_64.rpm
-            rpm -i cuda-repo-rhel7-12-9-local-12.9.1_560.35.05-1.x86_64.rpm
-            yum clean all
-            yum install -y cuda-toolkit-12-9
-            yum install -y cmake3
-            ln -sf /usr/bin/cmake3 /usr/bin/cmake
+            dnf install -y wget cmake
+            wget https://developer.download.nvidia.com/compute/cuda/12.9.1/local_installers/cuda-repo-rhel8-12-9-local-12.9.1_560.35.05-1.x86_64.rpm
+            rpm -i cuda-repo-rhel8-12-9-local-12.9.1_560.35.05-1.x86_64.rpm
+            dnf clean all
+            dnf install -y cuda-toolkit-12-9
           CIBW_BEFORE_BUILD: "pip install conan && conan profile detect --force"
           CIBW_ENVIRONMENT: "PATH=/usr/local/cuda-12.9/bin:$PATH LD_LIBRARY_PATH=/usr/local/cuda-12.9/lib64:$LD_LIBRARY_PATH"
         with:
@@ -39,7 +37,7 @@ jobs:
       - name: Upload wheel
         uses: actions/upload-artifact@v4
         with:
-          name: wheel-cuda
+          name: cibw-wheels-cuda
           path: wheelhouse/*.whl
 
   publish:
@@ -50,7 +48,7 @@ jobs:
       - name: Download wheels
         uses: actions/download-artifact@v4
         with:
-          name: wheel-cuda
+          name: cibw-wheels-cuda
           path: dist/
 
       - name: Publish to PyPI
