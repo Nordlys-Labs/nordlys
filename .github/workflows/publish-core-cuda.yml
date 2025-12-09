@@ -23,14 +23,14 @@ jobs:
           CIBW_BUILD: "cp311-* cp312-* cp313-*"
           CIBW_SKIP: "*-musllinux_* *_i686"
           CIBW_BUILD_VERBOSITY: 1
-          CIBW_MANYLINUX_X86_64_IMAGE: "quay.io/pypa/manylinux_2_28_x86_64"
+          CIBW_MANYLINUX_X86_64_IMAGE: "quay.io/pypa/manylinux_2_34_x86_64"
           CIBW_BEFORE_ALL_LINUX: |
             dnf install -y wget cmake dnf-plugins-core
             dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo
             dnf clean all
             dnf install -y cuda-toolkit-12-9
           CIBW_BEFORE_BUILD: "pip install conan && conan profile detect --force"
-          CIBW_ENVIRONMENT: "PATH=/opt/rh/gcc-toolset-14/root/usr/bin:/usr/local/cuda-12.9/bin:$PATH LD_LIBRARY_PATH=/opt/rh/gcc-toolset-14/root/usr/lib64:/usr/local/cuda-12.9/lib64:$LD_LIBRARY_PATH CC=gcc CXX=g++"
+          CIBW_ENVIRONMENT: "PATH=/usr/local/cuda-12.9/bin:$PATH LD_LIBRARY_PATH=/usr/local/cuda-12.9/lib64:$LD_LIBRARY_PATH"
         with:
           package-dir: ./adaptive_router_core_cu12
 
