@@ -19,25 +19,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-
-      - name: Install CMake
-        uses: jwlawson/actions-setup-cmake@v2
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.22
+        env:
+          CIBW_BUILD: "cp311-* cp312-* cp313-*"
+          CIBW_SKIP: "*-musllinux_*"
+          CIBW_BUILD_VERBOSITY: 1
+          CIBW_BEFORE_ALL_LINUX: "yum install -y cmake3 && ln -sf /usr/bin/cmake3 /usr/bin/cmake"
+          CIBW_BEFORE_ALL_MACOS: "brew install cmake"
+          CIBW_BEFORE_BUILD: "pip install conan && conan profile detect --force"
         with:
-          cmake-version: "3.24"
-
-      - name: Install Conan
-        run: uv tool install conan
-
-      - name: Build wheel
-        run: uv build --no-sources --package adaptive-router-core
+          package-dir: ./adaptive_router_core
 
       - name: Upload wheel
         uses: actions/upload-artifact@v4
         with:
           name: wheel-${{ matrix.os }}
-          path: dist/*.whl
+          path: wheelhouse/*.whl
 
   publish:
     needs: build

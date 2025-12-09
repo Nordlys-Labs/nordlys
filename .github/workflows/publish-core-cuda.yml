@@ -10,27 +10,48 @@ permissions:
   contents: read
 
 jobs:
-  publish:
+  build:
     runs-on: ubuntu-latest
-    container:
-      image: nvidia/cuda:12.9.1-devel-ubuntu22.04
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install system dependencies
-        run: |
-          apt-get update
-          apt-get install -y curl cmake git
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.22
+        env:
+          CIBW_BUILD: "cp311-* cp312-* cp313-*"
+          CIBW_SKIP: "*-musllinux_*"
+          CIBW_BUILD_VERBOSITY: 1
+          CIBW_MANYLINUX_X86_64_IMAGE: "manylinux2014"
+          CIBW_BEFORE_ALL_LINUX: |
+            yum install -y wget
+            wget https://developer.download.nvidia.com/compute/cuda/12.9.1/local_installers/cuda-repo-rhel7-12-9-local-12.9.1_560.35.05-1.x86_64.rpm
+            rpm -i cuda-repo-rhel7-12-9-local-12.9.1_560.35.05-1.x86_64.rpm
+            yum clean all
+            yum install -y cuda-toolkit-12-9
+            yum install -y cmake3
+            ln -sf /usr/bin/cmake3 /usr/bin/cmake
+          CIBW_BEFORE_BUILD: "pip install conan && conan profile detect --force"
+          CIBW_ENVIRONMENT: "PATH=/usr/local/cuda-12.9/bin:$PATH LD_LIBRARY_PATH=/usr/local/cuda-12.9/lib64:$LD_LIBRARY_PATH"
+        with:
+          package-dir: ./adaptive_router_core_cu12
 
-      - name: Install uv
-        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - name: Upload wheel
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheel-cuda
+          path: wheelhouse/*.whl
 
-      - name: Install Conan
-        run: /root/.cargo/bin/uv tool install conan
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
 
-      - name: Build wheel
-        run: /root/.cargo/bin/uv build --no-sources --package adaptive-router-core-cu12
+    steps:
+      - name: Download wheels
+        uses: actions/download-artifact@v4
+        with:
+          name: wheel-cuda
+          path: dist/
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
