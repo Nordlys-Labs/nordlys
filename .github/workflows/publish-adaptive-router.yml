@@ -1,0 +1,37 @@
+name: Release to PyPI
+
+on:
+  push:
+    tags:
+      - "router-v*"
+
+jobs:
+  publish:
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write  # Required for Trusted Publishing
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#router-v}" >> $GITHUB_OUTPUT
+
+      - name: Update version with uv
+        working-directory: adaptive_router
+        run: uv version ${{ steps.version.outputs.VERSION }} --package adaptive_router --no-sync
+
+      - name: Build package with uv
+        run: uv build --no-sources --package adaptive_router
+
+      - name: Publish to PyPI with uv (Trusted Publishing)
+        run: uv publish dist/*

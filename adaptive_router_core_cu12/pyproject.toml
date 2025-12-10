@@ -4,7 +4,7 @@ build-backend = "scikit_build_core_conan.build"
 
 [project]
 name = "adaptive-router-core-cu12"
-version = "0.1.0"
+version = "0.1.1"
 description = "C++ inference core for Adaptive Router (CUDA 12.x)"
 authors = [{ name = "Botir Khaltaev", email = "botirkhaltaev@llmadaptive.uk" }]
 requires-python = ">=3.11,<4.0"

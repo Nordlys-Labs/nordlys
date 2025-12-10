@@ -48,7 +48,7 @@ Documentation = "https://docs.llmadaptive.uk"
 
 [project.optional-dependencies]
 cpu = ["adaptive-router-core>=0.1.0,<1"]
-cu12 = ["adaptive-router-core-cu12>=0.1.0,<1"]
+cu12 = ["adaptive-router-core-cu12>=0.1.1,<1"]
 
 
 [tool.uv.sources]

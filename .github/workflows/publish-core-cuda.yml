@@ -17,6 +17,19 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#core-cu12-v}" >> $GITHUB_OUTPUT
+
+      - name: Update version with uv
+        run: uv version ${{ steps.version.outputs.VERSION }} --package adaptive-router-core-cu12 --no-sync
+
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.3.0
         env:
