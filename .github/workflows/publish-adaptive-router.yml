@@ -22,14 +22,6 @@ jobs:
           enable-cache: true
           python-version: "3.12"
 
-      - name: Extract version from tag
-        id: version
-        run: echo "VERSION=${GITHUB_REF_NAME#router-v}" >> $GITHUB_OUTPUT
-
-      - name: Update version with uv
-        working-directory: adaptive_router
-        run: uv version ${{ steps.version.outputs.VERSION }} --package adaptive_router --no-sync
-
       - name: Build package with uv
         run: uv build --no-sources --package adaptive_router
 

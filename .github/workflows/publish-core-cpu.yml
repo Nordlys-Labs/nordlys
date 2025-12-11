@@ -34,13 +34,6 @@ jobs:
           enable-cache: true
           python-version: "3.12"
 
-      - name: Extract version from tag
-        id: version
-        run: echo "VERSION=${GITHUB_REF_NAME#core-v}" >> $GITHUB_OUTPUT
-
-      - name: Update version with uv
-        run: uv version ${{ steps.version.outputs.VERSION }} --package adaptive-router-core --no-sync
-
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.3.0
         env:
