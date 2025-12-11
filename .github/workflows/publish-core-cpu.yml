@@ -77,11 +77,26 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v5
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v5
         with:
           pattern: cibw-wheels-*
           path: dist
           merge-multiple: true
+
+      - name: Clean non-matching wheels
+        shell: bash
+        run: |
+          VERSION=$(grep '^version = ' adaptive_router_core/pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+          cd dist
+          for file in *.whl; do
+            if [[ "$file" != *"$VERSION"* ]]; then
+              echo "Removing stale wheel: $file (version mismatch)"
+              rm "$file"
+            fi
+          done
 
       - name: Validate wheel versions
         shell: bash
