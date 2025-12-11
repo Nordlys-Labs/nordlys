@@ -34,6 +34,28 @@ jobs:
           enable-cache: true
           python-version: "3.12"
 
+      - name: Extract version from tag
+        id: version
+        shell: bash
+        run: |
+          TAG_VERSION=$(echo "${GITHUB_REF#refs/tags/core-v}" | sed 's/^v//')
+          echo "version=$TAG_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Assert version matches tag
+        shell: bash
+        run: |
+          VERSION=$(grep '^version = ' adaptive_router_core/pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+          TAG_VERSION=${{ steps.version.outputs.version }}
+          if [ "$VERSION" != "$TAG_VERSION" ]; then
+            echo "Error: pyproject.toml version ($VERSION) does not match tag ($TAG_VERSION)"
+            exit 1
+          fi
+          echo "Version verified: $VERSION"
+
+      - name: Clean build workspace
+        shell: bash
+        run: rm -rf wheelhouse build dist
+
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.3.0
         env:
@@ -64,5 +86,23 @@ jobs:
           pattern: cibw-wheels-*
           path: dist
           merge-multiple: true
+
+      - name: Validate wheel versions
+        shell: bash
+        run: |
+          VERSION=$(grep '^version = ' adaptive_router_core/pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+          cd dist
+          if ls *.whl 1> /dev/null 2>&1; then
+            for file in *.whl; do
+              if [[ "$file" != *"$VERSION"* ]]; then
+                echo "Error: Found wheel without $VERSION: $file"
+                exit 1
+              fi
+            done
+            echo "All wheels validated for version $VERSION"
+          else
+            echo "No wheels found in dist"
+            exit 1
+          fi
 
       - uses: pypa/gh-action-pypi-publish@release/v1
