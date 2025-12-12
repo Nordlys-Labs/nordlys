@@ -19,9 +19,10 @@ target_include_directories(adaptive_cuda
 )
 
 target_link_libraries(adaptive_cuda
-  PRIVATE
+  PUBLIC
     CUDA::cublas
     CUDA::cudart
+  PRIVATE
     Eigen3::Eigen
 )
 
