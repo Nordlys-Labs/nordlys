@@ -15,7 +15,6 @@ add_library(adaptive::cuda ALIAS adaptive_cuda)
 
 target_include_directories(adaptive_cuda
   PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../include>
 )
 
@@ -30,6 +29,14 @@ set_target_properties(adaptive_cuda PROPERTIES
   CUDA_STANDARD 20
   CUDA_SEPARABLE_COMPILATION ON
   CUDA_ARCHITECTURES ${CMAKE_CUDA_ARCHITECTURES}
+)
+
+# Fix Eigen compatibility warnings with CUDA
+target_compile_options(adaptive_cuda PRIVATE
+  $<$<COMPILE_LANGUAGE:CUDA>:
+    --expt-relaxed-constexpr
+    -Xcudafe --diag_suppress=20015
+  >
 )
 
 target_compile_definitions(adaptive_cuda PRIVATE ADAPTIVE_HAS_CUDA=1)
