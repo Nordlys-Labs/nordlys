@@ -15,7 +15,6 @@ add_library(adaptive::cuda ALIAS adaptive_cuda)
 
 target_include_directories(adaptive_cuda
   PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../include>
 )
 

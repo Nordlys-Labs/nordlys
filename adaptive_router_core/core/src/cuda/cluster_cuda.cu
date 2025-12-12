@@ -1,6 +1,6 @@
 #ifdef ADAPTIVE_HAS_CUDA
 
-#include <adaptive_core/cluster_cuda.hpp>
+#include <adaptive_core/cuda/cluster_cuda.hpp>
 
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
