@@ -15,5 +15,10 @@ target_link_libraries(adaptive_core_ext PRIVATE adaptive_core)
 # Set C++20 for cross-platform compatibility
 target_compile_features(adaptive_core_ext PRIVATE cxx_std_20)
 
+# Pass version from CMake to C++ code
+target_compile_definitions(adaptive_core_ext PRIVATE
+    ADAPTIVE_VERSION="${ADAPTIVE_VERSION}"
+)
+
 # Install module
 install(TARGETS adaptive_core_ext LIBRARY DESTINATION .)

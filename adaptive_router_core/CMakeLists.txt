@@ -4,6 +4,17 @@
 cmake_minimum_required(VERSION 3.24)
 
 # -----------------------------------------------------------------------------
+# Read version from pyproject.toml (single source of truth)
+# -----------------------------------------------------------------------------
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/pyproject.toml" PYPROJECT_CONTENT)
+string(REGEX MATCH "version = \"([0-9]+\\.[0-9]+\\.[0-9]+)\"" _ ${PYPROJECT_CONTENT})
+set(ADAPTIVE_VERSION ${CMAKE_MATCH_1})
+if(NOT ADAPTIVE_VERSION)
+    message(FATAL_ERROR "Could not extract version from pyproject.toml")
+endif()
+message(STATUS "[adaptive_router_core] Version: ${ADAPTIVE_VERSION}")
+
+# -----------------------------------------------------------------------------
 # Project-level options (must be before project())
 # -----------------------------------------------------------------------------
 option(ADAPTIVE_ENABLE_CUDA "Enable CUDA GPU acceleration (AUTO=auto-detect)" AUTO)
@@ -32,14 +43,14 @@ endif()
 # -----------------------------------------------------------------------------
 if(ADAPTIVE_ENABLE_CUDA)
   project(adaptive_router_core
-    VERSION 0.1.3
+    VERSION ${ADAPTIVE_VERSION}
     DESCRIPTION "High-performance cluster-based model routing library"
     HOMEPAGE_URL "https://github.com/adaptive/adaptive_router"
     LANGUAGES CXX CUDA
   )
 else()
   project(adaptive_router_core
-    VERSION 0.1.1
+    VERSION ${ADAPTIVE_VERSION}
     DESCRIPTION "High-performance cluster-based model routing library"
     HOMEPAGE_URL "https://github.com/adaptive/adaptive_router"
     LANGUAGES CXX

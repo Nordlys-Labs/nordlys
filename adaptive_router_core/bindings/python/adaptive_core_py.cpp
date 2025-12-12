@@ -142,6 +142,6 @@ NB_MODULE(adaptive_core_ext, m) {
       .def("get_n_clusters", &Router::get_n_clusters, "Get number of clusters")
       .def("get_embedding_dim", &Router::get_embedding_dim, "Get expected embedding dimension");
 
-  // Module-level version info
-  m.attr("__version__") = "0.1.0";
+   // Module-level version info
+    m.attr("__version__") = ADAPTIVE_VERSION;
 }

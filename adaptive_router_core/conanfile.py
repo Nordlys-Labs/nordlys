@@ -1,10 +1,18 @@
+import tomllib
+from pathlib import Path
 from conan import ConanFile
 from conan.tools.cmake import cmake_layout
 
 
 class AdaptiveRouterCoreConan(ConanFile):
     name = "adaptive_router_core"
-    version = "0.1.0"
+
+    def set_version(self):
+        # Read version from CPU package's pyproject.toml (source of truth)
+        pyproject = Path(__file__).parent.parent / "adaptive_router_core" / "pyproject.toml"
+        with open(pyproject, "rb") as f:
+            data = tomllib.load(f)
+        self.version = data["project"]["version"]
     settings = "os", "compiler", "build_type", "arch"
     generators = "CMakeToolchain", "CMakeDeps"
 
