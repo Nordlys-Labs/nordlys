@@ -51,19 +51,6 @@ jobs:
           fi
           echo "Version verified: $VERSION"
 
-      - name: Install CUDA toolkit
-        if: matrix.variant == 'cuda'
-        run: |
-          dnf install -y wget cmake dnf-plugins-core
-          dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo
-          dnf clean all
-          dnf install -y --setopt=install_weak_deps=False --setopt=tsflags=nodocs \
-            cuda-compiler-12-9 \
-            cuda-libraries-devel-12-9 \
-            libnvjitlink-devel-12-9
-          ln -s /usr/local/cuda-12.9 /usr/local/cuda || true
-          dnf clean all
-
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.3.0
         env:
@@ -71,7 +58,8 @@ jobs:
           CIBW_SKIP: "*-musllinux_* *-win32 *_i686"
           CIBW_BUILD_VERBOSITY: 1
           CIBW_MANYLINUX_X86_64_IMAGE: "quay.io/pypa/manylinux_2_34_x86_64"
-          CIBW_BEFORE_ALL_LINUX: "dnf install -y cmake"
+          CIBW_BEFORE_ALL_LINUX: >
+            ${{ matrix.variant == 'cuda' && 'dnf install -y wget cmake dnf-plugins-core && dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo && dnf clean all && dnf install -y --setopt=install_weak_deps=False --setopt=tsflags=nodocs cuda-compiler-12-9 cuda-libraries-devel-12-9 libnvjitlink-devel-12-9 && ln -s /usr/local/cuda-12.9 /usr/local/cuda || true && dnf clean all' || 'dnf install -y cmake' }}
           CIBW_BEFORE_ALL_MACOS: "brew install cmake"
           CIBW_BEFORE_BUILD: "pip install conan && conan profile detect --force"
           CIBW_BEFORE_BUILD_MACOS: "pip install conan && conan profile detect --force --name default"
