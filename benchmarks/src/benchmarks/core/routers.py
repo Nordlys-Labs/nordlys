@@ -1,15 +1,17 @@
 """Router implementations for benchmarking."""
 
 import json
+import time
 from pathlib import Path
 from typing import Any
 
 import anthropic
-from adaptive_router_benchmarks.core.python_router import PythonProfileRouter
+from adaptive_router.core.router import ModelRouter
+from adaptive_router.models.api import ModelSelectionRequest
 
 
 class CactusProfileRouter:
-    """Router using trained Cactus profile with pure Python implementation."""
+    """Router using trained Cactus profile with adaptive_router package."""
 
     def __init__(self, profile_path: str | Path):
         """Initialize router with Cactus profile.
@@ -23,8 +25,8 @@ class CactusProfileRouter:
         with open(self.profile_path) as f:
             self.profile_data = json.load(f)
 
-        # Use Python router (no C++ dependency)
-        self.router = PythonProfileRouter(self.profile_path)
+        # Use adaptive_router ModelRouter
+        self.router = ModelRouter.from_json_file(self.profile_path)
 
         # Extract model metadata
         self.models = {
@@ -46,12 +48,32 @@ class CactusProfileRouter:
         Returns:
             Dict with selected_model, cluster, routing_time_ms, metadata
         """
-        # Use Python router
-        return self.router.route(prompt, cost_bias)
+        start = time.perf_counter()
+
+        # Create selection request
+        request = ModelSelectionRequest(prompt=prompt)
+
+        # Route using adaptive_router
+        response = self.router.select_model(request, cost_bias=cost_bias)
+
+        routing_time_ms = (time.perf_counter() - start) * 1000
+
+        # Get model metadata
+        model_meta = self.models.get(response.model_id, {})
+
+        return {
+            "selected_model": response.model_id,
+            "cluster": None,  # Not exposed in API response
+            "routing_time_ms": routing_time_ms,
+            "model_size_mb": model_meta.get("size_mb", 0),
+            "avg_tokens_per_sec": model_meta.get("avg_tokens_per_sec", 0),
+            "error_rate": None,  # Will be simulated later
+            "alternatives": [alt.model_id for alt in response.alternatives],
+        }
 
     def get_model_info(self, model_id: str) -> dict[str, Any]:
         """Get metadata for a model."""
-        return self.router.get_model_info(model_id)
+        return self.models.get(model_id, {})
 
 
 class ClaudeOracleRouter:

@@ -9,10 +9,10 @@ from rich.console import Console
 from rich.progress import track
 from tqdm import tqdm
 
-from adaptive_router_benchmarks.core.routers import CactusProfileRouter, ClaudeOracleRouter
-from adaptive_router_benchmarks.core.simulator import PerformanceSimulator
-from adaptive_router_benchmarks.core.metrics import BenchmarkMetrics
-from adaptive_router_benchmarks.datasets import load_combined
+from benchmarks.core.routers import CactusProfileRouter, ClaudeOracleRouter
+from benchmarks.core.simulator import PerformanceSimulator
+from benchmarks.core.metrics import BenchmarkMetrics
+from benchmarks.datasets import load_combined
 
 
 console = Console()

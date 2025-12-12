@@ -6,9 +6,9 @@ performance on on-device AI workloads.
 
 __version__ = "0.1.0"
 
-from adaptive_router_benchmarks.core.routers import CactusProfileRouter, ClaudeOracleRouter
-from adaptive_router_benchmarks.core.runner import BenchmarkRunner
-from adaptive_router_benchmarks.core.metrics import BenchmarkMetrics
+from benchmarks.core.routers import CactusProfileRouter, ClaudeOracleRouter
+from benchmarks.core.runner import BenchmarkRunner
+from benchmarks.core.metrics import BenchmarkMetrics
 
 __all__ = [
     "CactusProfileRouter",

@@ -7,8 +7,8 @@ from pathlib import Path
 
 from rich.console import Console
 
-from adaptive_router_benchmarks.core.runner import BenchmarkRunner
-from adaptive_router_benchmarks.visualizations.charts import generate_all_charts
+from benchmarks.core.runner import BenchmarkRunner
+from benchmarks.visualizations.charts import generate_all_charts
 
 
 console = Console()

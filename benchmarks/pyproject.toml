@@ -13,10 +13,10 @@ license = "MIT"
 keywords = ["benchmarks", "llm", "on-device", "mobile-ai", "evaluation"]
 
 dependencies = [
+  # Adaptive Router (main package)
+  "adaptive-router",
   # LLM APIs
   "anthropic>=0.42.0,<1",
-  # Embeddings fallback (x86 only - Mac uses Cactus C bindings)
-  "sentence-transformers>=2.7.0,<3",
   # Data handling
   "datasets>=4.4.1",
   "polars>=1.35.2",
@@ -37,7 +37,7 @@ Repository = "https://github.com/Egham-7/adaptive"
 Documentation = "https://docs.llmadaptive.uk"
 
 [project.scripts]
-benchmark-cactus = "adaptive_router_benchmarks.cli:main"
+benchmark-cactus = "benchmarks.cli:main"
 
 
 [dependency-groups]

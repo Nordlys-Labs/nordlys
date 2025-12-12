@@ -26,13 +26,12 @@ This benchmark evaluates whether a local ML router (trained on Cactus embeddings
 
 ```
 benchmarks/
-├── src/adaptive_router_benchmarks/
+├── src/benchmarks/
 │   ├── bindings/              # Cactus C library Python bindings
 │   │   ├── cactus_bindings.py # ctypes wrapper for libcactus
 │   │   └── __init__.py
 │   ├── core/
-│   │   ├── python_router.py   # Profile router (uses Cactus embeddings)
-│   │   ├── routers.py         # Router wrappers (Cactus + Claude)
+│   │   ├── routers.py         # Router wrappers (uses adaptive_router + Claude)
 │   │   ├── runner.py          # Benchmark orchestration
 │   │   ├── metrics.py         # Agreement & performance metrics
 │   │   └── simulator.py       # On-device latency simulation
