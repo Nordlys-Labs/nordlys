@@ -8,6 +8,13 @@ members = [
   "adaptive_router_core_cu12",
 ]
 
+[tool.uv]
+environments = [
+  "sys_platform == 'darwin'",
+  "sys_platform == 'linux'",
+  "sys_platform == 'win32'",
+]
+
 [dependency-groups]
 # Shared development dependencies for all workspace members
 dev = [
