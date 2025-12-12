@@ -10,19 +10,19 @@ permissions:
   contents: read
 
 jobs:
-  build_wheels:
-    name: Build wheels (${{ matrix.variant }}, ${{ matrix.os }})
+  # ============================================
+  # CPU Builds (all platforms)
+  # ============================================
+  build_wheels_cpu:
+    name: Build CPU wheels (${{ matrix.os }})
     runs-on: ${{ matrix.runs-on }}
     strategy:
       matrix:
         include:
-          # CPU builds (all platforms)
-          - { variant: cpu, os: linux-intel, runs-on: ubuntu-latest }
-          - { variant: cpu, os: windows-intel, runs-on: windows-latest }
-          - { variant: cpu, os: macos-intel, runs-on: macos-15-intel }
-          - { variant: cpu, os: macos-arm, runs-on: macos-latest }
-          # CUDA build (Linux only)
-          - { variant: cuda, os: linux-cuda, runs-on: ubuntu-latest }
+          - { os: linux-intel, runs-on: ubuntu-latest }
+          - { os: windows-intel, runs-on: windows-latest }
+          - { os: macos-intel, runs-on: macos-15-intel }
+          - { os: macos-arm, runs-on: macos-latest }
 
     steps:
       - uses: actions/checkout@v5
@@ -52,37 +52,94 @@ jobs:
           CIBW_SKIP: "*-musllinux_* *-win32 *_i686"
           CIBW_BUILD_VERBOSITY: 1
           CIBW_MANYLINUX_X86_64_IMAGE: "quay.io/pypa/manylinux_2_34_x86_64"
-          CIBW_BEFORE_ALL_LINUX: >
-            ${{ matrix.variant == 'cuda' && 'dnf install -y wget cmake dnf-plugins-core && dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo && dnf clean all && dnf install -y --setopt=install_weak_deps=False --setopt=tsflags=nodocs cuda-compiler-12-9 cuda-libraries-devel-12-9 libnvjitlink-devel-12-9 && ln -s /usr/local/cuda-12.9 /usr/local/cuda || true && dnf clean all' || 'dnf install -y cmake' }}
+          CIBW_BEFORE_ALL_LINUX: "dnf install -y cmake"
           CIBW_BEFORE_ALL_MACOS: "brew install cmake"
           CIBW_BEFORE_BUILD: "pip install conan && conan profile detect --force"
           CIBW_BEFORE_BUILD_MACOS: "pip install conan && conan profile detect --force --name default"
           CIBW_ENVIRONMENT_MACOS: "CONAN_PROFILE_HOST=default MACOSX_DEPLOYMENT_TARGET=13.3"
-          CIBW_ENVIRONMENT: >
-            ADAPTIVE_ENABLE_CUDA=${{ matrix.variant == 'cuda' && 'ON' || 'OFF' }}
-            ${{ matrix.variant == 'cuda' && 'CUDACXX=/usr/local/cuda-12.9/bin/nvcc CUDAToolkit_ROOT=/usr/local/cuda-12.9 PATH=/usr/local/cuda-12.9/bin:/usr/local/cuda/bin:$PATH LD_LIBRARY_PATH=/usr/local/cuda-12.9/lib64:$LD_LIBRARY_PATH' || '' }}
-          CIBW_REPAIR_WHEEL_COMMAND_LINUX: >
-            ${{ matrix.variant == 'cuda' && 'auditwheel repair --strip --exclude libcuda.so.1 --exclude libcudart.so.12 --exclude libnvrtc.so.12 --exclude libnvrtc-builtins.so.12 --exclude libcublas.so.12 --exclude libcublasLt.so.12 --exclude libcusolver.so.12 --exclude libcusparse.so.12 --exclude libnvjitlink.so.12 -w {dest_dir} {wheel}' || 'auditwheel repair -w {dest_dir} {wheel}' }}
+          CIBW_ENVIRONMENT: "ADAPTIVE_ENABLE_CUDA=OFF"
         with:
           package-dir: ./adaptive_router_core
 
-      - name: Rename wheels for CUDA variant
-        if: matrix.variant == 'cuda'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cibw-wheels-cpu-${{ matrix.os }}
+          path: ./wheelhouse/*.whl
+
+  # ============================================
+  # CUDA Build (Linux only)
+  # ============================================
+  build_wheels_cuda:
+    name: Build CUDA wheels (linux)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Extract version from tag
+        id: version
         shell: bash
         run: |
-          cd wheelhouse
-          for f in adaptive_router_core-*.whl; do
-            newname="${f/adaptive_router_core/adaptive_router_core_cu12}"
-            mv "$f" "$newname"
-          done
+          TAG_VERSION=$(echo "${GITHUB_REF#refs/tags/core-v}" | sed 's/^v//')
+          echo "version=$TAG_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Assert version matches tag
+        shell: bash
+        run: |
+          VERSION=$(grep '^version = ' adaptive_router_core_cu12/pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+          TAG_VERSION=${{ steps.version.outputs.version }}
+          if [ "$VERSION" != "$TAG_VERSION" ]; then
+            echo "Error: pyproject.toml version ($VERSION) does not match tag ($TAG_VERSION)"
+            exit 1
+          fi
+          echo "Version verified: $VERSION"
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v3.3.0
+        env:
+          CIBW_BUILD: "cp311-* cp312-* cp313-*"
+          CIBW_SKIP: "*-musllinux_* *-win32 *_i686 *-macosx_* *-win_*"
+          CIBW_BUILD_VERBOSITY: 1
+          CIBW_MANYLINUX_X86_64_IMAGE: "quay.io/pypa/manylinux_2_34_x86_64"
+          CIBW_BEFORE_ALL_LINUX: >
+            dnf install -y wget cmake dnf-plugins-core &&
+            dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo &&
+            dnf clean all &&
+            dnf install -y --setopt=install_weak_deps=False --setopt=tsflags=nodocs cuda-compiler-12-9 cuda-libraries-devel-12-9 libnvjitlink-devel-12-9 &&
+            ln -s /usr/local/cuda-12.9 /usr/local/cuda || true &&
+            dnf clean all
+          CIBW_BEFORE_BUILD: "pip install conan && conan profile detect --force"
+          CIBW_ENVIRONMENT: >
+            ADAPTIVE_ENABLE_CUDA=ON
+            CUDACXX=/usr/local/cuda-12.9/bin/nvcc
+            CUDAToolkit_ROOT=/usr/local/cuda-12.9
+            PATH=/usr/local/cuda-12.9/bin:/usr/local/cuda/bin:$PATH
+            LD_LIBRARY_PATH=/usr/local/cuda-12.9/lib64:$LD_LIBRARY_PATH
+          CIBW_REPAIR_WHEEL_COMMAND_LINUX: >
+            auditwheel repair --strip
+            --exclude libcuda.so.1
+            --exclude libcudart.so.12
+            --exclude libnvrtc.so.12
+            --exclude libnvrtc-builtins.so.12
+            --exclude libcublas.so.12
+            --exclude libcublasLt.so.12
+            --exclude libcusolver.so.12
+            --exclude libcusparse.so.12
+            --exclude libnvjitlink.so.12
+            -w {dest_dir} {wheel}
+        with:
+          package-dir: ./adaptive_router_core_cu12
 
       - uses: actions/upload-artifact@v4
         with:
-          name: cibw-wheels-${{ matrix.variant }}-${{ matrix.os }}
+          name: cibw-wheels-cuda-linux
           path: ./wheelhouse/*.whl
 
+  # ============================================
+  # Publish all wheels
+  # ============================================
   publish:
-    needs: build_wheels
+    needs: [build_wheels_cpu, build_wheels_cuda]
     runs-on: ubuntu-latest
 
     steps:
@@ -95,34 +152,20 @@ jobs:
           path: dist
           merge-multiple: true
 
-      - name: Clean non-matching wheels
-        shell: bash
-        run: |
-          VERSION=$(grep '^version = ' adaptive_router_core/pyproject.toml | sed 's/version = "\(.*\)"/\1/')
-          cd dist
-          for file in *.whl; do
-            if [[ "$file" != *"$VERSION"* ]]; then
-              echo "Removing stale wheel: $file (version mismatch)"
-              rm "$file"
-            fi
-          done
+      - name: List wheels
+        run: ls -la dist/
 
       - name: Validate wheel versions
         shell: bash
         run: |
           VERSION=$(grep '^version = ' adaptive_router_core/pyproject.toml | sed 's/version = "\(.*\)"/\1/')
           cd dist
-          if ls *.whl 1> /dev/null 2>&1; then
-            for file in *.whl; do
-              if [[ "$file" != *"$VERSION"* ]]; then
-                echo "Error: Found wheel without $VERSION: $file"
-                exit 1
-              fi
-            done
-            echo "All wheels validated for version $VERSION"
-          else
-            echo "No wheels found in dist"
-            exit 1
-          fi
+          for file in *.whl; do
+            if [[ "$file" != *"$VERSION"* ]]; then
+              echo "Error: Found wheel without $VERSION: $file"
+              exit 1
+            fi
+          done
+          echo "All wheels validated for version $VERSION"
 
       - uses: pypa/gh-action-pypi-publish@release/v1
