@@ -14,6 +14,13 @@ target_compile_definitions(adaptive_core_ext PRIVATE
   ADAPTIVE_VERSION="${PROJECT_VERSION}"
 )
 
+# Enable CUDA device linking for proper CUDA symbol resolution
+if(ADAPTIVE_ENABLE_CUDA)
+  set_target_properties(adaptive_core_ext PROPERTIES
+    CUDA_RESOLVE_DEVICE_SYMBOLS ON
+  )
+endif()
+
 # Install for wheel
 install(TARGETS adaptive_core_ext LIBRARY DESTINATION .)
 
