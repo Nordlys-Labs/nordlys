@@ -59,7 +59,7 @@ jobs:
           CIBW_ENVIRONMENT_MACOS: "CONAN_PROFILE_HOST=default MACOSX_DEPLOYMENT_TARGET=13.3"
           CIBW_ENVIRONMENT: "ADAPTIVE_ENABLE_CUDA=OFF"
         with:
-          package-dir: ./adaptive_router_core
+          package-dir: ./adaptive_router_core/bindings/python
 
       - uses: actions/upload-artifact@v4
         with:
