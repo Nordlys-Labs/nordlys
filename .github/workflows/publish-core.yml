@@ -27,12 +27,6 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Setup uv
-        uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: true
-          python-version: "3.12"
-
       - name: Extract version from tag
         id: version
         shell: bash

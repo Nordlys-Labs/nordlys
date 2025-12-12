@@ -12,6 +12,9 @@ jobs:
     permissions:
       contents: write
       id-token: write  # Required for Trusted Publishing
+    defaults:
+      run:
+        working-directory: adaptive_router
 
     steps:
       - uses: actions/checkout@v4
@@ -21,9 +24,10 @@ jobs:
         with:
           enable-cache: true
           python-version: "3.12"
+          cache-dependency-glob: "adaptive_router/**/uv.lock"
 
       - name: Build package with uv
-        run: uv build --no-sources --package adaptive_router
+        run: uv build --no-sources
 
       - name: Publish to PyPI with uv (Trusted Publishing)
         run: uv publish dist/*
