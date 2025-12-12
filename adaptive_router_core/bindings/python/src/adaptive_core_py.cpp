@@ -3,7 +3,7 @@
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
 
-#include "router.hpp"
+#include <adaptive_core/router.hpp>
 
 namespace nb = nanobind;
 using namespace nb::literals;

@@ -8,7 +8,7 @@
 #include <utility>
 #include <vector>
 
-#include "cluster_backend.hpp"
+#include <adaptive_core/cluster_backend.hpp>
 
 // Templated CUDA backend using cuBLAS for GPU-accelerated cluster assignment
 // Uses L2 distance trick: ||a-b||² = ||a||² + ||b||² - 2(a·b)

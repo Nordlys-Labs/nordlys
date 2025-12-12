@@ -1,7 +1,7 @@
-#include "cluster_backend.hpp"
+#include <adaptive_core/cluster_backend.hpp>
 
 #ifdef ADAPTIVE_HAS_CUDA
-#include "cuda/cluster_cuda.hpp"
+#include <adaptive_core/cuda/cluster_cuda.hpp>
 #include <cuda_runtime.h>
 #endif
 

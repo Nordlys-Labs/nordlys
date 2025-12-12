@@ -1,4 +1,4 @@
-#include "scorer.hpp"
+#include <adaptive_core/scorer.hpp>
 
 #include <algorithm>
 #include <cmath>

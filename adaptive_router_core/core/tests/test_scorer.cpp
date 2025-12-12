@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "scorer.hpp"
+#include <adaptive_core/scorer.hpp>
 
 TEST(ModelScorerTest, EmptyScorer) {
   ModelScorer scorer;

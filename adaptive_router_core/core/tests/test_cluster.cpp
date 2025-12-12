@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "cluster.hpp"
+#include <adaptive_core/cluster.hpp>
 
 // Test fixture for templated cluster engine tests
 template<typename Scalar>

@@ -44,8 +44,15 @@ jobs:
           restore-keys: |
             conan-${{ runner.os }}-
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
       - name: Install build tools
-        run: pip install nanobind conan cmake ninja
+        run: uv pip install conan --system
+
+      - name: Install Python test dependencies
+        working-directory: adaptive_router_core/bindings/python
+        run: uv sync --group test --no-install-project
 
       - name: Setup Conan profile
         run: conan profile detect --force
@@ -58,8 +65,11 @@ jobs:
         working-directory: adaptive_router_core
         shell: bash
         run: |
-          cmake --preset conan-release -DBUILD_TESTING=ON \
-            -Dnanobind_DIR=$(python -c "import nanobind; print(nanobind.cmake_dir())")
+          cmake --preset conan-release \
+            -DADAPTIVE_BUILD_TESTS=ON \
+            -DADAPTIVE_BUILD_PYTHON=ON \
+            -DADAPTIVE_BUILD_C=ON \
+            -DADAPTIVE_ENABLE_CUDA=OFF
 
       - name: Build
         working-directory: adaptive_router_core

@@ -1,24 +1,36 @@
-find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
+# =============================================================================
+# Adaptive Router Core - Python Bindings
+# =============================================================================
 
-# Find nanobind - provided by scikit-build-core from pyproject.toml build requirements
-# or via pip install nanobind
+find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
 find_package(nanobind CONFIG REQUIRED)
 
-# Create Python extension module
-nanobind_add_module(adaptive_core_ext
-    NB_STATIC  # Statically link nanobind
-    adaptive_core_py.cpp
+nanobind_add_module(adaptive_core_ext NB_STATIC
+  src/adaptive_core_py.cpp
 )
 
-target_link_libraries(adaptive_core_ext PRIVATE adaptive_core)
-
-# Set C++20 for cross-platform compatibility
-target_compile_features(adaptive_core_ext PRIVATE cxx_std_20)
-
-# Pass version from CMake to C++ code
+target_link_libraries(adaptive_core_ext PRIVATE adaptive::core)
 target_compile_definitions(adaptive_core_ext PRIVATE
-    ADAPTIVE_VERSION="${ADAPTIVE_VERSION}"
+  ADAPTIVE_VERSION="${PROJECT_VERSION}"
 )
 
-# Install module
+# Install for wheel
 install(TARGETS adaptive_core_ext LIBRARY DESTINATION .)
+
+# Python tests via CTest
+if(ADAPTIVE_BUILD_TESTS)
+  find_package(Python REQUIRED COMPONENTS Interpreter)
+
+   add_test(
+     NAME python_bindings
+     COMMAND uv run --no-project pytest
+       ${CMAKE_CURRENT_SOURCE_DIR}/tests -v --tb=short
+     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+   )
+
+  # Set PYTHONPATH so tests can find the built module
+  set_tests_properties(python_bindings PROPERTIES
+    ENVIRONMENT "PYTHONPATH=$<TARGET_FILE_DIR:adaptive_core_ext>"
+    LABELS "python"
+  )
+endif()

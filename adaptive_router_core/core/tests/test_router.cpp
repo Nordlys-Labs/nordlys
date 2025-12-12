@@ -2,7 +2,7 @@
 
 #include <vector>
 
-#include "router.hpp"
+#include <adaptive_core/router.hpp>
 
 // ============================================================================
 // Test Fixture for Router Tests

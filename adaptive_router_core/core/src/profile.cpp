@@ -1,4 +1,4 @@
-#include "profile.hpp"
+#include <adaptive_core/profile.hpp>
 
 #include <algorithm>
 #include <cstdint>

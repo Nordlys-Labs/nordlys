@@ -6,7 +6,7 @@
 #include <span>
 
 #include "adaptive.h"
-#include "router.hpp"
+#include <adaptive_core/router.hpp>
 
 // Internal helper to convert std::string to C string
 static char* str_duplicate(const std::string& str) {
