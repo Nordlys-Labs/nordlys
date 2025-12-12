@@ -51,11 +51,6 @@ cpu = ["adaptive-router-core>=0.1.4,<1"]
 cu12 = ["adaptive-router-core-cu12>=0.1.4,<1"]
 
 
-[tool.uv.sources]
-adaptive-router-core = { workspace = true }
-adaptive-router-core-cu12 = { workspace = true }
-
-
 [dependency-groups]
 
 dev = [
@@ -103,14 +98,18 @@ testpaths = ["tests"]
 
 [tool.coverage.report]
 exclude_lines = [
-  "pragma: no cover",
-  "def __repr__",
-  "if self.debug:",
-  "if settings.DEBUG",
-  "raise AssertionError",
-  "raise NotImplementedError",
-  "if 0:",
-  "if __name__ == .__main__.:",
-  "class .*\\bProtocol\\):",
-  "@(abc\\.)?abstractmethod",
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
 ]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"

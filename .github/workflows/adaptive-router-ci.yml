@@ -7,15 +7,11 @@ on:
       - "v*"
     paths:
       - "adaptive_router/**"
-      - "pyproject.toml"
-      - "uv.lock"
       - ".github/workflows/adaptive-router-ci.yml"
   pull_request:
     branches: [main]
     paths:
       - "adaptive_router/**"
-      - "pyproject.toml"
-      - "uv.lock"
       - ".github/workflows/adaptive-router-ci.yml"
   workflow_dispatch:
 

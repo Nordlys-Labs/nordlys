@@ -1,4 +1,4 @@
-name: Publish adaptive-router-core (CPU)
+name: Publish adaptive-router-core
 
 on:
   push:
@@ -11,27 +11,26 @@ permissions:
 
 jobs:
   build_wheels:
-    name: Build wheels for ${{ matrix.os }}
+    name: Build wheels (${{ matrix.variant }}, ${{ matrix.os }})
     runs-on: ${{ matrix.runs-on }}
     strategy:
       matrix:
         include:
-          - os: linux-intel
-            runs-on: ubuntu-latest
-          - os: windows-intel
-            runs-on: windows-latest
-          - os: macos-intel
-            runs-on: macos-15-intel
-          - os: macos-arm
-            runs-on: macos-latest
+          # CPU builds (all platforms)
+          - { variant: cpu, os: linux-intel, runs-on: ubuntu-latest }
+          - { variant: cpu, os: windows-intel, runs-on: windows-latest }
+          - { variant: cpu, os: macos-intel, runs-on: macos-15-intel }
+          - { variant: cpu, os: macos-arm, runs-on: macos-latest }
+          # CUDA build (Linux only)
+          - { variant: cuda, os: linux-cuda, runs-on: ubuntu-latest }
 
     steps:
       - uses: actions/checkout@v5
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v7
         with:
-          enable-cache: false
+          enable-cache: true
           python-version: "3.12"
 
       - name: Extract version from tag
@@ -52,6 +51,19 @@ jobs:
           fi
           echo "Version verified: $VERSION"
 
+      - name: Install CUDA toolkit
+        if: matrix.variant == 'cuda'
+        run: |
+          dnf install -y wget cmake dnf-plugins-core
+          dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo
+          dnf clean all
+          dnf install -y --setopt=install_weak_deps=False --setopt=tsflags=nodocs \
+            cuda-compiler-12-9 \
+            cuda-libraries-devel-12-9 \
+            libnvjitlink-devel-12-9
+          ln -s /usr/local/cuda-12.9 /usr/local/cuda || true
+          dnf clean all
+
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.3.0
         env:
@@ -64,12 +76,27 @@ jobs:
           CIBW_BEFORE_BUILD: "pip install conan && conan profile detect --force"
           CIBW_BEFORE_BUILD_MACOS: "pip install conan && conan profile detect --force --name default"
           CIBW_ENVIRONMENT_MACOS: "CONAN_PROFILE_HOST=default MACOSX_DEPLOYMENT_TARGET=13.3"
+          CIBW_ENVIRONMENT: >
+            ADAPTIVE_ENABLE_CUDA=${{ matrix.variant == 'cuda' && 'ON' || 'OFF' }}
+            ${{ matrix.variant == 'cuda' && 'CUDACXX=/usr/local/cuda-12.9/bin/nvcc CUDAToolkit_ROOT=/usr/local/cuda-12.9 PATH=/usr/local/cuda-12.9/bin:/usr/local/cuda/bin:$PATH LD_LIBRARY_PATH=/usr/local/cuda-12.9/lib64:$LD_LIBRARY_PATH' || '' }}
+          CIBW_REPAIR_WHEEL_COMMAND_LINUX: >
+            ${{ matrix.variant == 'cuda' && 'auditwheel repair --strip --exclude libcuda.so.1 --exclude libcudart.so.12 --exclude libnvrtc.so.12 --exclude libnvrtc-builtins.so.12 --exclude libcublas.so.12 --exclude libcublasLt.so.12 --exclude libcusolver.so.12 --exclude libcusparse.so.12 --exclude libnvjitlink.so.12 -w {dest_dir} {wheel}' || 'auditwheel repair -w {dest_dir} {wheel}' }}
         with:
           package-dir: ./adaptive_router_core
 
+      - name: Rename wheels for CUDA variant
+        if: matrix.variant == 'cuda'
+        shell: bash
+        run: |
+          cd wheelhouse
+          for f in adaptive_router_core-*.whl; do
+            newname="${f/adaptive_router_core/adaptive_router_core_cu12}"
+            mv "$f" "$newname"
+          done
+
       - uses: actions/upload-artifact@v4
         with:
-          name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
+          name: cibw-wheels-${{ matrix.variant }}-${{ matrix.os }}
           path: ./wheelhouse/*.whl
 
   publish:

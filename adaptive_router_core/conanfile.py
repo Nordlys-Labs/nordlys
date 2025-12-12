@@ -8,11 +8,12 @@ class AdaptiveRouterCoreConan(ConanFile):
     name = "adaptive_router_core"
 
     def set_version(self):
-        # Read version from CPU package's pyproject.toml (source of truth)
-        pyproject = Path(__file__).parent.parent / "adaptive_router_core" / "pyproject.toml"
+        # Read version from local pyproject.toml (source of truth)
+        pyproject = Path(__file__).parent / "pyproject.toml"
         with open(pyproject, "rb") as f:
             data = tomllib.load(f)
         self.version = data["project"]["version"]
+
     settings = "os", "compiler", "build_type", "arch"
     generators = "CMakeToolchain", "CMakeDeps"
 
