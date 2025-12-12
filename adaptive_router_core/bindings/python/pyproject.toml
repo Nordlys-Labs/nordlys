@@ -35,6 +35,7 @@ ADAPTIVE_BUILD_TESTS = "OFF"
 ADAPTIVE_ENABLE_CUDA = "OFF"
 
 [tool.scikit-build-core-conan]
+path = "../.."
 build = "missing"
 settings = ["compiler.cppstd=20"]
 
