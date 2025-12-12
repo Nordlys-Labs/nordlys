@@ -97,8 +97,8 @@ jobs:
       - name: Assert CUDA version matches CPU version
         shell: bash
         run: |
-          CPU_VERSION=$(grep '^version = ' ../adaptive_router_core/pyproject.toml | sed 's/version = "\(.*\)"/\1/')
-          CUDA_VERSION=$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+          CPU_VERSION=$(grep '^version = ' adaptive_router_core/pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+          CUDA_VERSION=$(grep '^version = ' adaptive_router_core_cu12/pyproject.toml | sed 's/version = "\(.*\)"/\1/')
           if [ "$CPU_VERSION" != "$CUDA_VERSION" ]; then
             echo "Error: CUDA package version ($CUDA_VERSION) does not match CPU package version ($CPU_VERSION)"
             exit 1
