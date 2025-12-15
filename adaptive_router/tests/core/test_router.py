@@ -162,7 +162,17 @@ class TestModelRouter:
         )
         response = mock_router.select_model(request)
 
-        # Should work with all models since partial models are ignored
+        # Verify that model filter was passed to C++ core
+        mock_router._core_router.route.assert_called_once()
+        call_args = mock_router._core_router.route.call_args
+        # Check positional arguments: (embedding, cost_bias, models)
+        args = call_args[0]
+        assert len(args) >= 3  # embedding, cost_bias, models
+        model_filter = args[2]
+        assert isinstance(model_filter, list)
+        assert "openai/gpt-4" in model_filter
+
+        # Should work with filtered models
         assert response.model_id
         assert response.model_id
 
@@ -310,3 +320,198 @@ class TestModelRouterEdgeCases:
         response = mock_router.select_model(request)
         assert response.model_id
         assert response.model_id
+
+        # Empty list should be passed as empty filter (no filtering)
+        mock_router._core_router.route.assert_called_once()
+        call_args = mock_router._core_router.route.call_args
+        args = call_args[0]
+        assert len(args) >= 3
+        model_filter = args[2]
+        assert model_filter == []
+
+
+class TestModelFiltering:
+    """Test model filtering functionality."""
+
+    @pytest.fixture
+    def filtering_mock_router(self):
+        """Create a mock router that tracks filtering calls."""
+        from unittest.mock import Mock
+        import numpy as np
+
+        mock_core_router = Mock()
+        mock_route_response = Mock()
+        mock_route_response.selected_model = "openai/gpt-4"
+        mock_route_response.alternatives = ["anthropic/claude-3-sonnet-20240229"]
+        mock_route_response.cluster_id = 5
+        mock_route_response.cluster_distance = 0.15
+
+        # Make route() return different responses based on filter
+        def route_side_effect(embedding, cost_bias, models=None):
+            response = Mock()
+            if models and len(models) > 0:
+                # If filtering, return first filtered model
+                response.selected_model = models[0]
+                response.alternatives = models[1:] if len(models) > 1 else []
+            else:
+                # No filter - return default
+                response.selected_model = "openai/gpt-4"
+                response.alternatives = ["anthropic/claude-3-sonnet-20240229"]
+            response.cluster_id = 5
+            response.cluster_distance = 0.15
+            return response
+
+        mock_core_router.route.side_effect = route_side_effect
+        mock_core_router.get_supported_models.return_value = [
+            "openai/gpt-4",
+            "openai/gpt-3.5-turbo",
+            "anthropic/claude-3-sonnet-20240229",
+        ]
+        mock_core_router.get_n_clusters.return_value = 10
+        mock_core_router.get_embedding_dim.return_value = 384
+
+        mock_embedding_model = Mock()
+        mock_embedding_model.encode.return_value = np.zeros(384)
+
+        mock_metadata = Mock()
+        mock_metadata.routing = Mock()
+        mock_metadata.routing.default_cost_preference = 0.5
+        mock_metadata.embedding_model = "all-MiniLM-L6-v2"
+
+        router = ModelRouter(
+            core_router=mock_core_router,
+            embedding_model=mock_embedding_model,
+            profile_metadata=mock_metadata,
+        )
+
+        return router
+
+    def test_filtering_with_single_model(
+        self, filtering_mock_router: ModelRouter
+    ) -> None:
+        """Test filtering with single model - should only return that model."""
+        single_model = [
+            Model(
+                provider="openai",
+                model_name="gpt-4",
+                cost_per_1m_input_tokens=3.0,
+                cost_per_1m_output_tokens=27.0,
+            )
+        ]
+
+        request = ModelSelectionRequest(
+            prompt="Test prompt",
+            models=single_model,
+            cost_bias=0.5,
+        )
+        response = filtering_mock_router.select_model(request)
+
+        # Verify filter was passed correctly
+        call_args = filtering_mock_router._core_router.route.call_args
+        args = call_args[0]
+        assert len(args) >= 3
+        model_filter = args[2]
+        assert model_filter == ["openai/gpt-4"]
+        assert response.model_id == "openai/gpt-4"
+
+    def test_filtering_with_multiple_models(
+        self, filtering_mock_router: ModelRouter
+    ) -> None:
+        """Test filtering with multiple models - should only return from filtered set."""
+        multiple_models = [
+            Model(
+                provider="openai",
+                model_name="gpt-4",
+                cost_per_1m_input_tokens=3.0,
+                cost_per_1m_output_tokens=27.0,
+            ),
+            Model(
+                provider="anthropic",
+                model_name="claude-3-sonnet-20240229",
+                cost_per_1m_input_tokens=3.0,
+                cost_per_1m_output_tokens=15.0,
+            ),
+        ]
+
+        request = ModelSelectionRequest(
+            prompt="Test prompt",
+            models=multiple_models,
+            cost_bias=0.5,
+        )
+        response = filtering_mock_router.select_model(request)
+
+        # Verify filter contains both models
+        call_args = filtering_mock_router._core_router.route.call_args
+        args = call_args[0]
+        assert len(args) >= 3
+        model_filter = args[2]
+        assert len(model_filter) == 2
+        assert "openai/gpt-4" in model_filter
+        assert "anthropic/claude-3-sonnet-20240229" in model_filter
+        # Selected model should be from filtered set
+        assert response.model_id in model_filter
+
+    def test_filtering_with_empty_list(
+        self, filtering_mock_router: ModelRouter
+    ) -> None:
+        """Test filtering with empty list - should use all models (no filter)."""
+        request = ModelSelectionRequest(
+            prompt="Test prompt",
+            models=[],
+            cost_bias=0.5,
+        )
+        response = filtering_mock_router.select_model(request)
+
+        # Verify empty filter was passed (no filtering)
+        call_args = filtering_mock_router._core_router.route.call_args
+        args = call_args[0]
+        assert len(args) >= 3
+        model_filter = args[2]
+        assert model_filter == []
+        # Should still return a valid response
+        assert response.model_id
+
+    def test_filtering_with_none_models(
+        self, filtering_mock_router: ModelRouter
+    ) -> None:
+        """Test filtering with None models - should use all models (no filter)."""
+        request = ModelSelectionRequest(
+            prompt="Test prompt",
+            models=None,
+            cost_bias=0.5,
+        )
+        response = filtering_mock_router.select_model(request)
+
+        # Verify empty filter was passed (no filtering)
+        call_args = filtering_mock_router._core_router.route.call_args
+        args = call_args[0]
+        assert len(args) >= 3
+        model_filter = args[2]
+        assert model_filter == []
+        # Should still return a valid response
+        assert response.model_id
+
+    def test_model_unique_id_format(self) -> None:
+        """Test that Model.unique_id() produces correct format for filtering."""
+        model = Model(
+            provider="openai",
+            model_name="gpt-4",
+            cost_per_1m_input_tokens=3.0,
+            cost_per_1m_output_tokens=27.0,
+        )
+
+        model_id = model.unique_id()
+        assert model_id == "openai/gpt-4"
+        assert "/" in model_id  # Should have provider/model format
+
+    def test_model_unique_id_case_insensitive(self) -> None:
+        """Test that Model.unique_id() normalizes case correctly."""
+        model_upper = Model(
+            provider="OpenAI",
+            model_name="GPT-4",
+            cost_per_1m_input_tokens=3.0,
+            cost_per_1m_output_tokens=27.0,
+        )
+
+        model_id = model_upper.unique_id()
+        assert model_id == "openai/gpt-4"  # Should be lowercase

@@ -55,37 +55,37 @@ NB_MODULE(adaptive_core_ext, m) {
       // Route - float32 version (most common case)
       .def(
           "route",
-          [](Router& self, nb::ndarray<float, nb::ndim<1>, nb::c_contig> embedding, float cost_bias) {
+          [](Router& self, nb::ndarray<float, nb::ndim<1>, nb::c_contig> embedding, float cost_bias, nb::stl::vector<std::string> models) {
             if (embedding.shape(0) != static_cast<size_t>(self.get_embedding_dim())) {
               throw std::invalid_argument(
                   "Embedding dimension mismatch: expected " +
                   std::to_string(self.get_embedding_dim()) +
                   ", got " + std::to_string(embedding.shape(0)));
             }
-            return self.route(embedding.data(), embedding.shape(0), cost_bias);
+            return self.route(embedding.data(), embedding.shape(0), cost_bias, models);
           },
-          "embedding"_a, "cost_bias"_a = 0.5f,
+          "embedding"_a, "cost_bias"_a = 0.5f, "models"_a = nb::stl::vector<std::string>{},
           "Route using pre-computed embedding vector (float32 numpy array)")
 
       // Route - float64 version
       .def(
           "route",
-          [](Router& self, nb::ndarray<double, nb::ndim<1>, nb::c_contig> embedding, float cost_bias) {
+          [](Router& self, nb::ndarray<double, nb::ndim<1>, nb::c_contig> embedding, float cost_bias, nb::stl::vector<std::string> models) {
             if (embedding.shape(0) != static_cast<size_t>(self.get_embedding_dim())) {
               throw std::invalid_argument(
                   "Embedding dimension mismatch: expected " +
                   std::to_string(self.get_embedding_dim()) +
                   ", got " + std::to_string(embedding.shape(0)));
             }
-            return self.route(embedding.data(), embedding.shape(0), cost_bias);
+            return self.route(embedding.data(), embedding.shape(0), cost_bias, models);
           },
-          "embedding"_a, "cost_bias"_a = 0.5f,
+          "embedding"_a, "cost_bias"_a = 0.5f, "models"_a = nb::stl::vector<std::string>{},
           "Route using pre-computed embedding vector (float64 numpy array)")
 
       // Batch route - float32 version
       .def(
           "route_batch",
-          [](Router& self, nb::ndarray<float, nb::ndim<2>, nb::c_contig> embeddings, float cost_bias) {
+          [](Router& self, nb::ndarray<float, nb::ndim<2>, nb::c_contig> embeddings, float cost_bias, nb::stl::vector<std::string> models) {
             size_t n_embeddings = embeddings.shape(0);
             size_t embedding_dim = embeddings.shape(1);
 
@@ -101,18 +101,18 @@ NB_MODULE(adaptive_core_ext, m) {
 
             const float* data = embeddings.data();
             for (size_t i = 0; i < n_embeddings; ++i) {
-              results.push_back(self.route(data + i * embedding_dim, embedding_dim, cost_bias));
+              results.push_back(self.route(data + i * embedding_dim, embedding_dim, cost_bias, models));
             }
 
             return results;
           },
-          "embeddings"_a, "cost_bias"_a = 0.5f,
+          "embeddings"_a, "cost_bias"_a = 0.5f, "models"_a = nb::stl::vector<std::string>{},
           "Batch route multiple embeddings (N×D float32 numpy array)")
 
       // Batch route - float64 version
       .def(
           "route_batch",
-          [](Router& self, nb::ndarray<double, nb::ndim<2>, nb::c_contig> embeddings, float cost_bias) {
+          [](Router& self, nb::ndarray<double, nb::ndim<2>, nb::c_contig> embeddings, float cost_bias, nb::stl::vector<std::string> models) {
             size_t n_embeddings = embeddings.shape(0);
             size_t embedding_dim = embeddings.shape(1);
 
@@ -128,12 +128,12 @@ NB_MODULE(adaptive_core_ext, m) {
 
             const double* data = embeddings.data();
             for (size_t i = 0; i < n_embeddings; ++i) {
-              results.push_back(self.route(data + i * embedding_dim, embedding_dim, cost_bias));
+              results.push_back(self.route(data + i * embedding_dim, embedding_dim, cost_bias, models));
             }
 
             return results;
           },
-          "embeddings"_a, "cost_bias"_a = 0.5f,
+          "embeddings"_a, "cost_bias"_a = 0.5f, "models"_a = nb::stl::vector<std::string>{},
           "Batch route multiple embeddings (N×D float64 numpy array)")
 
       // Introspection

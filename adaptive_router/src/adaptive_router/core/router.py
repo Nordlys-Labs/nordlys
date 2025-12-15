@@ -297,10 +297,17 @@ class ModelRouter:
         # 2. Resolve cost preference
         cost_preference = self._resolve_cost_preference(cost_bias, request.cost_bias)
 
-        # 3. Route using C++ core (cluster assignment + model scoring)
-        core_response = self._core_router.route(embedding, cost_preference)
+        # 3. Extract model IDs from request.models if provided
+        model_filter: list[str] = []
+        if request.models:
+            model_filter = [model.unique_id() for model in request.models]
 
-        # 4. Build Python response
+        # 4. Route using C++ core (cluster assignment + model scoring)
+        core_response = self._core_router.route(
+            embedding, cost_preference, model_filter
+        )
+
+        # 5. Build Python response
         alternatives = [Alternative(model_id=m) for m in core_response.alternatives]
         response = ModelSelectionResponse(
             model_id=core_response.selected_model,
