@@ -212,7 +212,7 @@ TEST_F(RouterTest, DimensionMismatchErrorMessage) {
   std::vector<float> wrong_embedding = {1.0f, 0.0f};  // 2D instead of 4D
 
   try {
-    router.route(wrong_embedding.data(), wrong_embedding.size(), 0.5f);
+    (void)router.route(wrong_embedding.data(), wrong_embedding.size(), 0.5f);
     FAIL() << "Expected std::invalid_argument to be thrown";
   } catch (const std::invalid_argument& e) {
     std::string msg = e.what();
