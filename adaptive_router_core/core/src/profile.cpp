@@ -53,6 +53,7 @@ void to_json(json& json_obj, const ProfileMetadata& meta) {
     {"embedding_model", meta.embedding_model},
     {"dtype", meta.dtype},
     {"silhouette_score", meta.silhouette_score},
+    {"allow_trust_remote_code", meta.allow_trust_remote_code},
     {"clustering", meta.clustering},
     {"routing", meta.routing}
   };
@@ -91,6 +92,7 @@ void from_json(const json& json_obj, ProfileMetadata& meta) {
   json_obj.at("embedding_model").get_to(meta.embedding_model);
   meta.dtype = json_obj.value("dtype", "float32");  // Default float32 for backwards compat
   meta.silhouette_score = json_obj.value("silhouette_score", 0.0f);
+  meta.allow_trust_remote_code = json_obj.value("allow_trust_remote_code", false);
 
   if (json_obj.contains("clustering")) {
     json_obj.at("clustering").get_to(meta.clustering);
@@ -206,6 +208,7 @@ RouterProfile RouterProfile::from_binary(const std::string& path) {
   profile.metadata.embedding_model = meta.at("embedding_model").as<std::string>();
   profile.metadata.dtype = meta.contains("dtype") ? meta.at("dtype").as<std::string>() : "float32";
   profile.metadata.silhouette_score = meta.contains("silhouette_score") ? meta.at("silhouette_score").as<float>() : 0.0f;
+  profile.metadata.allow_trust_remote_code = meta.contains("allow_trust_remote_code") ? meta.at("allow_trust_remote_code").as<bool>() : false;
 
   // Parse optional clustering config
   if (meta.contains("clustering")) {
@@ -351,7 +354,7 @@ std::string RouterProfile::to_binary_string() const {
 
   // Pack metadata
   pk.pack("metadata");
-  pk.pack_map(6);  // n_clusters, embedding_model, dtype, silhouette_score, clustering, routing
+  pk.pack_map(7);  // n_clusters, embedding_model, dtype, silhouette_score, allow_trust_remote_code, clustering, routing
 
   pk.pack("n_clusters");
   pk.pack(metadata.n_clusters);
@@ -364,6 +367,9 @@ std::string RouterProfile::to_binary_string() const {
 
   pk.pack("silhouette_score");
   pk.pack(metadata.silhouette_score);
+
+  pk.pack("allow_trust_remote_code");
+  pk.pack(metadata.allow_trust_remote_code);
 
   // Pack clustering config
   pk.pack("clustering");
@@ -458,6 +464,7 @@ RouterProfile RouterProfile::from_binary_string(const std::string& data) {
   profile.metadata.embedding_model = meta.at("embedding_model").as<std::string>();
   profile.metadata.dtype = meta.contains("dtype") ? meta.at("dtype").as<std::string>() : "float32";
   profile.metadata.silhouette_score = meta.contains("silhouette_score") ? meta.at("silhouette_score").as<float>() : 0.0f;
+  profile.metadata.allow_trust_remote_code = meta.contains("allow_trust_remote_code") ? meta.at("allow_trust_remote_code").as<bool>() : false;
 
   // Parse optional clustering config
   if (meta.contains("clustering")) {

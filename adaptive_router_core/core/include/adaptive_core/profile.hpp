@@ -26,6 +26,7 @@ struct ProfileMetadata {
   std::string embedding_model;
   std::string dtype = "float32";  // "float32" or "float64"
   float silhouette_score;
+  bool allow_trust_remote_code = false;
   ClusteringConfig clustering;
   RoutingConfig routing;
 };
