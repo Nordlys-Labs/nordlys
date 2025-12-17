@@ -42,8 +42,11 @@ class TestRouting:
 
     def test_route_float32(self, router, sample_embedding):
         """Test routing with float32 embedding."""
+        from adaptive_core_ext import RouteResponse32
+
         response = router.route(sample_embedding, cost_bias=0.5)
 
+        assert isinstance(response, RouteResponse32)
         assert response.selected_model in ["openai/gpt-4", "anthropic/claude-3"]
         assert isinstance(response.cluster_id, int)
         assert 0 <= response.cluster_id < 3
@@ -51,9 +54,12 @@ class TestRouting:
 
     def test_route_float64(self, router_float64):
         """Test routing with float64 embedding."""
+        from adaptive_core_ext import RouteResponse64
+
         embedding = np.array([0.0, 0.9, 0.1, 0.0], dtype=np.float64)
         response = router_float64.route(embedding, cost_bias=0.5)
 
+        assert isinstance(response, RouteResponse64)
         assert response.selected_model is not None
 
     def test_route_default_cost_bias(self, router, sample_embedding):

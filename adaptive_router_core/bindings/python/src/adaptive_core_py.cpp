@@ -33,24 +33,24 @@ public:
     }
   }
 
-  RouteResponse route_f32(nb::ndarray<float, nb::ndim<1>, nb::c_contig> emb,
-                          float bias, const std::vector<std::string>& models) {
+  RouteResponseT<float> route_f32(nb::ndarray<float, nb::ndim<1>, nb::c_contig> emb,
+                               float bias, const std::vector<std::string>& models) {
     if (is_float64) throw std::invalid_argument("Router expects float64, got float32");
     return std::get<RouterT<float>>(router).route(emb.data(), emb.shape(0), bias, models);
   }
 
-  RouteResponse route_f64(nb::ndarray<double, nb::ndim<1>, nb::c_contig> emb,
-                          float bias, const std::vector<std::string>& models) {
+  RouteResponseT<double> route_f64(nb::ndarray<double, nb::ndim<1>, nb::c_contig> emb,
+                                float bias, const std::vector<std::string>& models) {
     if (!is_float64) throw std::invalid_argument("Router expects float32, got float64");
     return std::get<RouterT<double>>(router).route(emb.data(), emb.shape(0), bias, models);
   }
 
-  std::vector<RouteResponse> route_batch_f32(nb::ndarray<float, nb::ndim<2>, nb::c_contig> embs,
-                                              float bias, const std::vector<std::string>& models) {
+  std::vector<RouteResponseT<float>> route_batch_f32(nb::ndarray<float, nb::ndim<2>, nb::c_contig> embs,
+                                                   float bias, const std::vector<std::string>& models) {
     if (is_float64) throw std::invalid_argument("Router expects float64, got float32");
     auto& r = std::get<RouterT<float>>(router);
     size_t n = embs.shape(0), d = embs.shape(1);
-    std::vector<RouteResponse> out;
+    std::vector<RouteResponseT<float>> out;
     out.reserve(n);
     const float* ptr = embs.data();
     for (size_t i = 0; i < n; ++i)
@@ -58,12 +58,12 @@ public:
     return out;
   }
 
-  std::vector<RouteResponse> route_batch_f64(nb::ndarray<double, nb::ndim<2>, nb::c_contig> embs,
-                                              float bias, const std::vector<std::string>& models) {
+  std::vector<RouteResponseT<double>> route_batch_f64(nb::ndarray<double, nb::ndim<2>, nb::c_contig> embs,
+                                                   float bias, const std::vector<std::string>& models) {
     if (!is_float64) throw std::invalid_argument("Router expects float32, got float64");
     auto& r = std::get<RouterT<double>>(router);
     size_t n = embs.shape(0), d = embs.shape(1);
-    std::vector<RouteResponse> out;
+    std::vector<RouteResponseT<double>> out;
     out.reserve(n);
     const double* ptr = embs.data();
     for (size_t i = 0; i < n; ++i)
@@ -89,11 +89,17 @@ public:
 NB_MODULE(adaptive_core_ext, m) {
   m.doc() = "Adaptive Router C++ Core - High-performance routing engine";
 
-  nb::class_<RouteResponse>(m, "RouteResponse")
-      .def_ro("selected_model", &RouteResponse::selected_model)
-      .def_ro("alternatives", &RouteResponse::alternatives)
-      .def_ro("cluster_id", &RouteResponse::cluster_id)
-      .def_ro("cluster_distance", &RouteResponse::cluster_distance);
+  nb::class_<RouteResponseT<float>>(m, "RouteResponse32")
+      .def_ro("selected_model", &RouteResponseT<float>::selected_model)
+      .def_ro("alternatives", &RouteResponseT<float>::alternatives)
+      .def_ro("cluster_id", &RouteResponseT<float>::cluster_id)
+      .def_ro("cluster_distance", &RouteResponseT<float>::cluster_distance);
+
+  nb::class_<RouteResponseT<double>>(m, "RouteResponse64")
+      .def_ro("selected_model", &RouteResponseT<double>::selected_model)
+      .def_ro("alternatives", &RouteResponseT<double>::alternatives)
+      .def_ro("cluster_id", &RouteResponseT<double>::cluster_id)
+      .def_ro("cluster_distance", &RouteResponseT<double>::cluster_distance);
 
   nb::class_<RouterProfile>(m, "RouterProfile")
       // Static factory methods for loading profiles

@@ -9,6 +9,8 @@ class TestBatchRouting:
 
     def test_batch_route_float32(self, router):
         """Test batch routing with float32 embeddings."""
+        from adaptive_core_ext import RouteResponse32
+
         embeddings = np.array(
             [
                 [1.0, 0.0, 0.0, 0.0],
@@ -22,11 +24,14 @@ class TestBatchRouting:
 
         assert len(responses) == 3
         for i, response in enumerate(responses):
+            assert isinstance(response, RouteResponse32)
             assert response.selected_model is not None
             assert response.cluster_id == i  # Each should match its cluster
 
     def test_batch_route_float64(self, router_float64):
         """Test batch routing with float64 embeddings."""
+        from adaptive_core_ext import RouteResponse64
+
         embeddings = np.array(
             [
                 [1.0, 0.0, 0.0, 0.0],
@@ -38,6 +43,8 @@ class TestBatchRouting:
         responses = router_float64.route_batch(embeddings, cost_bias=0.5)
 
         assert len(responses) == 2
+        for response in responses:
+            assert isinstance(response, RouteResponse64)
 
     def test_batch_single_embedding(self, router, sample_embedding):
         """Test batch routing with single embedding."""

@@ -494,3 +494,17 @@ TEST_F(RouterTest, CreateFromNonexistentFileFails) {
   EXPECT_THROW(RouterProfile::from_json("nonexistent_file.json"), std::exception);
 }
 
+TEST_F(RouterTest, DoublePrecisionClusterDistance) {
+  // Verify RouteResponseT<double> preserves double precision
+  auto router = CreateTestRouterDouble();
+
+  std::vector<double> embedding = {0.95, 0.05, 0.0, 0.0};
+  auto response = router.route(embedding.data(), embedding.size(), 0.5f);
+
+  // Compile-time verification
+  static_assert(std::is_same_v<decltype(response.cluster_distance), double>);
+
+  EXPECT_EQ(response.cluster_id, 0);
+  EXPECT_GE(response.cluster_distance, 0.0);
+}
+

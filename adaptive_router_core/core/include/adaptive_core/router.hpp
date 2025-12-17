@@ -9,11 +9,12 @@
 #include "result.hpp"
 #include "scorer.hpp"
 
-struct RouteResponse {
+template<typename Scalar = float>
+struct RouteResponseT {
   std::string selected_model;
   std::vector<std::string> alternatives;
   int cluster_id;
-  float cluster_distance;
+  Scalar cluster_distance;
 };
 
 template<typename Scalar = float>
@@ -37,8 +38,8 @@ public:
   RouterT(const RouterT&) = delete;
   RouterT& operator=(const RouterT&) = delete;
 
-  RouteResponse route(const Scalar* data, size_t size, float cost_bias = 0.5f,
-                      const std::vector<std::string>& models = {}) {
+  RouteResponseT<Scalar> route(const Scalar* data, size_t size, float cost_bias = 0.5f,
+                           const std::vector<std::string>& models = {}) {
     if (size != static_cast<size_t>(dim_)) {
       throw std::invalid_argument(std::format("dimension mismatch: {} vs {}", dim_, size));
     }
@@ -50,11 +51,11 @@ public:
 
     auto scores = scorer_.score_models(cid, cost_bias, models);
 
-    RouteResponse resp{
+    RouteResponseT<Scalar> resp{
       .selected_model = scores.empty() ? "" : scores[0].model_id,
       .alternatives = {},
       .cluster_id = cid,
-      .cluster_distance = static_cast<float>(dist)
+      .cluster_distance = dist
     };
 
     if (scores.size() > 1) {

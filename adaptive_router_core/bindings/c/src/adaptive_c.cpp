@@ -59,8 +59,9 @@ static std::optional<RouterVariant> create_router_variant(RouterProfile profile)
   }
 }
 
-// Helper to build AdaptiveRouteResult from RouteResponse
-static AdaptiveRouteResult* build_route_result(const RouteResponse& response) {
+// Helper to build AdaptiveRouteResult from RouteResponseT<Scalar>
+template<typename Scalar>
+static AdaptiveRouteResult* build_route_result(const RouteResponseT<Scalar>& response) {
   auto* result = static_cast<AdaptiveRouteResult*>(malloc(sizeof(AdaptiveRouteResult)));
   if (!result) return nullptr;
 
