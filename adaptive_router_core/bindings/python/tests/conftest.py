@@ -1,5 +1,6 @@
 """Pytest fixtures for Python binding tests."""
 
+import copy
 import json
 from pathlib import Path
 
@@ -72,7 +73,7 @@ def sample_embedding() -> np.ndarray:
 @pytest.fixture
 def sample_profile_json_float64() -> str:
     """Return sample profile with float64 dtype as JSON string."""
-    profile = SAMPLE_PROFILE.copy()
+    profile = copy.deepcopy(SAMPLE_PROFILE)
     profile["metadata"]["dtype"] = "float64"
     return json.dumps(profile)
 
