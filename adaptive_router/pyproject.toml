@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "adaptive_router"
-version = "0.1.1"
+version = "0.1.2"
 description = "Intelligent LLM Infrastructure with Smart Model Selection"
 authors = [{ name = "Botir Khaltaev", email = "botirkhaltaev@llmadaptive.uk" }]
 requires-python = ">=3.11,<4.0"
@@ -46,8 +46,8 @@ Documentation = "https://docs.llmadaptive.uk"
 
 
 [project.optional-dependencies]
-cpu = ["adaptive-router-core>=0.1.8,<1"]
-cu12 = ["adaptive-router-core-cu12>=0.1.8,<1 ; sys_platform == 'linux'"]
+cpu = ["adaptive-router-core>=0.1.9,<1"]
+cu12 = ["adaptive-router-core-cu12>=0.1.9,<1 ; sys_platform == 'linux'"]
 
 
 [dependency-groups]

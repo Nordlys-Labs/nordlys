@@ -134,6 +134,16 @@ NB_MODULE(adaptive_core_ext, m) {
       .def_prop_ro("embedding_model", [](const RouterProfile& p) { return p.metadata.embedding_model; })
       .def_prop_ro("dtype", [](const RouterProfile& p) { return p.metadata.dtype; })
       .def_prop_ro("silhouette_score", [](const RouterProfile& p) { return p.metadata.silhouette_score; })
+      .def_prop_ro("allow_trust_remote_code", [](const RouterProfile& p) { return p.metadata.allow_trust_remote_code; })
+      .def_prop_ro("default_cost_preference", [](const RouterProfile& p) { return p.metadata.routing.default_cost_preference; })
+      .def_prop_ro("lambda_min", [](const RouterProfile& p) { return p.metadata.routing.lambda_min; })
+      .def_prop_ro("lambda_max", [](const RouterProfile& p) { return p.metadata.routing.lambda_max; })
+      .def_prop_ro("max_alternatives", [](const RouterProfile& p) { return p.metadata.routing.max_alternatives; })
+      .def_prop_ro("max_iter", [](const RouterProfile& p) { return p.metadata.clustering.max_iter; })
+      .def_prop_ro("random_state", [](const RouterProfile& p) { return p.metadata.clustering.random_state; })
+      .def_prop_ro("n_init", [](const RouterProfile& p) { return p.metadata.clustering.n_init; })
+      .def_prop_ro("algorithm", [](const RouterProfile& p) { return p.metadata.clustering.algorithm; })
+      .def_prop_ro("normalization_strategy", [](const RouterProfile& p) { return p.metadata.clustering.normalization_strategy; })
       .def_prop_ro("is_float32", &RouterProfile::is_float32)
       .def_prop_ro("is_float64", &RouterProfile::is_float64);
 
