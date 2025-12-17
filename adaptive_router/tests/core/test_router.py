@@ -49,17 +49,27 @@ def _mock_router_factory(route_side_effect=None):
     mock_embedding_model = Mock()
     mock_embedding_model.encode.return_value = np.zeros(384)  # Return fake embedding
 
-    # Mock profile metadata
-    mock_metadata = Mock()
-    mock_metadata.routing = Mock()
-    mock_metadata.routing.default_cost_preference = 0.5
-    mock_metadata.embedding_model = "all-MiniLM-L6-v2"
+    # Mock RouterProfile
+    from adaptive_router.models.storage import (
+        RouterProfile,
+        ProfileMetadata,
+        ClusterCentersData,
+    )
+    from adaptive_router.models.api import Model
+
+    mock_profile = Mock(spec=RouterProfile)
+    mock_profile.metadata = Mock(spec=ProfileMetadata)
+    mock_profile.metadata.routing = Mock()
+    mock_profile.metadata.routing.default_cost_preference = 0.5
+    mock_profile.metadata.embedding_model = "all-MiniLM-L6-v2"
+    mock_profile.metadata.dtype = "float32"
+    mock_profile.models = [Mock(spec=Model)]
 
     # Create router with mocked components
     router = ModelRouter(
         core_router=mock_core_router,
         embedding_model=mock_embedding_model,
-        profile_metadata=mock_metadata,
+        profile=mock_profile,
     )
 
     return router
