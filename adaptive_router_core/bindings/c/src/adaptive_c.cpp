@@ -142,14 +142,26 @@ void adaptive_router_destroy(AdaptiveRouter* router) {
   delete get_router(router);
 }
 
-AdaptiveRouteResult* adaptive_router_route(AdaptiveRouter* router, const float* embedding,
-                                            size_t embedding_size, float cost_bias) {
-  if (!router || !embedding) return nullptr;
+AdaptiveRouteResult* adaptive_router_route_f32(AdaptiveRouter* router, const float* embedding,
+                                                   size_t embedding_size, float cost_bias,
+                                                   AdaptiveErrorCode* error_out) {
+  if (error_out) *error_out = ADAPTIVE_OK;
+
+  if (!router) {
+    if (error_out) *error_out = ADAPTIVE_ERROR_NULL_ROUTER;
+    return nullptr;
+  }
+  if (!embedding) {
+    if (error_out) *error_out = ADAPTIVE_ERROR_NULL_EMBEDDING;
+    return nullptr;
+  }
+
   try {
     auto* var = get_router(router);
 
     // Strict: only works on float32 router
     if (!std::holds_alternative<RouterT<float>>(*var)) {
+      if (error_out) *error_out = ADAPTIVE_ERROR_TYPE_MISMATCH;
       return nullptr;
     }
 
@@ -157,28 +169,12 @@ AdaptiveRouteResult* adaptive_router_route(AdaptiveRouter* router, const float* 
     auto response = r.route(embedding, embedding_size, cost_bias);
     return build_route_result(response);
   } catch (...) {
+    if (error_out) *error_out = ADAPTIVE_ERROR_INTERNAL;
     return nullptr;
   }
 }
 
-char* adaptive_router_route_simple(AdaptiveRouter* router, const float* embedding,
-                                    size_t embedding_size, float cost_bias) {
-  if (!router || !embedding) return nullptr;
-  try {
-    auto* var = get_router(router);
 
-    // Strict: only works on float32 router
-    if (!std::holds_alternative<RouterT<float>>(*var)) {
-      return nullptr;
-    }
-
-    auto& r = std::get<RouterT<float>>(*var);
-    auto response = r.route(embedding, embedding_size, cost_bias);
-    return str_duplicate(response.selected_model);
-  } catch (...) {
-    return nullptr;
-  }
-}
 
 void adaptive_route_result_free(AdaptiveRouteResult* result) {
   if (!result) return;
@@ -186,14 +182,26 @@ void adaptive_route_result_free(AdaptiveRouteResult* result) {
   free(result);
 }
 
-AdaptiveRouteResult* adaptive_router_route_double(AdaptiveRouter* router, const double* embedding,
-                                                  size_t embedding_size, float cost_bias) {
-  if (!router || !embedding) return nullptr;
+AdaptiveRouteResult* adaptive_router_route_f64(AdaptiveRouter* router, const double* embedding,
+                                                   size_t embedding_size, float cost_bias,
+                                                   AdaptiveErrorCode* error_out) {
+  if (error_out) *error_out = ADAPTIVE_OK;
+
+  if (!router) {
+    if (error_out) *error_out = ADAPTIVE_ERROR_NULL_ROUTER;
+    return nullptr;
+  }
+  if (!embedding) {
+    if (error_out) *error_out = ADAPTIVE_ERROR_NULL_EMBEDDING;
+    return nullptr;
+  }
+
   try {
     auto* var = get_router(router);
 
     // Strict: only works on float64 router
     if (!std::holds_alternative<RouterT<double>>(*var)) {
+      if (error_out) *error_out = ADAPTIVE_ERROR_TYPE_MISMATCH;
       return nullptr;
     }
 
@@ -201,18 +209,27 @@ AdaptiveRouteResult* adaptive_router_route_double(AdaptiveRouter* router, const 
     auto response = r.route(embedding, embedding_size, cost_bias);
     return build_route_result(response);
   } catch (...) {
+    if (error_out) *error_out = ADAPTIVE_ERROR_INTERNAL;
     return nullptr;
   }
 }
 
-AdaptiveBatchRouteResult* adaptive_router_route_batch(
+AdaptiveBatchRouteResult* adaptive_router_route_batch_f32(
     AdaptiveRouter* router,
     const float* embeddings,
     size_t n_embeddings,
     size_t embedding_size,
-    float cost_bias) {
+    float cost_bias,
+    AdaptiveErrorCode* error_out) {
 
-  if (!router || !embeddings) {
+  if (error_out) *error_out = ADAPTIVE_OK;
+
+  if (!router) {
+    if (error_out) *error_out = ADAPTIVE_ERROR_NULL_ROUTER;
+    return nullptr;
+  }
+  if (!embeddings) {
+    if (error_out) *error_out = ADAPTIVE_ERROR_NULL_EMBEDDING;
     return nullptr;
   }
 
@@ -243,7 +260,8 @@ AdaptiveBatchRouteResult* adaptive_router_route_batch(
       const float* embedding_ptr = embeddings + (result_idx * embedding_size);
 
       // Call single route
-      auto* result = adaptive_router_route(router, embedding_ptr, embedding_size, cost_bias);
+      AdaptiveErrorCode route_error;
+      auto* result = adaptive_router_route_f32(router, embedding_ptr, embedding_size, cost_bias, &route_error);
 
       if (result) {
         // Transfer ownership of data
@@ -286,14 +304,22 @@ void adaptive_batch_route_result_free(AdaptiveBatchRouteResult* result) {
   free(result);
 }
 
-AdaptiveBatchRouteResult* adaptive_router_route_batch_double(
+AdaptiveBatchRouteResult* adaptive_router_route_batch_f64(
     AdaptiveRouter* router,
     const double* embeddings,
     size_t n_embeddings,
     size_t embedding_size,
-    float cost_bias) {
+    float cost_bias,
+    AdaptiveErrorCode* error_out) {
 
-  if (!router || !embeddings) {
+  if (error_out) *error_out = ADAPTIVE_OK;
+
+  if (!router) {
+    if (error_out) *error_out = ADAPTIVE_ERROR_NULL_ROUTER;
+    return nullptr;
+  }
+  if (!embeddings) {
+    if (error_out) *error_out = ADAPTIVE_ERROR_NULL_EMBEDDING;
     return nullptr;
   }
 
@@ -323,7 +349,8 @@ AdaptiveBatchRouteResult* adaptive_router_route_batch_double(
     for (size_t result_idx = 0; result_idx < n_embeddings; ++result_idx) {
       const double* embedding_ptr = embeddings + (result_idx * embedding_size);
 
-      auto* result = adaptive_router_route_double(router, embedding_ptr, embedding_size, cost_bias);
+      AdaptiveErrorCode route_error;
+      auto* result = adaptive_router_route_f64(router, embedding_ptr, embedding_size, cost_bias, &route_error);
 
       if (result) {
         batch_result->results[result_idx] = *result;

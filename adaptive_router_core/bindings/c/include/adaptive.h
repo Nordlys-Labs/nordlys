@@ -56,6 +56,19 @@ typedef enum {
 } AdaptivePrecision;
 
 /**
+ * Error codes for adaptive router operations
+ */
+typedef enum {
+  ADAPTIVE_OK = 0,
+  ADAPTIVE_ERROR_NULL_ROUTER,
+  ADAPTIVE_ERROR_NULL_EMBEDDING,
+  ADAPTIVE_ERROR_TYPE_MISMATCH,
+  ADAPTIVE_ERROR_DIMENSION_MISMATCH,
+  ADAPTIVE_ERROR_ALLOCATION_FAILED,
+  ADAPTIVE_ERROR_INTERNAL
+} AdaptiveErrorCode;
+
+/**
  * Create a router from a JSON profile file
  * @param profile_path Path to the JSON profile file
  * @return Router handle, or NULL on error
@@ -83,71 +96,70 @@ ADAPTIVE_API AdaptiveRouter* adaptive_router_create_from_binary(const char* path
 ADAPTIVE_API void adaptive_router_destroy(AdaptiveRouter* router);
 
 /**
- * Route using a pre-computed embedding (float)
+ * Route using a pre-computed embedding (float32)
  * @param router Router handle
  * @param embedding Pointer to embedding data (float array)
  * @param embedding_size Size of the embedding array
  * @param cost_bias Cost bias (0.0 = prefer accuracy, 1.0 = prefer low cost)
+ * @param error_out Optional error code output (can be NULL)
  * @return Route result (caller must free with adaptive_route_result_free)
  */
-ADAPTIVE_API AdaptiveRouteResult* adaptive_router_route(AdaptiveRouter* router,
-                                                        const float* embedding,
-                                                        size_t embedding_size, float cost_bias);
+ADAPTIVE_API AdaptiveRouteResult* adaptive_router_route_f32(AdaptiveRouter* router,
+                                                             const float* embedding,
+                                                             size_t embedding_size,
+                                                             float cost_bias,
+                                                             AdaptiveErrorCode* error_out);
 
 /**
- * Route using a pre-computed embedding (double)
+ * Route using a pre-computed embedding (float64)
  * @param router Router handle
  * @param embedding Pointer to embedding data (double array)
  * @param embedding_size Size of the embedding array
  * @param cost_bias Cost bias (0.0 = prefer accuracy, 1.0 = prefer low cost)
+ * @param error_out Optional error code output (can be NULL)
  * @return Route result (caller must free with adaptive_route_result_free)
  */
-ADAPTIVE_API AdaptiveRouteResult* adaptive_router_route_double(AdaptiveRouter* router,
-                                                               const double* embedding,
-                                                               size_t embedding_size, float cost_bias);
+ADAPTIVE_API AdaptiveRouteResult* adaptive_router_route_f64(AdaptiveRouter* router,
+                                                             const double* embedding,
+                                                             size_t embedding_size,
+                                                             float cost_bias,
+                                                             AdaptiveErrorCode* error_out);
 
 /**
- * Simple routing - returns just the selected model ID
- * @param router Router handle
- * @param embedding Pointer to embedding data
- * @param embedding_size Size of the embedding array
- * @param cost_bias Cost bias
- * @return Selected model ID (caller must free with adaptive_string_free)
- */
-ADAPTIVE_API char* adaptive_router_route_simple(AdaptiveRouter* router, const float* embedding,
-                                                size_t embedding_size, float cost_bias);
-
-/**
- * Batch route using multiple pre-computed embeddings (float)
+ * Batch route using multiple pre-computed embeddings (float32)
  * @param router Router handle
  * @param embeddings Pointer to embedding data (N×D row-major array)
  * @param n_embeddings Number of embeddings in batch
  * @param embedding_size Dimension of each embedding (D)
  * @param cost_bias Cost bias (0.0 = prefer accuracy, 1.0 = prefer low cost)
+ * @param error_out Optional error code output (can be NULL)
  * @return Batch route result (caller must free with adaptive_batch_route_result_free)
  */
-ADAPTIVE_API AdaptiveBatchRouteResult* adaptive_router_route_batch(
+ADAPTIVE_API AdaptiveBatchRouteResult* adaptive_router_route_batch_f32(
     AdaptiveRouter* router,
     const float* embeddings,
     size_t n_embeddings,
     size_t embedding_size,
-    float cost_bias);
+    float cost_bias,
+    AdaptiveErrorCode* error_out);
 
 /**
- * Batch route using multiple pre-computed embeddings (double)
+ * Batch route using multiple pre-computed embeddings (float64)
  * @param router Router handle
  * @param embeddings Pointer to embedding data (N×D row-major array)
  * @param n_embeddings Number of embeddings in batch
  * @param embedding_size Dimension of each embedding (D)
  * @param cost_bias Cost bias (0.0 = prefer accuracy, 1.0 = prefer low cost)
+ * @param error_out Optional error code output (can be NULL)
  * @return Batch route result (caller must free with adaptive_batch_route_result_free)
  */
-ADAPTIVE_API AdaptiveBatchRouteResult* adaptive_router_route_batch_double(
+ADAPTIVE_API AdaptiveBatchRouteResult* adaptive_router_route_batch_f64(
     AdaptiveRouter* router,
     const double* embeddings,
     size_t n_embeddings,
     size_t embedding_size,
-    float cost_bias);
+    float cost_bias,
+    AdaptiveErrorCode* error_out);
 
 /**
  * Free a route result
