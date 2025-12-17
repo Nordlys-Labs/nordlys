@@ -23,7 +23,7 @@ import polars as pl
 from adaptive_router.core.trainer import Trainer
 from adaptive_router.models.api import Model
 from adaptive_router.models.train import ProviderConfig
-from adaptive_router.models.storage import MinIOSettings
+
 
 # Import from local train module
 from train.config import TrainingConfig, load_config, ModelConfigToml
@@ -358,52 +358,8 @@ def train_router(config: TrainingConfig) -> None:
         # Save profile
         logger.info("\nSaving profile...")
         try:
-            if config.output.storage_type == "local":
-                # Local filesystem
-                trainer.save_profile(config.output.path)
-                logger.info(f"Profile saved to: {config.output.path}")
-
-            elif config.output.storage_type == "s3":
-                assert config.output.s3 is not None
-                bucket = config.output.s3.bucket_name
-                profile_key = config.output.s3.profile_key.lstrip("/")
-                s3_path = config.output.path
-                if not s3_path.startswith("s3://"):
-                    s3_path = f"s3://{bucket}/{profile_key}"
-                s3_endpoint = (
-                    config.output.s3.endpoint_url or "https://s3.amazonaws.com"
-                )
-                s3_settings = MinIOSettings(
-                    endpoint_url=s3_endpoint,
-                    root_user=config.output.s3.access_key_id,
-                    root_password=config.output.s3.secret_access_key,
-                    bucket_name=bucket,
-                    region=config.output.s3.region,
-                    profile_key=profile_key,
-                )
-                trainer.save_profile(s3_path, s3_settings=s3_settings)
-                logger.info(f"Profile saved to s3: {s3_path}")
-
-            elif config.output.storage_type == "minio":
-                assert config.output.s3 is not None
-                bucket = config.output.s3.bucket_name
-                profile_key = config.output.s3.profile_key.lstrip("/")
-                minio_path = config.output.path
-                if not minio_path.startswith("minio://"):
-                    minio_path = f"minio://{bucket}/{profile_key}"
-                minio_endpoint = config.output.s3.endpoint_url
-                if minio_endpoint is None:
-                    raise ValueError("MinIO storage requires output.s3.endpoint_url")
-                minio_settings = MinIOSettings(
-                    endpoint_url=minio_endpoint,
-                    root_user=config.output.s3.access_key_id,
-                    root_password=config.output.s3.secret_access_key,
-                    bucket_name=bucket,
-                    region=config.output.s3.region,
-                    profile_key=profile_key,
-                )
-                trainer.save_profile(minio_path, minio_settings=minio_settings)
-                logger.info(f"Profile saved to minio: {minio_path}")
+            trainer.save_profile(config.output.path)
+            logger.info(f"Profile saved to: {config.output.path}")
 
         except Exception as e:
             logger.error(f"Failed to save profile: {e}")

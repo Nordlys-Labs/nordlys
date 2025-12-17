@@ -1,6 +1,6 @@
 #pragma once
-#include <memory>
 #include <string>
+#include <variant>
 #include <vector>
 
 #include "cluster.hpp"
@@ -24,13 +24,17 @@ struct RoutingConfig {
 struct ProfileMetadata {
   int n_clusters;
   std::string embedding_model;
+  std::string dtype = "float32";  // "float32" or "float64"
   float silhouette_score;
   ClusteringConfig clustering;
   RoutingConfig routing;
 };
 
+// Cluster centers can be either float or double
+using ClusterCenters = std::variant<EmbeddingMatrixT<float>, EmbeddingMatrixT<double>>;
+
 struct RouterProfile {
-  EmbeddingMatrixT<float> cluster_centers;  // K x D matrix (stored as float32)
+  ClusterCenters cluster_centers;
   std::vector<ModelFeatures> models;
   ProfileMetadata metadata;
 
@@ -42,4 +46,36 @@ struct RouterProfile {
 
   // Load from JSON string
   [[nodiscard]] static RouterProfile from_json_string(const std::string& json_str);
+
+  // Load from MessagePack binary string
+  [[nodiscard]] static RouterProfile from_binary_string(const std::string& data);
+
+  // Save to JSON file
+  void to_json(const std::string& path) const;
+
+  // Save to JSON string
+  [[nodiscard]] std::string to_json_string() const;
+
+  // Save to MessagePack binary file
+  void to_binary(const std::string& path) const;
+
+  // Save to MessagePack binary string
+  [[nodiscard]] std::string to_binary_string() const;
+
+  // Validate profile data
+  void validate() const;
+
+  // Type helpers
+  [[nodiscard]] bool is_float32() const {
+    return std::holds_alternative<EmbeddingMatrixT<float>>(cluster_centers);
+  }
+
+  [[nodiscard]] bool is_float64() const {
+    return std::holds_alternative<EmbeddingMatrixT<double>>(cluster_centers);
+  }
+
+  template<typename Scalar>
+  [[nodiscard]] const EmbeddingMatrixT<Scalar>& centers() const {
+    return std::get<EmbeddingMatrixT<Scalar>>(cluster_centers);
+  }
 };

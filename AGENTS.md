@@ -4,7 +4,6 @@
 
 - **Install**: `uv install` (dev: `uv install --all-extras`)
 - **Test All**: `uv run pytest`
-- **Test Unit**: `uv run pytest -m unit` (fast, no external deps)
 - **Test Single**: `uv run pytest tests/unit/services/test_model_router.py::TestModelRouter::test_initialization -vv`
 - **Coverage**: `uv run pytest --cov --cov-report=html`
 - **Run Server**: `fastapi dev adaptive_router_app/main.py` (dev) or `hypercorn adaptive_router_app.main:app --bind 0.0.0.0:8000` (prod)
@@ -19,5 +18,5 @@
 - **Type Hints**: Always use type hints; return types required
 - **Error Handling**: Use custom exceptions from `models/`, log with structured logging
 - **Docstrings**: Google style for public APIs, explain "why" not "what"
-- **Tests**: AAA pattern (Arrange/Act/Assert), mark with `@pytest.mark.unit` or `@pytest.mark.integration`
+- **Tests**: AAA pattern (Arrange/Act/Assert)
 

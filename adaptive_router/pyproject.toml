@@ -49,8 +49,8 @@ Documentation = "https://docs.llmadaptive.uk"
 
 
 [project.optional-dependencies]
-cpu = ["adaptive-router-core>=0.1.0,<1"]
-cu12 = ["adaptive-router-core-cu12>=0.1.0,<1 ; sys_platform == 'linux'"]
+cpu = ["adaptive-router-core>=0.1.8,<1"]
+cu12 = ["adaptive-router-core-cu12>=0.1.8,<1 ; sys_platform == 'linux'"]
 
 
 [dependency-groups]
@@ -95,21 +95,21 @@ module = [
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-addopts = "-v --strict-markers"
+addopts = "-v"
 testpaths = ["tests"]
 
 [tool.coverage.report]
 exclude_lines = [
-    "pragma: no cover",
-    "def __repr__",
-    "if self.debug:",
-    "if settings.DEBUG",
-    "raise AssertionError",
-    "raise NotImplementedError",
-    "if 0:",
-    "if __name__ == .__main__.:",
-    "class .*\\bProtocol\\):",
-    "@(abc\\.)?abstractmethod",
+  "pragma: no cover",
+  "def __repr__",
+  "if self.debug:",
+  "if settings.DEBUG",
+  "raise AssertionError",
+  "raise NotImplementedError",
+  "if 0:",
+  "if __name__ == .__main__.:",
+  "class .*\\bProtocol\\):",
+  "@(abc\\.)?abstractmethod",
 ]
 
 [tool.ruff]

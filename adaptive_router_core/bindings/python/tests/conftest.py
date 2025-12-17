@@ -1,5 +1,6 @@
 """Pytest fixtures for Python binding tests."""
 
+import copy
 import json
 from pathlib import Path
 
@@ -70,7 +71,24 @@ def sample_embedding() -> np.ndarray:
 
 
 @pytest.fixture
+def sample_profile_json_float64() -> str:
+    """Return sample profile with float64 dtype as JSON string."""
+    profile = copy.deepcopy(SAMPLE_PROFILE)
+    profile["metadata"]["dtype"] = "float64"
+    return json.dumps(profile)
+
+
+@pytest.fixture
 def router(sample_profile_json: str):
     """Create a Router instance from sample profile."""
     from adaptive_core_ext import Router
+
     return Router.from_json_string(sample_profile_json)
+
+
+@pytest.fixture
+def router_float64(sample_profile_json_float64: str):
+    """Create a float64 Router instance from sample profile."""
+    from adaptive_core_ext import Router
+
+    return Router.from_json_string(sample_profile_json_float64)

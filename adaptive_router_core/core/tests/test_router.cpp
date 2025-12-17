@@ -4,6 +4,9 @@
 
 #include <adaptive_core/router.hpp>
 
+// Suppress nodiscard warnings in tests since EXPECT_THROW requires ignoring return values
+#pragma GCC diagnostic ignored "-Wunused-result"
+
 // ============================================================================
 // Test Fixture for Router Tests
 // ============================================================================
@@ -51,13 +54,68 @@ static const char* kTestProfileJson = R"({
   ]
 })";
 
+// Test profile JSON for creating double-precision routers
+static const char* kTestProfileJsonFloat64 = R"({
+  "metadata": {
+    "n_clusters": 3,
+    "embedding_model": "test-model",
+    "dtype": "float64",
+    "silhouette_score": 0.85,
+    "clustering": {
+      "n_init": 10,
+      "algorithm": "lloyd"
+    },
+    "routing": {
+      "lambda_min": 0.0,
+      "lambda_max": 2.0,
+      "max_alternatives": 2
+    }
+  },
+  "cluster_centers": {
+    "n_clusters": 3,
+    "feature_dim": 4,
+    "cluster_centers": [
+      [1.0, 0.0, 0.0, 0.0],
+      [0.0, 1.0, 0.0, 0.0],
+      [0.0, 0.0, 1.0, 0.0]
+    ]
+  },
+  "models": [
+    {
+      "provider": "provider1",
+      "model_name": "gpt-4",
+      "cost_per_1m_input_tokens": 30.0,
+      "cost_per_1m_output_tokens": 60.0,
+      "error_rates": [0.01, 0.02, 0.015]
+    },
+    {
+      "provider": "provider2",
+      "model_name": "llama",
+      "cost_per_1m_input_tokens": 0.3,
+      "cost_per_1m_output_tokens": 0.6,
+      "error_rates": [0.05, 0.06, 0.055]
+    }
+  ]
+})";
+
 class RouterTest : public ::testing::Test {
  protected:
   // Helper to create a test router from JSON string
   Router CreateTestRouter() {
-    auto result = Router::from_json_string(kTestProfileJson);
+    auto profile = RouterProfile::from_json_string(kTestProfileJson);
+    auto result = Router::from_profile(std::move(profile));
     if (!result) {
       throw std::runtime_error("Failed to create test router: " + result.error());
+    }
+    return std::move(result.value());
+  }
+
+  // Helper to create a double-precision test router
+  RouterT<double> CreateTestRouterDouble() {
+    auto profile = RouterProfile::from_json_string(kTestProfileJsonFloat64);
+    auto result = RouterT<double>::from_profile(std::move(profile));
+    if (!result) {
+      throw std::runtime_error("Failed to create test router (double): " + result.error());
     }
     return std::move(result.value());
   }
@@ -162,13 +220,13 @@ TEST_F(RouterTest, RoutingWithFilteredModels) {
 // ============================================================================
 
 TEST_F(RouterTest, RoutingWithDouble) {
-  // Verify templated route() works with double precision
-  auto router = CreateTestRouter();
+  // Verify RouterT<double> works with double precision
+  auto router = CreateTestRouterDouble();
 
   // Create double-precision embedding
   std::vector<double> embedding = {0.95, 0.05, 0.0, 0.0};
 
-  // Should work seamlessly with double precision
+  // Should work with double precision router
   auto response = router.route(embedding.data(), embedding.size(), 0.5f);
 
   EXPECT_EQ(response.cluster_id, 0);
@@ -176,14 +234,15 @@ TEST_F(RouterTest, RoutingWithDouble) {
 }
 
 TEST_F(RouterTest, FloatAndDoublePrecisionConsistency) {
-  // Verify float and double give consistent cluster assignments
-  auto router = CreateTestRouter();
+  // Verify float and double routers give consistent cluster assignments
+  auto router_float = CreateTestRouter();
+  auto router_double = CreateTestRouterDouble();
 
   std::vector<float> embedding_float = {0.0f, 0.95f, 0.05f, 0.0f};
   std::vector<double> embedding_double = {0.0, 0.95, 0.05, 0.0};
 
-  auto response_float = router.route(embedding_float.data(), embedding_float.size(), 0.5f);
-  auto response_double = router.route(embedding_double.data(), embedding_double.size(), 0.5f);
+  auto response_float = router_float.route(embedding_float.data(), embedding_float.size(), 0.5f);
+  auto response_double = router_double.route(embedding_double.data(), embedding_double.size(), 0.5f);
 
   // Both should assign to same cluster
   EXPECT_EQ(response_float.cluster_id, response_double.cluster_id);
@@ -413,7 +472,8 @@ TEST_F(RouterTest, CreateFromJsonString) {
     ]
   })";
 
-  auto result = Router::from_json_string(json_profile);
+  auto profile = RouterProfile::from_json_string(json_profile);
+  auto result = Router::from_profile(std::move(profile));
 
   ASSERT_TRUE(result.has_value()) << "Failed to create router from JSON: " << result.error();
 
@@ -423,18 +483,48 @@ TEST_F(RouterTest, CreateFromJsonString) {
 }
 
 TEST_F(RouterTest, CreateFromInvalidJsonStringFails) {
-  // Test that invalid JSON returns an error
+  // Test that invalid JSON throws an exception
   std::string invalid_json = "{ invalid json }";
 
-  auto result = Router::from_json_string(invalid_json);
-
-  EXPECT_FALSE(result.has_value());
+  EXPECT_THROW(RouterProfile::from_json_string(invalid_json), std::exception);
 }
 
 TEST_F(RouterTest, CreateFromNonexistentFileFails) {
-  // Test that loading from nonexistent file returns an error
-  auto result = Router::from_file("nonexistent_file.json");
+  // Test that loading from nonexistent file throws an exception
+  EXPECT_THROW(RouterProfile::from_json("nonexistent_file.json"), std::exception);
+}
 
-  EXPECT_FALSE(result.has_value());
+TEST_F(RouterTest, DoublePrecisionClusterDistance) {
+  // Verify RouteResponseT<double> preserves double precision
+  auto router = CreateTestRouterDouble();
+
+  std::vector<double> embedding = {0.95, 0.05, 0.0, 0.0};
+  auto response = router.route(embedding.data(), embedding.size(), 0.5f);
+
+  // Compile-time verification
+  static_assert(std::is_same_v<decltype(response.cluster_distance), double>);
+
+  EXPECT_EQ(response.cluster_id, 0);
+  EXPECT_GE(response.cluster_distance, 0.0);
+}
+
+TEST_F(RouterTest, DtypeMismatchValidation) {
+  // Test that RouterT<float> rejects float64 profiles and vice versa
+
+  // Create float64 profile
+  auto float64_profile = RouterProfile::from_json_string(kTestProfileJsonFloat64);
+
+  // Try to create RouterT<float> with float64 profile - should fail
+  auto result_float = Router::from_profile(float64_profile);
+  EXPECT_FALSE(result_float.has_value());
+  EXPECT_TRUE(result_float.error().find("requires float32 profile") != std::string::npos);
+
+  // Create float32 profile
+  auto float32_profile = RouterProfile::from_json_string(kTestProfileJson);
+
+  // Try to create RouterT<double> with float32 profile - should fail
+  auto result_double = RouterT<double>::from_profile(float32_profile);
+  EXPECT_FALSE(result_double.has_value());
+  EXPECT_TRUE(result_double.error().find("requires float64 profile") != std::string::npos);
 }
 

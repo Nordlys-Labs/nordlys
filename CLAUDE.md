@@ -324,12 +324,6 @@ make quality         # All quality checks
 #### Using uv run directly
 
 ```bash
-# Run unit tests only (CI-safe, no external dependencies)
-uv run pytest -m "unit"
-
-# Run integration tests (requires running AI service on localhost:8000)
-uv run pytest -m "integration"
-
 # Run all tests
 uv run pytest
 

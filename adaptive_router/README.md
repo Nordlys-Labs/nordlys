@@ -12,7 +12,7 @@ This library can be used standalone in Python applications or as a dependency fo
 
 - **Cluster-Based Routing**: UniRouter algorithm with K-means clustering and per-cluster error rates
 - **Cost Optimization**: Configurable cost-quality tradeoff via `cost_bias` parameter
-- **Multiple Profile Loaders**: Local file and MinIO S3 profile loading
+- **Profile Loading**: Load from JSON or MessagePack files
 - **GPU Acceleration**: Optional GPU support for sentence transformer embeddings
 - **Model Filtering**: Optional model filtering to restrict selection to specific providers/models
 - **Type-Safe API**: Full type hints with Pydantic models
@@ -145,23 +145,7 @@ print(f"Alternatives: {response.alternatives}")
 
 See [../adaptive_router_core/README.md](../adaptive_router_core/README.md) for build instructions and complete API reference.
 
-### MinIO Profile Loading
 
-```python
-from adaptive_router import ModelRouter, MinIOSettings
-
-# Configure MinIO connection
-settings = MinIOSettings(
-    endpoint_url="https://minio.example.com",
-    root_user="admin",
-    root_password="password",
-    bucket_name="profiles",
-    object_key="router_profile.json"
-)
-
-# Load router from MinIO S3
-router = ModelRouter.from_minio(settings)
-```
 
 ## Core Components
 
@@ -172,8 +156,8 @@ router = ModelRouter.from_minio(settings)
 Main entry point for intelligent model selection.
 
 **Key Methods:**
-- `from_local_file(path)`: Initialize from local JSON profile
-- `from_minio(settings)`: Initialize from MinIO S3 profile
+- `from_json_file(path)`: Initialize from local JSON profile
+- `from_msgpack_file(path)`: Initialize from local MessagePack profile
 - `from_profile(profile)`: Initialize from RouterProfile object
 - `select_model(request)`: Select optimal model based on prompt
 - `route(prompt, cost_bias)`: Quick routing (returns model ID string)
@@ -211,23 +195,7 @@ Profile loading system with multiple implementations:
 - Supports JSON format
 - Used for testing and offline development
 
-**MinIOProfileLoader** (`loaders/minio.py`):
-- Loads profiles from MinIO S3-compatible storage
-- Supports environment-based configuration
-- Connection pooling and retry logic
 
-**Example:**
-```python
-from adaptive_router.loaders import LocalFileProfileLoader, MinIOProfileLoader
-
-# Local loading
-loader = LocalFileProfileLoader("profile.json")
-profile = loader.load_profile()
-
-# MinIO loading
-minio_loader = MinIOProfileLoader(settings)
-profile = minio_loader.load_profile()
-```
 
 ### Data Models
 
@@ -247,12 +215,10 @@ Type-safe Pydantic models for all data structures:
 ```python
 class ModelRouter:
     @classmethod
-    def from_local_file(cls, path: str | Path) -> ModelRouter:
-        """Initialize from local profile file."""
+    def from_json_file(cls, path: str | Path) -> ModelRouter:
+        """Initialize from local JSON profile file."""
     
-    @classmethod
-    def from_minio(cls, settings: MinIOSettings) -> ModelRouter:
-        """Initialize from MinIO S3 profile."""
+
     
     @classmethod
     def from_profile(cls, profile: RouterProfile) -> ModelRouter:
@@ -362,10 +328,7 @@ adaptive_router/
 ?   ?   ??? router.py        # ModelRouter class
 ?   ?   ??? cluster_engine.py  # ClusterEngine class
 ?   ?   ??? trainer.py       # Training logic
-?   ??? loaders/             # Profile loaders
-?   ?   ??? base.py          # ProfileLoader base class
-?   ?   ??? local.py          # LocalFileProfileLoader
-?   ?   ??? minio.py          # MinIOProfileLoader
+
 ?   ??? models/              # Pydantic data models
 ?   ?   ??? api.py           # Request/response models
 ?   ?   ??? storage.py       # Profile storage models
@@ -381,9 +344,6 @@ adaptive_router/
 ```bash
 # Run all tests
 uv run pytest adaptive_router/tests/
-
-# Run unit tests only
-uv run pytest adaptive_router/tests/ -m unit
 
 # Run with coverage
 uv run pytest adaptive_router/tests/ --cov=adaptive_router --cov-report=html
@@ -456,7 +416,7 @@ See `train/` directory for training scripts that generate profiles.
 
 **`InvalidModelFormatError`**: Model IDs in profile are malformed (must be `provider/model_name`)
 
-**Profile loading errors**: Check file path, MinIO credentials, or network connectivity
+**Profile loading errors**: Check file path and format (JSON or MessagePack)
 
 ## Related Documentation
 

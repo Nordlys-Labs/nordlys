@@ -4,30 +4,21 @@ This package provides intelligent model routing using cluster-based selection
 with per-cluster error rates, cost optimization, and model capability matching.
 
 Basic Usage:
-    >>> from adaptive_router import ModelRouter, ModelSelectionRequest, MinIOSettings
+    >>> from adaptive_router import ModelRouter, ModelSelectionRequest
     >>>
-    >>> settings = MinIOSettings(
-    ...     endpoint_url="https://minio.example.com",
-    ...     root_user="admin",
-    ...     root_password="password",
-    ...     bucket_name="profiles"
-    ... )
-    >>> router = ModelRouter.from_minio(settings, model_costs)
+    >>> # Load from JSON profile
+    >>> router = ModelRouter.from_json_file("router_profile.json")
     >>> request = ModelSelectionRequest(prompt="Write a Python function", cost_bias=0.5)
     >>> response = router.select_model(request)
-    >>> print(f"Selected: {response.provider}/{response.model}")
+    >>> print(f"Selected: {response.model_id}")
 
 Advanced Usage:
-    >>> from adaptive_router import (
-    ...     ClusterEngine,
-    ...     LocalFileProfileLoader,
-    ...     RouterProfile,
-    ... )
+    >>> from adaptive_router import Trainer, RouterProfile
     >>>
-    >>> # Custom profile loading
-    >>> loader = LocalFileProfileLoader(profile_path="custom_profile.json")
-    >>> profile = loader.load_profile()
-    >>> router = ModelRouter.from_profile(profile, model_costs)
+    >>> # Train a new profile
+    >>> trainer = Trainer()
+    >>> trainer.train_from_polars(df, models)
+    >>> trainer.save_profile("my_profile.json")
 """
 
 # ============================================================================
@@ -49,7 +40,6 @@ from .models.api import (
 from .models.train import ProviderConfig, TrainingResult
 
 # Storage configuration (needed for initialization)
-from .models.storage import MinIOSettings
 
 # ============================================================================
 # TIER 2: Configuration & Integration
@@ -59,11 +49,6 @@ from .models.storage import MinIOSettings
 from .models.api import Model
 
 # Profile loaders (for custom profile loading)
-from .loaders import (
-    LocalFileProfileLoader,
-    MinIOProfileLoader,
-    ProfileLoader,
-)
 
 # Storage types (profile structure)
 from .models.storage import (
@@ -115,16 +100,11 @@ __all__ = [
     "Alternative",
     "ProviderConfig",
     "TrainingResult",
-    "MinIOSettings",
     # ========================================================================
     # Tier 2: Configuration & Integration
     # ========================================================================
     # Model types
     "Model",
-    # Loaders
-    "ProfileLoader",
-    "LocalFileProfileLoader",
-    "MinIOProfileLoader",
     # Storage types
     "RouterProfile",
     "ProfileMetadata",

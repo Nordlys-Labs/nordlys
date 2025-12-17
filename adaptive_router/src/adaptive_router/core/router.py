@@ -17,17 +17,18 @@ import warnings
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
 from sentence_transformers import SentenceTransformer
 
-from adaptive_router.loaders.local import LocalFileProfileLoader
-from adaptive_router.loaders.minio import MinIOProfileLoader
+
 from adaptive_router.models.api import (
     Alternative,
     Model,
     ModelSelectionRequest,
     ModelSelectionResponse,
 )
-from adaptive_router.models.storage import RouterProfile, MinIOSettings
+from adaptive_router.models.storage import RouterProfile
 from adaptive_router.exceptions.core import (
     InvalidModelFormatError,
 )
@@ -64,7 +65,6 @@ class ModelRouter:
         - ModelRouter.from_json_file(path) - Load from JSON file
         - ModelRouter.from_msgpack_file(path) - Load from MessagePack file
         - ModelRouter.from_profile(profile) - Load from RouterProfile object (in-memory)
-        - ModelRouter.from_minio(settings) - Load from MinIO/S3
     """
 
     def __init__(
@@ -84,6 +84,7 @@ class ModelRouter:
         self._embedding_model = embedding_model
         self._metadata = profile_metadata
         self.default_cost_preference = profile_metadata.routing.default_cost_preference
+        self._dtype = profile_metadata.dtype
 
     @classmethod
     def from_json_file(cls, path: str | Path) -> ModelRouter:
@@ -99,8 +100,9 @@ class ModelRouter:
         logger.info(f"Loading router from JSON file: {path}")
 
         # Load profile to get metadata
-        loader = LocalFileProfileLoader(str(path))
-        profile = loader.load_profile()
+        with open(path) as f:
+            profile_dict = json.load(f)
+        profile = RouterProfile(**profile_dict)
 
         # Validate model IDs
         cls._validate_model_ids_static(profile.models)
@@ -192,20 +194,6 @@ class ModelRouter:
 
         return cls(core_router, embedding_model, profile.metadata)
 
-    @classmethod
-    def from_minio(cls, settings: MinIOSettings) -> ModelRouter:
-        """Create router by loading profile from MinIO/S3.
-
-        Args:
-            settings: MinIO connection settings
-
-        Returns:
-            Initialized ModelRouter
-        """
-        loader = MinIOProfileLoader.from_settings(settings)
-        profile = loader.load_profile()
-        return cls.from_profile(profile)
-
     @staticmethod
     def _validate_model_ids_static(models: list[Model]) -> None:
         """Validate model IDs."""
@@ -294,6 +282,13 @@ class ModelRouter:
             convert_to_numpy=True,
         )
 
+        # Ensure embedding dtype matches router dtype (from profile)
+
+        if self._dtype == "float64" and embedding.dtype != np.float64:
+            embedding = embedding.astype(np.float64)
+        elif self._dtype == "float32" and embedding.dtype != np.float32:
+            embedding = embedding.astype(np.float32)
+
         # 2. Resolve cost preference
         cost_preference = self._resolve_cost_preference(cost_bias, request.cost_bias)
 
@@ -342,12 +337,18 @@ class ModelRouter:
         """Get list of models this router supports."""
         return self._core_router.get_supported_models()
 
+    @property
+    def dtype(self) -> str:
+        """Get the numeric dtype used by this router (from profile)."""
+        return self._dtype
+
     def get_cluster_info(self) -> dict[str, Any]:
         """Get information about loaded clusters."""
         return {
             "n_clusters": self._core_router.get_n_clusters(),
             "embedding_dim": self._core_router.get_embedding_dim(),
             "embedding_model": self._metadata.embedding_model,
+            "dtype": self._dtype,
             "supported_models": self.get_supported_models(),
             "default_cost_preference": self.default_cost_preference,
         }

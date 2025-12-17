@@ -4,144 +4,171 @@
 #include <nanobind/stl/vector.h>
 
 #include <adaptive_core/router.hpp>
+#include <adaptive_core/profile.hpp>
+#include <variant>
 
 namespace nb = nanobind;
 using namespace nb::literals;
 
+// Type-erased router wrapper for Python
+class RouterWrapper {
+public:
+  using RouterVariant = std::variant<RouterT<float>, RouterT<double>>;
+
+  RouterVariant router;
+  bool is_float64;
+
+  RouterWrapper(RouterT<float> r) : router(std::move(r)), is_float64(false) {}
+  RouterWrapper(RouterT<double> r) : router(std::move(r)), is_float64(true) {}
+
+  static RouterWrapper from_profile(RouterProfile profile) {
+    if (profile.is_float64()) {
+      auto r = RouterT<double>::from_profile(std::move(profile));
+      if (!r) throw std::runtime_error(r.error());
+      return RouterWrapper(std::move(r.value()));
+    } else {
+      auto r = RouterT<float>::from_profile(std::move(profile));
+      if (!r) throw std::runtime_error(r.error());
+      return RouterWrapper(std::move(r.value()));
+    }
+  }
+
+  RouteResponseT<float> route_f32(nb::ndarray<float, nb::ndim<1>, nb::c_contig> emb,
+                               float bias, const std::vector<std::string>& models) {
+    if (is_float64) throw std::invalid_argument("Router expects float64, got float32");
+    return std::get<RouterT<float>>(router).route(emb.data(), emb.shape(0), bias, models);
+  }
+
+  RouteResponseT<double> route_f64(nb::ndarray<double, nb::ndim<1>, nb::c_contig> emb,
+                                float bias, const std::vector<std::string>& models) {
+    if (!is_float64) throw std::invalid_argument("Router expects float32, got float64");
+    return std::get<RouterT<double>>(router).route(emb.data(), emb.shape(0), bias, models);
+  }
+
+  std::vector<RouteResponseT<float>> route_batch_f32(nb::ndarray<float, nb::ndim<2>, nb::c_contig> embs,
+                                                   float bias, const std::vector<std::string>& models) {
+    if (is_float64) throw std::invalid_argument("Router expects float64, got float32");
+    auto& r = std::get<RouterT<float>>(router);
+    size_t n = embs.shape(0), d = embs.shape(1);
+    std::vector<RouteResponseT<float>> out;
+    out.reserve(n);
+    const float* ptr = embs.data();
+    for (size_t i = 0; i < n; ++i)
+      out.push_back(r.route(ptr + i * d, d, bias, models));
+    return out;
+  }
+
+  std::vector<RouteResponseT<double>> route_batch_f64(nb::ndarray<double, nb::ndim<2>, nb::c_contig> embs,
+                                                   float bias, const std::vector<std::string>& models) {
+    if (!is_float64) throw std::invalid_argument("Router expects float32, got float64");
+    auto& r = std::get<RouterT<double>>(router);
+    size_t n = embs.shape(0), d = embs.shape(1);
+    std::vector<RouteResponseT<double>> out;
+    out.reserve(n);
+    const double* ptr = embs.data();
+    for (size_t i = 0; i < n; ++i)
+      out.push_back(r.route(ptr + i * d, d, bias, models));
+    return out;
+  }
+
+  std::vector<std::string> get_supported_models() const {
+    return std::visit([](const auto& r) { return r.get_supported_models(); }, router);
+  }
+
+  int get_n_clusters() const {
+    return std::visit([](const auto& r) { return r.get_n_clusters(); }, router);
+  }
+
+  int get_embedding_dim() const {
+    return std::visit([](const auto& r) { return r.get_embedding_dim(); }, router);
+  }
+
+  std::string get_dtype() const { return is_float64 ? "float64" : "float32"; }
+};
+
 NB_MODULE(adaptive_core_ext, m) {
   m.doc() = "Adaptive Router C++ Core - High-performance routing engine";
 
-  // RouteResponse struct
-  nb::class_<RouteResponse>(m, "RouteResponse")
-      .def_ro("selected_model", &RouteResponse::selected_model, "ID of the selected model")
-      .def_ro("alternatives", &RouteResponse::alternatives, "List of alternative model IDs")
-      .def_ro("cluster_id", &RouteResponse::cluster_id, "Assigned cluster ID")
-      .def_ro("cluster_distance", &RouteResponse::cluster_distance, "Distance to cluster centroid");
+  nb::class_<RouteResponseT<float>>(m, "RouteResponse32")
+      .def_ro("selected_model", &RouteResponseT<float>::selected_model)
+      .def_ro("alternatives", &RouteResponseT<float>::alternatives)
+      .def_ro("cluster_id", &RouteResponseT<float>::cluster_id)
+      .def_ro("cluster_distance", &RouteResponseT<float>::cluster_distance);
 
-  // Router class
-  nb::class_<Router>(m, "Router")
-      // Factory methods - wrap to convert Result<Router, string> errors to exceptions
-      .def_static(
-          "from_json_file",
-          [](const std::string& path) {
-            auto result = Router::from_file(path);
-            if (!result) {
-              throw std::runtime_error(result.error());
-            }
-            return std::move(result.value());
-          },
-          "path"_a, "Load router from JSON profile file")
-      .def_static(
-          "from_json_string",
-          [](const std::string& json_str) {
-            auto result = Router::from_json_string(json_str);
-            if (!result) {
-              throw std::runtime_error(result.error());
-            }
-            return std::move(result.value());
-          },
-          "json_str"_a, "Load router from JSON string (in-memory)")
-      .def_static(
-          "from_msgpack_file",
-          [](const std::string& path) {
-            auto result = Router::from_binary(path);
-            if (!result) {
-              throw std::runtime_error(result.error());
-            }
-            return std::move(result.value());
-          },
-          "path"_a, "Load router from MessagePack binary profile file")
+  nb::class_<RouteResponseT<double>>(m, "RouteResponse64")
+      .def_ro("selected_model", &RouteResponseT<double>::selected_model)
+      .def_ro("alternatives", &RouteResponseT<double>::alternatives)
+      .def_ro("cluster_id", &RouteResponseT<double>::cluster_id)
+      .def_ro("cluster_distance", &RouteResponseT<double>::cluster_distance);
 
-      // Route - float32 version (most common case)
-      .def(
-          "route",
-          [](Router& self, nb::ndarray<float, nb::ndim<1>, nb::c_contig> embedding, float cost_bias, std::vector<std::string> models) {
-            if (embedding.shape(0) != static_cast<size_t>(self.get_embedding_dim())) {
-              throw std::invalid_argument(
-                  "Embedding dimension mismatch: expected " +
-                  std::to_string(self.get_embedding_dim()) +
-                  ", got " + std::to_string(embedding.shape(0)));
-            }
-            return self.route(embedding.data(), embedding.shape(0), cost_bias, models);
-          },
-          "embedding"_a, "cost_bias"_a = 0.5f, "models"_a = std::vector<std::string>{},
-          "Route using pre-computed embedding vector (float32 numpy array)")
+  nb::class_<RouterProfile>(m, "RouterProfile")
+      // Static factory methods for loading profiles
+      .def_static("from_json_file", &RouterProfile::from_json,
+          "path"_a, "Load profile from JSON file")
+      .def_static("from_json_string", &RouterProfile::from_json_string,
+          "json_str"_a, "Load profile from JSON string")
+      .def_static("from_msgpack_file", &RouterProfile::from_binary,
+          "path"_a, "Load profile from MessagePack binary file")
+      .def_static("from_msgpack_bytes", [] (nb::bytes data) {
+          return RouterProfile::from_binary_string(std::string(data.c_str(), data.size()));
+      }, "data"_a, "Load profile from MessagePack binary data")
 
-      // Route - float64 version
-      .def(
-          "route",
-          [](Router& self, nb::ndarray<double, nb::ndim<1>, nb::c_contig> embedding, float cost_bias, std::vector<std::string> models) {
-            if (embedding.shape(0) != static_cast<size_t>(self.get_embedding_dim())) {
-              throw std::invalid_argument(
-                  "Embedding dimension mismatch: expected " +
-                  std::to_string(self.get_embedding_dim()) +
-                  ", got " + std::to_string(embedding.shape(0)));
-            }
-            return self.route(embedding.data(), embedding.shape(0), cost_bias, models);
-          },
-          "embedding"_a, "cost_bias"_a = 0.5f, "models"_a = std::vector<std::string>{},
-          "Route using pre-computed embedding vector (float64 numpy array)")
+      // Serialization methods
+      .def("to_json_string", &RouterProfile::to_json_string,
+          "Serialize profile to JSON string")
+      .def("to_json_file", &RouterProfile::to_json,
+          "path"_a, "Write profile to JSON file")
+      .def("to_msgpack_bytes", [] (const RouterProfile& p) {
+          std::string data = p.to_binary_string();
+          return nb::bytes(data.data(), data.size());
+      }, "Serialize profile to MessagePack binary data")
+      .def("to_msgpack_file", &RouterProfile::to_binary,
+          "path"_a, "Write profile to MessagePack binary file")
 
-      // Batch route - float32 version
-      .def(
-          "route_batch",
-          [](Router& self, nb::ndarray<float, nb::ndim<2>, nb::c_contig> embeddings, float cost_bias, std::vector<std::string> models) {
-            size_t n_embeddings = embeddings.shape(0);
-            size_t embedding_dim = embeddings.shape(1);
+      // Validation
+      .def("validate", &RouterProfile::validate,
+          "Validate profile data")
 
-            if (embedding_dim != static_cast<size_t>(self.get_embedding_dim())) {
-              throw std::invalid_argument(
-                  "Embedding dimension mismatch: expected " +
-                  std::to_string(self.get_embedding_dim()) +
-                  ", got " + std::to_string(embedding_dim));
-            }
+      // Properties
+      .def_prop_ro("n_clusters", [](const RouterProfile& p) { return p.metadata.n_clusters; })
+      .def_prop_ro("embedding_model", [](const RouterProfile& p) { return p.metadata.embedding_model; })
+      .def_prop_ro("dtype", [](const RouterProfile& p) { return p.metadata.dtype; })
+      .def_prop_ro("silhouette_score", [](const RouterProfile& p) { return p.metadata.silhouette_score; })
+      .def_prop_ro("is_float32", &RouterProfile::is_float32)
+      .def_prop_ro("is_float64", &RouterProfile::is_float64);
 
-            std::vector<RouteResponse> results;
-            results.reserve(n_embeddings);
+  nb::class_<RouterWrapper>(m, "Router")
+      .def_static("from_json_file", [](const std::string& path) {
+        return RouterWrapper::from_profile(RouterProfile::from_json(path));
+      }, "path"_a, "Load router from JSON profile file")
 
-            const float* data = embeddings.data();
-            for (size_t i = 0; i < n_embeddings; ++i) {
-              results.push_back(self.route(data + i * embedding_dim, embedding_dim, cost_bias, models));
-            }
+      .def_static("from_json_string", [](const std::string& json) {
+        return RouterWrapper::from_profile(RouterProfile::from_json_string(json));
+      }, "json_str"_a, "Load router from JSON string")
 
-            return results;
-          },
-          "embeddings"_a, "cost_bias"_a = 0.5f, "models"_a = std::vector<std::string>{},
-          "Batch route multiple embeddings (N×D float32 numpy array)")
+      .def_static("from_msgpack_file", [](const std::string& path) {
+        return RouterWrapper::from_profile(RouterProfile::from_binary(path));
+      }, "path"_a, "Load router from MessagePack binary file")
 
-      // Batch route - float64 version
-      .def(
-          "route_batch",
-          [](Router& self, nb::ndarray<double, nb::ndim<2>, nb::c_contig> embeddings, float cost_bias, std::vector<std::string> models) {
-            size_t n_embeddings = embeddings.shape(0);
-            size_t embedding_dim = embeddings.shape(1);
+      // Overloaded route - nanobind dispatches based on array dtype
+      .def("route", &RouterWrapper::route_f32,
+           "embedding"_a, "cost_bias"_a = 0.5f, "models"_a = std::vector<std::string>{},
+           "Route using embedding (float32)")
+      .def("route", &RouterWrapper::route_f64,
+           "embedding"_a, "cost_bias"_a = 0.5f, "models"_a = std::vector<std::string>{},
+           "Route using embedding (float64)")
 
-            if (embedding_dim != static_cast<size_t>(self.get_embedding_dim())) {
-              throw std::invalid_argument(
-                  "Embedding dimension mismatch: expected " +
-                  std::to_string(self.get_embedding_dim()) +
-                  ", got " + std::to_string(embedding_dim));
-            }
+      .def("route_batch", &RouterWrapper::route_batch_f32,
+           "embeddings"_a, "cost_bias"_a = 0.5f, "models"_a = std::vector<std::string>{},
+           "Batch route embeddings (float32)")
+      .def("route_batch", &RouterWrapper::route_batch_f64,
+           "embeddings"_a, "cost_bias"_a = 0.5f, "models"_a = std::vector<std::string>{},
+           "Batch route embeddings (float64)")
 
-            std::vector<RouteResponse> results;
-            results.reserve(n_embeddings);
+      .def("get_supported_models", &RouterWrapper::get_supported_models)
+      .def("get_n_clusters", &RouterWrapper::get_n_clusters)
+      .def("get_embedding_dim", &RouterWrapper::get_embedding_dim)
+      .def_prop_ro("dtype", &RouterWrapper::get_dtype);
 
-            const double* data = embeddings.data();
-            for (size_t i = 0; i < n_embeddings; ++i) {
-              results.push_back(self.route(data + i * embedding_dim, embedding_dim, cost_bias, models));
-            }
-
-            return results;
-          },
-          "embeddings"_a, "cost_bias"_a = 0.5f, "models"_a = std::vector<std::string>{},
-          "Batch route multiple embeddings (N×D float64 numpy array)")
-
-      // Introspection
-      .def("get_supported_models", &Router::get_supported_models,
-           "Get list of all supported model IDs")
-      .def("get_n_clusters", &Router::get_n_clusters, "Get number of clusters")
-      .def("get_embedding_dim", &Router::get_embedding_dim, "Get expected embedding dimension");
-
-   // Module-level version info
-    m.attr("__version__") = ADAPTIVE_VERSION;
+  m.attr("__version__") = ADAPTIVE_VERSION;
 }

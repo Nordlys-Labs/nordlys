@@ -49,8 +49,8 @@ test = [
 
 [package.metadata]
 requires-dist = [
-    { name = "adaptive-router-core", marker = "extra == 'cpu'", specifier = ">=0.1.0,<1" },
-    { name = "adaptive-router-core-cu12", marker = "sys_platform == 'linux' and extra == 'cu12'", specifier = ">=0.1.0,<1" },
+    { name = "adaptive-router-core", marker = "extra == 'cpu'", specifier = ">=0.1.8,<1" },
+    { name = "adaptive-router-core-cu12", marker = "sys_platform == 'linux' and extra == 'cu12'", specifier = ">=0.1.8,<1" },
     { name = "boto3", specifier = ">=1.34.0,<2" },
     { name = "datasets", specifier = ">=4.4.1" },
     { name = "deepeval", specifier = ">=3.7.0" },
@@ -81,38 +81,31 @@ test = [
 
 [[package]]
 name = "adaptive-router-core"
-version = "0.1.1"
+version = "0.1.8"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/3c/96/a913dc26d585d2bf2aad30047a21fc73483310af18eb3575e96a02b5ba35/adaptive_router_core-0.1.1-cp311-cp311-macosx_13_0_arm64.whl", hash = "sha256:7fdc7fb0bfd4df235ccd237016aa2ea4c64f2c8d801b2da53910627762902d38", size = 612411, upload-time = "2025-12-11T23:54:14.155Z" },
-    { url = "https://files.pythonhosted.org/packages/b4/42/526342c3eb60fb95bf9d45b803f9529e95acb2ff2ab521688175df2db7fb/adaptive_router_core-0.1.1-cp311-cp311-macosx_13_0_x86_64.whl", hash = "sha256:79ade3a0ee4d02f1f46104709b0b8b12fd93ded9cdcb79720475e88e107a43cc", size = 657320, upload-time = "2025-12-11T23:54:15.678Z" },
-    { url = "https://files.pythonhosted.org/packages/7d/4b/27398caf6b96c7f0b710a3ba777175c85cd2cac6d6fb8d6d566c6f171f07/adaptive_router_core-0.1.1-cp311-cp311-manylinux_2_34_x86_64.whl", hash = "sha256:366dbedd2ad1266e854b9baeed4ed616f29b3e04ef8f6f4906175288997cfc24", size = 1102890, upload-time = "2025-12-11T23:54:17.764Z" },
-    { url = "https://files.pythonhosted.org/packages/68/e2/1cd82e44c940dcbd87594e8d9f2727fd543e50f9a84fd6b4dd5e1990e371/adaptive_router_core-0.1.1-cp311-cp311-win_amd64.whl", hash = "sha256:9c19b4cb8a83efd41f0253d0b4f90997a8aa318979c338a4a29fe14c373146a4", size = 816222, upload-time = "2025-12-11T23:54:19.028Z" },
-    { url = "https://files.pythonhosted.org/packages/ab/5a/6d1c4cbd68c62ae5f200a6dfc4aab18bd42e4fc92a6d10041c300bafec6c/adaptive_router_core-0.1.1-cp312-cp312-macosx_13_0_arm64.whl", hash = "sha256:67b3408ee63c3fd79c3e06158ec41941632eb50a56730fc05deaca23a4a44f13", size = 611327, upload-time = "2025-12-11T23:54:20.629Z" },
-    { url = "https://files.pythonhosted.org/packages/a0/4b/6fe06f44690eea80f7bf370b1d4eb6c60ee804e1c95dc929993ccb5c7c83/adaptive_router_core-0.1.1-cp312-cp312-macosx_13_0_x86_64.whl", hash = "sha256:4e64e65412761fcb322178c420d6c1403f65b3d2d16e8a1d24a158994c52b8b4", size = 656630, upload-time = "2025-12-11T23:54:22.001Z" },
-    { url = "https://files.pythonhosted.org/packages/f1/42/e839eb52729481be328910612c992746d445f664c46e88c26c87ea1aa68b/adaptive_router_core-0.1.1-cp312-cp312-manylinux_2_34_x86_64.whl", hash = "sha256:3d111541396562be11deb8d131d056966a0007abfb70ba45193df8d17e163081", size = 1101821, upload-time = "2025-12-11T23:54:23.665Z" },
-    { url = "https://files.pythonhosted.org/packages/cd/90/e3443d877f297cd76e2b5e5fe9050ff81e14cee46ed72f870d84ef5db789/adaptive_router_core-0.1.1-cp312-cp312-win_amd64.whl", hash = "sha256:59e624f4d4bc56b2dd97b205263185d2a212ffa1026c55fe1e395482934b54e2", size = 815412, upload-time = "2025-12-11T23:54:25.569Z" },
-    { url = "https://files.pythonhosted.org/packages/6e/54/80e178ae4e635bdd32ba7c83e9e53ffd6d459e74db1fe7b8b9a23b1b6e12/adaptive_router_core-0.1.1-cp313-cp313-macosx_13_0_arm64.whl", hash = "sha256:b3f04c84e87d035e77bf3d65c8a33d65fc01a62183efb02cb6473928020463fe", size = 611264, upload-time = "2025-12-11T23:54:26.977Z" },
-    { url = "https://files.pythonhosted.org/packages/97/45/4af1492c82113b18bf5d3a31d552d852e23b6ccc94fad9f3b19b4c4c6610/adaptive_router_core-0.1.1-cp313-cp313-macosx_13_0_x86_64.whl", hash = "sha256:42a8ddec070d7540d523c2b3427b736509d178352491cb39c250cb6f1d332776", size = 656564, upload-time = "2025-12-11T23:54:28.629Z" },
-    { url = "https://files.pythonhosted.org/packages/42/a2/45d88674cab4035d9c15741de8ad04339df6cc98e6e0f1c51fa1f9666f99/adaptive_router_core-0.1.1-cp313-cp313-manylinux_2_34_x86_64.whl", hash = "sha256:c931ee8ed95ba13369ad75867bbe0bf8dbfb2bcbbe8ef4d7f60c3a6710ffd822", size = 1101753, upload-time = "2025-12-11T23:54:30.148Z" },
-    { url = "https://files.pythonhosted.org/packages/f0/83/052bfa008c7d3934d81c6339df979f5dae9a6c2b5cf00fbddcb9af40ff9c/adaptive_router_core-0.1.1-cp313-cp313-win_amd64.whl", hash = "sha256:f2f540f08a85c2eb9c1ac9ad69dc90a179d61732735231915d07fc49ec755e73", size = 815225, upload-time = "2025-12-11T23:54:31.639Z" },
+    { url = "https://files.pythonhosted.org/packages/ce/f3/bfe6e568e72504785e9f207d88a44b513464f34528fd2a5db579cae42f5a/adaptive_router_core-0.1.8-cp311-cp311-macosx_13_0_arm64.whl", hash = "sha256:095e06c89fb860228b91890be60474152dcb8c75efe802def91c92a19db7cd90", size = 311214, upload-time = "2025-12-15T22:08:21.792Z" },
+    { url = "https://files.pythonhosted.org/packages/d7/dd/61995bfe86faff2f7c94df5e407459796acf54c42ddd60bc8168e7889e9e/adaptive_router_core-0.1.8-cp311-cp311-macosx_13_0_x86_64.whl", hash = "sha256:13e0353037abf7cac9d7ba7b1d696d21246c7465af096f37ea3be32cad7372e8", size = 337137, upload-time = "2025-12-15T22:08:23.337Z" },
+    { url = "https://files.pythonhosted.org/packages/a9/4b/d54e0abb9000120d2f22dcb53b128773caaf02f0588a41a00889d98f9219/adaptive_router_core-0.1.8-cp311-cp311-manylinux_2_34_x86_64.whl", hash = "sha256:e604ef9a9d2f832f5e4f257f0a85e393a1115069394ca30c06876f09403f1c09", size = 488904, upload-time = "2025-12-15T22:08:24.439Z" },
+    { url = "https://files.pythonhosted.org/packages/3e/22/a0adffa3658762b4b2554d8610c5914fafa38b190cae27472bcc9be22872/adaptive_router_core-0.1.8-cp311-cp311-win_amd64.whl", hash = "sha256:259d324416571d998579a4c28922b203caea8ced829a4227a437bd5f7abad139", size = 642145, upload-time = "2025-12-15T22:08:25.615Z" },
+    { url = "https://files.pythonhosted.org/packages/36/d1/94aeb6ea36f3029c6dd5272ef8ce33f944a36fcdba3f22c9498d8ae1391e/adaptive_router_core-0.1.8-cp312-cp312-macosx_13_0_arm64.whl", hash = "sha256:8cdb4d507b20ab3758da0e09fe1c3d69acf330987eb6dc61022c7fc4dccc5973", size = 310224, upload-time = "2025-12-15T22:08:27.236Z" },
+    { url = "https://files.pythonhosted.org/packages/ec/fc/3558f18325974b9c83e859968f5e46d08c74b0a653b6fa0afbdc9cab8c0c/adaptive_router_core-0.1.8-cp312-cp312-macosx_13_0_x86_64.whl", hash = "sha256:e415dc7e4cb2106f26a4ac88b223c16f224eac37d2e03c38804ff59e9cd1aed8", size = 336354, upload-time = "2025-12-15T22:08:28.847Z" },
+    { url = "https://files.pythonhosted.org/packages/eb/eb/e8fe6f6e151252e54e6482726915e5e93b68c67c12527c7acf49ff39c08b/adaptive_router_core-0.1.8-cp312-cp312-manylinux_2_34_x86_64.whl", hash = "sha256:8278ea6351d2a32504243e248f5c2bde1750cefed9bed87ffe74dea5c355f188", size = 488105, upload-time = "2025-12-15T22:08:30.296Z" },
+    { url = "https://files.pythonhosted.org/packages/1d/8d/69e1483d60f594676e10a3ff86a18dd3198038d90fa86757ca00e88bffb3/adaptive_router_core-0.1.8-cp312-cp312-win_amd64.whl", hash = "sha256:7b227f114c1956105350d8c4ede3a402376a32a4a4ea638061470eaf15a90331", size = 641494, upload-time = "2025-12-15T22:08:31.631Z" },
+    { url = "https://files.pythonhosted.org/packages/0d/b5/b3fae3a7b868f6c6fe6bb621b9a93a02d50f35d3d9006c43174aca0c54d2/adaptive_router_core-0.1.8-cp313-cp313-macosx_13_0_arm64.whl", hash = "sha256:55c1ddd084cf1117551afe484fc2f31bb156aac84c0c1263025fe95e3a46e287", size = 310210, upload-time = "2025-12-15T22:08:33.142Z" },
+    { url = "https://files.pythonhosted.org/packages/ec/58/c8ba92cef29f7632589892d1baab803c5ca3483d13980bf64342b23cb768/adaptive_router_core-0.1.8-cp313-cp313-macosx_13_0_x86_64.whl", hash = "sha256:17e338a96ab511aa5ae32bd4d188774e5d7e7f4132437c0192a57312df5ea8ac", size = 336317, upload-time = "2025-12-15T22:08:34.386Z" },
+    { url = "https://files.pythonhosted.org/packages/c8/db/1c3d3db826d8c341222f29fe47d0155f72cf4c8e4ffe5062236ed1bc3e71/adaptive_router_core-0.1.8-cp313-cp313-manylinux_2_34_x86_64.whl", hash = "sha256:d3f126be5016d523393b6e7eb1ac41d91c2c4fa0e3021f3a1754ed67d88373cf", size = 488097, upload-time = "2025-12-15T22:08:35.814Z" },
+    { url = "https://files.pythonhosted.org/packages/a1/15/ed3dc6bdd33a8c2fc1907cdd8a4aa328093eac9d33f5ed12e257e5ef510c/adaptive_router_core-0.1.8-cp313-cp313-win_amd64.whl", hash = "sha256:2b0a0c3653547587fb2ec790045c6cc44a17abd3e342ca944d921bec9fe284f8", size = 641255, upload-time = "2025-12-15T22:08:36.952Z" },
 ]
 
 [[package]]
 name = "adaptive-router-core-cu12"
-version = "0.1.3"
+version = "0.1.8"
 source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "nvidia-cublas-cu12" },
-    { name = "nvidia-cuda-runtime-cu12" },
-    { name = "nvidia-cusolver-cu12" },
-    { name = "nvidia-cusparse-cu12" },
-    { name = "nvidia-nvjitlink-cu12" },
-]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/29/fe/e655608864519ebb86c112c7aa3c86152a624becfbaf291c36a3b8b4eb9f/adaptive_router_core_cu12-0.1.3-cp311-cp311-manylinux_2_34_x86_64.whl", hash = "sha256:a0703d4fdf34bd6cd019adc5ac89be52a934d539f86ee99ec62284a71fbfc0bd", size = 2506356, upload-time = "2025-12-11T17:25:24.021Z" },
-    { url = "https://files.pythonhosted.org/packages/06/bc/b81a8da7b7853893a52ea7cfe5cc03defb09bb0df2819e86b60798fe8cb0/adaptive_router_core_cu12-0.1.3-cp312-cp312-manylinux_2_34_x86_64.whl", hash = "sha256:a33c06e606a097fbf9f2eed289ab078ee204a488104432b3ad531a359cb7f2aa", size = 2505061, upload-time = "2025-12-11T17:25:25.785Z" },
-    { url = "https://files.pythonhosted.org/packages/4f/88/40b149b6bd39cde899a7e1168d6cb7e2f92ec2bcb7c2e4cf642ec33d2e40/adaptive_router_core_cu12-0.1.3-cp313-cp313-manylinux_2_34_x86_64.whl", hash = "sha256:ad03ae2b8459bb4a00290a3f9311c9f28aabf22938b6ccb9d6f384326263b5d5", size = 2505062, upload-time = "2025-12-11T17:25:27.588Z" },
+    { url = "https://files.pythonhosted.org/packages/23/14/95e8c23ab95c21a180a55af9fbf50f0651603a5b3a55112f803d8ba42078/adaptive_router_core_cu12-0.1.8-cp311-cp311-manylinux_2_34_x86_64.whl", hash = "sha256:c6dfa44dff4a12e0aade6125f7fe926606ec8ab0168701b063316bef757edb28", size = 1225335, upload-time = "2025-12-15T22:08:38.129Z" },
+    { url = "https://files.pythonhosted.org/packages/02/5f/2e61dbc36c40b7bf800c99cfda4f023caebe5a166f5fc6d8c05970713ed8/adaptive_router_core_cu12-0.1.8-cp312-cp312-manylinux_2_34_x86_64.whl", hash = "sha256:1033d49c37c119bb7b14cd7654b4f175f827ad8fbd0eb67698249f6f232c4863", size = 1224251, upload-time = "2025-12-15T22:08:39.826Z" },
+    { url = "https://files.pythonhosted.org/packages/94/33/433b9daed2bc5c9ce6448e805d851a6ff987ae4703cdf1363fc4745db1cb/adaptive_router_core_cu12-0.1.8-cp313-cp313-manylinux_2_34_x86_64.whl", hash = "sha256:d69aa09a4652ecfc6985a8e13bfe2e55674daf8c2fc0b26dc73ec97fb5fc574f", size = 1224315, upload-time = "2025-12-15T22:08:41.16Z" },
 ]
 
 [[package]]
@@ -1533,7 +1526,6 @@ name = "nvidia-cublas-cu12"
 version = "12.8.4.1"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/29/99/db44d685f0e257ff0e213ade1964fc459b4a690a73293220e98feb3307cf/nvidia_cublas_cu12-12.8.4.1-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:b86f6dd8935884615a0683b663891d43781b819ac4f2ba2b0c9604676af346d0", size = 590537124, upload-time = "2025-03-07T01:43:53.556Z" },
     { url = "https://files.pythonhosted.org/packages/dc/61/e24b560ab2e2eaeb3c839129175fb330dfcfc29e5203196e5541a4c44682/nvidia_cublas_cu12-12.8.4.1-py3-none-manylinux_2_27_x86_64.whl", hash = "sha256:8ac4e771d5a348c551b2a426eda6193c19aa630236b418086020df5ba9667142", size = 594346921, upload-time = "2025-03-07T01:44:31.254Z" },
 ]
 
@@ -1558,7 +1550,6 @@ name = "nvidia-cuda-runtime-cu12"
 version = "12.8.90"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7c/75/f865a3b236e4647605ea34cc450900854ba123834a5f1598e160b9530c3a/nvidia_cuda_runtime_cu12-12.8.90-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:52bf7bbee900262ffefe5e9d5a2a69a30d97e2bc5bb6cc866688caa976966e3d", size = 965265, upload-time = "2025-03-07T01:39:43.533Z" },
     { url = "https://files.pythonhosted.org/packages/0d/9b/a997b638fcd068ad6e4d53b8551a7d30fe8b404d6f1804abf1df69838932/nvidia_cuda_runtime_cu12-12.8.90-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:adade8dcbd0edf427b7204d480d6066d33902cab2a4707dcfc48a2d0fd44ab90", size = 954765, upload-time = "2025-03-07T01:40:01.615Z" },
 ]
 
@@ -1610,7 +1601,6 @@ dependencies = [
     { name = "nvidia-nvjitlink-cu12" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c8/32/f7cd6ce8a7690544d084ea21c26e910a97e077c9b7f07bf5de623ee19981/nvidia_cusolver_cu12-11.7.3.90-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:db9ed69dbef9715071232caa9b69c52ac7de3a95773c2db65bdba85916e4e5c0", size = 267229841, upload-time = "2025-03-07T01:46:54.356Z" },
     { url = "https://files.pythonhosted.org/packages/85/48/9a13d2975803e8cf2777d5ed57b87a0b6ca2cc795f9a4f59796a910bfb80/nvidia_cusolver_cu12-11.7.3.90-py3-none-manylinux_2_27_x86_64.whl", hash = "sha256:4376c11ad263152bd50ea295c05370360776f8c3427b30991df774f9fb26c450", size = 267506905, upload-time = "2025-03-07T01:47:16.273Z" },
 ]
 
@@ -1622,7 +1612,6 @@ dependencies = [
     { name = "nvidia-nvjitlink-cu12" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bc/f7/cd777c4109681367721b00a106f491e0d0d15cfa1fd59672ce580ce42a97/nvidia_cusparse_cu12-12.5.8.93-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:9b6c161cb130be1a07a27ea6923df8141f3c295852f4b260c65f18f3e0a091dc", size = 288117129, upload-time = "2025-03-07T01:47:40.407Z" },
     { url = "https://files.pythonhosted.org/packages/c2/f5/e1854cb2f2bcd4280c44736c93550cc300ff4b8c95ebe370d0aa7d2b473d/nvidia_cusparse_cu12-12.5.8.93-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:1ec05d76bbbd8b61b06a80e1eaf8cf4959c3d4ce8e711b65ebd0443bb0ebb13b", size = 288216466, upload-time = "2025-03-07T01:48:13.779Z" },
 ]
 
@@ -1648,7 +1637,6 @@ version = "12.8.93"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f6/74/86a07f1d0f42998ca31312f998bd3b9a7eff7f52378f4f270c8679c77fb9/nvidia_nvjitlink_cu12-12.8.93-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl", hash = "sha256:81ff63371a7ebd6e6451970684f916be2eab07321b73c9d244dc2b4da7f73b88", size = 39254836, upload-time = "2025-03-07T01:49:55.661Z" },
-    { url = "https://files.pythonhosted.org/packages/2a/a2/8cee5da30d13430e87bf99bb33455d2724d0a4a9cb5d7926d80ccb96d008/nvidia_nvjitlink_cu12-12.8.93-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:adccd7161ace7261e01bb91e44e88da350895c270d23f744f0820c818b7229e7", size = 38386204, upload-time = "2025-03-07T01:49:43.612Z" },
 ]
 
 [[package]]

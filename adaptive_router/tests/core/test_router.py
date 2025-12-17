@@ -2,6 +2,7 @@
 
 from unittest.mock import Mock
 
+import numpy as np
 import pytest
 
 from adaptive_router.models.api import ModelSelectionRequest
@@ -9,20 +10,18 @@ from adaptive_router.models.api import Model
 from adaptive_router.core.router import ModelRouter
 
 
-@pytest.fixture
-def mock_router():
-    """Create a mock ModelRouter with mocked C++ core and embedding model."""
+def _mock_router_factory(route_side_effect=None):
+    """Factory function to create mock ModelRouter with common setup.
+
+    Args:
+        route_side_effect: Optional callable to use as route.side_effect.
+            If None, uses default return_value behavior.
+
+    Returns:
+        ModelRouter instance with mocked components.
+    """
     # Mock the C++ CoreRouter
     mock_core_router = Mock()
-    mock_route_response = Mock()
-    mock_route_response.selected_model = "openai/gpt-4"
-    mock_route_response.alternatives = [
-        "anthropic/claude-3-sonnet-20240229",
-        "openai/gpt-3.5-turbo",
-    ]
-    mock_route_response.cluster_id = 5
-    mock_route_response.cluster_distance = 0.15
-    mock_core_router.route.return_value = mock_route_response
     mock_core_router.get_supported_models.return_value = [
         "openai/gpt-4",
         "openai/gpt-3.5-turbo",
@@ -31,10 +30,23 @@ def mock_router():
     mock_core_router.get_n_clusters.return_value = 10
     mock_core_router.get_embedding_dim.return_value = 384
 
+    # Configure route behavior
+    if route_side_effect is not None:
+        mock_core_router.route.side_effect = route_side_effect
+    else:
+        # Default route response
+        mock_route_response = Mock()
+        mock_route_response.selected_model = "openai/gpt-4"
+        mock_route_response.alternatives = [
+            "anthropic/claude-3-sonnet-20240229",
+            "openai/gpt-3.5-turbo",
+        ]
+        mock_route_response.cluster_id = 5
+        mock_route_response.cluster_distance = 0.15
+        mock_core_router.route.return_value = mock_route_response
+
     # Mock the embedding model
     mock_embedding_model = Mock()
-    import numpy as np
-
     mock_embedding_model.encode.return_value = np.zeros(384)  # Return fake embedding
 
     # Mock profile metadata
@@ -51,6 +63,12 @@ def mock_router():
     )
 
     return router
+
+
+@pytest.fixture
+def mock_router():
+    """Create a mock ModelRouter with mocked C++ core and embedding model."""
+    return _mock_router_factory()
 
 
 class TestModelRouter:
@@ -336,15 +354,6 @@ class TestModelFiltering:
     @pytest.fixture
     def filtering_mock_router(self):
         """Create a mock router that tracks filtering calls."""
-        from unittest.mock import Mock
-        import numpy as np
-
-        mock_core_router = Mock()
-        mock_route_response = Mock()
-        mock_route_response.selected_model = "openai/gpt-4"
-        mock_route_response.alternatives = ["anthropic/claude-3-sonnet-20240229"]
-        mock_route_response.cluster_id = 5
-        mock_route_response.cluster_distance = 0.15
 
         # Make route() return different responses based on filter
         def route_side_effect(embedding, cost_bias, models=None):
@@ -361,30 +370,7 @@ class TestModelFiltering:
             response.cluster_distance = 0.15
             return response
 
-        mock_core_router.route.side_effect = route_side_effect
-        mock_core_router.get_supported_models.return_value = [
-            "openai/gpt-4",
-            "openai/gpt-3.5-turbo",
-            "anthropic/claude-3-sonnet-20240229",
-        ]
-        mock_core_router.get_n_clusters.return_value = 10
-        mock_core_router.get_embedding_dim.return_value = 384
-
-        mock_embedding_model = Mock()
-        mock_embedding_model.encode.return_value = np.zeros(384)
-
-        mock_metadata = Mock()
-        mock_metadata.routing = Mock()
-        mock_metadata.routing.default_cost_preference = 0.5
-        mock_metadata.embedding_model = "all-MiniLM-L6-v2"
-
-        router = ModelRouter(
-            core_router=mock_core_router,
-            embedding_model=mock_embedding_model,
-            profile_metadata=mock_metadata,
-        )
-
-        return router
+        return _mock_router_factory(route_side_effect=route_side_effect)
 
     def test_filtering_with_single_model(
         self, filtering_mock_router: ModelRouter

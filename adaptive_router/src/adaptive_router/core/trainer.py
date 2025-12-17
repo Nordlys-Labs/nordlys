@@ -8,6 +8,7 @@ import asyncio
 import json
 import logging
 import time
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -21,7 +22,6 @@ from adaptive_router.models.api import Model
 from adaptive_router.models.storage import (
     ClusterCentersData,
     ClusteringConfig,
-    MinIOSettings,
     ProfileMetadata,
     RouterProfile,
 )
@@ -769,18 +769,11 @@ class Trainer:
             metadata=metadata,
         )
 
-    def save_profile(
-        self,
-        path: str,
-        minio_settings: MinIOSettings | None = None,
-        s3_settings: MinIOSettings | None = None,
-    ) -> str:
+    def save_profile(self, path: str | Path) -> Path:
         """Save trained profile to specified path.
 
         Args:
-            path: Destination path (local, s3://, or minio://)
-            minio_settings: MinIO configuration for minio:// URLs
-            s3_settings: S3 configuration for s3:// URLs
+            path: Destination path (JSON or MessagePack file)
 
         Returns:
             Path where profile was saved
@@ -793,11 +786,23 @@ class Trainer:
                 "No profile has been trained yet. Call a training method first."
             )
 
-        from adaptive_router.savers import get_saver
+        path = Path(path)
 
-        # Auto-detect saver based on path
-        saver = get_saver(path, minio_settings=minio_settings, s3_settings=s3_settings)
-        return saver.save_profile(self._trained_profile, path)
+        # Convert pydantic profile to JSON string, then to C++ profile
+        from adaptive_core_ext import RouterProfile as CoreProfile
+
+        profile_json = self._trained_profile.model_dump_json()
+        core_profile = CoreProfile.from_json_string(profile_json)
+
+        # Use C++ serialization
+        if path.suffix.lower() == ".msgpack":
+            core_profile.to_msgpack_file(str(path))
+        else:
+            # Default to JSON for .json or any other extension
+            core_profile.to_json_file(str(path))
+
+        logger.info(f"Profile saved to: {path}")
+        return path
 
     @property
     def profile(self) -> RouterProfile:
