@@ -81,7 +81,7 @@ explicit = true
 [dependency-groups]
 
 dev = [
-  "mypy>=1.15.0,<2",
+  "ty>=0.0.3,<1",
   "ruff>=0.11.11,<0.14",
   "types-pyyaml>=6.0.12.20250516,<7",
   "types-pyjwt>=1.7.1",
@@ -94,30 +94,16 @@ test = ["pytest>=8.4.1,<9", "pytest-cov>=6.2.1,<8", "pytest-asyncio>=0.24.0,<1"]
 [tool.uv-build]
 packages = ["adaptive_router"]
 
-[tool.mypy]
-plugins = ["pydantic.mypy"]
-exclude = ["tests/"]
-no_implicit_optional = true
-warn_return_any = false
-warn_unused_ignores = true
-disable_error_code = ["import-untyped"]
+[tool.ty]
+# ty auto-discovers src/ directory and virtual environment
 
-[[tool.mypy.overrides]]
-module = [
-  "pydantic.*",
-  "torch.*",
-  "numpy.*",
-  "sentence_transformers.*",
-  "boto3.*",
-  "boto3",
-  "botocore.*",
-  "datasets.*",
-  "polars.*",
-  "deepeval.*",
-  "pytest.*",
-  "adaptive_core_ext.*",
-]
-ignore_missing_imports = true
+[tool.ty.src]
+exclude = ["tests/", "scripts/"]
+
+[tool.ty.rules]
+unused-ignore-comment = "warn"
+# Ignore unresolved imports globally (for C++ extension module adaptive_core_ext)
+unresolved-import = "ignore"
 
 [tool.pytest.ini_options]
 addopts = "-v"

@@ -48,7 +48,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 if sys.version_info >= (3, 11):
     import tomllib
 else:
-    import tomli as tomllib  # type: ignore[import-untyped]
+    import tomli as tomllib
 
 
 class APIConfig(BaseModel):

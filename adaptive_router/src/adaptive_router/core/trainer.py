@@ -9,7 +9,7 @@ import json
 import logging
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, cast
 
 import numpy as np
 import polars as pl
@@ -740,10 +740,14 @@ class Trainer:
         )
 
         # Build metadata with all configurations
+        dtype_str = cluster_engine.get_dtype_string()
+        if dtype_str not in ("float32", "float64"):
+            raise ValueError(f"Invalid dtype: {dtype_str}")
+        dtype_literal = cast(Literal["float32", "float64"], dtype_str)
         metadata = ProfileMetadata(
             n_clusters=self.n_clusters,
             embedding_model=self.embedding_model,
-            dtype=cluster_engine.get_dtype_string(),  # Auto-detected from embedding model
+            dtype=dtype_literal,
             silhouette_score=float(cluster_engine.silhouette),
             clustering=ClusteringConfig(
                 max_iter=self.clustering_config.max_iter,

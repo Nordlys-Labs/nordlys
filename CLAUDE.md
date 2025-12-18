@@ -248,11 +248,11 @@ uv run ruff check .
 # Fix linting issues
 uv run ruff check --fix .
 
-# Type checking with mypy
-uv run mypy .
+# Type checking with ty
+uv run ty check
 
 # Run all quality checks
-uv run black . && uv run ruff check . && uv run mypy .
+uv run black . && uv run ruff check . && uv run ty check
 ```
 
 ### Testing
@@ -791,7 +791,7 @@ modal run adaptive-router -c "python -c 'import torch; print(torch.cuda.is_avail
 
 - **Formatting**: Black with 88-character line length
 - **Linting**: Ruff with comprehensive rule set
-- **Type Checking**: mypy with strict configuration
+- **Type Checking**: ty with strict configuration
 - **Import Sorting**: Ruff isort with first-party module recognition
 
 ### Testing Requirements
@@ -827,6 +827,6 @@ modal run adaptive-router -c "python -c 'import torch; print(torch.cuda.is_avail
 
 1. Create feature branch from `dev`
 2. Implement changes with comprehensive tests
-3. Run full quality checks: `uv run black . && uv run ruff check . && uv run mypy . && uv run pytest --cov`
+3. Run full quality checks: `uv run black . && uv run ruff check . && uv run ty check && uv run pytest --cov`
 4. **Update relevant documentation** (CLAUDE.md files, adaptive-docs/, README)
 5. Submit PR with performance impact analysis and documentation updates

@@ -12,7 +12,7 @@
 
 - **Format**: `uv run black .` (88 chars, Python 3.11+)
 - **Lint**: `uv run ruff check .` (fix: `--fix`)
-- **Types**: `uv run mypy .` (strict, Pydantic plugin enabled)
+- **Types**: `uv run ty check` (strict)
 - **Imports**: First-party (`adaptive_router`), then third-party, then standard library
 - **Naming**: `snake_case` for functions/variables, `PascalCase` for classes, `UPPER_CASE` for constants
 - **Type Hints**: Always use type hints; return types required

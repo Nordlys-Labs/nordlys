@@ -55,7 +55,7 @@ jobs:
         run: |
           uv run ruff check --output-format=github .
           uv run ruff format --check .
-          uv run mypy .
+          uv run ty check
 
       - name: Build distribution
         working-directory: adaptive_router

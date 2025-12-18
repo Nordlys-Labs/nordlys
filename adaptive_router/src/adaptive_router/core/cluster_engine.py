@@ -301,7 +301,11 @@ class ClusterEngine(BaseEstimator):
         # Perform K-means clustering
         logger.info("Performing k-means clustering...")
         self.kmeans.fit(embeddings_normalized)
-        self.cluster_assignments = self.kmeans.labels_.astype(np.int32)
+        labels = self.kmeans.labels_
+        if labels is not None:
+            self.cluster_assignments = labels.astype(np.int32)
+        else:
+            raise ValueError("KMeans clustering failed to assign labels")
 
         # Compute silhouette score
         unique_labels = np.unique(self.cluster_assignments)
@@ -482,7 +486,7 @@ class ClusterEngine(BaseEstimator):
         engine.kmeans = KMeans(n_clusters=n_clusters)
         engine.kmeans.cluster_centers_ = cluster_centers.astype(numpy_dtype)
         engine.kmeans.n_iter_ = clustering_config.n_iter if clustering_config else 0
-        engine.kmeans.n_features_in_ = cluster_centers.shape[1]
+        engine.kmeans.n_features_in_ = cluster_centers.shape[1]  # ty: ignore[unresolved-attribute]
         engine.kmeans._n_threads = 1  # Runtime default for sklearn 1.4+
 
         # Set fitted state
