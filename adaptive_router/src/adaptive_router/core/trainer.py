@@ -743,6 +743,7 @@ class Trainer:
         metadata = ProfileMetadata(
             n_clusters=self.n_clusters,
             embedding_model=self.embedding_model,
+            dtype=cluster_engine.get_dtype_string(),  # Auto-detected from embedding model
             silhouette_score=float(cluster_engine.silhouette),
             clustering=ClusteringConfig(
                 max_iter=self.clustering_config.max_iter,

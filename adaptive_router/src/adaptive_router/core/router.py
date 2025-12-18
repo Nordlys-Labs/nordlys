@@ -86,6 +86,20 @@ class ModelRouter:
         self.default_cost_preference = profile.metadata.routing.default_cost_preference
         self._dtype = profile.metadata.dtype
 
+    def __del__(self) -> None:
+        """Cleanup router resources on deletion to prevent memory leaks.
+
+        Calls C++ cleanup() to prevent nanobind memory leaks on shutdown.
+        Uses try/except to handle all edge cases safely during cleanup.
+        """
+        try:
+            self._core_router.cleanup()
+        except (AttributeError, Exception):
+            # Suppress all errors during shutdown
+            # AttributeError: _core_router or cleanup() doesn't exist
+            # Exception: any other cleanup errors
+            pass
+
     @property
     def profile(self) -> RouterProfile:
         """The loaded RouterProfile."""
@@ -141,7 +155,8 @@ class ModelRouter:
 
         logger.info(
             f"ModelRouter initialized: {profile.metadata.n_clusters} clusters, "
-            f"{len(profile.models)} models"
+            f"{len(profile.models)} models, dtype={profile.metadata.dtype}, "
+            f"embedding_model={profile.metadata.embedding_model}"
         )
 
         return cls(core_router, embedding_model, profile)
@@ -164,7 +179,8 @@ class ModelRouter:
 
         logger.info(
             f"ModelRouter initialized: {profile.metadata.n_clusters} clusters, "
-            f"{len(profile.models)} models"
+            f"{len(profile.models)} models, dtype={profile.metadata.dtype}, "
+            f"embedding_model={profile.metadata.embedding_model}"
         )
 
         return cls(core_router, embedding_model, profile)
@@ -196,7 +212,8 @@ class ModelRouter:
 
         logger.info(
             f"ModelRouter initialized: {profile.metadata.n_clusters} clusters, "
-            f"{len(profile.models)} models"
+            f"{len(profile.models)} models, dtype={profile.metadata.dtype}, "
+            f"embedding_model={profile.metadata.embedding_model}"
         )
 
         return cls(core_router, embedding_model, profile)
@@ -289,25 +306,24 @@ class ModelRouter:
             convert_to_numpy=True,
         )
 
-        # Ensure embedding dtype matches router dtype (from profile)
+        # 2. Ensure embedding dtype matches router dtype and is C-contiguous
+        # C-contiguous layout is REQUIRED by nanobind C++ bindings
+        target_dtype = np.float64 if self._dtype == "float64" else np.float32
+        if embedding.dtype != target_dtype or not embedding.flags["C_CONTIGUOUS"]:
+            embedding = np.ascontiguousarray(embedding, dtype=target_dtype)
 
-        if self._dtype == "float64" and embedding.dtype != np.float64:
-            embedding = embedding.astype(np.float64)
-        elif self._dtype == "float32" and embedding.dtype != np.float32:
-            embedding = embedding.astype(np.float32)
-
-        # 2. Resolve cost preference
+        # 3. Resolve cost preference
         cost_preference = self._resolve_cost_preference(cost_bias, request.cost_bias)
 
-        # 3. Extract model IDs from request.models if provided
+        # 4. Extract model IDs from request.models if provided
         model_filter: list[str] = request.models or []
 
-        # 4. Route using C++ core (cluster assignment + model scoring)
+        # 5. Route using C++ core (cluster assignment + model scoring)
         core_response = self._core_router.route(
             embedding, cost_preference, model_filter
         )
 
-        # 5. Build Python response
+        # 6. Build Python response
         alternatives = [Alternative(model_id=m) for m in core_response.alternatives]
         response = ModelSelectionResponse(
             model_id=core_response.selected_model,

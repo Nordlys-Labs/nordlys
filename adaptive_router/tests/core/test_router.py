@@ -472,3 +472,164 @@ class TestModelFiltering:
 
         model_id = model_upper.unique_id()
         assert model_id == "openai/gpt-4"  # Should be lowercase
+
+
+class TestModelRouterDtypeConversion:
+    """Test ModelRouter dtype conversion with C-contiguous arrays."""
+
+    def test_converts_float64_to_float32_with_c_contiguous(self) -> None:
+        """Test conversion from float64 to float32 produces C-contiguous array."""
+        mock_core_router = Mock()
+        mock_core_router.get_supported_models.return_value = ["openai/gpt-4"]
+        mock_route_response = Mock()
+        mock_route_response.selected_model = "openai/gpt-4"
+        mock_route_response.alternatives = []
+        mock_route_response.cluster_id = 0
+        mock_route_response.cluster_distance = 0.5
+        mock_core_router.route.return_value = mock_route_response
+
+        # Mock embedding as float64 (wrong dtype)
+        mock_embedding_model = Mock()
+        float64_embedding = np.random.randn(384).astype(np.float64)
+        mock_embedding_model.encode.return_value = float64_embedding
+
+        from adaptive_router.models.storage import RouterProfile, ProfileMetadata
+        mock_profile = Mock(spec=RouterProfile)
+        mock_profile.metadata = Mock(spec=ProfileMetadata)
+        mock_profile.metadata.routing = Mock()
+        mock_profile.metadata.routing.default_cost_preference = 0.5
+        mock_profile.metadata.dtype = "float32"  # Expects float32
+
+        router = ModelRouter(
+            core_router=mock_core_router,
+            embedding_model=mock_embedding_model,
+            profile=mock_profile,
+        )
+
+        request = ModelSelectionRequest(prompt="test")
+        router.select_model(request)
+
+        # Verify route was called with converted embedding
+        assert mock_core_router.route.called
+        call_args = mock_core_router.route.call_args[0]
+        embedding_arg = call_args[0]
+
+        # Should be float32 and C-contiguous
+        assert embedding_arg.dtype == np.float32
+        assert embedding_arg.flags["C_CONTIGUOUS"]
+
+    def test_converts_float32_to_float64_with_c_contiguous(self) -> None:
+        """Test conversion from float32 to float64 produces C-contiguous array."""
+        mock_core_router = Mock()
+        mock_core_router.get_supported_models.return_value = ["openai/gpt-4"]
+        mock_route_response = Mock()
+        mock_route_response.selected_model = "openai/gpt-4"
+        mock_route_response.alternatives = []
+        mock_route_response.cluster_id = 0
+        mock_route_response.cluster_distance = 0.5
+        mock_core_router.route.return_value = mock_route_response
+
+        # Mock embedding as float32 (wrong dtype for float64 router)
+        mock_embedding_model = Mock()
+        float32_embedding = np.random.randn(384).astype(np.float32)
+        mock_embedding_model.encode.return_value = float32_embedding
+
+        from adaptive_router.models.storage import RouterProfile, ProfileMetadata
+        mock_profile = Mock(spec=RouterProfile)
+        mock_profile.metadata = Mock(spec=ProfileMetadata)
+        mock_profile.metadata.routing = Mock()
+        mock_profile.metadata.routing.default_cost_preference = 0.5
+        mock_profile.metadata.dtype = "float64"  # Expects float64
+
+        router = ModelRouter(
+            core_router=mock_core_router,
+            embedding_model=mock_embedding_model,
+            profile=mock_profile,
+        )
+
+        request = ModelSelectionRequest(prompt="test")
+        router.select_model(request)
+
+        # Verify route was called with converted embedding
+        assert mock_core_router.route.called
+        call_args = mock_core_router.route.call_args[0]
+        embedding_arg = call_args[0]
+
+        # Should be float64 and C-contiguous
+        assert embedding_arg.dtype == np.float64
+        assert embedding_arg.flags["C_CONTIGUOUS"]
+
+    def test_preserves_correct_dtype_with_c_contiguous(self) -> None:
+        """Test that correct dtype is preserved and made C-contiguous."""
+        mock_core_router = Mock()
+        mock_core_router.get_supported_models.return_value = ["openai/gpt-4"]
+        mock_route_response = Mock()
+        mock_route_response.selected_model = "openai/gpt-4"
+        mock_route_response.alternatives = []
+        mock_route_response.cluster_id = 0
+        mock_route_response.cluster_distance = 0.5
+        mock_core_router.route.return_value = mock_route_response
+
+        # Mock embedding as float32 (correct dtype)
+        mock_embedding_model = Mock()
+        float32_embedding = np.random.randn(384).astype(np.float32)
+        mock_embedding_model.encode.return_value = float32_embedding
+
+        from adaptive_router.models.storage import RouterProfile, ProfileMetadata
+        mock_profile = Mock(spec=RouterProfile)
+        mock_profile.metadata = Mock(spec=ProfileMetadata)
+        mock_profile.metadata.routing = Mock()
+        mock_profile.metadata.routing.default_cost_preference = 0.5
+        mock_profile.metadata.dtype = "float32"  # Matches embedding
+
+        router = ModelRouter(
+            core_router=mock_core_router,
+            embedding_model=mock_embedding_model,
+            profile=mock_profile,
+        )
+
+        request = ModelSelectionRequest(prompt="test")
+        router.select_model(request)
+
+        call_args = mock_core_router.route.call_args[0]
+        embedding_arg = call_args[0]
+
+        # Should still be float32 and C-contiguous
+        assert embedding_arg.dtype == np.float32
+        assert embedding_arg.flags["C_CONTIGUOUS"]
+
+
+class TestModelRouterCleanup:
+    """Test ModelRouter cleanup for memory leak prevention."""
+
+    def test_router_has_del_method(self) -> None:
+        """Test ModelRouter has __del__ method."""
+        assert hasattr(ModelRouter, "__del__")
+
+    def test_del_handles_missing_core_router(self) -> None:
+        """Test __del__ handles missing _core_router gracefully."""
+        router = Mock(spec=ModelRouter)
+        # Call __del__ directly
+        ModelRouter.__del__(router)
+        # Should not raise
+
+    def test_del_handles_cleanup_errors(self) -> None:
+        """Test __del__ suppresses cleanup errors."""
+        router = Mock(spec=ModelRouter)
+        router._core_router = Mock()
+        router._core_router.cleanup.side_effect = RuntimeError("Cleanup failed")
+
+        # Should not raise
+        ModelRouter.__del__(router)
+
+    def test_del_calls_cleanup_when_available(self) -> None:
+        """Test __del__ calls cleanup() if available."""
+        router = Mock(spec=ModelRouter)
+        router._core_router = Mock()
+        router._core_router.cleanup = Mock()
+
+        ModelRouter.__del__(router)
+
+        # Cleanup should have been called
+        assert router._core_router.cleanup.called
+

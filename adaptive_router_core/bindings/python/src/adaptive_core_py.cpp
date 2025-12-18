@@ -84,6 +84,16 @@ public:
   }
 
   std::string get_dtype() const { return is_float64 ? "float64" : "float32"; }
+
+  // Explicit cleanup to help prevent nanobind memory leaks on shutdown
+  void cleanup() {
+    // Reset the variant to default state, triggering destructor of held router
+    if (is_float64) {
+      router = RouterT<double>();
+    } else {
+      router = RouterT<float>();
+    }
+  }
 };
 
 NB_MODULE(adaptive_core_ext, m) {
@@ -178,6 +188,7 @@ NB_MODULE(adaptive_core_ext, m) {
       .def("get_supported_models", &RouterWrapper::get_supported_models)
       .def("get_n_clusters", &RouterWrapper::get_n_clusters)
       .def("get_embedding_dim", &RouterWrapper::get_embedding_dim)
+      .def("cleanup", &RouterWrapper::cleanup, "Explicit cleanup to prevent memory leaks")
       .def_prop_ro("dtype", &RouterWrapper::get_dtype);
 
   m.attr("__version__") = ADAPTIVE_VERSION;

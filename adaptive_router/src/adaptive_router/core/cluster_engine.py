@@ -68,6 +68,9 @@ class ClusterEngine(BaseEstimator):
         self.silhouette: float = 0.0
         self.is_fitted_flag: bool = False
 
+        # Detected embedding dtype (auto-detected during first embedding generation)
+        self.embedding_dtype: np.dtype | None = None
+
     def configure(
         self,
         n_clusters: int = 20,
@@ -190,7 +193,7 @@ class ClusterEngine(BaseEstimator):
 
     def _extract_embeddings(
         self, texts: list[str], show_progress: bool = False
-    ) -> npt.NDArray[np.float32]:
+    ) -> npt.NDArray[np.floating]:
         """Extract embeddings from texts using SentenceTransformer.
 
         Args:
@@ -198,7 +201,7 @@ class ClusterEngine(BaseEstimator):
             show_progress: Whether to show progress bar
 
         Returns:
-            Embeddings array (n_samples × embedding_dim) as float32
+            Embeddings array (n_samples × embedding_dim) preserving model's native dtype
         """
         assert self.embedding_model is not None  # For mypy
 
@@ -210,29 +213,61 @@ class ClusterEngine(BaseEstimator):
             convert_to_numpy=True,
         )
 
-        # Ensure float32 dtype for sklearn compatibility
-        return embeddings.astype(np.float32, copy=False)
+        # Auto-detect and store embedding dtype from model output
+        if self.embedding_dtype is None:
+            self.embedding_dtype = embeddings.dtype
+            logger.info(
+                f"Detected embedding dtype from model: {self.embedding_dtype}"
+            )
+
+        # Preserve model's native dtype
+        return embeddings.astype(self.embedding_dtype, copy=False)
 
     def _normalize_features(
-        self, features: npt.NDArray[np.float32], norm: str = "l2"
-    ) -> npt.NDArray[np.float32]:
+        self, features: npt.NDArray[np.floating], norm: str = "l2"
+    ) -> npt.NDArray[np.floating]:
         """Normalize features for spherical k-means.
 
         Args:
-            features: Feature array (float32)
+            features: Feature array (preserves input dtype)
             norm: Normalization strategy ('l1', 'l2', or 'max')
 
         Returns:
-            Normalized features as float32 array
+            Normalized features with same dtype as input
         """
         features_normalized = normalize(features, norm=norm, copy=False)
-        # Always ensure float32 for sklearn KMeans compatibility
-        return np.asarray(features_normalized, dtype=np.float32)
+        # Preserve input dtype (sklearn KMeans handles C-ordering internally)
+        return np.asarray(features_normalized, dtype=features.dtype)
 
     @property
     def is_fitted(self) -> bool:
         """Check if the engine has been fitted."""
         return self.is_fitted_flag
+
+    def get_dtype_string(self) -> str:
+        """Get the detected embedding dtype as string ('float32' or 'float64').
+
+        Returns:
+            'float32' or 'float64' based on detected embedding dtype
+
+        Raises:
+            ValueError: If dtype not yet detected (call fit() first)
+        """
+        if self.embedding_dtype is None:
+            raise ValueError(
+                "Embedding dtype not yet detected. Call fit() first to detect dtype from model."
+            )
+
+        if self.embedding_dtype == np.float32:
+            return "float32"
+        elif self.embedding_dtype == np.float64:
+            return "float64"
+        else:
+            # Fallback for any other float types
+            logger.warning(
+                f"Unexpected embedding dtype {self.embedding_dtype}, defaulting to 'float32'"
+            )
+            return "float32"
 
     def fit(self, inputs: list[str]) -> "ClusterEngine":
         """Fit clustering model on text inputs.
@@ -407,6 +442,7 @@ class ClusterEngine(BaseEstimator):
         embedding_model_name: str,
         silhouette_score: float = 0.0,
         clustering_config: ClusteringConfig | None = None,
+        dtype: str = "float32",
     ) -> "ClusterEngine":
         """Restore a ClusterEngine from fitted state (for router loading).
 
@@ -417,6 +453,7 @@ class ClusterEngine(BaseEstimator):
             embedding_model_name: Name of the embedding model
             silhouette_score: Clustering quality score
             clustering_config: Clustering configuration
+            dtype: Numeric dtype for embeddings ('float32' or 'float64')
 
         Returns:
             Configured ClusterEngine ready for prediction
@@ -439,9 +476,13 @@ class ClusterEngine(BaseEstimator):
         engine.embedding_model = embedding_model
         engine.batch_size = 32  # Default batch size
 
-        # Create KMeans with fitted state
+        # Set embedding dtype from profile
+        numpy_dtype = np.float64 if dtype == "float64" else np.float32
+        engine.embedding_dtype = numpy_dtype
+
+        # Create KMeans with fitted state (preserve dtype from profile)
         engine.kmeans = KMeans(n_clusters=n_clusters)
-        engine.kmeans.cluster_centers_ = cluster_centers.astype(np.float32)
+        engine.kmeans.cluster_centers_ = cluster_centers.astype(numpy_dtype)
         engine.kmeans.n_iter_ = clustering_config.n_iter if clustering_config else 0
         engine.kmeans.n_features_in_ = cluster_centers.shape[1]
         engine.kmeans._n_threads = 1  # Runtime default for sklearn 1.4+
