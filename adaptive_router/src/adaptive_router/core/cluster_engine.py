@@ -476,7 +476,7 @@ class ClusterEngine(BaseEstimator):
 
         # Set embedding dtype from profile
         numpy_dtype = np.float64 if dtype == "float64" else np.float32
-        engine.embedding_dtype = numpy_dtype
+        engine.embedding_dtype = np.dtype(numpy_dtype)
 
         # Create KMeans with fitted state (preserve dtype from profile)
         engine.kmeans = KMeans(n_clusters=n_clusters)
