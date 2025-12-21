@@ -18,18 +18,18 @@ echo "GITHUB_TOKEN=ghp_your_token" > clustering/.env
 cd clustering
 
 # List available models
-python profile_model.py --list-models
-python profile_model.py --list-models --eval-type bash-only
+uv run python profile_model.py --list-models
+uv run python profile_model.py --list-models --eval-type bash-only
 
 # Profile a model (fetches from GitHub, saves to profiles/)
-python profile_model.py --model-folder "20240620_sweagent_claude3.5sonnet"
-python profile_model.py --model-folder "20251124_mini-v1.16.0_claude-opus-4-5-20251101" --eval-type bash-only
+uv run python profile_model.py --model-folder "20240620_sweagent_claude3.5sonnet"
+uv run python profile_model.py --model-folder "20251124_mini-v1.16.0_claude-opus-4-5" --eval-type bash-only
 
 # Add a single model to profile.json (without re-reading all)
-python profile_model.py --add "20250929_mini-v1.13.3_sonnet-4-5-20250929"
+uv run python profile_model.py --add "20250929_mini-v1.13.3_sonnet-4-5-20250929"
 
-# Combine all profiles into profile.json (but you need to make sure that you already have clusters centroids)
-python profile_model.py --combine
+# Combine all profiles into profile.json (requires cluster centroids)
+uv run python profile_model.py --combine
 ```
 
 ## CLI Options
