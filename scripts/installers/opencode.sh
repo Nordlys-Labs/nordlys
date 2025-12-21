@@ -22,8 +22,8 @@ API_BASE_URL="https://api.llmadaptive.uk/v1"
 API_KEY_URL="https://www.llmadaptive.uk/dashboard"
 
 # Model override defaults:
-# - use adaptive/auto for intelligent routing
-DEFAULT_MODEL="adaptive/auto"
+# - use nordlys/nordlys-code for intelligent routing
+DEFAULT_MODEL="nordlys/nordlys-code"
 
 # ========================
 #       Logging
@@ -173,7 +173,7 @@ validate_api_key() {
 
 validate_model_override() {
   local model="$1"
-  # Empty => falls back to adaptive/auto
+  # Empty => falls back to nordlys/nordlys-code
   if [ -z "$model" ]; then return 0; fi
   [[ "$model" =~ ^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$ ]]
 }
@@ -292,7 +292,7 @@ main() {
     log_info "Using custom model override: $model_override"
     model="$model_override"
   else
-    log_info "Using adaptive/auto intelligent routing (no explicit model override)."
+    log_info "Using nordlys/nordlys-code intelligent routing (no explicit model override)."
   fi
 
   # 4) If API key is present, quick format check (we cannot inject it non-interactively)
@@ -328,7 +328,7 @@ main() {
     echo ""
     echo "🔍 Verify"
     echo "   opencode auth list             # should list 'adaptive'"
-    echo "   cat $CONFIG_FILE               # see 'model': 'adaptive/auto'"
+    echo "   cat $CONFIG_FILE               # see 'model': 'nordlys/nordlys-code'"
     echo ""
     echo "📊 Monitor"
     echo "   Dashboard: $API_KEY_URL"
