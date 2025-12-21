@@ -1,0 +1,80 @@
+name: Nordlys Core Prod
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'nordlys-core/**'
+      - '.github/workflows/nordlys-core-ci.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'nordlys-core/**'
+      - '.github/workflows/nordlys-core-ci.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build-and-test:
+    name: Build & Test (${{ matrix.os }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: linux, runner: ubuntu-24.04 }
+          - { os: macos, runner: macos-15 }
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Cache Conan packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.conan2
+          key: conan-${{ runner.os }}-${{ hashFiles('nordlys-core/conanfile.py') }}
+          restore-keys: |
+            conan-${{ runner.os }}-
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install build tools
+        run: uv pip install conan --system
+
+      - name: Install Python test dependencies
+        working-directory: nordlys-core/bindings/python
+        run: uv sync --group test --no-install-project
+
+      - name: Setup Conan profile
+        run: conan profile detect --force
+
+      - name: Install dependencies
+        working-directory: nordlys-core
+        run: conan install . --build=missing -of=build -s compiler.cppstd=20
+
+      - name: Configure
+        working-directory: nordlys-core
+        shell: bash
+        run: |
+          cmake --preset conan-release \
+            -DADAPTIVE_BUILD_TESTS=ON \
+            -DADAPTIVE_BUILD_PYTHON=ON \
+            -DADAPTIVE_BUILD_C=ON \
+            -DADAPTIVE_ENABLE_CUDA=OFF
+
+      - name: Build
+        working-directory: nordlys-core
+        run: cmake --build --preset conan-release --parallel
+
+      - name: Test
+        working-directory: nordlys-core
+        run: ctest --preset conan-release --output-on-failure

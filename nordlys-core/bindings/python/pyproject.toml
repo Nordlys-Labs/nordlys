@@ -1,0 +1,44 @@
+[build-system]
+requires = ["scikit-build-core>=0.10.7", "scikit-build-core-conan>=0.1.0", "nanobind>=2.9.2"]
+build-backend = "scikit_build_core_conan.build"
+
+[project]
+name = "nordlys-core"
+dynamic = ["version"]
+description = "C++ inference core for Nordlys"
+requires-python = ">=3.11,<4.0"
+
+[tool.scikit-build.metadata.version]
+provider = "scikit_build_core.metadata.regex"
+input = "../../VERSION"
+regex = "(?P<value>\\d+\\.\\d+\\.\\d+)"
+authors = [{ name = "Botir Khaltaev", email = "botirkhaltaev@llmadaptive.uk" }]
+license = "MIT"
+readme = "../../README.md"
+dependencies = []
+
+[dependency-groups]
+test = ["pytest>=8.0", "numpy>=1.24"]
+
+[tool.scikit-build]
+minimum-version = "build-system.requires"
+cmake.source-dir = "../.."
+cmake.build-type = "Release"
+cmake.version = ">=3.24"
+build-dir = "build/{wheel_tag}"
+wheel.packages = []
+
+[tool.scikit-build.cmake.define]
+NORDLYS_BUILD_PYTHON = "ON"
+NORDLYS_BUILD_C = "OFF"
+NORDLYS_BUILD_TESTS = "OFF"
+NORDLYS_ENABLE_CUDA = "OFF"
+
+[tool.scikit-build-core-conan]
+path = "../.."
+build = "missing"
+settings = ["compiler.cppstd=20"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v"

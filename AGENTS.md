@@ -6,14 +6,14 @@
 - **Test All**: `uv run pytest`
 - **Test Single**: `uv run pytest tests/unit/services/test_model_router.py::TestModelRouter::test_initialization -vv`
 - **Coverage**: `uv run pytest --cov --cov-report=html`
-- **Run Server**: `fastapi dev adaptive_router_app/main.py` (dev) or `hypercorn adaptive_router_app.main:app --bind 0.0.0.0:8000` (prod)
+- **Run Server**: `fastapi dev nordlys-backend/main.py` (dev) or `hypercorn nordlys-backend.main:app --bind 0.0.0.0:8000` (prod)
 
 ## Code Style
 
 - **Format**: `uv run ruff format .`
 - **Lint**: `uv run ruff check .` (fix: `--fix`)
 - **Types**: `uv run ty check` (strict)
-- **Imports**: First-party (`adaptive_router`), then third-party, then standard library
+- **Imports**: First-party (`nordlys`), then third-party, then standard library
 - **Naming**: `snake_case` for functions/variables, `PascalCase` for classes, `UPPER_CASE` for constants
 - **Type Hints**: Always use type hints; return types required
 - **Error Handling**: Use custom exceptions from `models/`, log with structured logging

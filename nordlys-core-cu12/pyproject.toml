@@ -1,0 +1,34 @@
+[build-system]
+requires = ["scikit-build-core>=0.10.7", "scikit-build-core-conan>=0.1.0", "nanobind>=2.9.2"]
+build-backend = "scikit_build_core_conan.build"
+
+[project]
+name = "nordlys-core-cu12"
+dynamic = ["version"]
+description = "C++ inference core for Nordlys (CUDA 12.x)"
+
+[tool.scikit-build.metadata.version]
+provider = "scikit_build_core.metadata.regex"
+input = "../nordlys-core/VERSION"
+regex = "(?P<value>\\d+\\.\\d+\\.\\d+)"
+authors = [{ name = "Botir Khaltaev", email = "botirkhaltaev@llmadaptive.uk" }]
+requires-python = ">=3.11,<4.0"
+license = "MIT"
+dependencies = []
+
+[tool.scikit-build]
+minimum-version = "build-system.requires"
+build-dir = "build/{wheel_tag}"
+wheel.packages = []
+cmake.build-type = "Release"
+cmake.version = ">=3.24"
+cmake.source-dir = "../nordlys-core"
+
+[tool.scikit-build.cmake.define]
+CMAKE_EXPORT_COMPILE_COMMANDS = "ON"
+CMAKE_CXX_STANDARD = "20"
+NORDLYS_ENABLE_CUDA = "ON"
+
+[tool.scikit-build-core-conan]
+build = "missing"
+settings = ["compiler.cppstd=20"]

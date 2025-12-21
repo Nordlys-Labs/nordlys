@@ -15,7 +15,7 @@ Development setup:
 ```bash
 git clone https://github.com/Egham-7/nordlys
 cd nordlys
-uv sync --package adaptive_router
+uv sync --package nordlys
 ```
 
 Requirements: Python 3.11+, CMake, optional CUDA 12.x.
@@ -23,7 +23,7 @@ Requirements: Python 3.11+, CMake, optional CUDA 12.x.
 Run tests:
 
 ```bash
-uv run pytest adaptive_router/tests/
+uv run pytest nordlys/tests/
 ```
 
 ## Links

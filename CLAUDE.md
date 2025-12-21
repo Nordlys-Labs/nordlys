@@ -1,4 +1,4 @@
-# Adaptive Router - Intelligent Model Selection Service
+# Nordlys Model Engine
 
 ## Memory and Documentation
 
@@ -6,16 +6,16 @@
 
 ## Overview
 
-The adaptive_router service is a unified Python ML package that provides intelligent model selection for the Adaptive LLM infrastructure. It uses cluster-based intelligent routing with per-cluster error rates to select optimal LLM models. The service supports two deployment modes: Library (import and use directly in Python code) and FastAPI (HTTP API server with GPU-accelerated inference on T4 GPUs).
+The Nordlys Model Engine is a unified Python ML package that provides intelligent model processing for the Nordlys AI infrastructure. It uses advanced ML techniques including clustering algorithms and per-model performance optimization to process and manage AI models. The engine supports two deployment modes: Library (import and use directly in Python code) and FastAPI (HTTP API server with GPU-accelerated inference).
 
 ## Key Features
 
-- **Cluster-Based Routing**: UniRouter algorithm with K-means clustering and per-cluster error rates
+- **Advanced Model Processing**: UniRouter algorithm with K-means clustering and performance optimization
 - **Flexible Deployment**: Python library import or FastAPI HTTP server
 - **Cost Optimization**: Balances performance vs. cost based on configurable preferences
 - **High-Performance API**: FastAPI framework with Hypercorn ASGI server, OpenAPI documentation
 - **Modal Serverless Deployment**: T4 GPU-accelerated inference with automatic scaling to zero
-- **Local ML Inference**: Sentence transformers and scikit-learn for feature extraction and clustering
+- **Local ML Processing**: Sentence transformers and scikit-learn for feature extraction and clustering
 
 ## Technology Stack
 
@@ -32,19 +32,19 @@ The adaptive_router service is a unified Python ML package that provides intelli
 
 The project uses a **UV workspace** structure with unified dependency management:
 
-1. **`adaptive_router/`**: Core ML library package (standalone, installable)
-2. **`adaptive_router_app/`**: FastAPI application (depends on library via workspace dependency)
+1. **`nordlys/`**: Core ML library package (standalone, installable)
+2. **`nordlys-backend/`**: FastAPI application (depends on library via workspace dependency)
 
 ```
-adaptive_router/  # Repository root (workspace root)
+nordlys/  # Repository root (workspace root)
 ├── pyproject.toml  # Workspace configuration
 ├── uv.lock  # Unified lockfile for all packages
-├── adaptive_router/                          # Core ML library package
+├── nordlys/                          # Core ML library package
 │   ├── __init__.py                           # Library exports for Python import
 │   ├── pyproject.toml                        # Library package configuration
-│   ├── core/                                 # Core ML routing components
+│   ├── core/                                 # Core ML processing components
 │   │   ├── __init__.py
-│   │   ├── router.py                         # ModelRouter - main routing logic
+│   │   ├── router.py                         # ModelRouter - main processing logic
 │   │   ├── cluster_engine.py                 # ClusterEngine - K-means clustering
 │   │   └── feature_extractor.py              # FeatureExtractor - sentence transformers + TF-IDF
 
@@ -55,7 +55,7 @@ adaptive_router/  # Repository root (workspace root)
 │   │   ├── evaluation.py                     # Evaluation metrics models
 │   │   ├── health.py                         # Health check models
 │   │   ├── registry.py                       # Model registry models
-│   │   ├── routing.py                        # Routing decision models
+│   │   ├── routing.py                        # Processing decision models
 │   │   └── storage.py                        # Storage/profile models
 │   ├── utils/                                # Utility modules
 │   │   ├── __init__.py
@@ -68,12 +68,12 @@ adaptive_router/  # Repository root (workspace root)
 │       ├── integration/                      # Integration tests
 │       │   ├── test_api_endpoints.py
 │       │   ├── test_cost_optimization.py
-│       │   ├── test_model_selection_flows.py
+│       │   ├── test_model_processing_flows.py
 │       │   └── test_task_routing.py
 │       └── unit/                             # Unit tests
 │           ├── models/
 │           └── services/
-├── adaptive_router_app/                      # FastAPI HTTP server (separate package)
+├── nordlys-backend/                      # FastAPI HTTP server (separate package)
 │   ├── __init__.py
 │   ├── main.py                               # FastAPI entry point (inside package)
 │   ├── pyproject.toml                        # App package configuration

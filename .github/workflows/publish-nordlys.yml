@@ -1,0 +1,33 @@
+name: Release to PyPI
+
+on:
+  push:
+    tags:
+      - "nordlys-v*"
+
+jobs:
+  publish:
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write  # Required for Trusted Publishing
+    defaults:
+      run:
+        working-directory: nordlys
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          python-version: "3.12"
+          cache-dependency-glob: "nordlys/**/uv.lock"
+
+      - name: Build package with uv
+        run: uv build --no-sources
+
+      - name: Publish to PyPI with uv (Trusted Publishing)
+        run: uv publish dist/*

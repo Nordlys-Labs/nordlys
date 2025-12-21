@@ -1,0 +1,182 @@
+name: Publish nordlys-core
+
+on:
+  push:
+    tags:
+      - "core-v*"
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  # ============================================
+  # CPU Builds (all platforms)
+  # ============================================
+  build_wheels_cpu:
+    name: Build CPU wheels (${{ matrix.os }})
+    runs-on: ${{ matrix.runs-on }}
+    strategy:
+      matrix:
+        include:
+          - { os: linux-intel, runs-on: ubuntu-latest }
+          - { os: windows-intel, runs-on: windows-latest }
+          - { os: macos-intel, runs-on: macos-15-intel }
+          - { os: macos-arm, runs-on: macos-latest }
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Extract version from tag
+        id: version
+        shell: bash
+        run: |
+          TAG_VERSION=$(echo "${GITHUB_REF#refs/tags/core-v}" | sed 's/^v//')
+          echo "version=$TAG_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Assert version matches tag
+        shell: bash
+        run: |
+          VERSION=$(cat nordlys-core/VERSION | tr -d '[:space:]')
+          TAG_VERSION=${{ steps.version.outputs.version }}
+          if [ "$VERSION" != "$TAG_VERSION" ]; then
+            echo "Error: VERSION file version ($VERSION) does not match tag ($TAG_VERSION)"
+            exit 1
+          fi
+          echo "Version verified: $VERSION"
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v3.3.0
+        env:
+          CIBW_BUILD: "cp311-* cp312-* cp313-*"
+          CIBW_SKIP: "*-musllinux_* *-win32 *_i686"
+          CIBW_BUILD_VERBOSITY: 1
+          CIBW_MANYLINUX_X86_64_IMAGE: "quay.io/pypa/manylinux_2_34_x86_64"
+          CIBW_BEFORE_ALL_LINUX: "dnf install -y cmake"
+          CIBW_BEFORE_ALL_MACOS: "brew install cmake"
+          CIBW_BEFORE_BUILD: "pip install conan && conan profile detect --force"
+          CIBW_BEFORE_BUILD_MACOS: "pip install conan && conan profile detect --force --name default"
+          CIBW_ENVIRONMENT_MACOS: "CONAN_PROFILE_HOST=default MACOSX_DEPLOYMENT_TARGET=13.3"
+          CIBW_ENVIRONMENT: "NORDLYS_ENABLE_CUDA=OFF"
+        with:
+          package-dir: ./nordlys-core/bindings/python
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cibw-wheels-cpu-${{ matrix.os }}
+          path: ./wheelhouse/*.whl
+
+  # ============================================
+  # CUDA Build (Linux only)
+  # ============================================
+  build_wheels_cuda:
+    name: Build CUDA wheels (linux)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Extract version from tag
+        id: version
+        shell: bash
+        run: |
+          TAG_VERSION=$(echo "${GITHUB_REF#refs/tags/core-v}" | sed 's/^v//')
+          echo "version=$TAG_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Assert version matches tag
+        shell: bash
+        run: |
+          VERSION=$(cat nordlys-core/VERSION | tr -d '[:space:]')
+          TAG_VERSION=${{ steps.version.outputs.version }}
+          if [ "$VERSION" != "$TAG_VERSION" ]; then
+            echo "Error: VERSION file version ($VERSION) does not match tag ($TAG_VERSION)"
+            exit 1
+          fi
+          echo "Version verified: $VERSION"
+
+      - name: Assert CUDA version matches CPU version
+        shell: bash
+        run: |
+          CPU_VERSION=$(cat nordlys-core/VERSION | tr -d '[:space:]')
+          CUDA_VERSION=$(cat nordlys-core/VERSION | tr -d '[:space:]')
+          if [ "$CPU_VERSION" != "$CUDA_VERSION" ]; then
+            echo "Error: CUDA package version ($CUDA_VERSION) does not match CPU package version ($CPU_VERSION)"
+            exit 1
+          fi
+          echo "Version sync verified: CPU=$CPU_VERSION, CUDA=$CUDA_VERSION"
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v3.3.0
+        env:
+          CIBW_BUILD: "cp311-* cp312-* cp313-*"
+          CIBW_SKIP: "*-musllinux_* *-win32 *_i686 *-macosx_* *-win_*"
+          CIBW_BUILD_VERBOSITY: 1
+          CIBW_MANYLINUX_X86_64_IMAGE: "quay.io/pypa/manylinux_2_34_x86_64"
+          CIBW_BEFORE_ALL_LINUX: >
+            dnf install -y wget cmake dnf-plugins-core &&
+            dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo &&
+            dnf clean all &&
+            dnf install -y --setopt=install_weak_deps=False --setopt=tsflags=nodocs cuda-compiler-12-9 cuda-libraries-devel-12-9 libnvjitlink-devel-12-9 &&
+            ln -s /usr/local/cuda-12.9 /usr/local/cuda || true &&
+            dnf clean all
+          CIBW_BEFORE_BUILD: "pip install conan && conan profile detect --force"
+          CIBW_ENVIRONMENT: >
+            ADAPTIVE_ENABLE_CUDA=ON
+            CUDACXX=/usr/local/cuda-12.9/bin/nvcc
+            CUDAToolkit_ROOT=/usr/local/cuda-12.9
+            PATH=/usr/local/cuda-12.9/bin:/usr/local/cuda/bin:$PATH
+            LD_LIBRARY_PATH=/usr/local/cuda-12.9/lib64:$LD_LIBRARY_PATH
+          CIBW_REPAIR_WHEEL_COMMAND_LINUX: >
+            auditwheel repair --strip
+            --exclude libcuda.so.1
+            --exclude libcudart.so.12
+            --exclude libnvrtc.so.12
+            --exclude libnvrtc-builtins.so.12
+            --exclude libcublas.so.12
+            --exclude libcublasLt.so.12
+            --exclude libcusolver.so.12
+            --exclude libcusparse.so.12
+            --exclude libnvjitlink.so.12
+            -w {dest_dir} {wheel}
+        with:
+          package-dir: ./nordlys-core-cu12
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cibw-wheels-cuda-linux
+          path: ./wheelhouse/*.whl
+
+  # ============================================
+  # Publish all wheels
+  # ============================================
+  publish:
+    needs: [build_wheels_cpu, build_wheels_cuda]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v7
+        with:
+          pattern: cibw-wheels-*
+          path: dist
+          merge-multiple: true
+
+      - name: List wheels
+        run: ls -la dist/
+
+      - name: Validate wheel versions
+        shell: bash
+        run: |
+          VERSION=$(cat nordlys-core/VERSION | tr -d '[:space:]')
+          cd dist
+          for file in *.whl; do
+            if [[ "$file" != *"$VERSION"* ]]; then
+              echo "Error: Found wheel without $VERSION: $file"
+              exit 1
+            fi
+          done
+          echo "All wheels validated for version $VERSION"
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
