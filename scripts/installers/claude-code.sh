@@ -5,7 +5,7 @@ set -euo pipefail
 # ========================
 #       Constants
 # ========================
-SCRIPT_NAME="Claude Code Adaptive Installer"
+SCRIPT_NAME="Claude Code Nordlys Installer"
 SCRIPT_VERSION="1.0.0"
 NODE_MIN_VERSION=18
 NODE_INSTALL_VERSION=22
@@ -17,7 +17,7 @@ API_KEY_URL="https://www.llmadaptive.uk/dashboard"
 API_TIMEOUT_MS=3000000
 
 # Model override defaults (can be overridden by environment variables)
-# Use nordlys/nordlys-code to enable intelligent routing for optimal cost/performance
+# Use nordlys/nordlys-code to enable Nordlys model for optimal cost/performance
 DEFAULT_PRIMARY_MODEL="nordlys/nordlys-code"
 DEFAULT_FAST_MODEL="nordlys/nordlys-code"
 DEFAULT_OPUS_MODEL="nordlys/nordlys-code"
@@ -185,34 +185,34 @@ validate_model_override() {
     return 0
   fi
 
-  # Validate format: provider/model_id
+  # Validate format: author/model_id
   if [[ ! "$model" =~ ^[a-zA-Z0-9_-]+/[a-zA-Z0-9_.-]+$ ]]; then
-    log_error "Model override format invalid. Use format: provider/model_id (e.g., anthropic/claude-sonnet-4-5) or use nordlys/nordlys-code for intelligent routing"
+    log_error "Model override format invalid. Use format: author/model_id (e.g., nordlys/nordlys-code)"
     return 1
   fi
   return 0
 }
 
 configure_claude() {
-  log_info "Configuring Claude Code for Adaptive..."
+  log_info "Configuring Claude Code for Nordlys..."
   echo "   You can get your API key from: $API_KEY_URL"
 
   # Check for environment variable first
-  local api_key="${ADAPTIVE_API_KEY:-}"
+  local api_key="${NORDLYS_API_KEY:-}"
 
   # Check for model overrides
-  local primary_model="${ADAPTIVE_PRIMARY_MODEL:-$DEFAULT_PRIMARY_MODEL}"
-  local fast_model="${ADAPTIVE_FAST_MODEL:-$DEFAULT_FAST_MODEL}"
-  local opus_model="${ADAPTIVE_DEFAULT_OPUS_MODEL:-$DEFAULT_OPUS_MODEL}"
-  local sonnet_model="${ADAPTIVE_DEFAULT_SONNET_MODEL:-$DEFAULT_SONNET_MODEL}"
-  local haiku_model="${ADAPTIVE_DEFAULT_HAIKU_MODEL:-$DEFAULT_HAIKU_MODEL}"
-  local claude_code_subagent="${ADAPTIVE_CLAUDE_CODE_SUBAGENT:-$DEFAULT_CLAUDE_CODE_SUBAGENT}"
+  local primary_model="${NORDLYS_PRIMARY_MODEL:-$DEFAULT_PRIMARY_MODEL}"
+  local fast_model="${NORDLYS_FAST_MODEL:-$DEFAULT_FAST_MODEL}"
+  local opus_model="${NORDLYS_DEFAULT_OPUS_MODEL:-$DEFAULT_OPUS_MODEL}"
+  local sonnet_model="${NORDLYS_DEFAULT_SONNET_MODEL:-$DEFAULT_SONNET_MODEL}"
+  local haiku_model="${NORDLYS_DEFAULT_HAIKU_MODEL:-$DEFAULT_HAIKU_MODEL}"
+  local claude_code_subagent="${NORDLYS_CLAUDE_CODE_SUBAGENT:-$DEFAULT_CLAUDE_CODE_SUBAGENT}"
 
   # Validate model overrides if provided
   if [ "$primary_model" != "$DEFAULT_PRIMARY_MODEL" ]; then
     log_info "Using custom primary model: $primary_model"
     if ! validate_model_override "$primary_model"; then
-      log_error "Invalid primary model format in ADAPTIVE_PRIMARY_MODEL"
+      log_error "Invalid primary model format in NORDLYS_PRIMARY_MODEL"
       exit 1
     fi
   fi
@@ -220,15 +220,15 @@ configure_claude() {
   if [ "$fast_model" != "$DEFAULT_FAST_MODEL" ]; then
     log_info "Using custom fast model: $fast_model"
     if ! validate_model_override "$fast_model"; then
-      log_error "Invalid fast model format in ADAPTIVE_FAST_MODEL"
+      log_error "Invalid fast model format in NORDLYS_FAST_MODEL"
       exit 1
     fi
   fi
 
   if [ -n "$api_key" ]; then
-    log_info "Using API key from ADAPTIVE_API_KEY environment variable"
+    log_info "Using API key from NORDLYS_API_KEY environment variable"
     if ! validate_api_key "$api_key"; then
-      log_error "Invalid API key format in ADAPTIVE_API_KEY environment variable"
+      log_error "Invalid API key format in NORDLYS_API_KEY environment variable"
       exit 1
     fi
   # Check if running in non-interactive mode (e.g., piped from curl)
@@ -237,19 +237,19 @@ configure_claude() {
     log_info "🎯 Interactive setup required for API key configuration"
     echo ""
     echo "📥 Option 1: Download and run interactively (Recommended)"
-    echo "   curl -o claude-code.sh https://raw.githubusercontent.com/Egham-7/adaptive/main/scripts/installers/claude-code.sh"
+    echo "   curl -o claude-code.sh https://raw.githubusercontent.com/Egham-7/nordlys/main/scripts/installers/claude-code.sh"
     echo "   chmod +x claude-code.sh"
     echo "   ./claude-code.sh"
     echo ""
     echo "🔑 Option 2: Set API key via environment variable"
-    echo "   export ADAPTIVE_API_KEY='your-api-key-here'"
-    echo "   curl -fsSL https://raw.githubusercontent.com/Egham-7/adaptive/main/scripts/installers/claude-code.sh | bash"
+    echo "   export NORDLYS_API_KEY='your-api-key-here'"
+    echo "   curl -fsSL https://raw.githubusercontent.com/Egham-7/nordlys/main/scripts/installers/claude-code.sh | bash"
     echo ""
     echo "🎯 Option 3: Customize models (Advanced)"
-    echo "   export ADAPTIVE_API_KEY='your-api-key-here'"
-    echo "   export ADAPTIVE_PRIMARY_MODEL='anthropic/claude-sonnet-4-5'  # or nordlys/nordlys-code for intelligent routing"
-    echo "   export ADAPTIVE_FAST_MODEL='anthropic/claude-4-5-haiku'  # or nordlys/nordlys-code for intelligent routing"
-    echo "   curl -fsSL https://raw.githubusercontent.com/Egham-7/adaptive/main/scripts/installers/claude-code.sh | bash"
+    echo "   export NORDLYS_API_KEY='your-api-key-here'"
+    echo "   export NORDLYS_PRIMARY_MODEL='nordlys/nordlys-code'"
+    echo "   export NORDLYS_FAST_MODEL='nordlys/nordlys-code'"
+    echo "   curl -fsSL https://raw.githubusercontent.com/Egham-7/nordlys/main/scripts/installers/claude-code.sh | bash"
     echo ""
      echo "⚙️  Option 4: Manual configuration (Advanced users)"
      echo "   mkdir -p ~/.claude"
@@ -277,7 +277,7 @@ configure_claude() {
     local max_attempts=3
 
     while [ $attempts -lt $max_attempts ]; do
-      echo -n "🔑 Please enter your Adaptive API key: "
+      echo -n "🔑 Please enter your Nordlys API key: "
       read -s api_key
       echo
 
@@ -348,7 +348,7 @@ configure_claude() {
     exit 1
   }
 
-  log_success "Claude Code configured for Adaptive successfully"
+  log_success "Claude Code configured for Nordlys successfully"
   log_info "Configuration saved to: $CONFIG_DIR/settings.json"
 }
 
@@ -360,8 +360,8 @@ show_banner() {
   echo "=========================================="
   echo "  $SCRIPT_NAME v$SCRIPT_VERSION"
   echo "=========================================="
-  echo "Configure Claude Code to use Adaptive's"
-  echo "intelligent LLM routing for 60-80% cost savings"
+  echo "Configure Claude Code to use Nordlys's"
+  echo "Mixture of Models for 60-80% cost savings"
   echo ""
 }
 
@@ -395,14 +395,14 @@ main() {
   if verify_installation; then
     echo ""
     echo "╭────────────────────────────────────────────╮"
-    echo "│  🎉 Claude Code + Adaptive Setup Complete  │"
+    echo "│  🎉 Claude Code + Nordlys Setup Complete  │"
     echo "╰────────────────────────────────────────────╯"
     echo ""
     echo "🚀 Quick Start:"
-    echo "   claude                    # Start Claude Code with Adaptive routing"
+    echo "   claude                    # Start Claude Code with Nordlys model"
     echo ""
     echo "🔍 Verify Setup:"
-    echo "   /status                   # Check Adaptive integration in Claude Code"
+    echo "   /status                   # Check Nordlys integration in Claude Code"
     echo "   /help                     # View available commands"
     echo ""
     echo "📊 Monitor Usage:"
@@ -410,13 +410,12 @@ main() {
     echo "   API Logs: ~/.claude/logs/"
     echo ""
     echo "💡 Pro Tips:"
-    echo "   • Intelligent routing enabled by default for optimal cost/performance"
-    echo "   • Current models: Claude Opus 4.1, Sonnet 4, Haiku 3.5"
-    echo "   • Override models: ADAPTIVE_PRIMARY_MODEL, ADAPTIVE_FAST_MODEL env vars"
-    echo "   • Use provider/model_id format (e.g., anthropic/claude-sonnet-4-5)"
+    echo "   • Nordlys model enabled by default"
+    echo "   • Override models: NORDLYS_PRIMARY_MODEL, NORDLYS_FAST_MODEL env vars"
+    echo "   • Use author/model_id format (e.g., nordlys/nordlys-code)"
     echo ""
     echo "📖 Full Documentation: https://docs.llmadaptive.uk/developer-tools/claude-code"
-    echo "🐛 Report Issues: https://github.com/Egham-7/adaptive/issues"
+    echo "🐛 Report Issues: https://github.com/Egham-7/nordlys/issues"
   else
     echo ""
     log_error "❌ Installation verification failed"

@@ -5,7 +5,7 @@ set -euo pipefail
 # ========================
 #       Constants
 # ========================
-SCRIPT_NAME="Gemini CLI Adaptive Installer"
+SCRIPT_NAME="Gemini CLI Nordlys Installer"
 SCRIPT_VERSION="1.0.0"
 NODE_MIN_VERSION=18
 NODE_INSTALL_VERSION=22
@@ -16,7 +16,7 @@ API_BASE_URL="https://api.llmadaptive.uk"
 API_KEY_URL="https://www.llmadaptive.uk/dashboard"
 
 # Model override defaults (can be overridden by environment variables)
-# Use nordlys/nordlys-code to enable intelligent routing for optimal cost/performance
+# Use nordlys/nordlys-code to enable Nordlys model for optimal cost/performance
 DEFAULT_MODEL="nordlys/nordlys-code"
 
 # ========================
@@ -290,7 +290,7 @@ add_env_to_shell_config() {
   else
     # Add new environment variables based on shell type
     echo "" >>"$config_file"
-    echo "# Gemini CLI with Adaptive LLM API Configuration (added by gemini-cli installer)" >>"$config_file"
+    echo "# Gemini CLI with Nordlys Model API Configuration (added by gemini-cli installer)" >>"$config_file"
     if [ "$shell_type" = "fish" ]; then
       echo "set -x GEMINI_API_KEY \"$api_key\"" >>"$config_file"
       echo "set -x GOOGLE_GEMINI_BASE_URL \"$base_url\"" >>"$config_file"
@@ -304,7 +304,7 @@ add_env_to_shell_config() {
 
   log_success "Environment variables added to $config_file"
   if [ "$model" = "$DEFAULT_MODEL" ]; then
-    log_info "GEMINI_MODEL set to nordlys/nordlys-code for intelligent routing (automatic model selection)"
+    log_info "GEMINI_MODEL set to nordlys/nordlys-code for Nordlys model (default)"
   else
     log_info "GEMINI_MODEL set to: $model"
   fi
@@ -323,29 +323,29 @@ validate_model_override() {
     return 0
   fi
 
-  # Validate format: provider/model_id
+  # Validate format: author/model_id
   if [[ ! "$model" =~ ^[a-zA-Z0-9_-]+/[a-zA-Z0-9_.-]+$ ]]; then
-    log_error "Model format invalid. Use format: provider/model_id (e.g., google/gemini-2-5-pro, anthropic/claude-sonnet-4-5) or use nordlys/nordlys-code for intelligent routing"
+    log_error "Model format invalid. Use format: author/model_id (e.g., nordlys/nordlys-code)"
     return 1
   fi
   return 0
 }
 
 configure_gemini() {
-  log_info "Configuring Gemini CLI for Adaptive..."
+  log_info "Configuring Gemini CLI for Nordlys..."
   echo "   You can get your API key from: $API_KEY_URL"
 
   # Check for environment variable first
-  local api_key="${ADAPTIVE_API_KEY:-}"
+  local api_key="${NORDLYS_API_KEY:-}"
 
   # Check for model overrides
-  local model="${ADAPTIVE_MODEL:-$DEFAULT_MODEL}"
+  local model="${NORDLYS_MODEL:-$DEFAULT_MODEL}"
 
   # Validate model override if provided
   if [ "$model" != "$DEFAULT_MODEL" ]; then
     log_info "Using custom model: $model"
     if ! validate_model_override "$model"; then
-      log_error "Invalid model format in ADAPTIVE_MODEL"
+      log_error "Invalid model format in NORDLYS_MODEL"
       exit 1
     fi
   fi
@@ -354,9 +354,9 @@ configure_gemini() {
   local base_url="$API_BASE_URL"
 
   if [ -n "$api_key" ]; then
-    log_info "Using API key from ADAPTIVE_API_KEY environment variable"
+    log_info "Using API key from NORDLYS_API_KEY environment variable"
     if ! validate_api_key "$api_key"; then
-      log_error "Invalid API key format in ADAPTIVE_API_KEY environment variable"
+      log_error "Invalid API key format in NORDLYS_API_KEY environment variable"
       exit 1
     fi
   # Check if running in non-interactive mode (e.g., piped from curl)
@@ -365,27 +365,27 @@ configure_gemini() {
     log_info "🎯 Interactive setup required for API key configuration"
     echo ""
     echo "📥 Option 1: Download and run interactively (Recommended)"
-    echo "   curl -o gemini-cli.sh https://raw.githubusercontent.com/Egham-7/adaptive/main/scripts/installers/gemini-cli.sh"
+    echo "   curl -o gemini-cli.sh https://raw.githubusercontent.com/Egham-7/nordlys/main/scripts/installers/gemini-cli.sh"
     echo "   chmod +x gemini-cli.sh"
     echo "   ./gemini-cli.sh"
     echo ""
     echo "🔑 Option 2: Set API key via environment variable"
-    echo "   export ADAPTIVE_API_KEY='your-api-key-here'"
-    echo "   curl -fsSL https://raw.githubusercontent.com/Egham-7/adaptive/main/scripts/installers/gemini-cli.sh | bash"
+    echo "   export NORDLYS_API_KEY='your-api-key-here'"
+    echo "   curl -fsSL https://raw.githubusercontent.com/Egham-7/nordlys/main/scripts/installers/gemini-cli.sh | bash"
     echo "   # The installer will automatically add the API key to your shell config"
     echo ""
     echo "🎯 Option 3: Customize model (Advanced)"
-    echo "   export ADAPTIVE_API_KEY='your-api-key-here'"
-    echo "   export ADAPTIVE_MODEL='google/gemini-2-5-pro'  # or nordlys/nordlys-code for intelligent routing"
-    echo "   curl -fsSL https://raw.githubusercontent.com/Egham-7/adaptive/main/scripts/installers/gemini-cli.sh | bash"
+    echo "   export NORDLYS_API_KEY='your-api-key-here'"
+    echo "   export NORDLYS_MODEL='nordlys/nordlys-code'"
+    echo "   curl -fsSL https://raw.githubusercontent.com/Egham-7/nordlys/main/scripts/installers/gemini-cli.sh | bash"
     echo ""
     echo "⚙️  Option 4: Manual configuration (Advanced users)"
     echo "   mkdir -p ~/.gemini"
-    echo "   export ADAPTIVE_API_KEY='your-api-key-here'"
+    echo "   export NORDLYS_API_KEY='your-api-key-here'"
     echo "   # Add to your shell config (~/.bashrc, ~/.zshrc, etc.):"
     echo "   echo 'export GEMINI_API_KEY=\"your-api-key-here\"' >> ~/.bashrc"
     echo "   echo 'export GOOGLE_GEMINI_BASE_URL=\"https://www.llmadaptive.uk/api\"' >> ~/.bashrc"
-    echo "   echo 'export GEMINI_MODEL=\"nordlys/nordlys-code\"' >> ~/.bashrc  # Set for intelligent routing"
+    echo "   echo 'export GEMINI_MODEL=\"nordlys/nordlys-code\"' >> ~/.bashrc  # Set for Nordlys model"
     echo ""
     echo "🔗 Get your API key: $API_KEY_URL"
     exit 1
@@ -395,7 +395,7 @@ configure_gemini() {
     local max_attempts=3
 
     while [ $attempts -lt $max_attempts ]; do
-      echo -n "🔑 Please enter your Adaptive API key: "
+      echo -n "🔑 Please enter your Nordlys API key: "
       read -rs api_key
       echo
 
@@ -423,7 +423,7 @@ configure_gemini() {
 
   ensure_dir_exists "$CONFIG_DIR"
 
-  log_success "Gemini CLI configured for Adaptive successfully"
+  log_success "Gemini CLI configured for Nordlys successfully"
   log_info "Base URL: $base_url"
 
   # Add environment variables to shell configuration with the constructed base URL
@@ -438,8 +438,8 @@ show_banner() {
   echo "=========================================="
   echo "  $SCRIPT_NAME v$SCRIPT_VERSION"
   echo "=========================================="
-  echo "Configure Gemini CLI to use Adaptive's"
-  echo "intelligent LLM routing for 60-80% cost savings"
+  echo "Configure Gemini CLI to use Nordlys's"
+  echo "Mixture of Models for 60-80% cost savings"
   echo ""
 }
 
@@ -466,11 +466,11 @@ main() {
   if verify_installation; then
     echo ""
     echo "╭──────────────────────────────────────────╮"
-    echo "│  🎉 Gemini CLI + Adaptive Setup Complete │"
+    echo "│  🎉 Gemini CLI + Nordlys Setup Complete │"
     echo "╰──────────────────────────────────────────╯"
     echo ""
     echo "🚀 Quick Start:"
-    echo "   gemini                    # Start Gemini CLI with Adaptive routing"
+    echo "   gemini                    # Start Gemini CLI with Nordlys model"
     echo "   gemini \"help me code\"     # Interactive chat mode"
     echo ""
     echo "🔍 Verify Setup:"
@@ -488,18 +488,11 @@ main() {
     echo ""
     echo "💡 Pro Tips:"
     echo "   • Your API key is automatically saved to your shell config"
-    echo "   • GEMINI_MODEL set to nordlys/nordlys-code for intelligent routing (optimal cost/performance)"
-    echo "   • Set GEMINI_MODEL='google/gemini-2-5-pro' to override with a specific model"
-    echo "   • Use provider/model_id format (e.g., google/gemini-2-5-pro, anthropic/claude-sonnet-4-5)"
-    echo "   • Access to Anthropic Claude, OpenAI, and other providers via Adaptive routing"
-    echo ""
-    echo "🔄 Load Balancing & Fallbacks:"
-    echo "   • Adaptive automatically routes to the best available model"
-    echo "   • Higher rate limits through multi-provider load balancing"
-    echo "   • Automatic fallbacks if one provider fails"
+    echo "   • GEMINI_MODEL set to nordlys/nordlys-code for Nordlys model (recommended)"
+    echo "   • Set GEMINI_MODEL to another model ID if your team uses additional Nordlys models"
     echo ""
     echo "📖 Full Documentation: https://docs.llmadaptive.uk/developer-tools/gemini-cli"
-    echo "🐛 Report Issues: https://github.com/Egham-7/adaptive/issues"
+    echo "🐛 Report Issues: https://github.com/Egham-7/nordlys/issues"
   else
     echo ""
     log_error "❌ Installation verification failed"
@@ -507,9 +500,9 @@ main() {
     echo "🔧 Manual Setup (if needed):"
     echo "   Configuration: Set environment variables in your shell config"
     echo "   Expected variables:"
-    echo '   export GEMINI_API_KEY="your-adaptive-api-key"'
+    echo '   export GEMINI_API_KEY="your-nordlys-api-key"'
     echo '   export GOOGLE_GEMINI_BASE_URL="https://www.llmadaptive.uk/api"'
-    echo '   export GEMINI_MODEL="nordlys/nordlys-code"  # Intelligent routing'
+    echo '   export GEMINI_MODEL="nordlys/nordlys-code"  # Nordlys model'
     echo ""
     echo "🆘 Get help: https://docs.llmadaptive.uk/troubleshooting"
     exit 1

@@ -1,6 +1,6 @@
-# Contributing to Adaptive
+# Contributing to Nordlys
 
-Thank you for your interest in contributing to Adaptive! This guide will help you get started with contributing to the project.
+Thank you for your interest in contributing to Nordlys! This guide will help you get started with contributing to the project.
 
 ## Getting Started
 
@@ -15,25 +15,25 @@ Thank you for your interest in contributing to Adaptive! This guide will help yo
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/your-org/adaptive.git
-   cd adaptive
+   git clone https://github.com/Nordlys-Labs/nordlys.git
+   cd nordlys
    ```
 
-2. Set up the frontend (adaptive-app):
+2. Set up the frontend (nordlys-frontend):
    ```bash
-   cd adaptive-app
+   cd nordlys-frontend
    bun install
    ```
 
-3. Set up the backend (adaptive-backend):
+3. Set up the backend (nordlys-backend):
    ```bash
-   cd adaptive-backend
+   cd nordlys-backend
    go mod download
    ```
 
-4. Set up the AI service (adaptive_ai):
+4. Set up the AI service (nordlys-py):
    ```bash
-   cd adaptive_ai
+   cd nordlys-py
    pip install -r requirements.txt
    ```
 
@@ -84,13 +84,13 @@ Thank you for your interest in contributing to Adaptive! This guide will help yo
 - Run tests before submitting a PR:
   ```bash
   # Frontend
-  cd adaptive-app && bun test
+  cd nordlys-frontend && bun test
   
   # Backend
-  cd adaptive-backend && go test ./...
+  cd nordlys-backend && go test ./...
   
   # AI Service
-  cd adaptive_ai && python -m pytest
+  cd nordlys-py && python -m pytest
   ```
 
 ### Pull Request Process
@@ -105,10 +105,10 @@ Thank you for your interest in contributing to Adaptive! This guide will help yo
 ## Project Structure
 
 ```
-adaptive/
-├── adaptive-app/          # Next.js frontend application
-├── adaptive-backend/      # Go backend service
-├── adaptive_ai/          # Python AI service
+nordlys/
+├── nordlys-frontend/      # Next.js frontend application
+├── nordlys-backend/       # Go backend service
+├── nordlys-py/            # Python AI service
 ├── analysis/             # Analysis tools and scripts
 ├── monitoring/           # Monitoring and observability
 └── docker-compose.yml    # Development environment
@@ -137,4 +137,4 @@ adaptive/
 
 ## License
 
-By contributing to Adaptive, you agree that your contributions will be licensed under the same license as the project.
+By contributing to Nordlys, you agree that your contributions will be licensed under the same license as the project.

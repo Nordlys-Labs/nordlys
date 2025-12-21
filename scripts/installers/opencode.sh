@@ -1,5 +1,5 @@
 #!/bin/bash
-# OpenCode + Adaptive one-shot installer
+# OpenCode + Nordlys one-shot installer
 # Works on macOS/Linux/Windows (bash/PowerShell), needs curl
 
 set -euo pipefail
@@ -7,7 +7,7 @@ set -euo pipefail
 # ========================
 #       Constants
 # ========================
-SCRIPT_NAME="OpenCode Adaptive Installer"
+SCRIPT_NAME="OpenCode Nordlys Installer"
 SCRIPT_VERSION="1.0.1"
 
 NODE_MIN_VERSION=18
@@ -22,7 +22,7 @@ API_BASE_URL="https://api.llmadaptive.uk/v1"
 API_KEY_URL="https://www.llmadaptive.uk/dashboard"
 
 # Model override defaults:
-# - use nordlys/nordlys-code for intelligent routing
+# - use nordlys/nordlys-code for Nordlys model
 DEFAULT_MODEL="nordlys/nordlys-code"
 
 # ========================
@@ -188,7 +188,7 @@ create_opencode_config() {
   log_info "Creating OpenCode configuration..."
   create_config_backup "$config_file"
 
-  # If user gave ADAPTIVE_MODEL, use it; else default to router id.
+  # If user gave NORDLYS_MODEL, use it; else default to the Nordlys model id.
   local effective_model="$model"
   if [ -z "$effective_model" ]; then
     effective_model="$DEFAULT_MODEL"
@@ -198,12 +198,12 @@ create_opencode_config() {
 {
   "\$schema": "https://opencode.ai/config.json",
   "provider": {
-    "adaptive": {
+    "nordlys": {
       "npm": "@ai-sdk/openai-compatible",
-      "name": "Adaptive",
+      "name": "Nordlys",
       "options": {
         "baseURL": "$API_BASE_URL",
-        "headers": { "User-Agent": "opencode-adaptive-integration" }
+        "headers": { "User-Agent": "opencode-nordlys-integration" }
       },
       "models": {}
     }
@@ -233,7 +233,7 @@ print_auth_instructions() {
   echo ""
   echo "   opencode auth login"
   echo "     → Select: Other"
-  echo "     → Provider ID: adaptive"
+  echo "     → Provider ID: nordlys"
   echo "     → Paste your API key (get it from $API_KEY_URL)"
   echo ""
 }
@@ -265,8 +265,8 @@ show_banner() {
   echo "=========================================="
   echo "  $SCRIPT_NAME v$SCRIPT_VERSION"
   echo "=========================================="
-  echo "Configure OpenCode to use Adaptive's"
-  echo "intelligent LLM routing (save 60–80% costs)"
+  echo "Configure OpenCode to use Nordlys's"
+  echo "Mixture of Models (save 60–80% costs)"
   echo ""
 }
 
@@ -280,32 +280,32 @@ main() {
   install_opencode
 
   # 3) Read env overrides (optional)
-  local api_key="${ADAPTIVE_API_KEY:-}"
-  local model_override="${ADAPTIVE_MODEL:-}"
+  local api_key="${NORDLYS_API_KEY:-}"
+  local model_override="${NORDLYS_MODEL:-}"
   local model="$DEFAULT_MODEL"
 
   if [ -n "$model_override" ]; then
     if ! validate_model_override "$model_override"; then
-      log_error "Invalid ADAPTIVE_MODEL: '$model_override'. Use format: provider/model_id (e.g., anthropic/claude-sonnet-4-5)."
+      log_error "Invalid NORDLYS_MODEL: '$model_override'. Use format: author/model_id (e.g., nordlys/nordlys-code)."
       exit 1
     fi
     log_info "Using custom model override: $model_override"
     model="$model_override"
   else
-    log_info "Using nordlys/nordlys-code intelligent routing (no explicit model override)."
+    log_info "Using nordlys/nordlys-code Nordlys model (no explicit model override)."
   fi
 
   # 4) If API key is present, quick format check (we cannot inject it non-interactively)
   if [ -n "$api_key" ]; then
     if validate_api_key "$api_key"; then
-      log_success "ADAPTIVE_API_KEY detected (format looks OK)."
+      log_success "NORDLYS_API_KEY detected (format looks OK)."
       log_info "Note: OpenCode still requires an interactive 'auth login' to store the key."
     else
-      log_error "ADAPTIVE_API_KEY format looks invalid. Re-check your key or omit the variable."
+      log_error "NORDLYS_API_KEY format looks invalid. Re-check your key or omit the variable."
       exit 1
     fi
   else
-    log_info "No ADAPTIVE_API_KEY in env. You can still complete auth interactively."
+    log_info "No NORDLYS_API_KEY in env. You can still complete auth interactively."
   fi
 
   # 5) Create per-project config
@@ -318,16 +318,16 @@ main() {
   if verify_installation; then
     echo ""
     echo "╭──────────────────────────────────────────────╮"
-    echo "│  🎉 OpenCode + Adaptive Setup Complete       │"
+    echo "│  🎉 OpenCode + Nordlys Setup Complete       │"
     echo "╰──────────────────────────────────────────────╯"
     echo ""
     echo "🚀 Quick Start"
-    echo "   1) opencode auth login         # add 'adaptive' provider with your API key"
+    echo "   1) opencode auth login         # add 'nordlys' integration with your API key"
     echo "   2) opencode                    # open the TUI"
-    echo "   3) /models                     # pick 'Adaptive / 🧠 Intelligent Routing'"
+    echo "   3) /models                     # pick 'Nordlys / 🧠 Nordlys Model'"
     echo ""
     echo "🔍 Verify"
-    echo "   opencode auth list             # should list 'adaptive'"
+    echo "   opencode auth list             # should list 'nordlys'"
     echo "   cat $CONFIG_FILE               # see 'model': 'nordlys/nordlys-code'"
     echo ""
     echo "📊 Monitor"
@@ -338,8 +338,8 @@ main() {
     log_error "Installation verification failed."
     echo ""
     echo "🔧 Manual fallback:"
-    echo "   curl -o $CONFIG_FILE https://raw.githubusercontent.com/Egham-7/adaptive/main/examples/opencode.json"
-    echo "   opencode auth login   # Other → provider id 'adaptive' → paste API key"
+    echo "   curl -o $CONFIG_FILE https://raw.githubusercontent.com/Egham-7/nordlys/main/examples/opencode.json"
+    echo "   opencode auth login   # Other → integration id 'nordlys' → paste API key"
     exit 1
   fi
 }

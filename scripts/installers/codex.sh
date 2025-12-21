@@ -5,16 +5,16 @@ set -euo pipefail
 # ========================
 #       Constants
 # ========================
-SCRIPT_NAME="OpenAI Codex Adaptive Installer"
+SCRIPT_NAME="OpenAI Codex Nordlys Installer"
 SCRIPT_VERSION="1.0.0"
 CONFIG_DIR="$HOME/.codex"
 API_BASE_URL="https://api.llmadaptive.uk/v1"
 API_KEY_URL="https://www.llmadaptive.uk/dashboard"
 
 # Model override defaults (can be overridden by environment variables)
-# Use nordlys/nordlys-code to enable intelligent routing for optimal cost/performance
+# Use nordlys/nordlys-code to enable Nordlys model for optimal cost/performance
 DEFAULT_MODEL="nordlys/nordlys-code"
-DEFAULT_MODEL_PROVIDER="adaptive"
+DEFAULT_MODEL_PROVIDER="nordlys"
 
 # ========================
 #       Utility Functions
@@ -190,39 +190,39 @@ install_codex() {
 #     Configuration Management
 # ========================
 
-configure_adaptive_provider() {
+configure_nordlys_provider() {
   local config_file="$1"
   local model="$2"
   local model_provider="$3"
 
   # Check if config file exists and has content
   if [ -f "$config_file" ] && [ -s "$config_file" ]; then
-    log_info "Existing Codex configuration found, adding Adaptive provider..."
+    log_info "Existing Codex configuration found, adding Nordlys integration..."
 
-    # Check if adaptive provider already exists
-    if grep -q "\[model_providers\.adaptive\]" "$config_file" 2>/dev/null; then
-      log_info "Adaptive provider already configured, updating..."
-      # Remove existing adaptive provider section
-      sed -i '/\[model_providers\.adaptive\]/,/^$/d' "$config_file"
-      sed -i '/\[model_providers\.adaptive\]/,/^\[/{ /^\[/!d; }' "$config_file"
+    # Check if nordlys provider already exists
+    if grep -q "\[model_providers\.nordlys\]" "$config_file" 2>/dev/null; then
+      log_info "Nordlys integration already configured, updating..."
+      # Remove existing nordlys provider section
+      sed -i '/\[model_providers\.nordlys\]/,/^$/d' "$config_file"
+      sed -i '/\[model_providers\.nordlys\]/,/^\[/{ /^\[/!d; }' "$config_file"
     fi
 
-    # Add adaptive provider to existing config
+    # Add nordlys provider to existing config
     {
       echo ""
-      echo "[model_providers.adaptive]"
-      echo "name = \"Adaptive\""
+      echo "[model_providers.nordlys]"
+      echo "name = \"Nordlys\""
       echo "base_url = \"$API_BASE_URL\""
-      echo "env_key = \"ADAPTIVE_API_KEY\""
+      echo "env_key = \"NORDLYS_API_KEY\""
       echo "wire_api = \"chat\""
     } >> "$config_file"
 
-    # Update model_provider to adaptive if not already set to a specific provider
+    # Update model_provider to nordlys if not already set to a specific provider
     if ! grep -q "^model_provider" "$config_file" 2>/dev/null; then
       # Add model_provider if it doesn't exist
       sed -i "1i model_provider = \"$model_provider\"" "$config_file"
-    elif [ "$model_provider" = "adaptive" ]; then
-      # Only update to adaptive if that's what we want
+    elif [ "$model_provider" = "nordlys" ]; then
+      # Only update to nordlys if that's what we want
       sed -i "s/^model_provider = .*/model_provider = \"$model_provider\"/" "$config_file"
     fi
 
@@ -233,23 +233,23 @@ configure_adaptive_provider() {
       sed -i "s/^model = .*/model = \"$model\"/" "$config_file"
     fi
 
-    log_success "Adaptive provider added to existing configuration"
+    log_success "Nordlys integration added to existing configuration"
   else
-    log_info "Creating new Codex configuration with Adaptive provider..."
+    log_info "Creating new Codex configuration with Nordlys integration..."
     # Create new config file
     cat > "$config_file" << EOF
-# Adaptive LLM Routing Configuration
+# Nordlys Configuration
 model = "$model"
 model_provider = "$model_provider"
 approval_policy = "untrusted"
 
-[model_providers.adaptive]
-name = "Adaptive"
+[model_providers.nordlys]
+name = "Nordlys"
 base_url = "$API_BASE_URL"
-env_key = "ADAPTIVE_API_KEY"
+env_key = "NORDLYS_API_KEY"
 wire_api = "chat"
 EOF
-    log_success "New Codex configuration created with Adaptive provider"
+    log_success "New Codex configuration created with Nordlys integration"
   fi
 }
 
@@ -276,38 +276,38 @@ validate_model_override() {
     return 0
   fi
 
-  # Validate format: provider/model_id
+  # Validate format: author/model_id
   if [[ ! "$model" =~ ^[a-zA-Z0-9_-]+/[a-zA-Z0-9_.-]+$ ]]; then
-    log_error "Model format invalid. Use format: provider/model_id (e.g., anthropic/claude-sonnet-4-5, openai/gpt-5-codex) or use nordlys/nordlys-code for intelligent routing"
+    log_error "Model format invalid. Use format: author/model_id (e.g., nordlys/nordlys-code)"
     return 1
   fi
   return 0
 }
 
 configure_codex() {
-  log_info "Configuring Codex for Adaptive..."
+  log_info "Configuring Codex for Nordlys..."
   echo "   You can get your API key from: $API_KEY_URL"
 
   # Check for environment variable first
-  local api_key="${ADAPTIVE_API_KEY:-}"
+  local api_key="${NORDLYS_API_KEY:-}"
 
   # Check for model overrides
-  local model="${ADAPTIVE_MODEL:-$DEFAULT_MODEL}"
-  local model_provider="${ADAPTIVE_MODEL_PROVIDER:-$DEFAULT_MODEL_PROVIDER}"
+  local model="${NORDLYS_MODEL:-$DEFAULT_MODEL}"
+  local model_provider="${NORDLYS_MODEL_PROVIDER:-$DEFAULT_MODEL_PROVIDER}"
 
   # Validate model override if provided
   if [ "$model" != "$DEFAULT_MODEL" ]; then
     log_info "Using custom model: $model"
     if ! validate_model_override "$model"; then
-      log_error "Invalid model format in ADAPTIVE_MODEL"
+      log_error "Invalid model format in NORDLYS_MODEL"
       exit 1
     fi
   fi
 
   if [ -n "$api_key" ]; then
-    log_info "Using API key from ADAPTIVE_API_KEY environment variable"
+    log_info "Using API key from NORDLYS_API_KEY environment variable"
     if ! validate_api_key "$api_key"; then
-      log_error "Invalid API key format in ADAPTIVE_API_KEY environment variable"
+      log_error "Invalid API key format in NORDLYS_API_KEY environment variable"
       exit 1
     fi
   # Check if running in non-interactive mode (e.g., piped from curl)
@@ -316,29 +316,29 @@ configure_codex() {
     log_info "🎯 Interactive setup required for API key configuration"
     echo ""
     echo "📥 Option 1: Download and run interactively (Recommended)"
-    echo "   curl -o codex.sh https://raw.githubusercontent.com/Egham-7/adaptive/main/scripts/installers/codex.sh"
+    echo "   curl -o codex.sh https://raw.githubusercontent.com/Egham-7/nordlys/main/scripts/installers/codex.sh"
     echo "   chmod +x codex.sh"
     echo "   ./codex.sh"
     echo ""
     echo "🔑 Option 2: Set API key via environment variable"
-    echo "   export ADAPTIVE_API_KEY='your-api-key-here'"
-    echo "   curl -fsSL https://raw.githubusercontent.com/Egham-7/adaptive/main/scripts/installers/codex.sh | bash"
+    echo "   export NORDLYS_API_KEY='your-api-key-here'"
+    echo "   curl -fsSL https://raw.githubusercontent.com/Egham-7/nordlys/main/scripts/installers/codex.sh | bash"
     echo ""
     echo "🎯 Option 3: Customize model (Advanced)"
-    echo "   export ADAPTIVE_API_KEY='your-api-key-here'"
-    echo "   export ADAPTIVE_MODEL='anthropic/claude-sonnet-4-5'  # or nordlys/nordlys-code for intelligent routing"
-    echo "   curl -fsSL https://raw.githubusercontent.com/Egham-7/adaptive/main/scripts/installers/codex.sh | bash"
+    echo "   export NORDLYS_API_KEY='your-api-key-here'"
+    echo "   export NORDLYS_MODEL='nordlys/nordlys-code'"
+    echo "   curl -fsSL https://raw.githubusercontent.com/Egham-7/nordlys/main/scripts/installers/codex.sh | bash"
     echo ""
     echo "⚙️  Option 4: Manual configuration (Advanced users)"
     echo "   mkdir -p ~/.codex"
     echo "   cat > ~/.codex/config.toml << 'EOF'"
     echo "model = \"nordlys/nordlys-code\""
-    echo "model_provider = \"adaptive\""
+    echo "model_provider = \"nordlys\""
     echo ""
-    echo "[model_providers.adaptive]"
-    echo "name = \"Adaptive\""
+    echo "[model_providers.nordlys]"
+    echo "name = \"Nordlys\""
     echo "base_url = \"https://www.llmadaptive.uk/api/v1\""
-    echo "env_key = \"ADAPTIVE_API_KEY\""
+    echo "env_key = \"NORDLYS_API_KEY\""
     echo "wire_api = \"chat\""
     echo "EOF"
     echo ""
@@ -350,7 +350,7 @@ configure_codex() {
     local max_attempts=3
 
     while [ $attempts -lt $max_attempts ]; do
-      echo -n "🔑 Please enter your Adaptive API key: "
+      echo -n "🔑 Please enter your Nordlys API key: "
       read -rs api_key
       echo
 
@@ -378,17 +378,17 @@ configure_codex() {
 
   ensure_dir_exists "$CONFIG_DIR"
 
-  # Configure Codex with Adaptive provider
+  # Configure Codex with Nordlys integration
   local config_file="$CONFIG_DIR/config.toml"
   create_config_backup "$config_file"
-  configure_adaptive_provider "$config_file" "$model" "$model_provider"
+  configure_nordlys_provider "$config_file" "$model" "$model_provider"
 
   # Set environment variable for the session
-  export ADAPTIVE_API_KEY="$api_key"
+  export NORDLYS_API_KEY="$api_key"
 
   # Add to shell profiles for persistence
   local env_line
-  env_line="export ADAPTIVE_API_KEY='$api_key'"
+  env_line="export NORDLYS_API_KEY='$api_key'"
 
   # Detect current shell and add to appropriate profile
   local current_shell
@@ -398,10 +398,10 @@ configure_codex() {
   case "$current_shell" in
     zsh)
       if [ -f "$HOME/.zshrc" ]; then
-        if ! grep -q "ADAPTIVE_API_KEY" "$HOME/.zshrc" 2>/dev/null; then
+        if ! grep -q "NORDLYS_API_KEY" "$HOME/.zshrc" 2>/dev/null; then
           {
             echo ""
-            echo "# Adaptive API Key"
+            echo "# Nordlys API Key"
             echo "$env_line"
           } >> "$HOME/.zshrc"
           log_info "Added API key to ~/.zshrc"
@@ -411,10 +411,10 @@ configure_codex() {
       ;;
     bash)
       if [ -f "$HOME/.bashrc" ]; then
-        if ! grep -q "ADAPTIVE_API_KEY" "$HOME/.bashrc" 2>/dev/null; then
+        if ! grep -q "NORDLYS_API_KEY" "$HOME/.bashrc" 2>/dev/null; then
           {
             echo ""
-            echo "# Adaptive API Key"
+            echo "# Nordlys API Key"
             echo "$env_line"
           } >> "$HOME/.bashrc"
           log_info "Added API key to ~/.bashrc"
@@ -428,11 +428,11 @@ configure_codex() {
       local fish_config="$fish_config_dir/config.fish"
       ensure_dir_exists "$fish_config_dir"
       if [ -f "$fish_config" ]; then
-        if ! grep -q "ADAPTIVE_API_KEY" "$fish_config" 2>/dev/null; then
+        if ! grep -q "NORDLYS_API_KEY" "$fish_config" 2>/dev/null; then
           {
             echo ""
-            echo "# Adaptive API Key"
-            echo "set -gx ADAPTIVE_API_KEY '$api_key'"
+            echo "# Nordlys API Key"
+            echo "set -gx NORDLYS_API_KEY '$api_key'"
           } >> "$fish_config"
           log_info "Added API key to ~/.config/fish/config.fish"
           profile_updated=true
@@ -448,10 +448,10 @@ configure_codex() {
   if [ "$profile_updated" = false ]; then
     # Try .profile (POSIX-compliant, works with most shells)
     if [ -f "$HOME/.profile" ]; then
-      if ! grep -q "ADAPTIVE_API_KEY" "$HOME/.profile" 2>/dev/null; then
+      if ! grep -q "NORDLYS_API_KEY" "$HOME/.profile" 2>/dev/null; then
         {
           echo ""
-          echo "# Adaptive API Key"
+          echo "# Nordlys API Key"
           echo "$env_line"
         } >> "$HOME/.profile"
         log_info "Added API key to ~/.profile"
@@ -460,7 +460,7 @@ configure_codex() {
     else
       # Create .profile if it doesn't exist
       {
-        echo "# Adaptive API Key"
+        echo "# Nordlys API Key"
         echo "$env_line"
       } > "$HOME/.profile"
       log_info "Created ~/.profile and added API key"
@@ -469,10 +469,10 @@ configure_codex() {
 
     # Also try shell-specific files as backup
     for profile in ".zshrc" ".bashrc"; do
-      if [ -f "$HOME/$profile" ] && ! grep -q "ADAPTIVE_API_KEY" "$HOME/$profile" 2>/dev/null; then
+      if [ -f "$HOME/$profile" ] && ! grep -q "NORDLYS_API_KEY" "$HOME/$profile" 2>/dev/null; then
         {
           echo ""
-          echo "# Adaptive API Key"
+          echo "# Nordlys API Key"
           echo "$env_line"
         } >> "$HOME/$profile"
         log_info "Added API key to ~/$profile"
@@ -480,7 +480,7 @@ configure_codex() {
     done
   fi
 
-  log_success "Codex configured for Adaptive successfully"
+  log_success "Codex configured for Nordlys successfully"
   log_info "Configuration saved to: $config_file"
   log_info "Environment variable added to shell profiles"
 }
@@ -493,8 +493,8 @@ show_banner() {
   echo "=========================================="
   echo "  $SCRIPT_NAME v$SCRIPT_VERSION"
   echo "=========================================="
-  echo "Configure OpenAI Codex to use Adaptive's"
-  echo "intelligent LLM routing for 60-80% cost savings"
+  echo "Configure OpenAI Codex to use Nordlys's"
+  echo "Mixture of Models for 60-80% cost savings"
   echo ""
 }
 
@@ -514,8 +514,8 @@ verify_installation() {
   fi
 
   # Check if environment variable is set
-  if [ -z "${ADAPTIVE_API_KEY:-}" ]; then
-    log_error "ADAPTIVE_API_KEY environment variable not set"
+  if [ -z "${NORDLYS_API_KEY:-}" ]; then
+    log_error "NORDLYS_API_KEY environment variable not set"
     return 1
   fi
 
@@ -533,17 +533,17 @@ main() {
   if verify_installation; then
     echo ""
     echo "╭──────────────────────────────────────────╮"
-    echo "│  🎉 Codex + Adaptive Setup Complete      │"
+    echo "│  🎉 Codex + Nordlys Setup Complete      │"
     echo "╰──────────────────────────────────────────╯"
     echo ""
     echo "🚀 Quick Start:"
-    echo "   codex                     # Start Codex with Adaptive routing"
-    echo "   codex --model nordlys/nordlys-code  # Explicit intelligent routing"
+    echo "   codex                     # Start Codex with Nordlys model"
+    echo "   codex --model nordlys/nordlys-code  # Explicit Nordlys model"
     echo ""
     echo "🔍 Verify Setup:"
     echo "   codex --version           # Check Codex installation"
     echo "   cat ~/.codex/config.toml  # View configuration"
-    echo "   echo \$ADAPTIVE_API_KEY    # Check API key"
+    echo "   echo \$NORDLYS_API_KEY    # Check API key"
     echo ""
     echo "💡 Usage Examples:"
     echo "   codex                     # Interactive mode"
@@ -554,17 +554,16 @@ main() {
     echo "📊 Monitor Usage:"
     echo "   Dashboard: $API_KEY_URL"
     echo "   Configuration: ~/.codex/config.toml"
-    echo "   Environment: \$ADAPTIVE_API_KEY"
+    echo "   Environment: \$NORDLYS_API_KEY"
     echo ""
     echo "💡 Pro Tips:"
-    echo "   • Intelligent routing enabled by default for optimal cost/performance"
-    echo "   • Available models: anthropic/claude-sonnet-4-5, openai/gpt-5-codex, etc."
+    echo "   • Nordlys model enabled by default"
     echo "   • Use --sandbox workspace-write for file editing tasks"
     echo "   • Configure MCP servers for extended capabilities"
     echo "   • Create AGENTS.md for project-specific instructions"
     echo ""
     echo "📖 Full Documentation: https://docs.llmadaptive.uk/developer-tools/codex"
-    echo "🐛 Report Issues: https://github.com/Egham-7/adaptive/issues"
+    echo "🐛 Report Issues: https://github.com/Egham-7/nordlys/issues"
     echo ""
     local current_shell
     current_shell=$(basename "${SHELL:-/bin/bash}")
@@ -588,14 +587,14 @@ main() {
     echo ""
     echo "🔧 Manual Setup (if needed):"
     echo "   Configuration: ~/.codex/config.toml"
-    echo "   Environment: export ADAPTIVE_API_KEY='your-key'"
+    echo "   Environment: export NORDLYS_API_KEY='your-key'"
     echo "   Expected config format:"
     echo '   model = "nordlys/nordlys-code"'
-    echo '   model_provider = "adaptive"'
-    echo '   [model_providers.adaptive]'
-    echo '   name = "Adaptive"'
+    echo '   model_provider = "nordlys"'
+    echo '   [model_providers.nordlys]'
+    echo '   name = "Nordlys"'
     echo '   base_url = "https://www.llmadaptive.uk/api/v1"'
-    echo '   env_key = "ADAPTIVE_API_KEY"'
+    echo '   env_key = "NORDLYS_API_KEY"'
     echo ""
     echo "🆘 Get help: https://docs.llmadaptive.uk/troubleshooting"
     exit 1

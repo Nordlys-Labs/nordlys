@@ -1,6 +1,6 @@
-# Adaptive Installation Scripts
+# Nordlys Installation Scripts
 
-This directory contains installation and configuration scripts for integrating various developer tools with Adaptive's intelligent LLM routing.
+This directory contains installation and configuration scripts for integrating various developer tools with Nordlys models.
 
 ## Prerequisites
 
@@ -10,7 +10,7 @@ Before running these scripts, ensure you have:
 - **Shell**: Bash 4.0+ or compatible shell
 - **curl**: For downloading scripts and making API requests
 - **Node.js** (optional): Some tools may require Node.js 16+ and npm
-- **Adaptive API Key**: Required for authentication with Adaptive services
+- **Nordlys API Key**: Required for authentication with Nordlys services
 
 ## Supported Platforms
 
@@ -27,10 +27,10 @@ Before running these scripts, ensure you have:
 
 | Tool | Script | Description |
 |------|--------|-------------|
-| Claude Code | `installers/claude-code.sh` | Configure Claude Code to use Adaptive API |
-| OpenAI Codex | `installers/codex.sh` | Configure OpenAI Codex to use Adaptive routing |
-| Grok CLI | `installers/grok-cli.sh` | Configure Grok CLI to use Adaptive routing |
-| OpenCode | `installers/opencode.sh` | Configure OpenCode to use Adaptive integration |
+| Claude Code | `installers/claude-code.sh` | Configure Claude Code to use Nordlys API |
+| OpenAI Codex | `installers/codex.sh` | Configure OpenAI Codex to use Nordlys models |
+| Grok CLI | `installers/grok-cli.sh` | Configure Grok CLI to use Nordlys models |
+| OpenCode | `installers/opencode.sh` | Configure OpenCode to use Nordlys integration |
 
 ### Usage
 
@@ -83,7 +83,7 @@ chmod +x opencode.sh
 Each installer script follows this pattern:
 - **Prerequisites check**: Verify required dependencies (Node.js, etc.)
 - **Tool installation**: Install the developer tool if not present
-- **Configuration**: Set up Adaptive API integration
+- **Configuration**: Set up Nordlys API integration
 - **Verification**: Test the connection and configuration
 
 ## Adding New Tools
@@ -99,7 +99,7 @@ To add support for a new developer tool:
 
 All scripts configure tools to use:
 - **API Base URL**: `https://www.llmadaptive.uk/api/v1`
-- **Authentication**: User's Adaptive API key
+- **Authentication**: User's Nordlys API key
 - **Timeout**: 3000000ms for long-running requests
 
 ## Troubleshooting

@@ -5,7 +5,7 @@ set -euo pipefail
 # ========================
 #       Constants
 # ========================
-SCRIPT_NAME="Qwen Code Adaptive Installer"
+SCRIPT_NAME="Qwen Code Nordlys Installer"
 SCRIPT_VERSION="1.0.0"
 NODE_MIN_VERSION=20
 NODE_INSTALL_VERSION=22
@@ -16,7 +16,7 @@ API_BASE_URL="https://api.llmadaptive.uk/v1"
 API_KEY_URL="https://www.llmadaptive.uk/dashboard"
 
 # Model override defaults (can be overridden by environment variables)
-# Use nordlys/nordlys-code to enable intelligent routing for optimal cost/performance
+# Use nordlys/nordlys-code to enable Nordlys model for optimal cost/performance
 DEFAULT_MODEL="nordlys/nordlys-code"
 
 # ========================
@@ -275,7 +275,7 @@ add_env_to_shell_config() {
     if [ "$shell_type" = "fish" ]; then
       {
         echo ""
-        echo "# Qwen Code with Adaptive LLM API Configuration (added by qwen-code installer)"
+        echo "# Qwen Code with Nordlys Model API Configuration (added by qwen-code installer)"
         echo "set -x OPENAI_API_KEY \"$api_key\"  # qwen-code"
         echo "set -x OPENAI_BASE_URL \"$base_url\"  # qwen-code"
         echo "set -x OPENAI_MODEL \"$model\"  # qwen-code"
@@ -283,7 +283,7 @@ add_env_to_shell_config() {
     else
       {
         echo ""
-        echo "# Qwen Code with Adaptive LLM API Configuration (added by qwen-code installer)"
+        echo "# Qwen Code with Nordlys Model API Configuration (added by qwen-code installer)"
         echo "export OPENAI_API_KEY=\"$api_key\"  # qwen-code"
         echo "export OPENAI_BASE_URL=\"$base_url\"  # qwen-code"
         echo "export OPENAI_MODEL=\"$model\"  # qwen-code"
@@ -293,7 +293,7 @@ add_env_to_shell_config() {
 
   log_success "Environment variables added to $config_file"
   if [ "$model" = "$DEFAULT_MODEL" ]; then
-    log_info "OPENAI_MODEL set to nordlys/nordlys-code for intelligent routing (automatic model selection)"
+    log_info "OPENAI_MODEL set to nordlys/nordlys-code for Nordlys model (default)"
   else
     log_info "OPENAI_MODEL set to: $model"
   fi
@@ -312,29 +312,29 @@ validate_model_override() {
     return 0
   fi
 
-  # Validate format: provider/model_id
+  # Validate format: author/model_id
   if [[ ! "$model" =~ ^[a-zA-Z0-9_-]+/[a-zA-Z0-9_.-]+$ ]]; then
-    log_error "Model format invalid. Use format: provider/model_id (e.g., qwen/qwen3-coder-480b, anthropic/claude-sonnet-4-5, openai/gpt-5-codex) or use nordlys/nordlys-code for intelligent routing"
+    log_error "Model format invalid. Use format: author/model_id (e.g., nordlys/nordlys-code)"
     return 1
   fi
   return 0
 }
 
 configure_qwen() {
-  log_info "Configuring Qwen Code for Adaptive..."
+  log_info "Configuring Qwen Code for Nordlys..."
   echo "   You can get your API key from: $API_KEY_URL"
 
   # Check for environment variable first
-  local api_key="${ADAPTIVE_API_KEY:-}"
+  local api_key="${NORDLYS_API_KEY:-}"
 
   # Check for model overrides
-  local model="${ADAPTIVE_MODEL:-$DEFAULT_MODEL}"
+  local model="${NORDLYS_MODEL:-$DEFAULT_MODEL}"
 
   # Validate model override if provided
   if [ "$model" != "$DEFAULT_MODEL" ]; then
     log_info "Using custom model: $model"
     if ! validate_model_override "$model"; then
-      log_error "Invalid model format in ADAPTIVE_MODEL"
+      log_error "Invalid model format in NORDLYS_MODEL"
       exit 1
     fi
   fi
@@ -343,9 +343,9 @@ configure_qwen() {
   local base_url="$API_BASE_URL"
 
   if [ -n "$api_key" ]; then
-    log_info "Using API key from ADAPTIVE_API_KEY environment variable"
+    log_info "Using API key from NORDLYS_API_KEY environment variable"
     if ! validate_api_key "$api_key"; then
-      log_error "Invalid API key format in ADAPTIVE_API_KEY environment variable"
+      log_error "Invalid API key format in NORDLYS_API_KEY environment variable"
       exit 1
     fi
   # Check if running in non-interactive mode (e.g., piped from curl)
@@ -354,27 +354,27 @@ configure_qwen() {
     log_info "🎯 Interactive setup required for API key configuration"
     echo ""
     echo "📥 Option 1: Download and run interactively (Recommended)"
-    echo "   curl -o qwen-code.sh https://raw.githubusercontent.com/Egham-7/adaptive/main/scripts/installers/qwen-code.sh"
+    echo "   curl -o qwen-code.sh https://raw.githubusercontent.com/Egham-7/nordlys/main/scripts/installers/qwen-code.sh"
     echo "   chmod +x qwen-code.sh"
     echo "   ./qwen-code.sh"
     echo ""
     echo "🔑 Option 2: Set API key via environment variable"
-    echo "   export ADAPTIVE_API_KEY='your-api-key-here'"
-    echo "   curl -fsSL https://raw.githubusercontent.com/Egham-7/adaptive/main/scripts/installers/qwen-code.sh | bash"
+    echo "   export NORDLYS_API_KEY='your-api-key-here'"
+    echo "   curl -fsSL https://raw.githubusercontent.com/Egham-7/nordlys/main/scripts/installers/qwen-code.sh | bash"
     echo "   # The installer will automatically add the API key to your shell config"
     echo ""
     echo "🎯 Option 3: Customize model (Advanced)"
-    echo "   export ADAPTIVE_API_KEY='your-api-key-here'"
-    echo "   export ADAPTIVE_MODEL='qwen/qwen3-coder-480b'  # or nordlys/nordlys-code for intelligent routing"
-    echo "   curl -fsSL https://raw.githubusercontent.com/Egham-7/adaptive/main/scripts/installers/qwen-code.sh | bash"
+    echo "   export NORDLYS_API_KEY='your-api-key-here'"
+    echo "   export NORDLYS_MODEL='nordlys/nordlys-code'"
+    echo "   curl -fsSL https://raw.githubusercontent.com/Egham-7/nordlys/main/scripts/installers/qwen-code.sh | bash"
     echo ""
     echo "⚙️  Option 4: Manual configuration (Advanced users)"
     echo "   mkdir -p ~/.qwen"
-    echo "   export ADAPTIVE_API_KEY='your-api-key-here'"
+    echo "   export NORDLYS_API_KEY='your-api-key-here'"
     echo "   # Add to your shell config (~/.bashrc, ~/.zshrc, etc.):"
     echo "   echo 'export OPENAI_API_KEY=\"your-api-key-here\"  # qwen-code' >> ~/.bashrc"
     echo "   echo 'export OPENAI_BASE_URL=\"https://www.llmadaptive.uk/api/v1\"  # qwen-code' >> ~/.bashrc"
-    echo "   echo 'export OPENAI_MODEL=\"nordlys/nordlys-code\"  # qwen-code - Intelligent routing' >> ~/.bashrc"
+    echo "   echo 'export OPENAI_MODEL=\"nordlys/nordlys-code\"  # qwen-code - Nordlys model' >> ~/.bashrc"
     echo ""
     echo "🔗 Get your API key: $API_KEY_URL"
     exit 1
@@ -384,7 +384,7 @@ configure_qwen() {
     local max_attempts=3
 
     while [ $attempts -lt $max_attempts ]; do
-      echo -n "🔑 Please enter your Adaptive API key: "
+      echo -n "🔑 Please enter your Nordlys API key: "
       read -rs api_key
       echo
 
@@ -412,7 +412,7 @@ configure_qwen() {
 
   ensure_dir_exists "$CONFIG_DIR"
 
-  log_success "Qwen Code configured for Adaptive successfully"
+  log_success "Qwen Code configured for Nordlys successfully"
   log_info "Base URL: $base_url"
 
   # Add environment variables to shell configuration with the constructed base URL
@@ -427,8 +427,8 @@ show_banner() {
   echo "=========================================="
   echo "  $SCRIPT_NAME v$SCRIPT_VERSION"
   echo "=========================================="
-  echo "Configure Qwen Code to use Adaptive's"
-  echo "intelligent LLM routing for 60-80% cost savings"
+  echo "Configure Qwen Code to use Nordlys's"
+  echo "Mixture of Models for 60-80% cost savings"
   echo ""
 }
 
@@ -455,11 +455,11 @@ main() {
   if verify_installation; then
     echo ""
     echo "╭──────────────────────────────────────────╮"
-    echo "│  🎉 Qwen Code + Adaptive Setup Complete  │"
+    echo "│  🎉 Qwen Code + Nordlys Setup Complete  │"
     echo "╰──────────────────────────────────────────╯"
     echo ""
     echo "🚀 Quick Start:"
-    echo "   qwen                      # Start Qwen Code with Adaptive routing"
+    echo "   qwen                      # Start Qwen Code with Nordlys model"
     echo "   qwen \"help me code\"       # Interactive chat mode"
     echo ""
     echo "🔍 Verify Setup:"
@@ -477,18 +477,11 @@ main() {
     echo ""
     echo "💡 Pro Tips:"
     echo "   • Your API key is automatically saved to your shell config"
-    echo "   • OPENAI_MODEL set to nordlys/nordlys-code for intelligent routing (optimal cost/performance)"
-    echo "   • Set OPENAI_MODEL='qwen/qwen3-coder-480b' to override with a specific model"
-    echo "   • Use provider/model_id format (e.g., qwen/qwen3-coder-480b, anthropic/claude-sonnet-4-5, openai/gpt-5-codex)"
-    echo "   • Access to Anthropic Claude, OpenAI, and other providers via Adaptive routing"
-    echo ""
-    echo "🔄 Load Balancing & Fallbacks:"
-    echo "   • Adaptive automatically routes to the best available model"
-    echo "   • Higher rate limits through multi-provider load balancing"
-    echo "   • Automatic fallbacks if one provider fails"
+    echo "   • OPENAI_MODEL set to nordlys/nordlys-code for Nordlys model (recommended)"
+    echo "   • Set OPENAI_MODEL to another model ID if your team uses additional Nordlys models"
     echo ""
     echo "📖 Full Documentation: https://docs.llmadaptive.uk/developer-tools/qwen-code"
-    echo "🐛 Report Issues: https://github.com/Egham-7/adaptive/issues"
+    echo "🐛 Report Issues: https://github.com/Egham-7/nordlys/issues"
   else
     echo ""
     log_error "❌ Installation verification failed"
@@ -496,9 +489,9 @@ main() {
     echo "🔧 Manual Setup (if needed):"
     echo "   Configuration: Set environment variables in your shell config"
     echo "   Expected variables:"
-    echo '   export OPENAI_API_KEY="your-adaptive-api-key"  # qwen-code'
+    echo '   export OPENAI_API_KEY="your-nordlys-api-key"  # qwen-code'
     echo '   export OPENAI_BASE_URL="https://www.llmadaptive.uk/api/v1"  # qwen-code'
-    echo '   export OPENAI_MODEL="nordlys/nordlys-code"  # qwen-code - Intelligent routing'
+    echo '   export OPENAI_MODEL="nordlys/nordlys-code"  # qwen-code - Nordlys model'
     echo ""
     echo "🆘 Get help: https://docs.llmadaptive.uk/troubleshooting"
     exit 1

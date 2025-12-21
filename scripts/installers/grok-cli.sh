@@ -5,7 +5,7 @@ set -euo pipefail
 # ========================
 #       Constants
 # ========================
-SCRIPT_NAME="Grok CLI Adaptive Installer"
+SCRIPT_NAME="Grok CLI Nordlys Installer"
 SCRIPT_VERSION="1.0.0"
 NODE_MIN_VERSION=18
 NODE_INSTALL_VERSION=22
@@ -16,7 +16,7 @@ API_BASE_URL="https://api.llmadaptive.uk/v1"
 API_KEY_URL="https://www.llmadaptive.uk/dashboard"
 
 # Model override defaults (can be overridden by environment variables)
-# Use nordlys/nordlys-code to enable intelligent routing for optimal cost/performance
+# Use nordlys/nordlys-code to enable Nordlys model for optimal cost/performance
 DEFAULT_MODEL="nordlys/nordlys-code"
 DEFAULT_MODELS='["anthropic/claude-sonnet-4-5","anthropic/claude-4-5-haiku","anthropic/claude-opus-4-1-20250805","openai/gpt-5-codex","google/gemini-2-5-pro"]'
 
@@ -277,53 +277,53 @@ add_env_to_shell_config() {
   # Create config file if it doesn't exist
   touch "$config_file"
 
-  # Check if ADAPTIVE_API_KEY already exists in the config
-  if grep -q "ADAPTIVE_API_KEY" "$config_file" 2>/dev/null; then
-    log_info "ADAPTIVE environment variables already exist in $config_file, updating..."
+  # Check if NORDLYS_API_KEY already exists in the config
+  if grep -q "NORDLYS_API_KEY" "$config_file" 2>/dev/null; then
+    log_info "NORDLYS environment variables already exist in $config_file, updating..."
 
     if [ "$shell_type" = "fish" ]; then
       # Fish shell: update both API key and base URL
       if [[ "$OSTYPE" == "darwin"* ]]; then
         # macOS sed for Fish
-        sed -i '' "s|set -x ADAPTIVE_API_KEY.*|set -x ADAPTIVE_API_KEY \"$api_key\"|" "$config_file"
-        sed -i '' "s|set -x ADAPTIVE_BASE_URL.*|set -x ADAPTIVE_BASE_URL \"$API_BASE_URL\"|" "$config_file"
+        sed -i '' "s|set -x NORDLYS_API_KEY.*|set -x NORDLYS_API_KEY \"$api_key\"|" "$config_file"
+        sed -i '' "s|set -x NORDLYS_BASE_URL.*|set -x NORDLYS_BASE_URL \"$API_BASE_URL\"|" "$config_file"
       else
         # Linux sed for Fish
-        sed -i "s|set -x ADAPTIVE_API_KEY.*|set -x ADAPTIVE_API_KEY \"$api_key\"|" "$config_file"
-        sed -i "s|set -x ADAPTIVE_BASE_URL.*|set -x ADAPTIVE_BASE_URL \"$API_BASE_URL\"|" "$config_file"
+        sed -i "s|set -x NORDLYS_API_KEY.*|set -x NORDLYS_API_KEY \"$api_key\"|" "$config_file"
+        sed -i "s|set -x NORDLYS_BASE_URL.*|set -x NORDLYS_BASE_URL \"$API_BASE_URL\"|" "$config_file"
       fi
 
-      # Add ADAPTIVE_BASE_URL if it doesn't exist in Fish config
-      if ! grep -q "ADAPTIVE_BASE_URL" "$config_file" 2>/dev/null; then
-        echo "set -x ADAPTIVE_BASE_URL \"$API_BASE_URL\"" >> "$config_file"
+      # Add NORDLYS_BASE_URL if it doesn't exist in Fish config
+      if ! grep -q "NORDLYS_BASE_URL" "$config_file" 2>/dev/null; then
+        echo "set -x NORDLYS_BASE_URL \"$API_BASE_URL\"" >> "$config_file"
       fi
     else
       # POSIX shells (bash/zsh): update both API key and base URL
       if [[ "$OSTYPE" == "darwin"* ]]; then
         # macOS sed for bash/zsh
-        sed -i '' "s|export ADAPTIVE_API_KEY=.*|export ADAPTIVE_API_KEY=\"$api_key\"|" "$config_file"
-        sed -i '' "s|export ADAPTIVE_BASE_URL=.*|export ADAPTIVE_BASE_URL=\"$API_BASE_URL\"|" "$config_file"
+        sed -i '' "s|export NORDLYS_API_KEY=.*|export NORDLYS_API_KEY=\"$api_key\"|" "$config_file"
+        sed -i '' "s|export NORDLYS_BASE_URL=.*|export NORDLYS_BASE_URL=\"$API_BASE_URL\"|" "$config_file"
       else
         # Linux sed for bash/zsh
-        sed -i "s|export ADAPTIVE_API_KEY=.*|export ADAPTIVE_API_KEY=\"$api_key\"|" "$config_file"
-        sed -i "s|export ADAPTIVE_BASE_URL=.*|export ADAPTIVE_BASE_URL=\"$API_BASE_URL\"|" "$config_file"
+        sed -i "s|export NORDLYS_API_KEY=.*|export NORDLYS_API_KEY=\"$api_key\"|" "$config_file"
+        sed -i "s|export NORDLYS_BASE_URL=.*|export NORDLYS_BASE_URL=\"$API_BASE_URL\"|" "$config_file"
       fi
 
-      # Add ADAPTIVE_BASE_URL if it doesn't exist in POSIX shell config
-      if ! grep -q "ADAPTIVE_BASE_URL" "$config_file" 2>/dev/null; then
-        echo "export ADAPTIVE_BASE_URL=\"$API_BASE_URL\"" >> "$config_file"
+      # Add NORDLYS_BASE_URL if it doesn't exist in POSIX shell config
+      if ! grep -q "NORDLYS_BASE_URL" "$config_file" 2>/dev/null; then
+        echo "export NORDLYS_BASE_URL=\"$API_BASE_URL\"" >> "$config_file"
       fi
     fi
   else
     # Add new environment variables based on shell type
     echo "" >> "$config_file"
-    echo "# Adaptive LLM API Configuration (added by grok-cli installer)" >> "$config_file"
+    echo "# Nordlys Model API Configuration (added by grok-cli installer)" >> "$config_file"
     if [ "$shell_type" = "fish" ]; then
-      echo "set -x ADAPTIVE_API_KEY \"$api_key\"" >> "$config_file"
-      echo "set -x ADAPTIVE_BASE_URL \"$API_BASE_URL\"" >> "$config_file"
+      echo "set -x NORDLYS_API_KEY \"$api_key\"" >> "$config_file"
+      echo "set -x NORDLYS_BASE_URL \"$API_BASE_URL\"" >> "$config_file"
     else
-      echo "export ADAPTIVE_API_KEY=\"$api_key\"" >> "$config_file"
-      echo "export ADAPTIVE_BASE_URL=\"$API_BASE_URL\"" >> "$config_file"
+      echo "export NORDLYS_API_KEY=\"$api_key\"" >> "$config_file"
+      echo "export NORDLYS_BASE_URL=\"$API_BASE_URL\"" >> "$config_file"
     fi
   fi
 
@@ -343,38 +343,38 @@ validate_model_override() {
     return 0
   fi
 
-  # Validate format: provider/model_id
+  # Validate format: author/model_id
   if [[ ! "$model" =~ ^[a-zA-Z0-9_-]+/[a-zA-Z0-9_.-]+$ ]]; then
-    log_error "Model format invalid. Use format: provider/model_id (e.g., anthropic/claude-sonnet-4-5, openai/gpt-5-codex) or use nordlys/nordlys-code for intelligent routing"
+    log_error "Model format invalid. Use format: author/model_id (e.g., nordlys/nordlys-code)"
     return 1
   fi
   return 0
 }
 
 configure_grok() {
-  log_info "Configuring Grok CLI for Adaptive..."
+  log_info "Configuring Grok CLI for Nordlys..."
   echo "   You can get your API key from: $API_KEY_URL"
 
   # Check for environment variable first
-  local api_key="${ADAPTIVE_API_KEY:-}"
+  local api_key="${NORDLYS_API_KEY:-}"
 
   # Check for model overrides
-  local model="${ADAPTIVE_MODEL:-$DEFAULT_MODEL}"
-  local models="${ADAPTIVE_MODELS:-$DEFAULT_MODELS}"
+  local model="${NORDLYS_MODEL:-$DEFAULT_MODEL}"
+  local models="${NORDLYS_MODELS:-$DEFAULT_MODELS}"
 
   # Validate model override if provided
   if [ "$model" != "$DEFAULT_MODEL" ]; then
     log_info "Using custom model: $model"
     if ! validate_model_override "$model"; then
-      log_error "Invalid model format in ADAPTIVE_MODEL"
+      log_error "Invalid model format in NORDLYS_MODEL"
       exit 1
     fi
   fi
 
   if [ -n "$api_key" ]; then
-    log_info "Using API key from ADAPTIVE_API_KEY environment variable"
+    log_info "Using API key from NORDLYS_API_KEY environment variable"
     if ! validate_api_key "$api_key"; then
-      log_error "Invalid API key format in ADAPTIVE_API_KEY environment variable"
+      log_error "Invalid API key format in NORDLYS_API_KEY environment variable"
       exit 1
     fi
   # Check if running in non-interactive mode (e.g., piped from curl)
@@ -383,31 +383,31 @@ configure_grok() {
     log_info "🎯 Interactive setup required for API key configuration"
     echo ""
     echo "📥 Option 1: Download and run interactively (Recommended)"
-    echo "   curl -o grok-cli.sh https://raw.githubusercontent.com/Egham-7/adaptive/main/scripts/installers/grok-cli.sh"
+    echo "   curl -o grok-cli.sh https://raw.githubusercontent.com/Egham-7/nordlys/main/scripts/installers/grok-cli.sh"
     echo "   chmod +x grok-cli.sh"
     echo "   ./grok-cli.sh"
     echo ""
      echo "🔑 Option 2: Set API key via environment variable"
-     echo "   export ADAPTIVE_API_KEY='your-api-key-here'"
-     echo "   curl -fsSL https://raw.githubusercontent.com/Egham-7/adaptive/main/scripts/installers/grok-cli.sh | bash"
+     echo "   export NORDLYS_API_KEY='your-api-key-here'"
+     echo "   curl -fsSL https://raw.githubusercontent.com/Egham-7/nordlys/main/scripts/installers/grok-cli.sh | bash"
      echo "   # The installer will automatically add the API key to your shell config"
     echo ""
     echo "🎯 Option 3: Customize model (Advanced)"
-    echo "   export ADAPTIVE_API_KEY='your-api-key-here'"
-    echo "   export ADAPTIVE_MODEL='anthropic/claude-sonnet-4-5'  # or nordlys/nordlys-code for intelligent routing"
-    echo "   curl -fsSL https://raw.githubusercontent.com/Egham-7/adaptive/main/scripts/installers/grok-cli.sh | bash"
+    echo "   export NORDLYS_API_KEY='your-api-key-here'"
+    echo "   export NORDLYS_MODEL='nordlys/nordlys-code'"
+    echo "   curl -fsSL https://raw.githubusercontent.com/Egham-7/nordlys/main/scripts/installers/grok-cli.sh | bash"
     echo ""
      echo "⚙️  Option 4: Manual configuration (Advanced users)"
      echo "   mkdir -p ~/.grok"
-     echo "   export ADAPTIVE_API_KEY='your-api-key-here'"
+     echo "   export NORDLYS_API_KEY='your-api-key-here'"
      echo "   # Add to your shell config (~/.bashrc, ~/.zshrc, etc.):"
-     echo "   echo 'export ADAPTIVE_API_KEY=\"your-api-key-here\"' >> ~/.bashrc"
+     echo "   echo 'export NORDLYS_API_KEY=\"your-api-key-here\"' >> ~/.bashrc"
      echo "   cat > ~/.grok/user-settings.json << 'EOF'"
     echo "{"
     echo '  "apiKey": "your_api_key_here",'
     echo '  "baseURL": "https://www.llmadaptive.uk/api/v1",'
-    echo '  "defaultModel": "",'
-    echo '  "models": ["anthropic/claude-sonnet-4-5","anthropic/claude-4-5-haiku","anthropic/claude-opus-4-1-20250805","openai/gpt-5-codex","google/gemini-2-5-pro"]'
+    echo '  "defaultModel": "nordlys/nordlys-code",'
+    echo '  "models": ["nordlys/nordlys-code"]'
     echo "}"
     echo "EOF"
     echo ""
@@ -419,7 +419,7 @@ configure_grok() {
     local max_attempts=3
 
     while [ $attempts -lt $max_attempts ]; do
-      echo -n "🔑 Please enter your Adaptive API key: "
+      echo -n "🔑 Please enter your Nordlys API key: "
       read -rs api_key
       echo
 
@@ -472,7 +472,7 @@ EOF
     }
   fi
 
-  log_success "Grok CLI configured for Adaptive successfully"
+  log_success "Grok CLI configured for Nordlys successfully"
   log_info "Configuration saved to: $settings_file"
   
   # Add environment variables to shell configuration
@@ -487,8 +487,8 @@ show_banner() {
   echo "=========================================="
   echo "  $SCRIPT_NAME v$SCRIPT_VERSION"
   echo "=========================================="
-  echo "Configure Grok CLI to use Adaptive's"
-  echo "intelligent LLM routing for 60-80% cost savings"
+  echo "Configure Grok CLI to use Nordlys's"
+  echo "Mixture of Models for 60-80% cost savings"
   echo ""
 }
 
@@ -521,11 +521,11 @@ main() {
   if verify_installation; then
     echo ""
     echo "╭──────────────────────────────────────────╮"
-    echo "│  🎉 Grok CLI + Adaptive Setup Complete   │"
+    echo "│  🎉 Grok CLI + Nordlys Setup Complete   │"
     echo "╰──────────────────────────────────────────╯"
     echo ""
     echo "🚀 Quick Start:"
-    echo "   grok                      # Start Grok CLI with Adaptive routing"
+    echo "   grok                      # Start Grok CLI with Nordlys model"
     echo "   grok -p \"help me code\"     # Headless mode for quick tasks"
     echo ""
     echo "🔍 Verify Setup:"
@@ -536,7 +536,7 @@ main() {
     echo "   grok -p \"show me the package.json file\""
     echo "   grok -p \"create a React component for user authentication\""
     echo "   grok -d /path/to/project  # Set working directory"
-    echo "   grok --model anthropic/claude-sonnet-4-5  # Override model"
+    echo "   grok --model nordlys/nordlys-code  # Override model"
     echo ""
     echo "📊 Monitor Usage:"
     echo "   Dashboard: $API_KEY_URL"
@@ -544,14 +544,13 @@ main() {
      echo ""
      echo "💡 Pro Tips:"
      echo "   • Your API key is automatically saved to your shell config"
-     echo "   • Intelligent routing enabled by default for optimal cost/performance"
-    echo "   • Available models: anthropic/claude-sonnet-4-5, anthropic/claude-4-5-haiku, openai/gpt-5-codex, google/gemini-2-5-pro, etc."
+    echo "   • Nordlys model enabled by default"
     echo "   • Use --max-tool-rounds to control execution complexity"
     echo "   • Create .grok/GROK.md for custom project instructions"
     echo "   • Add MCP servers with: grok mcp add server-name"
     echo ""
     echo "📖 Full Documentation: https://docs.llmadaptive.uk/developer-tools/grok-cli"
-    echo "🐛 Report Issues: https://github.com/Egham-7/adaptive/issues"
+    echo "🐛 Report Issues: https://github.com/Egham-7/nordlys/issues"
   else
     echo ""
     log_error "❌ Installation verification failed"
@@ -559,7 +558,7 @@ main() {
     echo "🔧 Manual Setup (if needed):"
     echo "   Configuration: ~/.grok/user-settings.json"
     echo "   Expected format:"
-    echo '   {"apiKey":"your_key","baseURL":"https://www.llmadaptive.uk/api/v1","defaultModel":"","models":[...]}'
+    echo '   {"apiKey":"your_key","baseURL":"https://www.llmadaptive.uk/api/v1","defaultModel":"nordlys/nordlys-code","models":["nordlys/nordlys-code"]}'
     echo ""
     echo "🆘 Get help: https://docs.llmadaptive.uk/troubleshooting"
     exit 1

@@ -10,7 +10,7 @@
 
 ## Code Style
 
-- **Format**: `uv run black .` (88 chars, Python 3.11+)
+- **Format**: `uv run ruff format .`
 - **Lint**: `uv run ruff check .` (fix: `--fix`)
 - **Types**: `uv run ty check` (strict)
 - **Imports**: First-party (`adaptive_router`), then third-party, then standard library
@@ -19,4 +19,3 @@
 - **Error Handling**: Use custom exceptions from `models/`, log with structured logging
 - **Docstrings**: Google style for public APIs, explain "why" not "what"
 - **Tests**: AAA pattern (Arrange/Act/Assert)
-
