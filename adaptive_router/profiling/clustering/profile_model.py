@@ -10,7 +10,8 @@ Usage:
     python profile_model.py --model-folder "20240620_sweagent_claude3.5sonnet"
 
     # Profile a bash-only model
-    python profile_model.py --model-folder "20251124_mini-v1.16.0_claude-opus-4-5-20251101" --eval-type bash-only
+    python profile_model.py --model-folder "20251124_mini-v1.16.0_claude-opus-4-5" \\
+        --eval-type bash-only
 
     # List available models
     python profile_model.py --list-models
@@ -117,12 +118,14 @@ def parse_bashonly_results(data: dict) -> set[str]:
 
 
 def fetch_github_results(gh: Github, model_folder: str, eval_type: str) -> set[str]:
-    """Fetch results from SWE-bench experiments repo and return resolved instance IDs."""
+    """Fetch results from GitHub and return resolved instance IDs."""
     config = EVAL_CONFIGS[eval_type]
     repo = gh.get_repo(REPO_NAME)
     file_path = f"{config['path']}/{model_folder}/{config['results_file']}"
 
     content = repo.get_contents(file_path)
+    if isinstance(content, list):
+        content = content[0]
     decoded = base64.b64decode(content.content).decode("utf-8")
     data = json.loads(decoded)
 
@@ -136,8 +139,13 @@ def list_available_models(gh: Github, eval_type: str) -> list[str]:
     """List all available model folders from GitHub."""
     config = EVAL_CONFIGS[eval_type]
     repo = gh.get_repo(REPO_NAME)
-    contents = repo.get_contents(config["path"])
-    return sorted([item.name for item in contents if item.type == "dir"])
+    result = repo.get_contents(config["path"])
+    if isinstance(result, list):
+        contents = result
+    else:
+        contents = [result]
+    # Type checker struggles with union; runtime is correct
+    return sorted([item.name for item in contents if item.type == "dir"])  # type: ignore[union-attr]
 
 
 def parse_model_info(model_folder: str) -> tuple[str, str]:
@@ -250,11 +258,13 @@ def profile_single_model(
     return profile
 
 
-def add_model_to_profile(model_folder: str, profiles_dir: Path, profile_path: Path) -> None:
+def add_model_to_profile(
+    model_folder: str, profiles_dir: Path, profile_path: Path
+) -> None:
     """Add a single model from profiles/ to the main profile.json.
 
     Args:
-        model_folder: Model folder name (e.g., "20250929_mini-v1.13.3_sonnet-4-5-20250929")
+        model_folder: Model folder name (e.g., "20250929_mini-...")
         profiles_dir: Directory containing individual profiles
         profile_path: Path to main profile.json
     """
