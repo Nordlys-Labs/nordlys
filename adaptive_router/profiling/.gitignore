@@ -22,5 +22,5 @@ Thumbs.db
 *.json
 *.npy
 *.html
-
+*.lock
 profiles

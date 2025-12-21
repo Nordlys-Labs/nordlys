@@ -144,8 +144,7 @@ def list_available_models(gh: Github, eval_type: str) -> list[str]:
         contents = result
     else:
         contents = [result]
-    # Type checker struggles with union; runtime is correct
-    return sorted([item.name for item in contents if item.type == "dir"])  # type: ignore[union-attr]
+    return sorted([item.name for item in contents if item.type == "dir"])
 
 
 def parse_model_info(model_folder: str) -> tuple[str, str]:
