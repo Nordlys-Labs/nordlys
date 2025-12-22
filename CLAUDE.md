@@ -100,7 +100,7 @@ nordlys/  # Repository root (workspace root)
 **Package Dependencies:**
 
 - The library (`nordlys/`) has its own `pyproject.toml` with ML dependencies (PyTorch, sentence-transformers, scikit-learn, etc.)
-- The app (`pyproject.toml` root) depends on `adaptive-router` via local path dependency
+- The app (`pyproject.toml` root) depends on `nordlys` via local path dependency
 - Both packages are installed in editable mode during development
 
 ## Environment Configuration
@@ -203,7 +203,7 @@ The project uses a **UV workspace** for unified dependency management:
 
 - **Single lockfile**: `uv.lock` at repository root ensures consistent dependencies
 - **Workspace members**: `nordlys` (library) and `nordlys_app` (FastAPI app)
-- **Inter-package dependencies**: `nordlys_app` depends on `adaptive-router` via `workspace = true`
+- **Inter-package dependencies**: `nordlys_app` depends on `nordlys` via `workspace = true`
 - **Modal deployment**: Workspace is copied to `/root/nordlys` and synced from app package
 
 ### Local Development
@@ -215,10 +215,10 @@ The project uses a **UV workspace** for unified dependency management:
 uv sync  # Syncs entire workspace from root
 
 # Or sync specific package
-uv sync --package adaptive-router-app
+uv sync --package nordlys-app
 
 # Run commands for specific package
-uv run --package adaptive-router-app pytest
+uv run --package nordlys-app pytest
 
 # Start the FastAPI server (development mode with auto-reload)
 fastapi dev nordlys_app/nordlys_app/main.py
@@ -559,7 +559,7 @@ Cluster profiles (centers, error rates, scalers) are stored in **Modal Volumes**
 **Profile Storage Configuration**:
 
 - `PROFILE_PATH` environment variable points to the profile JSON file
-- Default location in Modal: `/data/profile.json` (mounted to adaptive-router-data volume)
+- Default location in Modal: `/data/profile.json` (mounted to nordlys-data volume)
 
 **Profile Structure**:
 
@@ -619,10 +619,10 @@ CMD ["fastapi", "dev", "nordlys_app/nordlys_app/main.py"]
 modal deploy nordlys_app/nordlys_app/main.py
 
 # View logs
-modal logs adaptive-router
+modal logs nordlys
 
 # Stop deployment
-modal cancel adaptive-router
+modal cancel nordlys
 ```
 
 **Modal Configuration** (in `nordlys_app/nordlys_app/main.py`):
@@ -753,10 +753,10 @@ curl -X POST http://localhost:8000/select-model \
 modal deploy nordlys_app/nordlys_app/main.py
 
 # View logs
-modal logs adaptive-router
+modal logs nordlys
 
 # Check GPU availability
-modal run adaptive-router -c "python -c 'import torch; print(torch.cuda.is_available())'"
+modal run nordlys -c "python -c 'import torch; print(torch.cuda.is_available())'"
 ```
 
 ## Performance Benchmarks

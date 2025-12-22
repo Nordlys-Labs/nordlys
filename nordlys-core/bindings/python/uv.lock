@@ -3,7 +3,7 @@ revision = 3
 requires-python = ">=3.11, <4.0"
 
 [[package]]
-name = "adaptive-router-core"
+name = "nordlys-core"
 source = { editable = "." }
 
 [package.dev-dependencies]

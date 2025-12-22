@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 class ClusterEngine(BaseEstimator):
     """Engine for clustering text inputs using K-means on semantic embeddings.
 
-    This class handles the clustering workflow for the adaptive router:
+    This class handles the clustering workflow for the nordlys router:
     1. Extracts semantic embeddings from text using SentenceTransformers
     2. Performs spherical K-means clustering (cosine similarity)
     3. Assigns new texts to clusters
