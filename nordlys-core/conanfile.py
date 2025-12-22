@@ -7,7 +7,7 @@ class NordlysCoreConan(ConanFile):
 
     def set_version(self):
         # Hardcoded version to match pyproject.toml
-        self.version = "0.1.0"
+        self.version = "0.1.2"
 
     settings = "os", "compiler", "build_type", "arch"
     generators = "CMakeToolchain", "CMakeDeps"
