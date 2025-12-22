@@ -61,7 +61,7 @@ jobs:
         with:
           package-dir: ./nordlys-core/bindings/python
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: cibw-wheels-cpu-${{ matrix.os }}
           path: ./wheelhouse/*.whl
@@ -141,7 +141,7 @@ jobs:
         with:
           package-dir: ./nordlys-core-cu12
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: cibw-wheels-cuda-linux
           path: ./wheelhouse/*.whl
