@@ -44,8 +44,8 @@ Documentation = "https://docs.llmadaptive.uk"
 
 
 [project.optional-dependencies]
-cpu = ["nordlys-core>=0.1.0,<1", "torch>=2.5.1"]
-cu12 = ["nordlys-core-cu12>=0.1.0,<1 ; sys_platform == 'linux'", "torch>=2.5.1"]
+cpu = ["nordlys-core>=0.1.1,<1", "torch>=2.5.1"]
+cu12 = ["nordlys-core-cu12>=0.1.1,<1 ; sys_platform == 'linux'", "torch>=2.5.1"]
 
 [tool.uv]
 conflicts = [[{ extra = "cpu" }, { extra = "cu12" }]]
