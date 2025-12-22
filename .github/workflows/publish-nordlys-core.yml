@@ -121,7 +121,7 @@ jobs:
             dnf clean all
           CIBW_BEFORE_BUILD: "pip install conan && conan profile detect --force"
           CIBW_ENVIRONMENT: >
-            ADAPTIVE_ENABLE_CUDA=ON
+            NORDLYS_ENABLE_CUDA=ON
             CUDACXX=/usr/local/cuda-12.9/bin/nvcc
             CUDAToolkit_ROOT=/usr/local/cuda-12.9
             PATH=/usr/local/cuda-12.9/bin:/usr/local/cuda/bin:$PATH
@@ -180,3 +180,4 @@ jobs:
           echo "All wheels validated for version $VERSION"
 
       - uses: pypa/gh-action-pypi-publish@release/v1
+
