@@ -9,7 +9,7 @@ $NodeMinVersion = 18
 $NodeInstallVersion = "22"
 $PackageName = "opencode-ai"
 $ApiBaseUrl = "https://api.llmadaptive.uk/v1"
-$DefaultModel = "nordlys/nordlys-code"
+$DefaultModel = "nordlys/hypernova"
 
 function Write-Info {
     param([string]$Message)

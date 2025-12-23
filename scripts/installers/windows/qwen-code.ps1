@@ -10,7 +10,7 @@ $NodeMinVersion = 20
 $NodeInstallVersion = "22"
 $PackageName = "@qwen-code/qwen-code"
 $ApiBaseUrl = "https://api.llmadaptive.uk/v1"
-$DefaultModel = "nordlys/nordlys-code"
+$DefaultModel = "nordlys/hypernova"
 
 function Write-Info {
     param([string]$Message)

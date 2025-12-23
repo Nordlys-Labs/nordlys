@@ -17,13 +17,13 @@ API_KEY_URL="https://www.llmadaptive.uk/dashboard"
 API_TIMEOUT_MS=3000000
 
 # Model override defaults (can be overridden by environment variables)
-# Use nordlys/nordlys-code to enable Nordlys model for optimal cost/performance
-DEFAULT_PRIMARY_MODEL="nordlys/nordlys-code"
-DEFAULT_FAST_MODEL="nordlys/nordlys-code"
-DEFAULT_OPUS_MODEL="nordlys/nordlys-code"
-DEFAULT_SONNET_MODEL="nordlys/nordlys-code"
-DEFAULT_HAIKU_MODEL="nordlys/nordlys-code"
-DEFAULT_CLAUDE_CODE_SUBAGENT="nordlys/nordlys-code"
+# Use nordlys/hypernova to enable Nordlys model for optimal cost/performance
+DEFAULT_PRIMARY_MODEL="nordlys/hypernova"
+DEFAULT_FAST_MODEL="nordlys/hypernova"
+DEFAULT_OPUS_MODEL="nordlys/hypernova"
+DEFAULT_SONNET_MODEL="nordlys/hypernova"
+DEFAULT_HAIKU_MODEL="nordlys/hypernova"
+DEFAULT_CLAUDE_CODE_SUBAGENT="nordlys/hypernova"
 
 # ========================
 #       Utility Functions
@@ -180,14 +180,14 @@ validate_api_key() {
 validate_model_override() {
   local model="$1"
 
-  # Empty values fall back to nordlys/nordlys-code for backward compatibility
+  # Empty values fall back to nordlys/hypernova for backward compatibility
   if [ -z "$model" ]; then
     return 0
   fi
 
   # Validate format: author/model_id
   if [[ ! "$model" =~ ^[a-zA-Z0-9_-]+/[a-zA-Z0-9_.-]+$ ]]; then
-    log_error "Model override format invalid. Use format: author/model_id (e.g., nordlys/nordlys-code)"
+    log_error "Model override format invalid. Use format: author/model_id (e.g., nordlys/hypernova)"
     return 1
   fi
   return 0
@@ -247,8 +247,8 @@ configure_claude() {
     echo ""
     echo "🎯 Option 3: Customize models (Advanced)"
     echo "   export NORDLYS_API_KEY='your-api-key-here'"
-    echo "   export NORDLYS_PRIMARY_MODEL='nordlys/nordlys-code'"
-    echo "   export NORDLYS_FAST_MODEL='nordlys/nordlys-code'"
+    echo "   export NORDLYS_PRIMARY_MODEL='nordlys/hypernova'"
+    echo "   export NORDLYS_FAST_MODEL='nordlys/hypernova'"
     echo "   curl -fsSL https://raw.githubusercontent.com/Egham-7/nordlys/main/scripts/installers/unix/claude-code.sh | bash"
     echo ""
      echo "⚙️  Option 4: Manual configuration (Advanced users)"
@@ -259,8 +259,8 @@ configure_claude() {
      echo '    "ANTHROPIC_AUTH_TOKEN": "your_api_key_here",'
      echo '    "ANTHROPIC_BASE_URL": "https://api.llmadaptive.uk/api",'
      echo '    "API_TIMEOUT_MS": "3000000",'
-     echo '    "ANTHROPIC_MODEL": "nordlys/nordlys-code",'
-     echo '    "ANTHROPIC_SMALL_FAST_MODEL": "nordlys/nordlys-code",'
+     echo '    "ANTHROPIC_MODEL": "nordlys/hypernova",'
+     echo '    "ANTHROPIC_SMALL_FAST_MODEL": "nordlys/hypernova",'
       echo '    "ANTHROPIC_DEFAULT_OPUS_MODEL": "'"$opus_model"'",'
       echo '    "ANTHROPIC_DEFAULT_SONNET_MODEL": "'"$sonnet_model"'",'
       echo '    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "'"$haiku_model"'",'
@@ -412,7 +412,7 @@ main() {
     echo "💡 Pro Tips:"
     echo "   • Nordlys model enabled by default"
     echo "   • Override models: NORDLYS_PRIMARY_MODEL, NORDLYS_FAST_MODEL env vars"
-    echo "   • Use author/model_id format (e.g., nordlys/nordlys-code)"
+    echo "   • Use author/model_id format (e.g., nordlys/hypernova)"
     echo ""
     echo "📖 Full Documentation: https://docs.llmadaptive.uk/developer-tools/claude-code"
     echo "🐛 Report Issues: https://github.com/Egham-7/nordlys/issues"

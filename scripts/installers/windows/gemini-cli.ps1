@@ -10,7 +10,7 @@ $NodeMinVersion = 18
 $NodeInstallVersion = "22"
 $PackageName = "@google/gemini-cli"
 $ApiBaseUrl = "https://api.llmadaptive.uk"
-$DefaultModel = "nordlys/nordlys-code"
+$DefaultModel = "nordlys/hypernova"
 
 function Write-Info {
     param([string]$Message)

@@ -22,8 +22,8 @@ API_BASE_URL="https://api.llmadaptive.uk/v1"
 API_KEY_URL="https://www.llmadaptive.uk/dashboard"
 
 # Model override defaults:
-# - use nordlys/nordlys-code for Nordlys model
-DEFAULT_MODEL="nordlys/nordlys-code"
+# - use nordlys/hypernova for Nordlys model
+DEFAULT_MODEL="nordlys/hypernova"
 
 # ========================
 #       Logging
@@ -173,7 +173,7 @@ validate_api_key() {
 
 validate_model_override() {
   local model="$1"
-  # Empty => falls back to nordlys/nordlys-code
+  # Empty => falls back to nordlys/hypernova
   if [ -z "$model" ]; then return 0; fi
   [[ "$model" =~ ^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$ ]]
 }
@@ -286,13 +286,13 @@ main() {
 
   if [ -n "$model_override" ]; then
     if ! validate_model_override "$model_override"; then
-      log_error "Invalid NORDLYS_MODEL: '$model_override'. Use format: author/model_id (e.g., nordlys/nordlys-code)."
+      log_error "Invalid NORDLYS_MODEL: '$model_override'. Use format: author/model_id (e.g., nordlys/hypernova)."
       exit 1
     fi
     log_info "Using custom model override: $model_override"
     model="$model_override"
   else
-    log_info "Using nordlys/nordlys-code Nordlys model (no explicit model override)."
+    log_info "Using nordlys/hypernova Nordlys model (no explicit model override)."
   fi
 
   # 4) If API key is present, quick format check (we cannot inject it non-interactively)
@@ -328,7 +328,7 @@ main() {
     echo ""
     echo "🔍 Verify"
     echo "   opencode auth list             # should list 'nordlys'"
-    echo "   cat $CONFIG_FILE               # see 'model': 'nordlys/nordlys-code'"
+    echo "   cat $CONFIG_FILE               # see 'model': 'nordlys/hypernova'"
     echo ""
     echo "📊 Monitor"
     echo "   Dashboard: $API_KEY_URL"

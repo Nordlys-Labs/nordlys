@@ -13,7 +13,7 @@ Nordlys is an intelligent model selection system that:
 ## For Users
 
 Use the public API or SDKs to access Nordlys models. Default model ID:
-- `nordlys/nordlys-code`
+- `nordlys/hypernova`
 
 ## For Contributors
 
