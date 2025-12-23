@@ -1,43 +1,47 @@
 #!/usr/bin/env python3
 """Run SWE-bench with Nordlys Router via mini-swe-agent.
 
-This script registers the custom Nordlys LiteLLM provider and runs
-mini-swe-agent's swebench command with the appropriate configuration.
+Uses LiteLLM's anthropic/ provider with Nordlys API endpoint for intelligent routing.
+
+Requirements:
+    - ANTHROPIC_API_KEY and ANTHROPIC_API_BASE must be set in mini-swe-agent config:
+        mini-extra config set ANTHROPIC_API_KEY "$NORDLYS_API_KEY"
+        mini-extra config set ANTHROPIC_API_BASE "$NORDLYS_API_BASE"
+    - MSWEA_COST_TRACKING='ignore_errors' (for non-standard model names)
 
 Usage:
     # From benchmarks/ directory:
     uv run python swe-bench/swe-bench/src/run.py
 
-    # Quick test (5 instances)
-    uv run python swe-bench/swe-bench/src/run.py --slice :5
+    # Quick test (1 instance)
+    uv run python swe-bench/swe-bench/src/run.py --slice :1
 
     # Custom configuration
     uv run python swe-bench/swe-bench/src/run.py --workers 8 --output results/my-run
 """
 
+import os
 import subprocess
 import sys
-from pathlib import Path
-
-# Add src directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent))
-
-from nordlys_provider import register_nordlys_provider
 
 
 def main() -> int:
-    """Run SWE-bench benchmark with Nordlys Router.
+    """Run SWE-bench benchmark with Nordlys Router via Anthropic endpoint.
 
     Returns:
         Exit code from mini-swe-agent command
     """
-    # Register Nordlys provider before running mini-swe-agent
-    register_nordlys_provider()
+    # Ensure cost tracking is set to ignore errors for custom model names
+    os.environ.setdefault("MSWEA_COST_TRACKING", "ignore_errors")
 
     # Default arguments if none provided
+    # Model format: anthropic/nordlys/nordlys-code
+    # - LiteLLM uses 'anthropic/' as the provider
+    # - Strips prefix and sends 'nordlys/nordlys-code' to API
+    # - Nordlys accepts nordlys/* models for intelligent routing
     args = sys.argv[1:] or [
         "--model",
-        "nordlys/Nordlys-singularity",
+        "anthropic/nordlys/nordlys-code",
         "--subset",
         "verified",
         "--split",
@@ -50,7 +54,7 @@ def main() -> int:
 
     # Ensure model is specified if not in args
     if "--model" not in args:
-        args = ["--model", "nordlys/Nordlys-singularity"] + args
+        args = ["--model", "anthropic/nordlys/nordlys-code"] + args
 
     # Run mini-extra swebench command
     cmd = ["mini-extra", "swebench"] + args

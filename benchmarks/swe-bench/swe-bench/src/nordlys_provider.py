@@ -1,8 +1,19 @@
-"""Custom LiteLLM provider for Nordlys Router.
+"""Custom LiteLLM provider for Nordlys Router (for direct Python usage).
 
-This module implements a custom LiteLLM provider that wraps the Nordlys
-Anthropic-compatible API, allowing mini-swe-agent to use models with
-the 'nordlys/' prefix.
+NOTE: This custom provider is NOT needed for mini-swe-agent!
+      Use `anthropic/nordlys/nordlys-code` with mini-swe-agent instead.
+
+This module provides two ways to use Nordlys with LiteLLM:
+
+1. For mini-swe-agent (recommended):
+   - Use model: `anthropic/nordlys/nordlys-code`
+   - Configure: mini-extra config set ANTHROPIC_API_KEY "$NORDLYS_API_KEY"
+   - Configure: mini-extra config set ANTHROPIC_API_BASE "$NORDLYS_API_BASE"
+
+2. For direct LiteLLM usage (this module):
+   - Register provider: register_nordlys_provider()
+   - Use model: `nordlys/anything` (sends empty model to API)
+   - Useful when you need empty model name for intelligent routing
 """
 
 import os
@@ -16,8 +27,8 @@ from litellm import CustomLLM
 class NordlysProvider(CustomLLM):
     """Custom LiteLLM provider that wraps Nordlys Anthropic-compatible API.
 
-    This provider allows using Nordlys models through LiteLLM with the
-    'nordlys/' prefix, e.g., 'nordlys/Nordlys-singularity'.
+    This provider sends empty model name to Nordlys for intelligent routing.
+    Use this when you need direct control over the model name sent to API.
     """
 
     def __init__(self) -> None:
@@ -43,16 +54,13 @@ class NordlysProvider(CustomLLM):
         """Handle completion request via Nordlys API.
 
         Args:
-            model: Model identifier (e.g., 'nordlys/Nordlys-singularity')
+            model: Model identifier (e.g., 'nordlys/anything' - ignored, sends empty)
             messages: List of message dictionaries with 'role' and 'content'
             **kwargs: Additional arguments (max_tokens, temperature, etc.)
 
         Returns:
             LiteLLM ModelResponse with the completion result
         """
-        # Extract model name (e.g., 'nordlys/Nordlys-singularity' -> 'Nordlys-singularity')
-        model_name = model.split("/", 1)[-1] if "/" in model else model
-
         # Separate system message from user/assistant messages
         system_msg: str | None = None
         user_messages: list[dict[str, Any]] = []
@@ -64,8 +72,9 @@ class NordlysProvider(CustomLLM):
                 user_messages.append(msg)
 
         # Call Nordlys API via Anthropic client
+        # Always send empty model for Nordlys intelligent routing
         response = self.client.messages.create(
-            model=model_name,
+            model="",  # Empty for Nordlys intelligent routing
             messages=user_messages,
             system=system_msg or "",
             max_tokens=kwargs.get("max_tokens", 4096),
@@ -97,7 +106,17 @@ def register_nordlys_provider() -> None:
     """Register Nordlys provider with LiteLLM.
 
     This function must be called before using 'nordlys/' prefixed models
-    with mini-swe-agent or any LiteLLM-based application.
+    with LiteLLM in your Python code (not for mini-swe-agent).
+
+    Example:
+        from nordlys_provider import register_nordlys_provider
+        import litellm
+
+        register_nordlys_provider()
+        response = litellm.completion(
+            model="nordlys/code",
+            messages=[{"role": "user", "content": "Hello"}]
+        )
     """
     nordlys = NordlysProvider()
     litellm.custom_provider_map = [{"provider": "nordlys", "custom_handler": nordlys}]
