@@ -1,4 +1,4 @@
-# Adaptive Router - Intelligent Model Selection Service
+# Nordlys Model Engine
 
 ## Memory and Documentation
 
@@ -6,16 +6,16 @@
 
 ## Overview
 
-The adaptive_router service is a unified Python ML package that provides intelligent model selection for the Adaptive LLM infrastructure. It uses cluster-based intelligent routing with per-cluster error rates to select optimal LLM models. The service supports two deployment modes: Library (import and use directly in Python code) and FastAPI (HTTP API server with GPU-accelerated inference on T4 GPUs).
+The Nordlys Model Engine is a unified Python ML package that provides intelligent model selection for the Nordlys AI infrastructure. It uses advanced ML techniques including clustering algorithms and per-model performance optimization to select optimal models for requests. The engine supports two deployment modes: Library (import and use directly in Python code) and FastAPI (HTTP API server with GPU-accelerated inference).
 
 ## Key Features
 
-- **Cluster-Based Routing**: UniRouter algorithm with K-means clustering and per-cluster error rates
+- **Mixture of Models Selection**: ML-based selection algorithm with K-means clustering and performance optimization
 - **Flexible Deployment**: Python library import or FastAPI HTTP server
 - **Cost Optimization**: Balances performance vs. cost based on configurable preferences
 - **High-Performance API**: FastAPI framework with Hypercorn ASGI server, OpenAPI documentation
 - **Modal Serverless Deployment**: T4 GPU-accelerated inference with automatic scaling to zero
-- **Local ML Inference**: Sentence transformers and scikit-learn for feature extraction and clustering
+- **Local ML Processing**: Sentence transformers and scikit-learn for feature extraction and clustering
 
 ## Technology Stack
 
@@ -32,19 +32,19 @@ The adaptive_router service is a unified Python ML package that provides intelli
 
 The project uses a **UV workspace** structure with unified dependency management:
 
-1. **`adaptive_router/`**: Core ML library package (standalone, installable)
-2. **`adaptive_router_app/`**: FastAPI application (depends on library via workspace dependency)
+1. **`nordlys/`**: Core ML library package (standalone, installable)
+2. **`nordlys-backend/`**: FastAPI application (depends on library via workspace dependency)
 
 ```
-adaptive_router/  # Repository root (workspace root)
+nordlys/  # Repository root (workspace root)
 ├── pyproject.toml  # Workspace configuration
 ├── uv.lock  # Unified lockfile for all packages
-├── adaptive_router/                          # Core ML library package
+├── nordlys/                          # Core ML library package
 │   ├── __init__.py                           # Library exports for Python import
 │   ├── pyproject.toml                        # Library package configuration
-│   ├── core/                                 # Core ML routing components
+│   ├── core/                                 # Core ML selection components
 │   │   ├── __init__.py
-│   │   ├── router.py                         # ModelRouter - main routing logic
+│   │   ├── selector.py                       # ModelSelector - main selection logic
 │   │   ├── cluster_engine.py                 # ClusterEngine - K-means clustering
 │   │   └── feature_extractor.py              # FeatureExtractor - sentence transformers + TF-IDF
 
@@ -55,7 +55,7 @@ adaptive_router/  # Repository root (workspace root)
 │   │   ├── evaluation.py                     # Evaluation metrics models
 │   │   ├── health.py                         # Health check models
 │   │   ├── registry.py                       # Model registry models
-│   │   ├── routing.py                        # Routing decision models
+│   │   ├── selection.py                     # Selection decision models
 │   │   └── storage.py                        # Storage/profile models
 │   ├── utils/                                # Utility modules
 │   │   ├── __init__.py
@@ -69,11 +69,11 @@ adaptive_router/  # Repository root (workspace root)
 │       │   ├── test_api_endpoints.py
 │       │   ├── test_cost_optimization.py
 │       │   ├── test_model_selection_flows.py
-│       │   └── test_task_routing.py
+│       │   └── test_task_selection.py
 │       └── unit/                             # Unit tests
 │           ├── models/
 │           └── services/
-├── adaptive_router_app/                      # FastAPI HTTP server (separate package)
+├── nordlys-backend/                      # FastAPI HTTP server (separate package)
 │   ├── __init__.py
 │   ├── main.py                               # FastAPI entry point (inside package)
 │   ├── pyproject.toml                        # App package configuration
@@ -99,8 +99,8 @@ adaptive_router/  # Repository root (workspace root)
 
 **Package Dependencies:**
 
-- The library (`adaptive_router/`) has its own `pyproject.toml` with ML dependencies (PyTorch, sentence-transformers, scikit-learn, etc.)
-- The app (`pyproject.toml` root) depends on `adaptive-router` via local path dependency
+- The library (`nordlys/`) has its own `pyproject.toml` with ML dependencies (PyTorch, sentence-transformers, scikit-learn, etc.)
+- The app (`pyproject.toml` root) depends on `nordlys` via local path dependency
 - Both packages are installed in editable mode during development
 
 ## Environment Configuration
@@ -119,7 +119,7 @@ FASTAPI_ACCESS_LOG=true          # Enable access logging
 FASTAPI_LOG_LEVEL=info           # Log level
 
 # Profile Storage Configuration (Modal Volume)
-PROFILE_PATH=/data/profile.json  # Path to router profile in Modal Volume
+PROFILE_PATH=/data/profile.json  # Path to selector profile in Modal Volume
 ```
 
 ### Optional Configuration
@@ -139,11 +139,11 @@ LOG_LEVEL=INFO                  # Logging level
 
 ### 1. Library Mode (Python Import)
 
-Use adaptive_router as a Python library in your code:
+Use nordlys as a Python library in your code:
 
 ```python
-from adaptive_router.core.router import ModelRouter
-from adaptive_router.models.api import ModelSelectionRequest
+from nordlys.core.router import ModelRouter
+from nordlys.models.api import ModelSelectionRequest
 
 # Initialize router from local file
 router = ModelRouter.from_json_file("/path/to/profile.json")
@@ -168,10 +168,10 @@ uv sync
 
 # Deploy to Modal (requires Modal CLI and account)
 # Deploy from repository root - Modal will use workspace structure
-modal deploy adaptive_router_app/adaptive_router_app/main.py
+modal deploy nordlys_app/nordlys_app/main.py
 
 # Or run locally in development
-fastapi dev adaptive_router_app/adaptive_router_app/main.py
+fastapi dev nordlys_app/nordlys_app/main.py
 
 # Server starts on http://0.0.0.0:8000
 # API docs available at http://localhost:8000/docs
@@ -190,7 +190,7 @@ fastapi dev adaptive_router_app/adaptive_router_app/main.py
 - **Memory**: 8GB baseline memory allocation
 - **Scaling**: Automatically scales to 0 when idle (60-second timeout)
 - **Concurrency**: Handles up to 100 concurrent requests per container
-- **Storage**: Modal Volume at `/data` for router profile persistence
+- **Storage**: Modal Volume at `/data` for selector profile persistence
 - **Model Cache**: Modal Volume at `/root/.cache` for sentence-transformer models
 
 Access interactive API docs at `http://localhost:8000/docs`
@@ -202,9 +202,9 @@ Access interactive API docs at `http://localhost:8000/docs`
 The project uses a **UV workspace** for unified dependency management:
 
 - **Single lockfile**: `uv.lock` at repository root ensures consistent dependencies
-- **Workspace members**: `adaptive_router` (library) and `adaptive_router_app` (FastAPI app)
-- **Inter-package dependencies**: `adaptive_router_app` depends on `adaptive-router` via `workspace = true`
-- **Modal deployment**: Workspace is copied to `/root/adaptive_router` and synced from app package
+- **Workspace members**: `nordlys` (library) and `nordlys_app` (FastAPI app)
+- **Inter-package dependencies**: `nordlys_app` depends on `nordlys` via `workspace = true`
+- **Modal deployment**: Workspace is copied to `/root/nordlys` and synced from app package
 
 ### Local Development
 
@@ -215,25 +215,25 @@ The project uses a **UV workspace** for unified dependency management:
 uv sync  # Syncs entire workspace from root
 
 # Or sync specific package
-uv sync --package adaptive-router-app
+uv sync --package nordlys-app
 
 # Run commands for specific package
-uv run --package adaptive-router-app pytest
+uv run --package nordlys-app pytest
 
 # Start the FastAPI server (development mode with auto-reload)
-fastapi dev adaptive_router_app/adaptive_router_app/main.py
+fastapi dev nordlys_app/nordlys_app/main.py
 
 # Or use Hypercorn directly (production-like)
-hypercorn adaptive_router_app.main:app --bind 0.0.0.0:8000
+hypercorn nordlys_app.main:app --bind 0.0.0.0:8000
 
 # Start with custom configuration
-HOST=0.0.0.0 PORT=8001 hypercorn adaptive_router_app.main:app --bind 0.0.0.0:8001
+HOST=0.0.0.0 PORT=8001 hypercorn nordlys_app.main:app --bind 0.0.0.0:8001
 
 # Start with debug logging
-DEBUG=true hypercorn adaptive_router_app.main:app --bind 0.0.0.0:8000
+DEBUG=true hypercorn nordlys_app.main:app --bind 0.0.0.0:8000
 
 # For multi-process deployment
-hypercorn adaptive_router_app.main:app --bind 0.0.0.0:8000 --workers 4
+hypercorn nordlys_app.main:app --bind 0.0.0.0:8000 --workers 4
 ```
 
 ### Code Quality
@@ -284,7 +284,7 @@ make test-cov-html
 make test-config      # Configuration tests
 make test-services    # Service tests
 make test-models      # Model tests
-make test-routing     # Routing integration tests
+make test-selection    # Selection integration tests
 
 # Code quality
 make lint            # Check with ruff
@@ -323,7 +323,7 @@ uv run pytest
 uv run pytest --cov
 
 # Run specific test file
-uv run pytest adaptive_router/tests/unit/core/test_config.py
+uv run pytest nordlys/tests/unit/core/test_config.py
 
 # Run with verbose output
 uv run pytest -v
@@ -347,7 +347,7 @@ The service exposes a FastAPI REST API that accepts model selection requests and
         "model": "gpt-4",
         "temperature": 0.7
     },
-    "adaptive_router": {
+    "nordlys": {
         "models": [
             {
                 "provider": "openai",
@@ -404,22 +404,22 @@ The service exposes a FastAPI REST API that accepts model selection requests and
 
 ## Core Services
 
-### Model Router
+### Model Selector
 
-**File**: `adaptive_router/core/router.py`
+**File**: `nordlys/core/selector.py`
 
-The `ModelRouter` class is the main entry point for intelligent model selection:
+The `ModelSelector` class is the main entry point for intelligent model selection:
 
-- Cluster-based routing using UniRouter algorithm
-- Accepts `RoutingRequest` with prompt and cost preference
-- Returns `RoutingResponse` with selected model and reasoning
+- Cluster-based selection using mixture of models algorithm
+- Accepts `SelectionRequest` with prompt and cost preference
+- Returns `SelectionResponse` with selected model and reasoning
 - Uses pre-loaded cluster profiles from MinIO S3
 - Combines feature extraction, cluster assignment, and cost optimization
 - Supports multiple provider models with per-cluster error rates
 
 ### Cluster Engine
 
-**File**: `adaptive_router/core/cluster_engine.py`
+**File**: `nordlys/core/cluster_engine.py`
 
 The `ClusterEngine` handles K-means clustering operations:
 
@@ -431,7 +431,7 @@ The `ClusterEngine` handles K-means clustering operations:
 
 ### Feature Extractor
 
-**File**: `adaptive_router/core/feature_extractor.py`
+**File**: `nordlys/core/feature_extractor.py`
 
 The `FeatureExtractor` converts prompts to feature vectors:
 
@@ -478,9 +478,9 @@ Integration with external model registry service for model metadata:
 - Integrates registry client with fuzzy matching
 - Provides fallback strategies for unknown models
 
-## Routing Algorithm
+## Selection Algorithm
 
-### Cluster-Based Selection (UniRouter)
+### Cluster-Based Selection
 
 - **Algorithm**: K-means clustering of prompts based on semantic features
 - **Features**: Sentence transformer embeddings (384D) + TF-IDF features (5000D)
@@ -498,9 +498,9 @@ Integration with external model registry service for model metadata:
 ### Cost-Performance Trade-off
 
 - **Cost Preference**: λ parameter (0.0 = cheapest, 1.0 = most accurate)
-- **Routing Score**: Weighted combination of predicted accuracy and normalized cost
+- **Selection Score**: Weighted combination of predicted accuracy and normalized cost
 - **Formula**: `score = predicted_accuracy - λ * normalized_cost`
-- **Optimization**: Selects model with highest routing score for assigned cluster
+- **Optimization**: Selects model with highest score for assigned cluster
 
 ## Caching and Performance
 
@@ -514,7 +514,7 @@ Integration with external model registry service for model metadata:
 ### Storage Integration
 
 - **Modal Volumes**: Stores cluster profiles and model cache for persistence
-- **Profile Caching**: Router profile loaded once at service initialization
+- **Profile Caching**: Selector profile loaded once at service initialization
 - **Model Cache**: Sentence transformers cached in `/root/.cache` for fast startup
 - **Request Processing**: All computations done locally in-memory
 
@@ -559,7 +559,7 @@ Cluster profiles (centers, error rates, scalers) are stored in **Modal Volumes**
 **Profile Storage Configuration**:
 
 - `PROFILE_PATH` environment variable points to the profile JSON file
-- Default location in Modal: `/data/profile.json` (mounted to adaptive-router-data volume)
+- Default location in Modal: `/data/profile.json` (mounted to nordlys-data volume)
 
 **Profile Structure**:
 
@@ -607,7 +607,7 @@ RUN pip install uv && uv sync
 COPY . .
 EXPOSE 8000
 
-CMD ["fastapi", "dev", "adaptive_router_app/adaptive_router_app/main.py"]
+CMD ["fastapi", "dev", "nordlys_app/nordlys_app/main.py"]
 ```
 
 ### Modal Deployment
@@ -616,16 +616,16 @@ CMD ["fastapi", "dev", "adaptive_router_app/adaptive_router_app/main.py"]
 
 ```bash
 # Deploy to Modal
-modal deploy adaptive_router_app/adaptive_router_app/main.py
+modal deploy nordlys_app/nordlys_app/main.py
 
 # View logs
-modal logs adaptive-router
+modal logs nordlys
 
 # Stop deployment
-modal cancel adaptive-router
+modal cancel nordlys
 ```
 
-**Modal Configuration** (in `adaptive_router_app/adaptive_router_app/main.py`):
+**Modal Configuration** (in `nordlys_app/nordlys_app/main.py`):
 
 - GPU: T4 (16GB VRAM)
 - Memory: 8GB
@@ -676,7 +676,7 @@ modal cancel adaptive-router
 - Verify all dependencies installed: `uv install`
 - Check port availability (default: 8000)
 - For Modal deployment: verify Modal CLI is installed and authenticated
-- Ensure you're using the correct command: `fastapi dev adaptive_router_app/adaptive_router_app/main.py` (local) or `modal deploy adaptive_router_app/adaptive_router_app/main.py` (Modal)
+- Ensure you're using the correct command: `fastapi dev nordlys_app/nordlys_app/main.py` (local) or `modal deploy nordlys_app/nordlys_app/main.py` (Modal)
 
 **Modal deployment issues**
 
@@ -693,12 +693,12 @@ modal cancel adaptive-router
 - Check available disk space for model cache (~500MB for all-MiniLM-L6-v2)
 - On macOS, CPU mode is used automatically (no CUDA required)
 
-**Routing errors**
+**Selection errors**
 
 - Verify input format matches ModelSelectionRequest schema
 - Check prompt length is reasonable (no hard limit, but very long prompts are slower)
-- Ensure router profile loaded correctly (check startup logs)
-- Enable debug logging: `DEBUG=true fastapi dev adaptive_router_app/adaptive_router_app/main.py`
+- Ensure selector profile loaded correctly (check startup logs)
+- Enable debug logging: `DEBUG=true fastapi dev nordlys_app/nordlys_app/main.py`
 
 **Performance issues**
 
@@ -715,8 +715,8 @@ modal cancel adaptive-router
 ```bash
 # Test model router
 python -c "
-from adaptive_router.core.router import ModelRouter
-from adaptive_router.models.api import ModelSelectionRequest
+from nordlys.core.router import ModelRouter
+from nordlys.models.api import ModelSelectionRequest
 
 router = ModelRouter.from_json_file('/path/to/profile.json')
 request = ModelSelectionRequest(prompt='Explain quantum computing', cost_bias=0.5)
@@ -735,7 +735,7 @@ python -c "import psutil; print(f'Memory: {psutil.virtual_memory().percent}%')"
 
 ```bash
 # Start with debug logging
-DEBUG=true fastapi dev adaptive_router_app/adaptive_router_app/main.py
+DEBUG=true fastapi dev nordlys_app/nordlys_app/main.py
 
 # Check service health
 curl -X GET http://localhost:8000/health
@@ -750,13 +750,13 @@ curl -X POST http://localhost:8000/select-model \
 
 ```bash
 # Deploy to Modal
-modal deploy adaptive_router_app/adaptive_router_app/main.py
+modal deploy nordlys_app/nordlys_app/main.py
 
 # View logs
-modal logs adaptive-router
+modal logs nordlys
 
 # Check GPU availability
-modal run adaptive-router -c "python -c 'import torch; print(torch.cuda.is_available())'"
+modal run nordlys -c "python -c 'import torch; print(torch.cuda.is_available())'"
 ```
 
 ## Performance Benchmarks
@@ -781,7 +781,7 @@ modal run adaptive-router -c "python -c 'import torch; print(torch.cuda.is_avail
 ### Routing Quality
 
 - **Cost Savings**: 30-70% compared to always using most capable models
-- **Accuracy Retention**: >90% of optimal model selection vs. oracle routing
+- **Accuracy Retention**: >90% of optimal model selection vs. oracle selection
 - **Cluster Silhouette**: Typically 0.3-0.5 (good cluster separation)
 - **Per-Cluster Accuracy**: Varies by cluster, tracked in profile metadata
 
@@ -806,7 +806,7 @@ modal run adaptive-router -c "python -c 'import torch; print(torch.cuda.is_avail
 **IMPORTANT**: When making changes to this service, always update documentation:
 
 1. **Update this CLAUDE.md** when:
-   - Adding new ML models or classification algorithms
+   - Adding new ML models or selection algorithms
    - Modifying API interfaces or request/response formats
    - Changing environment variables or configuration settings
    - Adding new providers, task types, or domain classifications
@@ -815,13 +815,13 @@ modal run adaptive-router -c "python -c 'import torch; print(torch.cuda.is_avail
 
 2. **Update root CLAUDE.md** when:
    - Changing service ports, commands, or basic service description
-   - Modifying the service's role in the intelligent routing architecture
+   - Modifying the service's role in the intelligent mixture of models architecture
    - Adding new ML capabilities or performance characteristics
 
 3. **Update adaptive-docs/** when:
    - Adding new model selection features
    - Changing cost optimization algorithms
-   - Modifying provider integration or routing logic
+   - Modifying provider integration or selection logic
 
 ### Pull Request Process
 

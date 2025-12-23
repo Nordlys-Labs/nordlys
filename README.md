@@ -1,112 +1,79 @@
-# Adaptive Router
+# Nordlys Model Engine
 
-Intelligent LLM model selection via ML-powered clustering. Reduce costs by 30-70% using cluster-based routing with per-cluster error rates and prompt analysis.
+Nordlys is an AI lab building a Mixture of Models. This repository contains the internal engine and tooling that power Nordlys models.
 
-[![PyPI](https://img.shields.io/pypi/v/adaptive-router)](https://pypi.org/project/adaptive-router/)
-[![Python](https://img.shields.io/pypi/pyversions/adaptive-router)](https://pypi.org/project/adaptive-router/)
-[![License](https://img.shields.io/github/license/Egham-7/adaptive)](https://github.com/Egham-7/adaptive/blob/main/LICENSE)
+## What is Nordlys?
 
-## What It Does
+Nordlys is an intelligent model selection system that:
+- **Selects optimal LLMs** based on prompt analysis using ML clustering
+- **Optimizes costs** while maintaining quality through sophisticated selection algorithms
+- **Supports multiple providers** (OpenAI, Anthropic, local models, etc.)
+- **Provides high-performance inference** with GPU acceleration
 
-1. **Semantic Clustering**: Groups similar prompts using sentence embeddings
-2. **Performance Tracking**: Maintains per-cluster error rates for each model
-3. **Smart Selection**: Balances quality vs. cost using configurable `cost_bias`
+## For Users
 
-## Installation
+Use the public API or SDKs to access Nordlys models. Default model ID:
+- `nordlys/nordlys-code`
 
-**Note**: Adaptive Router requires either the CPU or CUDA C++ core to function.
+## For Contributors
 
-### CPU Version (Recommended)
-
-```bash
-pip install adaptiv_router[cpu]
-```
-
-### CUDA Version (GPU Accelerated)
+### Python Package Development
 
 ```bash
-pip install adaptive_router[cu12]
+git clone https://github.com/Nordlys-Labs/nordlys
+cd nordlys
+uv sync --package nordlys
 ```
 
-### From Source (Development)
+Requirements: Python 3.11+.
+
+Run tests:
+```bash
+uv run pytest nordlys/tests/
+```
+
+### C++ Core Development
+
+For C++ development (including C bindings):
 
 ```bash
-git clone https://github.com/Egham-7/adaptive
-cd adaptive
-uv sync --package adaptive_router  # Includes CPU core
+cd nordlys-core
+conan install . --build=missing -s compiler.cppstd=20
+cmake --preset conan-release -DNORDLYS_BUILD_C=ON
+cmake --build . --target nordlys_c
 ```
 
-**Requirements**: Python 3.11+, CMake (for compilation), optional: CUDA 12.x (for GPU version)
+This builds:
+- `libnordlys_core.a` - Core C++ library
+- `libnordlys_c.so` - C FFI bindings
 
-## Quick Start
+## Package Variants
 
-### Basic Usage
+- **nordlys**: Python package (CPU-only)
+- **nordlys[cu12]**: Python package with CUDA 12.x support (Linux)
+- **nordlys-core**: C++ core library
+- **nordlys-core-cu12**: C++ core with CUDA 12.x (Linux)
 
-```python
-from adaptive_router import ModelRouter
-
-# Load trained profile
-router = ModelRouter.from_json_file("profile.json")
-
-# Select optimal model
-model_id = router.route("Write a Python sorting function", cost_bias=0.3)
-print(model_id)  # "openai/gpt-3.5-turbo"
-```
-
-### Advanced Usage
-
-```python
-from adaptive_router import ModelSelectionRequest
-
-response = router.select_model(
-    ModelSelectionRequest(
-        prompt="Design a distributed system",
-        cost_bias=0.9  # Prefer quality over cost
-    )
-)
-
-print(f"Selected: {response.model_id}")
-print(f"Alternatives: {[alt.model_id for alt in response.alternatives]}")
-```
-
-### Training
+## Development Commands
 
 ```bash
-# Train from CSV dataset
-uv run python adaptive_router/train/train.py \
-  --config adaptive_router/train/examples/configs/train_minimal.toml
+# Install all dependencies
+uv sync
+
+# Code quality checks
+uv run ruff check .
+uv run ruff format .
+uv run ty check
+
+# Run tests with coverage
+uv run pytest --cov
+
+# Build documentation
+uv run mkdocs serve
 ```
-
-## Key Features
-
-- **30-70% Cost Reduction** vs. always using GPT-4
-- **10x Performance** with C++ inference core
-- **Multi-Provider Support**: OpenAI, Anthropic, and custom models
-- **Cloud Storage**: MinIO/S3 profile storage
-- **Production Ready**: Docker, Railway, and bare-metal deployment
-
-## API Overview
-
-### Core Classes
-
-- `ModelRouter`: Main routing interface
-- `ModelSelectionRequest`: Routing request with prompt and preferences
-- `ModelSelectionResponse`: Routing result with selected model and alternatives
-
-### Factory Methods
-
-- `ModelRouter.from_json_file(path)`: Load from JSON
-- `ModelRouter.from_minio(settings)`: Load from MinIO/S3
-- `ModelRouter.from_profile(profile)`: Load from memory
 
 ## Links
 
-- 📖 **[Full Documentation](https://docs.llmadaptive.uk)**
-- 🚀 **[Training Guide](adaptive_router/train/examples/README.md)**
-- 🏗️ **[Architecture](ARCHITECTURE.md)**
-- 🐛 **[Issues](https://github.com/Egham-7/adaptive/issues)**
-- 💬 **[Discussions](https://github.com/Egham-7/adaptive/discussions)**
-
-## License
-
-MIT License - see [LICENSE](LICENSE)
+- **Documentation**: https://docs.llmadaptive.uk
+- **Issues**: https://github.com/Nordlys-Labs/nordlys/issues
+- **License**: MIT (see LICENSE)
