@@ -1,0 +1,11 @@
+# SWE-bench Leaderboard Submission Metadata
+# Update this file before submitting to the experiments repo
+
+name: "Nordlys-singularity"
+oss: true
+site: "https://github.com/Nordlys-Labs"
+
+# Additional metadata (optional)
+# verified_only: true
+# paper: "https://arxiv.org/abs/..."
+# blog: "https://your-blog.com/..."

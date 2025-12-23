@@ -1,17 +1,25 @@
+# Results and outputs
+results/
+predictions/
+trajs/
+logs/
+
 # Environment
 .env
 .venv/
+venv/
 
 # Python
 __pycache__/
 *.pyc
 *.pyo
-*.pyd
-.Python
+*.egg-info/
+dist/
+build/
 
 # IDE
-.idea/
 .vscode/
+.idea/
 *.swp
 *.swo
 
@@ -19,8 +27,5 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
-*.json
-*.npy
-*.html
-*.lock
-profiles
+# UV
+uv.lock

@@ -1,0 +1,37 @@
+[project]
+name = "adaptive-benchmarks"
+version = "0.1.0"
+description = "Benchmarking and profiling tools for Adaptive Router"
+requires-python = ">=3.11"
+dependencies = [
+    # Benchmarking (mini-swe-agent integration)
+    "sb-cli>=0.1.0",
+    "litellm>=1.50.0",
+    "anthropic>=0.30.0",
+    # Profiling
+    "pygithub>=2.0.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.1.0",
+    "pytest>=8.0.0",
+]
+
+[project.scripts]
+profile-model = "swe-bench.profiling.clustering.profile_model:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["swe-bench/profiling/clustering", "swe-bench/swe-bench/src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
