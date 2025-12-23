@@ -1,6 +1,6 @@
-"""Adaptive Router Exceptions Module.
+"""Nordlys Router Exceptions Module.
 
-This module contains exception classes used throughout the Adaptive Router library.
+This module contains exception classes used throughout the Nordlys Router library.
 """
 
 from nordlys.exceptions.core import (

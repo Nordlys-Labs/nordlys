@@ -60,7 +60,7 @@ class APIConfig(BaseModel):
     """
 
     nordlys_api_key: str
-    base_url: str = "https://api.llmadaptive.uk/v1"
+    base_url: str = "https://api.nordlylabs.com/v1"
 
     @field_validator("nordlys_api_key")
     @classmethod

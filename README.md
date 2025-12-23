@@ -74,6 +74,6 @@ uv run mkdocs serve
 
 ## Links
 
-- **Documentation**: https://docs.llmadaptive.uk
+- **Documentation**: https://docs.nordlylabs.com
 - **Issues**: https://github.com/Nordlys-Labs/nordlys/issues
 - **License**: MIT (see LICENSE)

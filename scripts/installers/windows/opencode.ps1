@@ -8,7 +8,7 @@ $ScriptName = "OpenCode Nordlys Installer"
 $NodeMinVersion = 18
 $NodeInstallVersion = "22"
 $PackageName = "opencode-ai"
-$ApiBaseUrl = "https://api.llmadaptive.uk/v1"
+$ApiBaseUrl = "https://api.nordlylabs.com/v1"
 $DefaultModel = "nordlys/hypernova"
 
 function Write-Info {

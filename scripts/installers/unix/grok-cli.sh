@@ -12,8 +12,8 @@ NODE_INSTALL_VERSION=22
 NVM_VERSION="v0.40.3"
 GROK_PACKAGE="@vibe-kit/grok-cli@0.0.16"
 CONFIG_DIR="$HOME/.grok"
-API_BASE_URL="https://api.llmadaptive.uk/v1"
-API_KEY_URL="https://www.llmadaptive.uk/dashboard"
+API_BASE_URL="https://api.nordlylabs.com/v1"
+API_KEY_URL="https://www.nordlylabs.com/dashboard"
 
 # Model override defaults (can be overridden by environment variables)
 # Use nordlys/hypernova to enable Nordlys model for optimal cost/performance
@@ -405,7 +405,7 @@ configure_grok() {
      echo "   cat > ~/.grok/user-settings.json << 'EOF'"
     echo "{"
     echo '  "apiKey": "your_api_key_here",'
-    echo '  "baseURL": "https://www.llmadaptive.uk/api/v1",'
+    echo '  "baseURL": "https://www.nordlylabs.com/api/v1",'
     echo '  "defaultModel": "nordlys/hypernova",'
     echo '  "models": ["nordlys/hypernova"]'
     echo "}"
@@ -549,7 +549,7 @@ main() {
     echo "   • Create .grok/GROK.md for custom project instructions"
     echo "   • Add MCP servers with: grok mcp add server-name"
     echo ""
-    echo "📖 Full Documentation: https://docs.llmadaptive.uk/developer-tools/grok-cli"
+    echo "📖 Full Documentation: https://docs.nordlylabs.com/developer-tools/grok-cli"
     echo "🐛 Report Issues: https://github.com/Egham-7/nordlys/issues"
   else
     echo ""
@@ -558,9 +558,9 @@ main() {
     echo "🔧 Manual Setup (if needed):"
     echo "   Configuration: ~/.grok/user-settings.json"
     echo "   Expected format:"
-    echo '   {"apiKey":"your_key","baseURL":"https://www.llmadaptive.uk/api/v1","defaultModel":"nordlys/hypernova","models":["nordlys/hypernova"]}'
+    echo '   {"apiKey":"your_key","baseURL":"https://www.nordlylabs.com/api/v1","defaultModel":"nordlys/hypernova","models":["nordlys/hypernova"]}'
     echo ""
-    echo "🆘 Get help: https://docs.llmadaptive.uk/troubleshooting"
+    echo "🆘 Get help: https://docs.nordlylabs.com/troubleshooting"
     exit 1
   fi
 }

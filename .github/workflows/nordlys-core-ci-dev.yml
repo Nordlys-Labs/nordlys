@@ -66,10 +66,10 @@ jobs:
         shell: bash
         run: |
           cmake --preset conan-release \
-            -DADAPTIVE_BUILD_TESTS=ON \
-            -DADAPTIVE_BUILD_PYTHON=ON \
-            -DADAPTIVE_BUILD_C=ON \
-            -DADAPTIVE_ENABLE_CUDA=OFF
+            -DNORDLYS_BUILD_TESTS=ON \
+            -DNORDLYS_BUILD_PYTHON=ON \
+            -DNORDLYS_BUILD_C=ON \
+            -DNORDLYS_ENABLE_CUDA=OFF
 
       - name: Build
         working-directory: nordlys-core

@@ -18,8 +18,8 @@ NVM_VERSION="v0.40.3"
 OPENCODE_PACKAGE="opencode-ai"
 
 CONFIG_FILE="opencode.json"
-API_BASE_URL="https://api.llmadaptive.uk/v1"
-API_KEY_URL="https://www.llmadaptive.uk/dashboard"
+API_BASE_URL="https://api.nordlylabs.com/v1"
+API_KEY_URL="https://www.nordlylabs.com/dashboard"
 
 # Model override defaults:
 # - use nordlys/hypernova for Nordlys model

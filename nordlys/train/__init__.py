@@ -1,6 +1,6 @@
-"""Adaptive Router Training Module.
+"""Nordlys Router Training Module.
 
-This module provides a TOML-based training script for Adaptive Router profiles.
+This module provides a TOML-based training script for Nordlys Router profiles.
 It supports hybrid model loading (API fetch or TOML definition) and multiple
 output formats (local, S3, MinIO).
 

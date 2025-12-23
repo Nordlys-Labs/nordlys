@@ -12,8 +12,8 @@ NODE_INSTALL_VERSION=22
 NVM_VERSION="v0.40.3"
 CLAUDE_PACKAGE="@anthropic-ai/claude-code"
 CONFIG_DIR="$HOME/.claude"
-API_BASE_URL="https://api.llmadaptive.uk"
-API_KEY_URL="https://www.llmadaptive.uk/dashboard"
+API_BASE_URL="https://api.nordlylabs.com"
+API_KEY_URL="https://www.nordlylabs.com/dashboard"
 API_TIMEOUT_MS=3000000
 
 # Model override defaults (can be overridden by environment variables)
@@ -257,7 +257,7 @@ configure_claude() {
      echo "{"
      echo '  "env": {'
      echo '    "ANTHROPIC_AUTH_TOKEN": "your_api_key_here",'
-     echo '    "ANTHROPIC_BASE_URL": "https://api.llmadaptive.uk/api",'
+     echo '    "ANTHROPIC_BASE_URL": "https://api.nordlylabs.com/api",'
      echo '    "API_TIMEOUT_MS": "3000000",'
      echo '    "ANTHROPIC_MODEL": "nordlys/hypernova",'
      echo '    "ANTHROPIC_SMALL_FAST_MODEL": "nordlys/hypernova",'
@@ -414,7 +414,7 @@ main() {
     echo "   • Override models: NORDLYS_PRIMARY_MODEL, NORDLYS_FAST_MODEL env vars"
     echo "   • Use author/model_id format (e.g., nordlys/hypernova)"
     echo ""
-    echo "📖 Full Documentation: https://docs.llmadaptive.uk/developer-tools/claude-code"
+    echo "📖 Full Documentation: https://docs.nordlylabs.com/developer-tools/claude-code"
     echo "🐛 Report Issues: https://github.com/Egham-7/nordlys/issues"
   else
     echo ""
@@ -423,9 +423,9 @@ main() {
     echo "🔧 Manual Setup (if needed):"
     echo "   Configuration: ~/.claude/settings.json"
     echo "   Expected format:"
-    echo '   {"env":{"ANTHROPIC_AUTH_TOKEN":"your_key","ANTHROPIC_BASE_URL":"https://www.llmadaptive.uk/api"}}'
+    echo '   {"env":{"ANTHROPIC_AUTH_TOKEN":"your_key","ANTHROPIC_BASE_URL":"https://www.nordlylabs.com/api"}}'
     echo ""
-    echo "🆘 Get help: https://docs.llmadaptive.uk/troubleshooting"
+    echo "🆘 Get help: https://docs.nordlylabs.com/troubleshooting"
     exit 1
   fi
 }

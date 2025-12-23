@@ -1,4 +1,4 @@
-# CODEOWNERS file for Adaptive LLM Infrastructure
+# CODEOWNERS file for Nordlys LLM Infrastructure
 # GitHub will automatically request reviews from code owners when PRs modify their code
 # This replaces the Dependabot reviewers configuration that is being deprecated
 
@@ -8,17 +8,17 @@
 
 # Core service ownership
 # Frontend service - Next.js, React, TypeScript
-/adaptive-app/ @botirk38 @kendrick1win
+/nordlys-app/ @botirk38 @kendrick1win
 
 # Backend service - Go API server
-/adaptive-backend/ @botirk38
+/nordlys-backend/ @botirk38
 
 # AI service - Python ML service
-/adaptive_ai/ @mohamedAtoui @botirk38
+/nordlys_engine/ @mohamedAtoui @botirk38
 
 # Supporting services and tools
 # Documentation site
-/adaptive-docs/ @botirk38
+/nordlys-docs/ @botirk38
 
 # Analysis tools and cost optimization
 /analysis/ @botirk38
@@ -29,16 +29,16 @@
 # Infrastructure and configuration
 # Docker and container configuration
 docker-compose.yml @botirk38
-/adaptive-app/Dockerfile @botirk38 @kendrick1win
-/adaptive-backend/Dockerfile @botirk38
-/adaptive_ai/Dockerfile @mohamedAtoui @botirk38
+/nordlys-app/Dockerfile @botirk38 @kendrick1win
+/nordlys-backend/Dockerfile @botirk38
+/nordlys_engine/Dockerfile @mohamedAtoui @botirk38
 
 # CI/CD and GitHub workflows
 /.github/ @botirk38
 
 # Database schema and migrations (critical changes)
-/adaptive-app/prisma/schema.prisma @botirk38 @kendrick1win
-/adaptive-app/prisma/migrations/ @botirk38 @kendrick1win
+/nordlys-app/prisma/schema.prisma @botirk38 @kendrick1win
+/nordlys-app/prisma/migrations/ @botirk38 @kendrick1win
 
 # Security and documentation
 SECURITY.md @botirk38

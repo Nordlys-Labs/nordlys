@@ -16,7 +16,7 @@ We take security vulnerabilities seriously. If you discover a security vulnerabi
 ### How to Report
 
 1. **DO NOT** create a public GitHub issue for security vulnerabilities
-2. Email us directly at: [security@adaptive.com](mailto:security@adaptive.com)
+2. Email us directly at: [security@llmadaptive.uk](mailto:security@llmadaptive.uk)
 3. Include the following information:
    - Description of the vulnerability
    - Steps to reproduce the issue
@@ -117,9 +117,9 @@ Security updates are released as needed and announced through:
 
 For security-related questions or concerns:
 
-- Security Team: [security@adaptive.com](mailto:security@adaptive.com)
-- General Support: [support@adaptive.com](mailto:support@adaptive.com)
-- Emergency Contact: [emergency@adaptive.com](mailto:emergency@adaptive.com)
+- Security Team: [security@llmadaptive.uk](mailto:security@llmadaptive.uk)
+- General Support: [support@llmadaptive.uk](mailto:support@llmadaptive.uk)
+- Emergency Contact: [security@llmadaptive.uk](mailto:security@llmadaptive.uk)
 
 ## Acknowledgments
 

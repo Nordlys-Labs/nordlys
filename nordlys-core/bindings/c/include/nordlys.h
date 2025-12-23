@@ -235,7 +235,7 @@ NORDLYS_API char** nordlys_router_get_supported_models(NordlysRouter* router, si
 /**
  * Get router precision type
  * @param router Router handle
- * @return ADAPTIVE_PRECISION_FLOAT32, ADAPTIVE_PRECISION_FLOAT64, or ADAPTIVE_PRECISION_UNKNOWN if router is NULL
+ * @return NORDLYS_PRECISION_FLOAT32, NORDLYS_PRECISION_FLOAT64, or NORDLYS_PRECISION_UNKNOWN if router is NULL
  */
 NORDLYS_API NordlysPrecision nordlys_router_get_precision(NordlysRouter* router);
 
