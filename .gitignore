@@ -246,3 +246,7 @@ dist/
 .development
 .dev
 
+
+# Benchmark data files
+benchmarks/**/*.json
+benchmarks/**/results/
