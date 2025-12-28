@@ -1,112 +1,52 @@
-# SWE-bench Benchmark (Modal Cloud)
+# SWE-bench Routing Benchmark
 
-Custom SWE-bench agent using Modal cloud execution with Nordlys intelligent routing.
+Evaluate Nordlys model routing on SWE-bench Verified (500 instances).
 
 ## Quick Start
 
-### 1. Install Dependencies
-```bash
-cd benchmarks
-uv sync
-```
+1. **Configure credentials:**
+   ```bash
+   # AWS (for S3 access to pre-computed patches)
+   export AWS_ACCESS_KEY_ID=your_key
+   export AWS_SECRET_ACCESS_KEY=your_secret
 
-### 2. Configure Modal
-```bash
-modal setup
-```
+   # Nordlys (for model routing)
+   export NORDLYS_API_KEY=your_key
+   ```
 
-### 3. Set Environment Variables
-The `.env` file in `benchmarks/` should have:
-```bash
-NORDLYS_API_KEY=apk_...
-NORDLYS_API_BASE=https://api.nordlyslabs.com
-```
+2. **Run benchmark:**
+   ```bash
+   cd adaptive_router/benchmarks
+   uv run python swe-bench/swe-bench/scripts/run_benchmark.py
+   ```
 
-### 4. Run Benchmark
-```bash
-cd benchmarks
+3. **Submit results:**
+   ```bash
+   uv run sb-cli submit swe-bench_verified test \
+     --predictions_path swe-bench/swe-bench/output/all_preds.jsonl \
+     --run_id your-run-id
+   ```
 
-# Test (5 instances)
-uv run python -m swe-bench-2.src.runner --slice 0:5
+## Environment Variables
 
-# Full run (500 instances)
-uv run python -m swe-bench-2.src.runner
-```
-
-### 5. Submit for Evaluation
-```bash
-sb-cli submit swe-bench_verified test --predictions_path results/preds.json --run_id my-run
-sb-cli get-report swe-bench_verified test --run_id my-run
-```
-
----
-
-## CLI Options
-
-```bash
-uv run python -m swe-bench-2.src.runner [OPTIONS]
-
-Options:
-  --subset     Dataset subset: verified, lite, full (default: verified)
-  --split      Dataset split (default: test)
-  --slice      Slice of instances, e.g., 0:10 (default: all)
-  --model      LLM model (default: anthropic/nordlys/nordlys-code)
-  --output     Output directory (default: results)
-  --workers    Parallel workers (default: 4)
-  --cost-limit Cost limit per instance (default: 3.0)
-  --max-steps  Max agent steps (default: 50)
-```
-
-## Optimizations
-
-The runner includes several optimizations for cost and speed:
-
-| Feature | Description |
-|---------|-------------|
-| **Parallel execution** | 4 concurrent Modal sandboxes (configurable via `--workers`) |
-| **Reduced idle timeout** | 90s instead of 600s (6.6x cost savings during LLM waits) |
-| **Resource allocation** | 0.5 CPU, 512 MiB memory per sandbox |
-| **Retry with backoff** | 3 retries with exponential backoff (1s, 2s, 4s) |
-| **Crash recovery** | Resume from last saved prediction if interrupted |
-| **Cost estimation** | Shows estimated Modal cost before running |
-| **Budget warning** | Prompts if estimated cost exceeds $30 |
-
----
-
-## Architecture
-
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   runner.py │────▶│   agent.py  │────▶│  modal_env  │
-│             │     │  (LiteLLM)  │     │  (swe-rex)  │
-└─────────────┘     └─────────────┘     └─────────────┘
-       │                   │                   │
-       ▼                   ▼                   ▼
-  Load Dataset      LLM API Calls      Modal Cloud Exec
-```
-
-- **runner.py**: Orchestrates the benchmark run
-- **agent.py**: Agent logic using LiteLLM for LLM calls
-- **modal_env.py**: Modal deployment via swe-rex
-
----
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `NORDLYS_API_KEY` | Yes | - | Nordlys API key |
+| `AWS_ACCESS_KEY_ID` | Yes | - | AWS access key |
+| `AWS_SECRET_ACCESS_KEY` | Yes | - | AWS secret key |
+| `AWS_DEFAULT_REGION` | No | `eu-west-2` | AWS region |
+| `NORDLYS_API_BASE` | No | `https://api.nordlyslabs.com/v1` | Nordlys API URL |
 
 ## Output
 
-```
-results/
-├── preds.json          # Predictions for sb-cli submission
-└── trajs/              # Per-instance trajectories
-    ├── instance1.json
-    └── instance2.json
-```
+| File | Description |
+|------|-------------|
+| `output/all_preds.jsonl` | SWE-bench predictions (for submission) |
+| `output/routing_summary.json` | Routing distribution and cost metrics |
 
+## How It Works
 
----
-
-## Leaderboard Submission
-
-1. Fork https://github.com/swe-bench/experiments
-2. Create folder: `evaluation/verified/YYYYMMDD_nordlys-router/`
-3. Add: `predictions.json`, `metadata.yaml`
-4. Create PR with run_id
+1. Loads 500 SWE-bench Verified instances from HuggingFace
+2. Routes each instance through Nordlys to select optimal model
+3. Fetches pre-computed patches from S3 for each selected model
+4. Aggregates results and generates submission file
