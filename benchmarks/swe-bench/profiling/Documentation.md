@@ -5,7 +5,7 @@ Generate model profiles by mapping SWE-bench results to semantic clusters.
 ## Setup
 
 ```bash
-cd adaptive_router/profiling
+cd profiling
 uv sync
 
 # Add GitHub token to clustering/.env

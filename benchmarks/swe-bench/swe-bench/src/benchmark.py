@@ -14,10 +14,10 @@ from datasets import load_dataset
 from nordlys_py import Nordlys, SelectModelRequest
 from tqdm import tqdm
 
+from .s3_fetcher import S3Fetcher
+
 # Default Nordlys API base URL (can be overridden via NORDLYS_API_BASE env var)
 DEFAULT_NORDLYS_BASE_URL = "https://api.nordlyslabs.com/v1"
-
-from .s3_fetcher import S3Fetcher, InstanceData
 
 logger = logging.getLogger(__name__)
 
@@ -65,11 +65,36 @@ def build_model_folder_map() -> dict[str, str]:
     """Build model_id -> model_folder mapping.
 
     Maps from Nordlys model IDs to S3 folder names.
+    Can be overridden via NORDLYS_MODEL_FOLDER_MAP environment variable (JSON string)
+    or NORDLYS_MODEL_FOLDER_MAP_FILE environment variable (path to JSON file).
 
     Returns:
         Dict mapping model_id (provider/model_name) to S3 folder name
     """
-    # Hardcoded mapping from Nordlys model IDs to S3 folders
+    # Try loading from environment variable (JSON string)
+    mapping_json = os.environ.get("NORDLYS_MODEL_FOLDER_MAP")
+    if mapping_json:
+        try:
+            mapping = json.loads(mapping_json)
+            logger.info(f"Loaded model folder mapping from env var ({len(mapping)} entries)")
+            return mapping
+        except json.JSONDecodeError as e:
+            logger.warning(f"Failed to parse NORDLYS_MODEL_FOLDER_MAP: {e}")
+
+    # Try loading from config file
+    config_file = os.environ.get("NORDLYS_MODEL_FOLDER_MAP_FILE")
+    if config_file:
+        config_path = Path(config_file)
+        if config_path.exists():
+            try:
+                with open(config_path) as f:
+                    mapping = json.load(f)
+                logger.info(f"Loaded model folder mapping from {config_path} ({len(mapping)} entries)")
+                return mapping
+            except (json.JSONDecodeError, OSError) as e:
+                logger.warning(f"Failed to load config file {config_path}: {e}")
+
+    # Default fallback mapping
     mapping = {
         "anthropic/claude-sonnet-4-5": "20250929_mini-v1.13.3_sonnet-4-5-20250929",
         "anthropic/claude-opus-4-5": "20251124_mini-v1.16.0_claude-opus-4-5-20251101",
@@ -81,7 +106,7 @@ def build_model_folder_map() -> dict[str, str]:
         "qwen/qwen-3-coder": "20250802_mini-v1.0.0_qwen3-coder-480b-a35b-instruct",
     }
 
-    logger.info(f"Using model folder mapping with {len(mapping)} entries")
+    logger.info(f"Using default model folder mapping ({len(mapping)} entries)")
     return mapping
 
 

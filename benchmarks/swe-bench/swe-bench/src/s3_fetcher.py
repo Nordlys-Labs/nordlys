@@ -6,7 +6,9 @@ import json
 import logging
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
+from threading import Lock
 
 import boto3
 from botocore.config import Config
@@ -69,6 +71,7 @@ class S3Fetcher:
             config=config,
         )
         self._cache: dict[tuple[str, str], InstanceData] = {}
+        self._cache_lock = Lock()
 
     def _get_patch_path(self, model_folder: str, instance_id: str) -> str:
         """Get S3 path for patch file."""
@@ -127,8 +130,9 @@ class S3Fetcher:
             FetchResult with success status and data or error
         """
         cache_key = (model_folder, instance_id)
-        if cache_key in self._cache:
-            return FetchResult(success=True, data=self._cache[cache_key])
+        with self._cache_lock:
+            if cache_key in self._cache:
+                return FetchResult(success=True, data=self._cache[cache_key])
 
         try:
             # Fetch patch
@@ -181,7 +185,8 @@ class S3Fetcher:
                 total_tokens=total_tokens,
                 resolved=resolved,
             )
-            self._cache[cache_key] = data
+            with self._cache_lock:
+                self._cache[cache_key] = data
             return FetchResult(success=True, data=data)
 
         except Exception as e:
@@ -192,18 +197,34 @@ class S3Fetcher:
             )
 
     def batch_fetch(
-        self, model_folder: str, instance_ids: list[str]
+        self, model_folder: str, instance_ids: list[str], max_workers: int = 10
     ) -> dict[str, FetchResult]:
-        """Fetch data for multiple instances.
+        """Fetch data for multiple instances concurrently.
 
         Args:
             model_folder: S3 folder name for the model
             instance_ids: List of instance IDs
+            max_workers: Maximum number of concurrent fetches (default: 10)
 
         Returns:
             Dict mapping instance_id to FetchResult
         """
-        results = {}
-        for instance_id in instance_ids:
-            results[instance_id] = self.fetch_instance_data(model_folder, instance_id)
+        results: dict[str, FetchResult] = {}
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_id = {
+                executor.submit(self.fetch_instance_data, model_folder, iid): iid
+                for iid in instance_ids
+            }
+            for future in as_completed(future_to_id):
+                instance_id = future_to_id[future]
+                try:
+                    results[instance_id] = future.result()
+                except Exception as e:
+                    logger.error(f"Failed to fetch {instance_id}: {e}")
+                    results[instance_id] = FetchResult(
+                        success=False,
+                        error=f"Concurrent fetch failed: {str(e)}",
+                    )
+
         return results

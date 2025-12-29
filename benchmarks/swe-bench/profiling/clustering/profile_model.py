@@ -320,7 +320,7 @@ def add_model_to_profile(
     with open(profile_path, "w") as f:
         json.dump(profile, f, indent=2)
 
-    print(f"✅ Added {model_name} to {profile_path}")
+    print(f"Added {model_name} to {profile_path}")
     print(f"   Error rates: {new_model['error_rates']}")
     print(f"   Total models in profile: {len(models)}")
 
@@ -396,7 +396,7 @@ def main() -> None:
     parser.add_argument(
         "--clusters-dir",
         type=Path,
-        default=Path(__file__).parent / "clustering_results_21122025",
+        default=Path(__file__).parent / "clustering_21122025",
         help="Directory containing cluster data",
     )
     parser.add_argument(

@@ -13,12 +13,9 @@ from dotenv import load_dotenv
 # Load environment variables from .env
 load_dotenv(Path(__file__).parent.parent.parent.parent / ".env")
 
-# Add src to path for imports
-script_dir = Path(__file__).parent
-src_dir = script_dir.parent / "src"
-sys.path.insert(0, str(src_dir.parent))
-
-from src.benchmark import SWEBenchBenchmark, BenchmarkConfig
+# Add parent directory to path for imports (handles hyphenated directory names)
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from src.benchmark import BenchmarkConfig, SWEBenchBenchmark
 
 logging.basicConfig(
     level=logging.INFO,
@@ -27,7 +24,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Run SWE-bench Nordlys routing benchmark"
     )

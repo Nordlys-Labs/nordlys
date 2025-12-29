@@ -5,10 +5,11 @@ description = "Benchmarking and profiling tools for Adaptive Router"
 requires-python = ">=3.12"
 dependencies = [
     # Benchmarking (mini-swe-agent integration)
+    "mini-swe-agent @ git+https://github.com/SWE-agent/mini-swe-agent.git@v1.17.3",
     "sb-cli>=0.1.0",
     "litellm>=1.50.0",
     "anthropic>=0.30.0",
-    # Cost tracking
+    # Nordlys routing SDK
     "nordlys-py>=0.1.0",
     # Profiling
     "pygithub>=2.0.0",
@@ -17,6 +18,9 @@ dependencies = [
     "swe-rex[modal]>=0.2.0",
     "swebench>=2.1.0",
     "datasets>=2.0.0",
+    # Routing benchmark
+    "boto3>=1.35.0",
+    "tqdm>=4.66.0",
 ]
 
 [project.optional-dependencies]
@@ -31,6 +35,9 @@ profile-model = "swe-bench.profiling.clustering.profile_model:main"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["swe-bench/profiling/clustering", "swe-bench/swe-bench/src"]
