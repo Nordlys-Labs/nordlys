@@ -9,8 +9,8 @@ $ScriptName = "Qwen Code Nordlys Installer"
 $NodeMinVersion = 20
 $NodeInstallVersion = "22"
 $PackageName = "@qwen-code/qwen-code"
-$ApiBaseUrl = "https://api.llmadaptive.uk/v1"
-$DefaultModel = "nordlys/nordlys-code"
+$ApiBaseUrl = "https://api.nordlylabs.com/v1"
+$DefaultModel = "nordlys/hypernova"
 
 function Write-Info {
     param([string]$Message)

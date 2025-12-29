@@ -9,8 +9,8 @@ $ScriptName = "Grok CLI Nordlys Installer"
 $NodeMinVersion = 18
 $NodeInstallVersion = "22"
 $PackageName = "@vibe-kit/grok-cli@0.0.16"
-$ApiBaseUrl = "https://api.llmadaptive.uk/v1"
-$DefaultModel = "nordlys/nordlys-code"
+$ApiBaseUrl = "https://api.nordlylabs.com/v1"
+$DefaultModel = "nordlys/hypernova"
 $DefaultModels = @(
     "anthropic/claude-sonnet-4-5",
     "anthropic/claude-4-5-haiku",

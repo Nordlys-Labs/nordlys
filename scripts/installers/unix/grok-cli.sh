@@ -12,12 +12,12 @@ NODE_INSTALL_VERSION=22
 NVM_VERSION="v0.40.3"
 GROK_PACKAGE="@vibe-kit/grok-cli@0.0.16"
 CONFIG_DIR="$HOME/.grok"
-API_BASE_URL="https://api.llmadaptive.uk/v1"
-API_KEY_URL="https://www.llmadaptive.uk/dashboard"
+API_BASE_URL="https://api.nordlylabs.com/v1"
+API_KEY_URL="https://www.nordlylabs.com/dashboard"
 
 # Model override defaults (can be overridden by environment variables)
-# Use nordlys/nordlys-code to enable Nordlys model for optimal cost/performance
-DEFAULT_MODEL="nordlys/nordlys-code"
+# Use nordlys/hypernova to enable Nordlys model for optimal cost/performance
+DEFAULT_MODEL="nordlys/hypernova"
 DEFAULT_MODELS='["anthropic/claude-sonnet-4-5","anthropic/claude-4-5-haiku","anthropic/claude-opus-4-1-20250805","openai/gpt-5-codex","google/gemini-2-5-pro"]'
 
 # ========================
@@ -338,14 +338,14 @@ add_env_to_shell_config() {
 validate_model_override() {
   local model="$1"
 
-  # Empty values fall back to nordlys/nordlys-code for backward compatibility
+  # Empty values fall back to nordlys/hypernova for backward compatibility
   if [ -z "$model" ]; then
     return 0
   fi
 
   # Validate format: author/model_id
   if [[ ! "$model" =~ ^[a-zA-Z0-9_-]+/[a-zA-Z0-9_.-]+$ ]]; then
-    log_error "Model format invalid. Use format: author/model_id (e.g., nordlys/nordlys-code)"
+    log_error "Model format invalid. Use format: author/model_id (e.g., nordlys/hypernova)"
     return 1
   fi
   return 0
@@ -394,7 +394,7 @@ configure_grok() {
     echo ""
     echo "🎯 Option 3: Customize model (Advanced)"
     echo "   export NORDLYS_API_KEY='your-api-key-here'"
-    echo "   export NORDLYS_MODEL='nordlys/nordlys-code'"
+    echo "   export NORDLYS_MODEL='nordlys/hypernova'"
     echo "   curl -fsSL https://raw.githubusercontent.com/Egham-7/nordlys/main/scripts/installers/unix/grok-cli.sh | bash"
     echo ""
      echo "⚙️  Option 4: Manual configuration (Advanced users)"
@@ -405,9 +405,9 @@ configure_grok() {
      echo "   cat > ~/.grok/user-settings.json << 'EOF'"
     echo "{"
     echo '  "apiKey": "your_api_key_here",'
-    echo '  "baseURL": "https://www.llmadaptive.uk/api/v1",'
-    echo '  "defaultModel": "nordlys/nordlys-code",'
-    echo '  "models": ["nordlys/nordlys-code"]'
+    echo '  "baseURL": "https://www.nordlylabs.com/api/v1",'
+    echo '  "defaultModel": "nordlys/hypernova",'
+    echo '  "models": ["nordlys/hypernova"]'
     echo "}"
     echo "EOF"
     echo ""
@@ -536,7 +536,7 @@ main() {
     echo "   grok -p \"show me the package.json file\""
     echo "   grok -p \"create a React component for user authentication\""
     echo "   grok -d /path/to/project  # Set working directory"
-    echo "   grok --model nordlys/nordlys-code  # Override model"
+    echo "   grok --model nordlys/hypernova  # Override model"
     echo ""
     echo "📊 Monitor Usage:"
     echo "   Dashboard: $API_KEY_URL"
@@ -549,7 +549,7 @@ main() {
     echo "   • Create .grok/GROK.md for custom project instructions"
     echo "   • Add MCP servers with: grok mcp add server-name"
     echo ""
-    echo "📖 Full Documentation: https://docs.llmadaptive.uk/developer-tools/grok-cli"
+    echo "📖 Full Documentation: https://docs.nordlylabs.com/developer-tools/grok-cli"
     echo "🐛 Report Issues: https://github.com/Egham-7/nordlys/issues"
   else
     echo ""
@@ -558,9 +558,9 @@ main() {
     echo "🔧 Manual Setup (if needed):"
     echo "   Configuration: ~/.grok/user-settings.json"
     echo "   Expected format:"
-    echo '   {"apiKey":"your_key","baseURL":"https://www.llmadaptive.uk/api/v1","defaultModel":"nordlys/nordlys-code","models":["nordlys/nordlys-code"]}'
+    echo '   {"apiKey":"your_key","baseURL":"https://www.nordlylabs.com/api/v1","defaultModel":"nordlys/hypernova","models":["nordlys/hypernova"]}'
     echo ""
-    echo "🆘 Get help: https://docs.llmadaptive.uk/troubleshooting"
+    echo "🆘 Get help: https://docs.nordlylabs.com/troubleshooting"
     exit 1
   fi
 }

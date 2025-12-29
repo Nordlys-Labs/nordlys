@@ -3,7 +3,7 @@
 
 [api]
 nordlys_api_key = "${NORDLYS_API_KEY}"
-base_url = "https://api.llmadaptive.uk/v1"
+base_url = "https://api.nordlylabs.com/v1"
 
 [dataset]
 path = "train/examples/datasets/minimal_qa.csv"

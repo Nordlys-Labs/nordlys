@@ -391,17 +391,17 @@ protected:
 
 // Precision query tests
 TEST_F(CFFITest, GetPrecisionReturnsFloat32) {
-  AdaptivePrecision precision = nordlys_router_get_precision(router_);
+  NordlysPrecision precision = nordlys_router_get_precision(router_);
   EXPECT_EQ(precision, NORDLYS_PRECISION_FLOAT32);
 }
 
 TEST_F(CFFITestFloat64, GetPrecisionReturnsFloat64) {
-  AdaptivePrecision precision = nordlys_router_get_precision(router_);
+  NordlysPrecision precision = nordlys_router_get_precision(router_);
   EXPECT_EQ(precision, NORDLYS_PRECISION_FLOAT64);
 }
 
 TEST(CFFITestPrecision, GetPrecisionHandlesNullRouter) {
-  AdaptivePrecision precision = nordlys_router_get_precision(nullptr);
+  NordlysPrecision precision = nordlys_router_get_precision(nullptr);
   EXPECT_EQ(precision, NORDLYS_PRECISION_UNKNOWN);
 }
 

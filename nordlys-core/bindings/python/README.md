@@ -10,5 +10,5 @@ pip install -e .
 
 ## Links
 
-- Docs: https://docs.llmadaptive.uk
+- Docs: https://docs.nordlylabs.com
 - Issues: https://github.com/Egham-7/nordlys/issues

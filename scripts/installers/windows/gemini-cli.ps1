@@ -9,8 +9,8 @@ $ScriptName = "Gemini CLI Nordlys Installer"
 $NodeMinVersion = 18
 $NodeInstallVersion = "22"
 $PackageName = "@google/gemini-cli"
-$ApiBaseUrl = "https://api.llmadaptive.uk"
-$DefaultModel = "nordlys/nordlys-code"
+$ApiBaseUrl = "https://api.nordlylabs.com"
+$DefaultModel = "nordlys/hypernova"
 
 function Write-Info {
     param([string]$Message)

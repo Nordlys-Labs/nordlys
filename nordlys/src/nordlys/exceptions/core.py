@@ -1,6 +1,6 @@
-"""Custom exceptions for Adaptive Router Core module.
+"""Custom exceptions for Nordlys Router Core module.
 
-This module defines a hierarchy of exceptions specific to the Adaptive Router,
+This module defines a hierarchy of exceptions specific to the Nordlys Router,
 providing clearer error messages and better debugging experience for library users.
 """
 
@@ -8,9 +8,9 @@ from __future__ import annotations
 
 
 class AdaptiveRouterError(Exception):
-    """Base exception for all Adaptive Router operations.
+    """Base exception for all Nordlys Router operations.
 
-    This is the root exception that all other Adaptive Router exceptions inherit from.
+    This is the root exception that all other Nordlys Router exceptions inherit from.
     It provides a consistent interface for error handling across the library.
     """
 

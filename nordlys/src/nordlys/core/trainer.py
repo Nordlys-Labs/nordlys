@@ -1,4 +1,4 @@
-"""Trainer for Adaptive Router profiles.
+"""Trainer for Nordlys Router profiles.
 
 This module provides the Trainer class for end-to-end training of router profiles,
 including clustering, model inference, error rate computation, and profile generation.
@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 class Trainer:
-    """Trainer for Adaptive Router profiles.
+    """Trainer for Nordlys Router profiles.
 
     This class handles end-to-end training workflow:
     1. Data loading from multiple formats
@@ -368,7 +368,7 @@ class Trainer:
         start_time = time.time()
 
         logger.info("=" * 60)
-        logger.info("TRAINING ADAPTIVE ROUTER PROFILE")
+        logger.info("TRAINING NORDLYS ROUTER PROFILE")
         logger.info("=" * 60)
         logger.info(f"Samples: {len(inputs)}")
         logger.info(f"Models: {len(self.models)}")

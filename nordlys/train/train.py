@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Adaptive Router Training Script with TOML Configuration.
+"""Nordlys Router Training Script with TOML Configuration.
 
-This script trains an Adaptive Router profile from labeled dataset files using
+This script trains a Nordlys Router profile from labeled dataset files using
 TOML-based configuration. It supports hybrid model loading (fetch pricing from
 API or define in TOML) and multiple output formats (local, S3, MinIO).
 
@@ -35,23 +35,23 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class AdaptiveModelsAPIClient:
-    """HTTP client for the Adaptive Models API.
+class NordlysModelsAPIClient:
+    """HTTP client for the Nordlys Models API.
 
-    Handles authentication and communication with the Adaptive Models API
+    Handles authentication and communication with the Nordlys Models API
     to fetch model information and pricing data.
     """
 
     def __init__(
         self,
         api_key: str,
-        base_url: str = "https://api.llmadaptive.uk/v1",
+        base_url: str = "https://api.nordlylabs.com/v1",
         timeout: float = 30.0,
     ):
         """Initialize the API client.
 
         Args:
-            api_key: Adaptive API key for authentication
+            api_key: Nordlys API key for authentication
             base_url: Base URL for the API
             timeout: Request timeout in seconds
         """
@@ -126,7 +126,7 @@ def create_model_from_toml(model_config: ModelConfigToml) -> Model:
 
 
 def create_model_from_api(
-    api_client: AdaptiveModelsAPIClient, model_config: ModelConfigToml
+    api_client: NordlysModelsAPIClient, model_config: ModelConfigToml
 ) -> Model:
     """Create a Model object by fetching pricing from the API.
 
@@ -176,7 +176,7 @@ def create_model_from_api(
 
 
 def load_models(
-    config: TrainingConfig, api_client: AdaptiveModelsAPIClient
+    config: TrainingConfig, api_client: NordlysModelsAPIClient
 ) -> List[Model]:
     """Load models from TOML configuration (hybrid mode).
 
@@ -264,7 +264,7 @@ def train_router(config: TrainingConfig) -> None:
     """
     # Log training header
     logger.info("=" * 80)
-    logger.info("ADAPTIVE ROUTER TRAINING")
+    logger.info("NORDLYS ROUTER TRAINING")
     logger.info("=" * 80)
     logger.info("Config file validated successfully")
     logger.info(f"Dataset: {config.dataset.path} ({config.dataset.type})")
@@ -276,7 +276,7 @@ def train_router(config: TrainingConfig) -> None:
     logger.info("=" * 80)
 
     # Initialize API client
-    with AdaptiveModelsAPIClient(
+    with NordlysModelsAPIClient(
         config.api.nordlys_api_key, config.api.base_url
     ) as api_client:
         # Load models (hybrid mode: TOML or API)
@@ -374,7 +374,7 @@ def train_router(config: TrainingConfig) -> None:
 def main() -> None:
     """Main entry point for the training script."""
     parser = argparse.ArgumentParser(
-        description="Train an Adaptive Router profile from TOML configuration",
+        description="Train a Nordlys Router profile from TOML configuration",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
  Examples:

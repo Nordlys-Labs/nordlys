@@ -12,12 +12,12 @@ NODE_INSTALL_VERSION=22
 NVM_VERSION="v0.40.3"
 GEMINI_PACKAGE="@google/gemini-cli"
 CONFIG_DIR="$HOME/.gemini"
-API_BASE_URL="https://api.llmadaptive.uk"
-API_KEY_URL="https://www.llmadaptive.uk/dashboard"
+API_BASE_URL="https://api.nordlylabs.com"
+API_KEY_URL="https://www.nordlylabs.com/dashboard"
 
 # Model override defaults (can be overridden by environment variables)
-# Use nordlys/nordlys-code to enable Nordlys model for optimal cost/performance
-DEFAULT_MODEL="nordlys/nordlys-code"
+# Use nordlys/hypernova to enable Nordlys model for optimal cost/performance
+DEFAULT_MODEL="nordlys/hypernova"
 
 # ========================
 #       Utility Functions
@@ -304,7 +304,7 @@ add_env_to_shell_config() {
 
   log_success "Environment variables added to $config_file"
   if [ "$model" = "$DEFAULT_MODEL" ]; then
-    log_info "GEMINI_MODEL set to nordlys/nordlys-code for Nordlys model (default)"
+    log_info "GEMINI_MODEL set to nordlys/hypernova for Nordlys model (default)"
   else
     log_info "GEMINI_MODEL set to: $model"
   fi
@@ -318,14 +318,14 @@ add_env_to_shell_config() {
 validate_model_override() {
   local model="$1"
 
-  # Empty values fall back to nordlys/nordlys-code for backward compatibility
+  # Empty values fall back to nordlys/hypernova for backward compatibility
   if [ -z "$model" ]; then
     return 0
   fi
 
   # Validate format: author/model_id
   if [[ ! "$model" =~ ^[a-zA-Z0-9_-]+/[a-zA-Z0-9_.-]+$ ]]; then
-    log_error "Model format invalid. Use format: author/model_id (e.g., nordlys/nordlys-code)"
+    log_error "Model format invalid. Use format: author/model_id (e.g., nordlys/hypernova)"
     return 1
   fi
   return 0
@@ -376,7 +376,7 @@ configure_gemini() {
     echo ""
     echo "🎯 Option 3: Customize model (Advanced)"
     echo "   export NORDLYS_API_KEY='your-api-key-here'"
-    echo "   export NORDLYS_MODEL='nordlys/nordlys-code'"
+    echo "   export NORDLYS_MODEL='nordlys/hypernova'"
     echo "   curl -fsSL https://raw.githubusercontent.com/Egham-7/nordlys/main/scripts/installers/unix/gemini-cli.sh | bash"
     echo ""
     echo "⚙️  Option 4: Manual configuration (Advanced users)"
@@ -384,8 +384,8 @@ configure_gemini() {
     echo "   export NORDLYS_API_KEY='your-api-key-here'"
     echo "   # Add to your shell config (~/.bashrc, ~/.zshrc, etc.):"
     echo "   echo 'export GEMINI_API_KEY=\"your-api-key-here\"' >> ~/.bashrc"
-    echo "   echo 'export GOOGLE_GEMINI_BASE_URL=\"https://www.llmadaptive.uk/api\"' >> ~/.bashrc"
-    echo "   echo 'export GEMINI_MODEL=\"nordlys/nordlys-code\"' >> ~/.bashrc  # Set for Nordlys model"
+    echo "   echo 'export GOOGLE_GEMINI_BASE_URL=\"https://www.nordlylabs.com/api\"' >> ~/.bashrc"
+    echo "   echo 'export GEMINI_MODEL=\"nordlys/hypernova\"' >> ~/.bashrc  # Set for Nordlys model"
     echo ""
     echo "🔗 Get your API key: $API_KEY_URL"
     exit 1
@@ -488,10 +488,10 @@ main() {
     echo ""
     echo "💡 Pro Tips:"
     echo "   • Your API key is automatically saved to your shell config"
-    echo "   • GEMINI_MODEL set to nordlys/nordlys-code for Nordlys model (recommended)"
+    echo "   • GEMINI_MODEL set to nordlys/hypernova for Nordlys model (recommended)"
     echo "   • Set GEMINI_MODEL to another model ID if your team uses additional Nordlys models"
     echo ""
-    echo "📖 Full Documentation: https://docs.llmadaptive.uk/developer-tools/gemini-cli"
+    echo "📖 Full Documentation: https://docs.nordlylabs.com/developer-tools/gemini-cli"
     echo "🐛 Report Issues: https://github.com/Egham-7/nordlys/issues"
   else
     echo ""
@@ -501,10 +501,10 @@ main() {
     echo "   Configuration: Set environment variables in your shell config"
     echo "   Expected variables:"
     echo '   export GEMINI_API_KEY="your-nordlys-api-key"'
-    echo '   export GOOGLE_GEMINI_BASE_URL="https://www.llmadaptive.uk/api"'
-    echo '   export GEMINI_MODEL="nordlys/nordlys-code"  # Nordlys model'
+    echo '   export GOOGLE_GEMINI_BASE_URL="https://www.nordlylabs.com/api"'
+    echo '   export GEMINI_MODEL="nordlys/hypernova"  # Nordlys model'
     echo ""
-    echo "🆘 Get help: https://docs.llmadaptive.uk/troubleshooting"
+    echo "🆘 Get help: https://docs.nordlylabs.com/troubleshooting"
     exit 1
   fi
 }

@@ -818,7 +818,7 @@ modal run nordlys -c "python -c 'import torch; print(torch.cuda.is_available())'
    - Modifying the service's role in the intelligent mixture of models architecture
    - Adding new ML capabilities or performance characteristics
 
-3. **Update adaptive-docs/** when:
+3. **Update nordlys-docs/** when:
    - Adding new model selection features
    - Changing cost optimization algorithms
    - Modifying provider integration or selection logic
@@ -828,5 +828,5 @@ modal run nordlys -c "python -c 'import torch; print(torch.cuda.is_available())'
 1. Create feature branch from `dev`
 2. Implement changes with comprehensive tests
 3. Run full quality checks: `uv run black . && uv run ruff check . && uv run ty check && uv run pytest --cov`
-4. **Update relevant documentation** (CLAUDE.md files, adaptive-docs/, README)
+4. **Update relevant documentation** (CLAUDE.md files, nordlys-docs/, README)
 5. Submit PR with performance impact analysis and documentation updates

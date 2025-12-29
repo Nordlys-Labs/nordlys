@@ -37,10 +37,10 @@ dependencies = [
 
 
 [project.urls]
-Homepage = "https://llmadaptive.uk"
-Repository = "https://github.com/Egham-7/adaptive"
-Documentation = "https://docs.llmadaptive.uk"
-"Bug Tracker" = "https://github.com/Egham-7/adaptive/issues"
+Homepage = "https://www.nordlylabs.com"
+Repository = "https://github.com/Nordlys-Labs/nordlys"
+Documentation = "https://docs.nordlylabs.com"
+"Bug Tracker" = "https://github.com/Nordlys-Labs/nordlys/issues"
 
 
 [project.optional-dependencies]

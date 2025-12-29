@@ -8,12 +8,12 @@ set -euo pipefail
 SCRIPT_NAME="OpenAI Codex Nordlys Installer"
 SCRIPT_VERSION="1.0.0"
 CONFIG_DIR="$HOME/.codex"
-API_BASE_URL="https://api.llmadaptive.uk/v1"
-API_KEY_URL="https://www.llmadaptive.uk/dashboard"
+API_BASE_URL="https://api.nordlylabs.com/v1"
+API_KEY_URL="https://www.nordlylabs.com/dashboard"
 
 # Model override defaults (can be overridden by environment variables)
-# Use nordlys/nordlys-code to enable Nordlys model for optimal cost/performance
-DEFAULT_MODEL="nordlys/nordlys-code"
+# Use nordlys/hypernova to enable Nordlys model for optimal cost/performance
+DEFAULT_MODEL="nordlys/hypernova"
 DEFAULT_MODEL_PROVIDER="nordlys"
 
 # ========================
@@ -271,14 +271,14 @@ validate_api_key() {
 validate_model_override() {
   local model="$1"
 
-  # Empty values fall back to nordlys/nordlys-code for backward compatibility
+  # Empty values fall back to nordlys/hypernova for backward compatibility
   if [ -z "$model" ]; then
     return 0
   fi
 
   # Validate format: author/model_id
   if [[ ! "$model" =~ ^[a-zA-Z0-9_-]+/[a-zA-Z0-9_.-]+$ ]]; then
-    log_error "Model format invalid. Use format: author/model_id (e.g., nordlys/nordlys-code)"
+    log_error "Model format invalid. Use format: author/model_id (e.g., nordlys/hypernova)"
     return 1
   fi
   return 0
@@ -326,18 +326,18 @@ configure_codex() {
     echo ""
     echo "🎯 Option 3: Customize model (Advanced)"
     echo "   export NORDLYS_API_KEY='your-api-key-here'"
-    echo "   export NORDLYS_MODEL='nordlys/nordlys-code'"
+    echo "   export NORDLYS_MODEL='nordlys/hypernova'"
     echo "   curl -fsSL https://raw.githubusercontent.com/Egham-7/nordlys/main/scripts/installers/unix/codex.sh | bash"
     echo ""
     echo "⚙️  Option 4: Manual configuration (Advanced users)"
     echo "   mkdir -p ~/.codex"
     echo "   cat > ~/.codex/config.toml << 'EOF'"
-    echo "model = \"nordlys/nordlys-code\""
+    echo "model = \"nordlys/hypernova\""
     echo "model_provider = \"nordlys\""
     echo ""
     echo "[model_providers.nordlys]"
     echo "name = \"Nordlys\""
-    echo "base_url = \"https://www.llmadaptive.uk/api/v1\""
+    echo "base_url = \"https://www.nordlylabs.com/api/v1\""
     echo "env_key = \"NORDLYS_API_KEY\""
     echo "wire_api = \"chat\""
     echo "EOF"
@@ -538,7 +538,7 @@ main() {
     echo ""
     echo "🚀 Quick Start:"
     echo "   codex                     # Start Codex with Nordlys model"
-    echo "   codex --model nordlys/nordlys-code  # Explicit Nordlys model"
+    echo "   codex --model nordlys/hypernova  # Explicit Nordlys model"
     echo ""
     echo "🔍 Verify Setup:"
     echo "   codex --version           # Check Codex installation"
@@ -562,7 +562,7 @@ main() {
     echo "   • Configure MCP servers for extended capabilities"
     echo "   • Create AGENTS.md for project-specific instructions"
     echo ""
-    echo "📖 Full Documentation: https://docs.llmadaptive.uk/developer-tools/codex"
+    echo "📖 Full Documentation: https://docs.nordlylabs.com/developer-tools/codex"
     echo "🐛 Report Issues: https://github.com/Egham-7/nordlys/issues"
     echo ""
     local current_shell
@@ -589,14 +589,14 @@ main() {
     echo "   Configuration: ~/.codex/config.toml"
     echo "   Environment: export NORDLYS_API_KEY='your-key'"
     echo "   Expected config format:"
-    echo '   model = "nordlys/nordlys-code"'
+    echo '   model = "nordlys/hypernova"'
     echo '   model_provider = "nordlys"'
     echo '   [model_providers.nordlys]'
     echo '   name = "Nordlys"'
-    echo '   base_url = "https://www.llmadaptive.uk/api/v1"'
+    echo '   base_url = "https://www.nordlylabs.com/api/v1"'
     echo '   env_key = "NORDLYS_API_KEY"'
     echo ""
-    echo "🆘 Get help: https://docs.llmadaptive.uk/troubleshooting"
+    echo "🆘 Get help: https://docs.nordlylabs.com/troubleshooting"
     exit 1
   fi
 }
