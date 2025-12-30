@@ -13,7 +13,7 @@ NVM_VERSION="v0.40.3"
 GEMINI_PACKAGE="@google/gemini-cli"
 CONFIG_DIR="$HOME/.gemini"
 API_BASE_URL="https://api.nordlyslabs.com"
-API_KEY_URL="https://www.nordlyslabs.com/dashboard"
+API_KEY_URL="https://nordlyslabs.com/api-platform/orgs"
 
 # Model override defaults (can be overridden by environment variables)
 # Use nordlys/hypernova to enable Nordlys model for optimal cost/performance

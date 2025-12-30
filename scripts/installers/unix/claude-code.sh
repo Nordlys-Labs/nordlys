@@ -13,7 +13,7 @@ NVM_VERSION="v0.40.3"
 CLAUDE_PACKAGE="@anthropic-ai/claude-code"
 CONFIG_DIR="$HOME/.claude"
 API_BASE_URL="https://api.nordlyslabs.com"
-API_KEY_URL="https://www.nordlyslabs.com/dashboard"
+API_KEY_URL="https://nordlyslabs.com/api-platform/orgs"
 API_TIMEOUT_MS=3000000
 
 # Model override defaults (can be overridden by environment variables)

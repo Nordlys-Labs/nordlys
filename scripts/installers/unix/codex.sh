@@ -9,7 +9,7 @@ SCRIPT_NAME="OpenAI Codex Nordlys Installer"
 SCRIPT_VERSION="1.0.0"
 CONFIG_DIR="$HOME/.codex"
 API_BASE_URL="https://api.nordlyslabs.com/v1"
-API_KEY_URL="https://www.nordlyslabs.com/dashboard"
+API_KEY_URL="https://nordlyslabs.com/api-platform/orgs"
 
 # Model override defaults (can be overridden by environment variables)
 # Use nordlys/hypernova to enable Nordlys model for optimal cost/performance
