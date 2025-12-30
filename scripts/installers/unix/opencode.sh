@@ -187,7 +187,7 @@ get_api_key() {
   # If API key is already set in env, validate and return it
   if [ -n "$api_key" ]; then
     if validate_api_key "$api_key"; then
-      log_success "Using API key from NORDLYS_API_KEY environment variable"
+      log_success "Using API key from NORDLYS_API_KEY environment variable" >&2
       echo "$api_key"
       return 0
     else
@@ -198,32 +198,32 @@ get_api_key() {
 
   # Check if running in non-interactive mode (e.g., piped from curl)
   if [ ! -t 0 ]; then
-    echo ""
-    log_info "🎯 Interactive setup required for API key configuration"
-    echo ""
-    echo "📥 Option 1: Download and run interactively (Recommended)"
-    echo "   curl -o opencode.sh https://raw.githubusercontent.com/Nordlys-Labs/nordlys/main/scripts/installers/unix/opencode.sh"
-    echo "   chmod +x opencode.sh"
-    echo "   ./opencode.sh"
-    echo ""
-    echo "🔑 Option 2: Set API key via environment variable"
-    echo "   export NORDLYS_API_KEY='your-api-key-here'"
-    echo "   curl -fsSL https://raw.githubusercontent.com/Nordlys-Labs/nordlys/main/scripts/installers/unix/opencode.sh | bash"
-    echo ""
-    echo "🔗 Get your API key: $API_KEY_URL"
+    echo "" >&2
+    log_info "🎯 Interactive setup required for API key configuration" >&2
+    echo "" >&2
+    echo "📥 Option 1: Download and run interactively (Recommended)" >&2
+    echo "   curl -o opencode.sh https://raw.githubusercontent.com/Nordlys-Labs/nordlys/main/scripts/installers/unix/opencode.sh" >&2
+    echo "   chmod +x opencode.sh" >&2
+    echo "   ./opencode.sh" >&2
+    echo "" >&2
+    echo "🔑 Option 2: Set API key via environment variable" >&2
+    echo "   export NORDLYS_API_KEY='your-api-key-here'" >&2
+    echo "   curl -fsSL https://raw.githubusercontent.com/Nordlys-Labs/nordlys/main/scripts/installers/unix/opencode.sh | bash" >&2
+    echo "" >&2
+    echo "🔗 Get your API key: $API_KEY_URL" >&2
     exit 1
   fi
 
   # Interactive mode - prompt for API key
-  echo ""
-  log_info "You can get your API key from: $API_KEY_URL"
+  echo "" >&2
+  log_info "You can get your API key from: $API_KEY_URL" >&2
   local attempts=0
   local max_attempts=3
 
   while [ $attempts -lt $max_attempts ]; do
-    echo -n "🔑 Please enter your Nordlys API key: "
+    echo -n "🔑 Please enter your Nordlys API key: " >&2
     read -s api_key
-    echo
+    echo >&2
 
     if [ -z "$api_key" ]; then
       log_error "API key cannot be empty."
@@ -239,7 +239,7 @@ get_api_key() {
     log_error "API key format appears invalid."
     ((attempts++))
     if [ $attempts -lt $max_attempts ]; then
-      log_info "Please try again ($((max_attempts - attempts)) attempts remaining)..."
+      log_info "Please try again ($((max_attempts - attempts)) attempts remaining)..." >&2
     fi
   done
 
