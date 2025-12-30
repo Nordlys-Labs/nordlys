@@ -17,6 +17,7 @@ NVM_VERSION="v0.40.3"
 # ✅ Correct package for OpenCode:
 OPENCODE_PACKAGE="opencode-ai"
 
+CONFIG_DIR="$HOME/.config/opencode"
 CONFIG_FILE="opencode.json"
 API_BASE_URL="https://api.nordlyslabs.com/v1"
 API_KEY_URL="https://nordlyslabs.com/api-platform/orgs"
@@ -31,24 +32,6 @@ DEFAULT_MODEL="nordlys/hypernova"
 log_info()    { echo "🔹 $*"; }
 log_success() { echo "✅ $*"; }
 log_error()   { echo "❌ $*" >&2; }
-
-create_config_backup() {
-  local config_file="$1"
-
-  if [ -f "$config_file" ]; then
-    local timestamp=$(date +"%Y%m%d_%H%M%S")
-    local timestamped_backup="${config_file}.${timestamp}.bak"
-
-    # Create timestamped backup
-    cp "$config_file" "$timestamped_backup" || {
-      log_error "Failed to create timestamped backup: $timestamped_backup"
-      exit 1
-    }
-
-    log_success "Config backed up to: $timestamped_backup"
-    log_info "To revert: cp \"$timestamped_backup\" \"$config_file\""
-  fi
-}
 
 # ========================
 #     Node.js helpers
@@ -251,12 +234,32 @@ get_api_key() {
 #     Config generator
 # ========================
 create_opencode_config() {
-  local config_file="$1"
-  local model="$2"
-  local api_key="$3"
+  local model="$1"
+  local api_key="$2"
 
   log_info "Creating OpenCode configuration..."
-  create_config_backup "$config_file"
+
+  # Ensure config directory exists
+  mkdir -p "$CONFIG_DIR"
+
+  # Check for existing config (json or jsonc)
+  local config_path=""
+  if [ -f "$CONFIG_DIR/opencode.jsonc" ]; then
+    config_path="$CONFIG_DIR/opencode.jsonc"
+  else
+    config_path="$CONFIG_DIR/opencode.json"
+  fi
+
+  # Backup existing config if present
+  if [ -f "$config_path" ]; then
+    local timestamp=$(date +"%Y%m%d_%H%M%S")
+    local backup_path="${config_path}.${timestamp}.bak"
+    cp "$config_path" "$backup_path" || {
+      log_error "Failed to create backup: $backup_path"
+      exit 1
+    }
+    log_success "Config backed up to: $backup_path"
+  fi
 
   # If user gave NORDLYS_MODEL, use it; else default to the Nordlys model id.
   local effective_model="$model"
@@ -264,7 +267,7 @@ create_opencode_config() {
     effective_model="$DEFAULT_MODEL"
   fi
 
-  cat > "$config_file" <<EOF
+  cat > "$config_path" <<EOF
 {
   "\$schema": "https://opencode.ai/config.json",
   "provider": {
@@ -289,13 +292,13 @@ EOF
 
   # quick JSON sanity check (jq optional)
   if command -v jq >/dev/null 2>&1; then
-    if ! jq . "$config_file" >/dev/null 2>&1; then
-      log_error "Generated $config_file is not valid JSON."
+    if ! jq . "$config_path" >/dev/null 2>&1; then
+      log_error "Generated $config_path is not valid JSON."
       exit 1
     fi
   fi
 
-  log_success "OpenCode configuration written: $config_file"
+  log_success "OpenCode configuration written: $config_path"
 }
 
 # ========================
@@ -309,8 +312,9 @@ verify_installation() {
     return 1
   fi
 
-  if [ ! -f "$PWD/$CONFIG_FILE" ]; then
-    log_error "Missing $CONFIG_FILE in current directory."
+  # Check for config in either json or jsonc format
+  if [ ! -f "$CONFIG_DIR/opencode.json" ] && [ ! -f "$CONFIG_DIR/opencode.jsonc" ]; then
+    log_error "Missing config in $CONFIG_DIR/"
     return 1
   fi
 
@@ -358,8 +362,8 @@ main() {
     log_info "Using nordlys/hypernova Mixture of Models."
   fi
 
-  # 5) Create per-project config with API key
-  create_opencode_config "$PWD/$CONFIG_FILE" "$model" "$api_key"
+  # 5) Create config in ~/.config/opencode/
+  create_opencode_config "$model" "$api_key"
 
   # 6) Verify
   if verify_installation; then
@@ -373,11 +377,10 @@ main() {
     echo "   /models                     # select 'nordlys/hypernova'"
     echo ""
     echo "🔍 Verify"
-    echo "   cat $CONFIG_FILE            # see config with API key"
+    echo "   cat $CONFIG_DIR/$CONFIG_FILE"
     echo ""
     echo "📊 Monitor"
     echo "   Dashboard: $API_KEY_URL"
-    echo "   Config:    $PWD/$CONFIG_FILE"
     echo ""
     echo "📖 Documentation: https://docs.nordlyslabs.com/developer-tools/opencode"
   else
@@ -385,8 +388,8 @@ main() {
     log_error "Installation verification failed."
     echo ""
     echo "🔧 Manual fallback:"
-    echo "   curl -o $CONFIG_FILE https://raw.githubusercontent.com/Nordlys-Labs/nordlys/main/examples/opencode.json"
-    echo "   # Edit $CONFIG_FILE and add your API key"
+    echo "   mkdir -p $CONFIG_DIR"
+    echo "   # Create $CONFIG_DIR/opencode.json with your config"
     exit 1
   fi
 }

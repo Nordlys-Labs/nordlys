@@ -12,6 +12,7 @@ $PackageName = "opencode-ai"
 $ApiBaseUrl = "https://api.nordlyslabs.com/v1"
 $ApiKeyUrl = "https://nordlyslabs.com/api-platform/orgs"
 $DefaultModel = "nordlys/hypernova"
+$ConfigDir = Join-Path $env:USERPROFILE ".config\opencode"
 
 function Write-Info {
     param([string]$Message)
@@ -142,15 +143,25 @@ function Install-OpenCode {
 
 function Write-Config {
     param(
-        [string]$ConfigPath,
         [string]$ModelValue,
         [string]$ApiKeyValue
     )
 
-    if (Test-Path $ConfigPath) {
+    # Ensure config directory exists
+    if (-not (Test-Path $ConfigDir)) {
+        New-Item -ItemType Directory -Path $ConfigDir -Force | Out-Null
+    }
+
+    # Check for existing config (json or jsonc)
+    $configPath = Join-Path $ConfigDir "opencode.json"
+    if (Test-Path (Join-Path $ConfigDir "opencode.jsonc")) {
+        $configPath = Join-Path $ConfigDir "opencode.jsonc"
+    }
+
+    if (Test-Path $configPath) {
         $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
-        $backupPath = "$ConfigPath.$timestamp.bak"
-        Copy-Item $ConfigPath $backupPath -Force
+        $backupPath = "$configPath.$timestamp.bak"
+        Copy-Item $configPath $backupPath -Force
         Write-Info "Backed up existing config to $backupPath"
     }
 
@@ -177,8 +188,8 @@ function Write-Config {
 }
 "@
 
-    $config | Set-Content -Path $ConfigPath -Encoding ASCII
-    Write-Success "OpenCode configuration written: $ConfigPath"
+    $config | Set-Content -Path $configPath -Encoding ASCII
+    Write-Success "OpenCode configuration written: $configPath"
 }
 
 # Main script
@@ -201,8 +212,7 @@ if (-not $Model) { $Model = $DefaultModel }
 
 Write-Info "Using model: $Model"
 
-$configPath = Join-Path (Get-Location) "opencode.json"
-Write-Config -ConfigPath $configPath -ModelValue $Model -ApiKeyValue $apiKeyValue
+Write-Config -ModelValue $Model -ApiKeyValue $apiKeyValue
 
 Write-Host ""
 Write-Host "============================================"
@@ -213,8 +223,10 @@ Write-Host "Quick Start:"
 Write-Host "   opencode                    # open the TUI"
 Write-Host "   /models                     # select 'nordlys/hypernova'"
 Write-Host ""
+Write-Host "Verify:"
+Write-Host "   cat $ConfigDir\opencode.json"
+Write-Host ""
 Write-Host "Monitor:"
 Write-Host "   Dashboard: $ApiKeyUrl"
-Write-Host "   Config:    $configPath"
 Write-Host ""
 Write-Host "Documentation: https://docs.nordlyslabs.com/developer-tools/opencode"
