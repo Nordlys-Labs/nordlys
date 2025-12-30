@@ -45,7 +45,7 @@ class NordlysModelsAPIClient:
     def __init__(
         self,
         api_key: str,
-        base_url: str = "https://api.nordlylabs.com/v1",
+        base_url: str = "https://api.nordlyslabs.com/v1",
         timeout: float = 30.0,
     ):
         """Initialize the API client.

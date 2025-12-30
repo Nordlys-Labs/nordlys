@@ -163,6 +163,6 @@ See the main [CONTRIBUTING.md](../CONTRIBUTING.md) for guidelines.
 
 ## Links
 
-- **Documentation**: https://docs.nordlylabs.com
+- **Documentation**: https://docs.nordlyslabs.com
 - **Issues**: https://github.com/Nordlys-Labs/nordlys/issues
 - **Main Repository**: https://github.com/Nordlys-Labs/nordlys

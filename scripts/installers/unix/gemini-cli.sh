@@ -12,8 +12,8 @@ NODE_INSTALL_VERSION=22
 NVM_VERSION="v0.40.3"
 GEMINI_PACKAGE="@google/gemini-cli"
 CONFIG_DIR="$HOME/.gemini"
-API_BASE_URL="https://api.nordlylabs.com"
-API_KEY_URL="https://www.nordlylabs.com/dashboard"
+API_BASE_URL="https://api.nordlyslabs.com"
+API_KEY_URL="https://www.nordlyslabs.com/dashboard"
 
 # Model override defaults (can be overridden by environment variables)
 # Use nordlys/hypernova to enable Nordlys model for optimal cost/performance
@@ -384,7 +384,7 @@ configure_gemini() {
     echo "   export NORDLYS_API_KEY='your-api-key-here'"
     echo "   # Add to your shell config (~/.bashrc, ~/.zshrc, etc.):"
     echo "   echo 'export GEMINI_API_KEY=\"your-api-key-here\"' >> ~/.bashrc"
-    echo "   echo 'export GOOGLE_GEMINI_BASE_URL=\"https://www.nordlylabs.com/api\"' >> ~/.bashrc"
+    echo "   echo 'export GOOGLE_GEMINI_BASE_URL=\"https://api.nordlyslabs.com\"' >> ~/.bashrc"
     echo "   echo 'export GEMINI_MODEL=\"nordlys/hypernova\"' >> ~/.bashrc  # Set for Nordlys model"
     echo ""
     echo "🔗 Get your API key: $API_KEY_URL"
@@ -491,7 +491,7 @@ main() {
     echo "   • GEMINI_MODEL set to nordlys/hypernova for Nordlys model (recommended)"
     echo "   • Set GEMINI_MODEL to another model ID if your team uses additional Nordlys models"
     echo ""
-    echo "📖 Full Documentation: https://docs.nordlylabs.com/developer-tools/gemini-cli"
+    echo "📖 Full Documentation: https://docs.nordlyslabs.com/developer-tools/gemini-cli"
     echo "🐛 Report Issues: https://github.com/Egham-7/nordlys/issues"
   else
     echo ""
@@ -501,10 +501,10 @@ main() {
     echo "   Configuration: Set environment variables in your shell config"
     echo "   Expected variables:"
     echo '   export GEMINI_API_KEY="your-nordlys-api-key"'
-    echo '   export GOOGLE_GEMINI_BASE_URL="https://www.nordlylabs.com/api"'
+    echo '   export GOOGLE_GEMINI_BASE_URL="https://api.nordlyslabs.com"'
     echo '   export GEMINI_MODEL="nordlys/hypernova"  # Nordlys model'
     echo ""
-    echo "🆘 Get help: https://docs.nordlylabs.com/troubleshooting"
+    echo "🆘 Get help: https://docs.nordlyslabs.com/troubleshooting"
     exit 1
   fi
 }

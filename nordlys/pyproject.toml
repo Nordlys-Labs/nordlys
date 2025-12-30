@@ -37,9 +37,9 @@ dependencies = [
 
 
 [project.urls]
-Homepage = "https://www.nordlylabs.com"
+Homepage = "https://www.nordlyslabs.com"
 Repository = "https://github.com/Nordlys-Labs/nordlys"
-Documentation = "https://docs.nordlylabs.com"
+Documentation = "https://docs.nordlyslabs.com"
 "Bug Tracker" = "https://github.com/Nordlys-Labs/nordlys/issues"
 
 

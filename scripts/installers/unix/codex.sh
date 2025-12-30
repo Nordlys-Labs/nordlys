@@ -8,8 +8,8 @@ set -euo pipefail
 SCRIPT_NAME="OpenAI Codex Nordlys Installer"
 SCRIPT_VERSION="1.0.0"
 CONFIG_DIR="$HOME/.codex"
-API_BASE_URL="https://api.nordlylabs.com/v1"
-API_KEY_URL="https://www.nordlylabs.com/dashboard"
+API_BASE_URL="https://api.nordlyslabs.com/v1"
+API_KEY_URL="https://www.nordlyslabs.com/dashboard"
 
 # Model override defaults (can be overridden by environment variables)
 # Use nordlys/hypernova to enable Nordlys model for optimal cost/performance
@@ -337,7 +337,7 @@ configure_codex() {
     echo ""
     echo "[model_providers.nordlys]"
     echo "name = \"Nordlys\""
-    echo "base_url = \"https://www.nordlylabs.com/api/v1\""
+    echo "base_url = \"https://api.nordlyslabs.com/v1\""
     echo "env_key = \"NORDLYS_API_KEY\""
     echo "wire_api = \"chat\""
     echo "EOF"
@@ -562,7 +562,7 @@ main() {
     echo "   • Configure MCP servers for extended capabilities"
     echo "   • Create AGENTS.md for project-specific instructions"
     echo ""
-    echo "📖 Full Documentation: https://docs.nordlylabs.com/developer-tools/codex"
+    echo "📖 Full Documentation: https://docs.nordlyslabs.com/developer-tools/codex"
     echo "🐛 Report Issues: https://github.com/Egham-7/nordlys/issues"
     echo ""
     local current_shell
@@ -593,10 +593,10 @@ main() {
     echo '   model_provider = "nordlys"'
     echo '   [model_providers.nordlys]'
     echo '   name = "Nordlys"'
-    echo '   base_url = "https://www.nordlylabs.com/api/v1"'
+    echo '   base_url = "https://api.nordlyslabs.com/v1"'
     echo '   env_key = "NORDLYS_API_KEY"'
     echo ""
-    echo "🆘 Get help: https://docs.nordlylabs.com/troubleshooting"
+    echo "🆘 Get help: https://docs.nordlyslabs.com/troubleshooting"
     exit 1
   fi
 }

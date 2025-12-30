@@ -138,7 +138,7 @@ To add support for a new developer tool:
 ## Common Configuration
 
 All scripts configure tools to use:
-- **API Base URL**: `https://api.nordlylabs.com`
+- **API Base URL**: `https://api.nordlyslabs.com`
 - **Authentication**: User's Nordlys API key
 - **Timeout**: 3000000ms for long-running requests (where applicable)
 
@@ -181,13 +181,13 @@ node --version
 ### Configuration Issues
 
 **API key not working**:
-- Verify your API key at [nordlylabs.com](https://www.nordlylabs.com)
+- Verify your API key at [nordlyslabs.com](https://www.nordlyslabs.com)
 - Ensure key is properly copied (no extra spaces)
 - Check if key has necessary permissions
 
 **Connection timeout**:
 - Check internet connectivity
-- Verify firewall isn't blocking connections to `nordlylabs.com`
+- Verify firewall isn't blocking connections to `nordlyslabs.com`
 - Try increasing timeout in tool configuration
 
 ### Verification Steps
@@ -200,7 +200,7 @@ which <tool-name>
 
 # Test API connection
 curl -H "Authorization: Bearer YOUR_API_KEY" \
-  https://api.nordlylabs.com/v1/health
+  https://api.nordlyslabs.com/v1/health
 
 # Check tool configuration
 cat ~/.config/<tool-name>/config.json
@@ -210,5 +210,5 @@ cat ~/.config/<tool-name>/config.json
 
 For issues with installation scripts:
 - Check the tool-specific documentation in `nordlys-docs/developer-tools/`
-- Visit [docs.nordlylabs.com](https://docs.nordlylabs.com)
+- Visit [docs.nordlyslabs.com](https://docs.nordlyslabs.com)
 - Contact support at [support@llmadaptive.uk](mailto:support@llmadaptive.uk)

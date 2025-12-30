@@ -12,8 +12,8 @@ NODE_INSTALL_VERSION=22
 NVM_VERSION="v0.40.3"
 QWEN_PACKAGE="@qwen-code/qwen-code"
 CONFIG_DIR="$HOME/.qwen"
-API_BASE_URL="https://api.nordlylabs.com/v1"
-API_KEY_URL="https://www.nordlylabs.com/dashboard"
+API_BASE_URL="https://api.nordlyslabs.com/v1"
+API_KEY_URL="https://www.nordlyslabs.com/dashboard"
 
 # Model override defaults (can be overridden by environment variables)
 # Use nordlys/hypernova to enable Nordlys model for optimal cost/performance
@@ -373,7 +373,7 @@ configure_qwen() {
     echo "   export NORDLYS_API_KEY='your-api-key-here'"
     echo "   # Add to your shell config (~/.bashrc, ~/.zshrc, etc.):"
     echo "   echo 'export OPENAI_API_KEY=\"your-api-key-here\"  # qwen-code' >> ~/.bashrc"
-    echo "   echo 'export OPENAI_BASE_URL=\"https://www.nordlylabs.com/api/v1\"  # qwen-code' >> ~/.bashrc"
+    echo "   echo 'export OPENAI_BASE_URL=\"https://api.nordlyslabs.com/v1\"  # qwen-code' >> ~/.bashrc"
     echo "   echo 'export OPENAI_MODEL=\"nordlys/hypernova\"  # qwen-code - Nordlys model' >> ~/.bashrc"
     echo ""
     echo "🔗 Get your API key: $API_KEY_URL"
@@ -480,7 +480,7 @@ main() {
     echo "   • OPENAI_MODEL set to nordlys/hypernova for Nordlys model (recommended)"
     echo "   • Set OPENAI_MODEL to another model ID if your team uses additional Nordlys models"
     echo ""
-    echo "📖 Full Documentation: https://docs.nordlylabs.com/developer-tools/qwen-code"
+    echo "📖 Full Documentation: https://docs.nordlyslabs.com/developer-tools/qwen-code"
     echo "🐛 Report Issues: https://github.com/Egham-7/nordlys/issues"
   else
     echo ""
@@ -490,10 +490,10 @@ main() {
     echo "   Configuration: Set environment variables in your shell config"
     echo "   Expected variables:"
     echo '   export OPENAI_API_KEY="your-nordlys-api-key"  # qwen-code'
-    echo '   export OPENAI_BASE_URL="https://www.nordlylabs.com/api/v1"  # qwen-code'
+    echo '   export OPENAI_BASE_URL="https://api.nordlyslabs.com/v1"  # qwen-code'
     echo '   export OPENAI_MODEL="nordlys/hypernova"  # qwen-code - Nordlys model'
     echo ""
-    echo "🆘 Get help: https://docs.nordlylabs.com/troubleshooting"
+    echo "🆘 Get help: https://docs.nordlyslabs.com/troubleshooting"
     exit 1
   fi
 }
