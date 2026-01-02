@@ -1,9 +1,7 @@
-# Nordlys Model Scripts
+# Scripts
 
-Internal scripts for building and validating Nordlys model artifacts.
-
-## Usage
+Internal utility scripts for development.
 
 ```bash
-ls nordlys/scripts
+ls scripts/
 ```
