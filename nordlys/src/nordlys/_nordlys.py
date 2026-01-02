@@ -72,7 +72,6 @@ class ModelConfig(BaseModel):
     model_config = {"frozen": True}
 
 
-
 @dataclass
 class Alternative:
     """Alternative model option with score.
@@ -153,7 +152,8 @@ class Nordlys:
     def __init__(
         self,
         models: list[ModelConfig],
-        embedding_model: str | SentenceTransformer = "sentence-transformers/all-MiniLM-L6-v2",
+        embedding_model: str
+        | SentenceTransformer = "sentence-transformers/all-MiniLM-L6-v2",
         umap_model: Reducer | None = None,
         cluster_model: Clusterer | None = None,
         nr_clusters: int = 20,
@@ -179,12 +179,16 @@ class Nordlys:
 
         # Embedding model
         self._embedding_model_name = (
-            embedding_model if isinstance(embedding_model, str)
-            else embedding_model.model_card_data.model_name if hasattr(embedding_model, 'model_card_data')
+            embedding_model
+            if isinstance(embedding_model, str)
+            else embedding_model.model_card_data.model_name
+            if hasattr(embedding_model, "model_card_data")
             else "custom"
         )
         self._embedding_model: SentenceTransformer | None = (
-            embedding_model if isinstance(embedding_model, SentenceTransformer) else None
+            embedding_model
+            if isinstance(embedding_model, SentenceTransformer)
+            else None
         )
         self._allow_trust_remote_code = allow_trust_remote_code
 
@@ -229,7 +233,9 @@ class Nordlys:
             return self._embedding_model
 
         device = _get_device()
-        logger.info(f"Loading embedding model '{self._embedding_model_name}' on device: {device}")
+        logger.info(
+            f"Loading embedding model '{self._embedding_model_name}' on device: {device}"
+        )
 
         with warnings.catch_warnings():
             warnings.filterwarnings(
@@ -344,6 +350,9 @@ class Nordlys:
             Tuple of (embeddings, labels)
         """
         self.fit(df, questions_col)
+        # After fit(), these are guaranteed to be set
+        assert self._embeddings is not None
+        assert self._labels is not None
         return self._embeddings, self._labels
 
     def transform(self, texts: list[str]) -> tuple[np.ndarray, np.ndarray]:
@@ -405,7 +414,9 @@ class Nordlys:
         else:
             reduced = embedding
 
-        # Find nearest cluster
+        # Find nearest cluster (centroids guaranteed set after _check_is_fitted)
+        assert self._centroids is not None
+        assert self._model_accuracies is not None
         distances = np.linalg.norm(self._centroids - reduced, axis=1)
         cluster_id = int(np.argmin(distances))
         cluster_distance = float(distances[cluster_id])
@@ -427,8 +438,7 @@ class Nordlys:
         # Best model is first
         best = scored_models[0]
         alternatives = [
-            Alternative(model_id=m[0], score=m[1])
-            for m in scored_models[1:]
+            Alternative(model_id=m[0], score=m[1]) for m in scored_models[1:]
         ]
 
         return RouteResult(
@@ -440,6 +450,7 @@ class Nordlys:
 
     def _route_with_core(self, prompt: str, cost_bias: float) -> RouteResult:
         """Route using C++ core."""
+        assert self._core_router is not None
         # Compute embedding
         embedding = self._compute_embeddings([prompt])[0]
 
@@ -533,6 +544,9 @@ class Nordlys:
             ClusterInfo with cluster details
         """
         self._check_is_fitted()
+        assert self._centroids is not None
+        assert self._labels is not None
+        assert self._model_accuracies is not None
 
         if cluster_id < 0 or cluster_id >= len(self._centroids):
             raise ValueError(f"Invalid cluster_id: {cluster_id}")
@@ -554,6 +568,7 @@ class Nordlys:
             List of ClusterInfo objects
         """
         self._check_is_fitted()
+        assert self._centroids is not None
 
         clusters = []
         for cluster_id in range(len(self._centroids)):
@@ -568,6 +583,7 @@ class Nordlys:
             ClusterMetrics object
         """
         self._check_is_fitted()
+        assert self._metrics is not None
         return self._metrics
 
     # =========================================================================
@@ -578,18 +594,21 @@ class Nordlys:
     def centroids_(self) -> np.ndarray:
         """Cluster centroids of shape (n_clusters, n_features)."""
         self._check_is_fitted()
+        assert self._centroids is not None
         return self._centroids
 
     @property
     def labels_(self) -> np.ndarray:
         """Training sample cluster labels of shape (n_samples,)."""
         self._check_is_fitted()
+        assert self._labels is not None
         return self._labels
 
     @property
     def embeddings_(self) -> np.ndarray:
         """Training sample embeddings of shape (n_samples, embedding_dim)."""
         self._check_is_fitted()
+        assert self._embeddings is not None
         return self._embeddings
 
     @property
@@ -602,6 +621,7 @@ class Nordlys:
     def metrics_(self) -> ClusterMetrics:
         """Clustering metrics computed during fit."""
         self._check_is_fitted()
+        assert self._metrics is not None
         return self._metrics
 
     @property
@@ -612,12 +632,14 @@ class Nordlys:
             Dict mapping cluster_id -> {model_id: accuracy}
         """
         self._check_is_fitted()
+        assert self._model_accuracies is not None
         return self._model_accuracies
 
     @property
     def n_clusters_(self) -> int:
         """Number of clusters."""
         self._check_is_fitted()
+        assert self._centroids is not None
         return len(self._centroids)
 
     # =========================================================================
@@ -649,6 +671,9 @@ class Nordlys:
 
     def _to_profile(self) -> dict[str, Any]:
         """Convert fitted state to RouterProfile dict format."""
+        assert self._centroids is not None
+        assert self._model_accuracies is not None
+        assert self._metrics is not None
         # Build models list with error rates
         models = []
         for model_config in self._models:
@@ -663,13 +688,15 @@ class Nordlys:
             provider = parts[0] if len(parts) > 1 else "unknown"
             model_name = parts[1] if len(parts) > 1 else model_config.id
 
-            models.append({
-                "provider": provider,
-                "model_name": model_name,
-                "cost_per_1m_input_tokens": model_config.cost_input,
-                "cost_per_1m_output_tokens": model_config.cost_output,
-                "error_rates": error_rates,
-            })
+            models.append(
+                {
+                    "provider": provider,
+                    "model_name": model_name,
+                    "cost_per_1m_input_tokens": model_config.cost_input,
+                    "cost_per_1m_output_tokens": model_config.cost_output,
+                    "error_rates": error_rates,
+                }
+            )
 
         # Cluster centers (use reduced if available, else full embeddings)
         centers = self._centroids.tolist()
@@ -685,7 +712,9 @@ class Nordlys:
                 "n_clusters": len(centers),
                 "embedding_model": self._embedding_model_name,
                 "dtype": self._dtype,
-                "silhouette_score": self._metrics.silhouette_score if self._metrics else 0.0,
+                "silhouette_score": self._metrics.silhouette_score
+                if self._metrics
+                else 0.0,
                 "allow_trust_remote_code": self._allow_trust_remote_code,
                 "clustering": {
                     "max_iter": 300,
@@ -716,7 +745,9 @@ class Nordlys:
         cpp_profile.to_msgpack_file(str(path))
 
     @classmethod
-    def load(cls, path: str | Path, models: list[ModelConfig] | None = None) -> "Nordlys":
+    def load(
+        cls, path: str | Path, models: list[ModelConfig] | None = None
+    ) -> "Nordlys":
         """Load a fitted model from a file.
 
         Args:
@@ -763,11 +794,13 @@ class Nordlys:
             models = []
             for m in profile["models"]:
                 model_id = f"{m['provider']}/{m['model_name']}"
-                models.append(ModelConfig(
-                    id=model_id,
-                    cost_input=m["cost_per_1m_input_tokens"],
-                    cost_output=m["cost_per_1m_output_tokens"],
-                ))
+                models.append(
+                    ModelConfig(
+                        id=model_id,
+                        cost_input=m["cost_per_1m_input_tokens"],
+                        cost_output=m["cost_per_1m_output_tokens"],
+                    )
+                )
 
         # Create instance
         instance = cls(

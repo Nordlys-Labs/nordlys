@@ -13,7 +13,6 @@ import numpy as np
 
 # Import the new API
 from nordlys import Nordlys, ModelConfig
-from nordlys.clustering import KMeansClusterer, GMMClusterer
 
 # =============================================================================
 # 1. Define models with costs
@@ -58,21 +57,65 @@ questions = [
 
 # Simulated accuracy scores (in real usage, from actual evaluations)
 # Higher = better performance on that question type
-df = pd.DataFrame({
-    "questions": questions,
-    # GPT-4: great at coding, good at everything
-    "openai/gpt-4": [0.95, 0.92, 0.90, 0.88, 0.91,  # coding
-                     0.85, 0.87, 0.84, 0.86, 0.83,  # general
-                     0.95, 0.98, 0.97, 0.96, 0.94],  # simple
-    # Claude: great at explanations, good at coding
-    "anthropic/claude-3-sonnet": [0.88, 0.85, 0.82, 0.80, 0.84,  # coding
-                                   0.95, 0.93, 0.94, 0.92, 0.91,  # general
-                                   0.90, 0.95, 0.93, 0.92, 0.91],  # simple
-    # GPT-3.5: decent at simple tasks, struggles with complex
-    "openai/gpt-3.5-turbo": [0.70, 0.65, 0.60, 0.55, 0.62,  # coding
-                             0.72, 0.75, 0.78, 0.74, 0.71,  # general
-                             0.92, 0.98, 0.95, 0.94, 0.93],  # simple
-})
+df = pd.DataFrame(
+    {
+        "questions": questions,
+        # GPT-4: great at coding, good at everything
+        "openai/gpt-4": [
+            0.95,
+            0.92,
+            0.90,
+            0.88,
+            0.91,  # coding
+            0.85,
+            0.87,
+            0.84,
+            0.86,
+            0.83,  # general
+            0.95,
+            0.98,
+            0.97,
+            0.96,
+            0.94,
+        ],  # simple
+        # Claude: great at explanations, good at coding
+        "anthropic/claude-3-sonnet": [
+            0.88,
+            0.85,
+            0.82,
+            0.80,
+            0.84,  # coding
+            0.95,
+            0.93,
+            0.94,
+            0.92,
+            0.91,  # general
+            0.90,
+            0.95,
+            0.93,
+            0.92,
+            0.91,
+        ],  # simple
+        # GPT-3.5: decent at simple tasks, struggles with complex
+        "openai/gpt-3.5-turbo": [
+            0.70,
+            0.65,
+            0.60,
+            0.55,
+            0.62,  # coding
+            0.72,
+            0.75,
+            0.78,
+            0.74,
+            0.71,  # general
+            0.92,
+            0.98,
+            0.95,
+            0.94,
+            0.93,
+        ],  # simple
+    }
+)
 
 print(f"\nTraining data: {len(df)} samples")
 print(df.head())
@@ -80,9 +123,9 @@ print(df.head())
 # =============================================================================
 # 3. Create and fit Nordlys router
 # =============================================================================
-print("\n" + "="*60)
+print("\n" + "=" * 60)
 print("Fitting Nordlys router...")
-print("="*60)
+print("=" * 60)
 
 # Basic usage with defaults
 router = Nordlys(
@@ -98,29 +141,30 @@ print(f"\nFitted! {router}")
 # =============================================================================
 # 4. Inspect clusters and metrics
 # =============================================================================
-print("\n" + "="*60)
+print("\n" + "=" * 60)
 print("Cluster Information")
-print("="*60)
+print("=" * 60)
 
 metrics = router.get_metrics()
-print(f"\nOverall Metrics:")
+print("\nOverall Metrics:")
 print(f"  - Silhouette Score: {metrics.silhouette_score:.3f}")
 print(f"  - Number of Clusters: {metrics.n_clusters}")
 print(f"  - Cluster Sizes: {metrics.cluster_sizes}")
 
-print(f"\nPer-Cluster Details:")
+print("\nPer-Cluster Details:")
 for cluster in router.get_clusters():
     print(f"\n  Cluster {cluster.cluster_id} ({cluster.size} samples):")
-    for model_id, accuracy in sorted(cluster.model_accuracies.items(),
-                                      key=lambda x: x[1], reverse=True):
+    for model_id, accuracy in sorted(
+        cluster.model_accuracies.items(), key=lambda x: x[1], reverse=True
+    ):
         print(f"    - {model_id}: {accuracy:.2%} accuracy")
 
 # =============================================================================
 # 5. Route new prompts
 # =============================================================================
-print("\n" + "="*60)
+print("\n" + "=" * 60)
 print("Routing New Prompts")
-print("="*60)
+print("=" * 60)
 
 test_prompts = [
     ("Write a recursive fibonacci function", "coding"),
@@ -129,7 +173,7 @@ test_prompts = [
 ]
 
 for prompt, category in test_prompts:
-    print(f"\nPrompt ({category}): \"{prompt}\"")
+    print(f'\nPrompt ({category}): "{prompt}"')
 
     # Route with different cost preferences
     for cost_bias in [0.0, 0.5, 1.0]:
@@ -140,9 +184,9 @@ for prompt, category in test_prompts:
 # =============================================================================
 # 6. Batch routing
 # =============================================================================
-print("\n" + "="*60)
+print("\n" + "=" * 60)
 print("Batch Routing")
-print("="*60)
+print("=" * 60)
 
 batch_prompts = [
     "Implement quicksort",
@@ -152,14 +196,14 @@ batch_prompts = [
 
 results = router.route_batch(batch_prompts, cost_bias=0.5)
 for prompt, result in zip(batch_prompts, results):
-    print(f"  \"{prompt[:30]}...\" -> {result.model_id}")
+    print(f'  "{prompt[:30]}..." -> {result.model_id}')
 
 # =============================================================================
 # 7. Save and load
 # =============================================================================
-print("\n" + "="*60)
+print("\n" + "=" * 60)
 print("Save and Load")
-print("="*60)
+print("=" * 60)
 
 # Save to JSON
 router.save("/tmp/nordlys_example.json")
@@ -173,6 +217,6 @@ print(f"Loaded: {loaded_router}")
 result = loaded_router.route("Test prompt", cost_bias=0.5)
 print(f"Loaded router routes to: {result.model_id}")
 
-print("\n" + "="*60)
+print("\n" + "=" * 60)
 print("Example Complete!")
-print("="*60)
+print("=" * 60)

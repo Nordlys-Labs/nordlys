@@ -89,7 +89,9 @@ class UMAPReducer:
             Reduced embeddings of shape (n_samples, n_components)
         """
         if self._model is None:
-            raise RuntimeError("Reducer must be fitted before transform. Call fit() first.")
+            raise RuntimeError(
+                "Reducer must be fitted before transform. Call fit() first."
+            )
         return self._model.transform(embeddings)
 
     def fit_transform(self, embeddings: np.ndarray) -> np.ndarray:

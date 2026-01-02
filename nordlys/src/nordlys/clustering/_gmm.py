@@ -80,7 +80,9 @@ class GMMClusterer:
             Cluster assignments of shape (n_samples,)
         """
         if self._model is None:
-            raise RuntimeError("Clusterer must be fitted before predict. Call fit() first.")
+            raise RuntimeError(
+                "Clusterer must be fitted before predict. Call fit() first."
+            )
         return self._model.predict(embeddings)
 
     def predict_proba(self, embeddings: np.ndarray) -> np.ndarray:
@@ -93,7 +95,9 @@ class GMMClusterer:
             Probabilities of shape (n_samples, n_components)
         """
         if self._model is None:
-            raise RuntimeError("Clusterer must be fitted before predict_proba. Call fit() first.")
+            raise RuntimeError(
+                "Clusterer must be fitted before predict_proba. Call fit() first."
+            )
         return self._model.predict_proba(embeddings)
 
     def fit_predict(self, embeddings: np.ndarray) -> np.ndarray:
@@ -106,6 +110,7 @@ class GMMClusterer:
             Cluster assignments of shape (n_samples,)
         """
         self.fit(embeddings)
+        assert self._labels is not None
         return self._labels
 
     @property
@@ -113,7 +118,9 @@ class GMMClusterer:
         """Cluster centers (means) of shape (n_components, n_features)."""
         if self._model is None:
             raise RuntimeError("Clusterer must be fitted first.")
-        return self._model.means_
+        means = self._model.means_
+        assert means is not None
+        return means
 
     @property
     def labels_(self) -> np.ndarray:
@@ -132,14 +139,18 @@ class GMMClusterer:
         """Mixture weights of shape (n_components,)."""
         if self._model is None:
             raise RuntimeError("Clusterer must be fitted first.")
-        return self._model.weights_
+        weights = self._model.weights_
+        assert weights is not None
+        return weights
 
     @property
     def covariances_(self) -> np.ndarray:
         """Covariance matrices of components."""
         if self._model is None:
             raise RuntimeError("Clusterer must be fitted first.")
-        return self._model.covariances_
+        covariances = self._model.covariances_
+        assert covariances is not None
+        return covariances
 
     @property
     def bic_(self) -> float:

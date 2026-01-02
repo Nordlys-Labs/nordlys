@@ -94,7 +94,9 @@ class AgglomerativeClusterer:
             Cluster assignments of shape (n_samples,)
         """
         if self._cluster_centers is None:
-            raise RuntimeError("Clusterer must be fitted before predict. Call fit() first.")
+            raise RuntimeError(
+                "Clusterer must be fitted before predict. Call fit() first."
+            )
 
         distances = np.linalg.norm(
             embeddings[:, np.newaxis] - self._cluster_centers, axis=2
@@ -111,7 +113,10 @@ class AgglomerativeClusterer:
             Cluster assignments of shape (n_samples,)
         """
         self.fit(embeddings)
-        return self._model.labels_
+        assert self._model is not None
+        labels = self._model.labels_
+        assert labels is not None
+        return labels
 
     @property
     def cluster_centers_(self) -> np.ndarray:
@@ -128,7 +133,9 @@ class AgglomerativeClusterer:
         """Labels assigned during fit() of shape (n_samples,)."""
         if self._model is None:
             raise RuntimeError("Clusterer must be fitted first.")
-        return self._model.labels_
+        labels = self._model.labels_
+        assert labels is not None
+        return labels
 
     @property
     def n_clusters_(self) -> int:

@@ -123,10 +123,13 @@ class HDBSCANClusterer:
             Cluster assignments of shape (n_samples,)
         """
         if self._model is None:
-            raise RuntimeError("Clusterer must be fitted before predict. Call fit() first.")
+            raise RuntimeError(
+                "Clusterer must be fitted before predict. Call fit() first."
+            )
 
         try:
             from hdbscan import approximate_predict
+
             labels, _ = approximate_predict(self._model, embeddings)
             return labels
         except Exception:
@@ -148,7 +151,10 @@ class HDBSCANClusterer:
             Cluster assignments of shape (n_samples,)
         """
         self.fit(embeddings)
-        return self._model.labels_
+        assert self._model is not None
+        labels = self._model.labels_
+        assert labels is not None
+        return labels
 
     @property
     def cluster_centers_(self) -> np.ndarray:
@@ -168,7 +174,9 @@ class HDBSCANClusterer:
         """
         if self._model is None:
             raise RuntimeError("Clusterer must be fitted first.")
-        return self._model.labels_
+        labels = self._model.labels_
+        assert labels is not None
+        return labels
 
     @property
     def n_clusters_(self) -> int:

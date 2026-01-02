@@ -59,9 +59,7 @@ class SweepResults:
         if exact_matches:
             return max(exact_matches, key=lambda r: r.metrics.silhouette_score)
         # Fall back to closest
-        return min(
-            self.results, key=lambda r: abs(r.metrics.n_clusters - target)
-        )
+        return min(self.results, key=lambda r: abs(r.metrics.n_clusters - target))
 
     def filter_by_algorithm(self, algorithm: str) -> "SweepResults":
         """Filter results by algorithm name."""
@@ -190,9 +188,7 @@ class ParameterSweep:
                     print(f"Running {algo_name} with {params}")
 
                 try:
-                    result = self._evaluate_config(
-                        embeddings, algo_name, params
-                    )
+                    result = self._evaluate_config(embeddings, algo_name, params)
                     results.results.append(result)
                 except Exception as e:
                     if verbose:
