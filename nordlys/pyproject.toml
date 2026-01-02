@@ -95,7 +95,6 @@ unresolved-import = "ignore"
 
 [tool.pytest.ini_options]
 addopts = "-v"
-testpaths = ["tests"]
 
 [tool.coverage.report]
 exclude_lines = [
