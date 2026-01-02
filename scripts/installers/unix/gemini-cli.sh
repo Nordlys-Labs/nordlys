@@ -16,8 +16,8 @@ API_BASE_URL="https://api.nordlyslabs.com"
 API_KEY_URL="https://nordlyslabs.com/api-platform/orgs"
 
 # Model override defaults (can be overridden by environment variables)
-# Use nordlys/hypernova to enable Nordlys model for optimal cost/performance
-DEFAULT_MODEL="nordlys/hypernova"
+# Use nordlys-hypernova to enable Nordlys model for optimal cost/performance
+DEFAULT_MODEL="nordlys-hypernova"
 
 # ========================
 #       Utility Functions
@@ -449,14 +449,14 @@ EOF
 validate_model_override() {
   local model="$1"
 
-  # Empty values fall back to nordlys/hypernova for backward compatibility
+  # Empty values fall back to nordlys-hypernova for backward compatibility
   if [ -z "$model" ]; then
     return 0
   fi
 
   # Validate format: author/model_id
   if [[ ! "$model" =~ ^[a-zA-Z0-9_-]+/[a-zA-Z0-9_.-]+$ ]]; then
-    log_error "Model format invalid. Use format: author/model_id (e.g., nordlys/hypernova)"
+    log_error "Model format invalid. Use format: author/model_id (e.g., nordlys-hypernova)"
     return 1
   fi
   return 0
@@ -507,7 +507,7 @@ configure_gemini() {
     echo ""
     echo "🎯 Option 3: Customize model (Advanced)"
     echo "   export NORDLYS_API_KEY='your-api-key-here'"
-    echo "   export NORDLYS_MODEL='nordlys/hypernova'"
+    echo "   export NORDLYS_MODEL='nordlys-hypernova'"
     echo "   curl -fsSL https://raw.githubusercontent.com/Egham-7/nordlys/main/scripts/installers/unix/gemini-cli.sh | bash"
     echo ""
     echo "⚙️  Option 4: Manual configuration (Advanced users)"
@@ -518,17 +518,17 @@ configure_gemini() {
     echo "   # Create settings file with full model alias overrides:"
     echo "   cat > ~/.gemini/settings.json << 'EOF'"
     echo '{'
-    echo '  "model": {"name": "nordlys/hypernova"},'
+    echo '  "model": {"name": "nordlys-hypernova"},'
     echo '  "privacy": {"usageStatisticsEnabled": false},'
     echo '  "modelConfigs": {'
     echo '    "customAliases": {'
-    echo '      "summarizer-default": {"modelConfig": {"model": "nordlys/hypernova"}},'
-    echo '      "summarizer-shell": {"modelConfig": {"model": "nordlys/hypernova"}},'
-    echo '      "classifier": {"modelConfig": {"model": "nordlys/hypernova"}},'
-    echo '      "prompt-completion": {"modelConfig": {"model": "nordlys/hypernova"}},'
-    echo '      "edit-corrector": {"modelConfig": {"model": "nordlys/hypernova"}},'
-    echo '      "web-search": {"modelConfig": {"model": "nordlys/hypernova"}},'
-    echo '      "web-fetch": {"modelConfig": {"model": "nordlys/hypernova"}}'
+    echo '      "summarizer-default": {"modelConfig": {"model": "nordlys-hypernova"}},'
+    echo '      "summarizer-shell": {"modelConfig": {"model": "nordlys-hypernova"}},'
+    echo '      "classifier": {"modelConfig": {"model": "nordlys-hypernova"}},'
+    echo '      "prompt-completion": {"modelConfig": {"model": "nordlys-hypernova"}},'
+    echo '      "edit-corrector": {"modelConfig": {"model": "nordlys-hypernova"}},'
+    echo '      "web-search": {"modelConfig": {"model": "nordlys-hypernova"}},'
+    echo '      "web-fetch": {"modelConfig": {"model": "nordlys-hypernova"}}'
     echo '    }'
     echo '  }'
     echo '}'
@@ -646,8 +646,8 @@ main() {
     echo "💡 Pro Tips:"
     echo "   • API key saved to shell config (env var)"
     echo "   • Model configured in ~/.gemini/settings.json"
-    echo "   • Model set to nordlys/hypernova for intelligent routing"
-    echo "   • All background operations (summaries, search, etc.) use nordlys/hypernova"
+    echo "   • Model set to nordlys-hypernova for intelligent routing"
+    echo "   • All background operations (summaries, search, etc.) use nordlys-hypernova"
     echo "   • Modify settings.json to customize model and preferences"
     echo ""
     echo "📖 Full Documentation: https://docs.nordlyslabs.com/developer-tools/gemini-cli"
@@ -667,11 +667,11 @@ main() {
     echo '   mkdir -p ~/.gemini'
     echo '   cat > ~/.gemini/settings.json << '"'"'EOF'"'"
     echo '{'
-    echo '  "model": {"name": "nordlys/hypernova"},'
+    echo '  "model": {"name": "nordlys-hypernova"},'
     echo '  "privacy": {"usageStatisticsEnabled": false},'
     echo '  "modelConfigs": {"customAliases": {'
-    echo '    "summarizer-default": {"modelConfig": {"model": "nordlys/hypernova"}},'
-    echo '    "summarizer-shell": {"modelConfig": {"model": "nordlys/hypernova"}}'
+    echo '    "summarizer-default": {"modelConfig": {"model": "nordlys-hypernova"}},'
+    echo '    "summarizer-shell": {"modelConfig": {"model": "nordlys-hypernova"}}'
     echo '  }}'
     echo '}'
     echo 'EOF'
