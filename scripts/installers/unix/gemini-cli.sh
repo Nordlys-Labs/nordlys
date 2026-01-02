@@ -332,7 +332,52 @@ create_settings_json() {
     # Merge with existing settings using jq
     jq --arg model "$model" '
       .model.name = $model |
-      .privacy.usageStatisticsEnabled = false
+      .privacy.usageStatisticsEnabled = false |
+      .modelConfigs.customAliases = {
+        "summarizer-default": {
+          "modelConfig": {
+            "model": $model,
+            "generateContentConfig": {
+              "maxOutputTokens": 2000,
+              "temperature": 0.2
+            }
+          }
+        },
+        "summarizer-shell": {
+          "modelConfig": {
+            "model": $model,
+            "generateContentConfig": {
+              "maxOutputTokens": 2000,
+              "temperature": 0
+            }
+          }
+        },
+        "classifier": {
+          "modelConfig": {
+            "model": $model
+          }
+        },
+        "prompt-completion": {
+          "modelConfig": {
+            "model": $model
+          }
+        },
+        "edit-corrector": {
+          "modelConfig": {
+            "model": $model
+          }
+        },
+        "web-search": {
+          "modelConfig": {
+            "model": $model
+          }
+        },
+        "web-fetch": {
+          "modelConfig": {
+            "model": $model
+          }
+        }
+      }
     ' "$settings_file" > "${settings_file}.tmp" && mv "${settings_file}.tmp" "$settings_file"
 
     log_success "Settings merged with existing configuration"
@@ -345,6 +390,53 @@ create_settings_json() {
   },
   "privacy": {
     "usageStatisticsEnabled": false
+  },
+  "modelConfigs": {
+    "customAliases": {
+      "summarizer-default": {
+        "modelConfig": {
+          "model": "$model",
+          "generateContentConfig": {
+            "maxOutputTokens": 2000,
+            "temperature": 0.2
+          }
+        }
+      },
+      "summarizer-shell": {
+        "modelConfig": {
+          "model": "$model",
+          "generateContentConfig": {
+            "maxOutputTokens": 2000,
+            "temperature": 0
+          }
+        }
+      },
+      "classifier": {
+        "modelConfig": {
+          "model": "$model"
+        }
+      },
+      "prompt-completion": {
+        "modelConfig": {
+          "model": "$model"
+        }
+      },
+      "edit-corrector": {
+        "modelConfig": {
+          "model": "$model"
+        }
+      },
+      "web-search": {
+        "modelConfig": {
+          "model": "$model"
+        }
+      },
+      "web-fetch": {
+        "modelConfig": {
+          "model": "$model"
+        }
+      }
+    }
   }
 }
 EOF
@@ -423,8 +515,24 @@ configure_gemini() {
     echo "   # Add to your shell config (~/.bashrc, ~/.zshrc, etc.):"
     echo "   echo 'export GEMINI_API_KEY=\"your-api-key-here\"' >> ~/.bashrc"
     echo "   echo 'export GOOGLE_GEMINI_BASE_URL=\"https://api.nordlyslabs.com\"' >> ~/.bashrc"
-    echo "   # Create settings file:"
-    echo "   echo '{\"model\":{\"name\":\"nordlys/hypernova\"},\"privacy\":{\"usageStatisticsEnabled\":false}}' > ~/.gemini/settings.json"
+    echo "   # Create settings file with full model alias overrides:"
+    echo "   cat > ~/.gemini/settings.json << 'EOF'"
+    echo '{'
+    echo '  "model": {"name": "nordlys/hypernova"},'
+    echo '  "privacy": {"usageStatisticsEnabled": false},'
+    echo '  "modelConfigs": {'
+    echo '    "customAliases": {'
+    echo '      "summarizer-default": {"modelConfig": {"model": "nordlys/hypernova"}},'
+    echo '      "summarizer-shell": {"modelConfig": {"model": "nordlys/hypernova"}},'
+    echo '      "classifier": {"modelConfig": {"model": "nordlys/hypernova"}},'
+    echo '      "prompt-completion": {"modelConfig": {"model": "nordlys/hypernova"}},'
+    echo '      "edit-corrector": {"modelConfig": {"model": "nordlys/hypernova"}},'
+    echo '      "web-search": {"modelConfig": {"model": "nordlys/hypernova"}},'
+    echo '      "web-fetch": {"modelConfig": {"model": "nordlys/hypernova"}}'
+    echo '    }'
+    echo '  }'
+    echo '}'
+    echo 'EOF'
     echo ""
     echo "🔗 Get your API key: $API_KEY_URL"
     exit 1
@@ -539,6 +647,7 @@ main() {
     echo "   • API key saved to shell config (env var)"
     echo "   • Model configured in ~/.gemini/settings.json"
     echo "   • Model set to nordlys/hypernova for intelligent routing"
+    echo "   • All background operations (summaries, search, etc.) use nordlys/hypernova"
     echo "   • Modify settings.json to customize model and preferences"
     echo ""
     echo "📖 Full Documentation: https://docs.nordlyslabs.com/developer-tools/gemini-cli"
@@ -554,9 +663,18 @@ main() {
     echo '   export GEMINI_API_KEY="your-nordlys-api-key"'
     echo '   export GOOGLE_GEMINI_BASE_URL="https://api.nordlyslabs.com"'
     echo ""
-    echo "   # Create settings file:"
+    echo "   # Create comprehensive settings file:"
     echo '   mkdir -p ~/.gemini'
-    echo '   echo '"'"'{"model":{"name":"nordlys/hypernova"},"privacy":{"usageStatisticsEnabled":false}}'"'"' > ~/.gemini/settings.json'
+    echo '   cat > ~/.gemini/settings.json << '"'"'EOF'"'"
+    echo '{'
+    echo '  "model": {"name": "nordlys/hypernova"},'
+    echo '  "privacy": {"usageStatisticsEnabled": false},'
+    echo '  "modelConfigs": {"customAliases": {'
+    echo '    "summarizer-default": {"modelConfig": {"model": "nordlys/hypernova"}},'
+    echo '    "summarizer-shell": {"modelConfig": {"model": "nordlys/hypernova"}}'
+    echo '  }}'
+    echo '}'
+    echo 'EOF'
     echo ""
     echo "🆘 Get help: https://docs.nordlyslabs.com/troubleshooting"
     exit 1
