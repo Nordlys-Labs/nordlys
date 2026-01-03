@@ -61,6 +61,31 @@ class SpectralClusterer:
         Returns:
             Self
         """
+        # Validate input embeddings
+        embeddings = np.asarray(embeddings)
+
+        if embeddings.ndim != 2:
+            raise ValueError(
+                f"Expected 2D array (n_samples, n_features), got {embeddings.ndim}D array"
+            )
+
+        n_samples, n_features = embeddings.shape
+
+        if n_samples == 0 or n_features == 0:
+            raise ValueError(
+                f"Embeddings cannot be empty: got shape ({n_samples}, {n_features})"
+            )
+
+        if not np.all(np.isfinite(embeddings)):
+            raise ValueError(
+                "Embeddings contain NaN or Inf values. All values must be finite."
+            )
+
+        if n_samples < self.n_clusters:
+            raise ValueError(
+                f"Number of samples ({n_samples}) must be >= n_clusters ({self.n_clusters})"
+            )
+
         self._model = self._create_model()
         self._model.fit(embeddings)
         self._embeddings = embeddings
@@ -98,6 +123,32 @@ class SpectralClusterer:
         if self._cluster_centers is None:
             raise RuntimeError(
                 "Clusterer must be fitted before predict. Call fit() first."
+            )
+
+        # Validate input embeddings
+        embeddings = np.asarray(embeddings)
+
+        if embeddings.ndim != 2:
+            raise ValueError(
+                f"Expected 2D array (n_samples, n_features), got {embeddings.ndim}D array"
+            )
+
+        n_samples, n_features = embeddings.shape
+
+        if n_samples == 0:
+            raise ValueError("Embeddings cannot be empty: got 0 samples")
+
+        expected_features = self._cluster_centers.shape[1]
+        if n_features != expected_features:
+            raise ValueError(
+                f"Feature dimension mismatch: embeddings have {n_features} features, "
+                f"but clusterer was fitted with {expected_features} features"
+            )
+
+        # Ensure numeric dtype
+        if not np.issubdtype(embeddings.dtype, np.number):
+            raise ValueError(
+                f"Embeddings must have numeric dtype, got {embeddings.dtype}"
             )
 
         distances = np.linalg.norm(

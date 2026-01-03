@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from hdbscan import HDBSCAN
@@ -127,12 +130,34 @@ class HDBSCANClusterer:
                 "Clusterer must be fitted before predict. Call fit() first."
             )
 
+        # Try to import and use approximate_predict
         try:
             from hdbscan import approximate_predict
+        except ImportError as e:
+            logger.warning(
+                "hdbscan.approximate_predict not available: %s. "
+                "Falling back to nearest centroid assignment.",
+                e,
+            )
+            # Fallback: assign to nearest centroid
+            if self._cluster_centers is None or len(self._cluster_centers) == 0:
+                return np.full(len(embeddings), -1)
+            distances = np.linalg.norm(
+                embeddings[:, np.newaxis] - self._cluster_centers, axis=2
+            )
+            return distances.argmin(axis=1)
 
+        # Try to use approximate_predict
+        try:
             labels, _ = approximate_predict(self._model, embeddings)
             return labels
-        except Exception:
+        except (IndexError, ValueError, TypeError) as e:
+            logger.warning(
+                "approximate_predict failed with %s: %s. "
+                "Falling back to nearest centroid assignment.",
+                type(e).__name__,
+                e,
+            )
             # Fallback: assign to nearest centroid
             if self._cluster_centers is None or len(self._cluster_centers) == 0:
                 return np.full(len(embeddings), -1)

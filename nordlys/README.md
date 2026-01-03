@@ -65,3 +65,19 @@ loaded = Nordlys.load("router.json")
 
 - [Docs](https://docs.nordlyslabs.com)
 - [Issues](https://github.com/Nordlys-Labs/nordlys/issues)
+
+## Citation
+
+This project is inspired by the Universal Router approach:
+
+```bibtex
+@article{universalrouter2025,
+  title={Universal Router: Foundation Model Routing for Arbitrary Tasks},
+  author={},
+  journal={arXiv preprint arXiv:2502.08773},
+  year={2025},
+  url={https://arxiv.org/pdf/2502.08773}
+}
+```
+
+**Paper**: [Universal Router: Foundation Model Routing for Arbitrary Tasks](https://arxiv.org/pdf/2502.08773)

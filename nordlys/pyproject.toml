@@ -30,7 +30,7 @@ dependencies = [
   # Data Processing
   "pandas>=2.0.0",
   # ML
-  "scikit-learn>=1.4.0",
+  "scikit-learn>=1.5.0,<2.0.0",
 ]
 
 
