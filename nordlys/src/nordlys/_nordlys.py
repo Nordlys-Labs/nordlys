@@ -221,7 +221,7 @@ class Nordlys:
 
     def __del__(self) -> None:
         """Cleanup router resources."""
-        if self._core_router is not None:
+        if hasattr(self, "_core_router") and self._core_router is not None:
             try:
                 self._core_router.cleanup()
             except (AttributeError, Exception):
