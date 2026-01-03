@@ -135,13 +135,13 @@ class TestAgglomerativeClusterer:
         assert clusterer.cluster_centers_.shape == (3, 5)
 
     def test_agglomerative_edge_case_single_sample(self):
-        """Test with single sample (should still work with n_clusters=1)."""
+        """Test with single sample (sklearn requires minimum 2 samples)."""
         data = np.random.randn(1, 5)
         clusterer = AgglomerativeClusterer(n_clusters=1)
-        clusterer.fit(data)
 
-        assert clusterer.labels_.shape == (1,)
-        assert clusterer.cluster_centers_.shape == (1, 5)
+        # AgglomerativeClustering requires at least 2 samples
+        with pytest.raises(ValueError, match="minimum of 2"):
+            clusterer.fit(data)
 
     def test_agglomerative_edge_case_identical_embeddings(self):
         """Test with identical embeddings."""
