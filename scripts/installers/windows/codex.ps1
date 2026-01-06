@@ -117,7 +117,7 @@ approval_policy = "untrusted"
 name = "Nordlys"
 base_url = "$ApiBaseUrl"
 env_key = "NORDLYS_API_KEY"
-wire_api = "chat"
+wire_api = "responses"
 "@
 
     $config | Set-Content -Path $ConfigPath -Encoding ASCII
