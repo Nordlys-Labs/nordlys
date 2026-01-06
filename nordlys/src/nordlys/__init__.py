@@ -31,7 +31,7 @@ Usage:
 # Main API
 # ============================================================================
 
-from nordlys._nordlys import Nordlys, ModelConfig, RouteResult, Alternative
+from nordlys.nordlys import Nordlys, ModelConfig, RouteResult, Alternative
 
 # Reduction components
 from nordlys import reduction

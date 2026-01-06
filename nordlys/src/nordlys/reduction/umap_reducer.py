@@ -2,12 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 import numpy as np
-
-if TYPE_CHECKING:
-    from umap import UMAP
+from umap import UMAP
 
 
 class UMAPReducer:
@@ -47,16 +43,8 @@ class UMAPReducer:
         self._kwargs = kwargs
         self._model: UMAP | None = None
 
-    def _create_model(self) -> "UMAP":
+    def _create_model(self) -> UMAP:
         """Create the underlying UMAP model."""
-        try:
-            from umap import UMAP
-        except ImportError as e:
-            raise ImportError(
-                "umap-learn is required for UMAPReducer. "
-                "Install it with: pip install umap-learn"
-            ) from e
-
         return UMAP(
             n_components=self.n_components,
             n_neighbors=self.n_neighbors,

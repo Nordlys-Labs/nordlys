@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from nordlys.clustering._agglomerative import AgglomerativeClusterer
+from nordlys.clustering.agglomerative import AgglomerativeClusterer
 
 
 class TestAgglomerativeClusterer:

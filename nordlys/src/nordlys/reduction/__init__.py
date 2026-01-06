@@ -1,7 +1,7 @@
 """Dimensionality reduction components for Nordlys."""
 
-from nordlys.reduction._base import Reducer
-from nordlys.reduction._pca import PCAReducer
-from nordlys.reduction._umap import UMAPReducer
+from nordlys.reduction.base import Reducer
+from nordlys.reduction.pca import PCAReducer
+from nordlys.reduction.umap_reducer import UMAPReducer
 
 __all__ = ["Reducer", "UMAPReducer", "PCAReducer"]

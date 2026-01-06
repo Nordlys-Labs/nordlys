@@ -7,12 +7,12 @@ from typing import Any
 
 import numpy as np
 
-from nordlys.clustering._agglomerative import AgglomerativeClusterer
-from nordlys.clustering._gmm import GMMClusterer
-from nordlys.clustering._hdbscan import HDBSCANClusterer
-from nordlys.clustering._kmeans import KMeansClusterer
-from nordlys.clustering._metrics import ClusterMetrics, compute_cluster_metrics
-from nordlys.clustering._spectral import SpectralClusterer
+from nordlys.clustering.agglomerative import AgglomerativeClusterer
+from nordlys.clustering.gmm import GMMClusterer
+from nordlys.clustering.hdbscan_clusterer import HDBSCANClusterer
+from nordlys.clustering.kmeans import KMeansClusterer
+from nordlys.clustering.metrics import ClusterMetrics, compute_cluster_metrics
+from nordlys.clustering.spectral import SpectralClusterer
 
 
 @dataclass

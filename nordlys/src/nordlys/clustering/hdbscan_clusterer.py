@@ -3,14 +3,11 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
 
 import numpy as np
+from hdbscan import HDBSCAN
 
 logger = logging.getLogger(__name__)
-
-if TYPE_CHECKING:
-    from hdbscan import HDBSCAN
 
 
 class HDBSCANClusterer:
@@ -57,16 +54,8 @@ class HDBSCANClusterer:
         self._cluster_centers: np.ndarray | None = None
         self._embeddings: np.ndarray | None = None
 
-    def _create_model(self) -> "HDBSCAN":
+    def _create_model(self) -> HDBSCAN:
         """Create the underlying HDBSCAN model."""
-        try:
-            from hdbscan import HDBSCAN
-        except ImportError as e:
-            raise ImportError(
-                "hdbscan is required for HDBSCANClusterer. "
-                "Install it with: pip install hdbscan"
-            ) from e
-
         return HDBSCAN(
             min_cluster_size=self.min_cluster_size,
             min_samples=self.min_samples,

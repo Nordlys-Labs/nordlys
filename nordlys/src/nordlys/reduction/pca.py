@@ -2,12 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 import numpy as np
-
-if TYPE_CHECKING:
-    from sklearn.decomposition import PCA
+from sklearn.decomposition import PCA
 
 
 class PCAReducer:
@@ -39,10 +35,8 @@ class PCAReducer:
         self._kwargs = kwargs
         self._model: PCA | None = None
 
-    def _create_model(self) -> "PCA":
+    def _create_model(self) -> PCA:
         """Create the underlying PCA model."""
-        from sklearn.decomposition import PCA
-
         return PCA(
             n_components=self.n_components,
             random_state=self.random_state,

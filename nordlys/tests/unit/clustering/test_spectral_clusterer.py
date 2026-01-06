@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from nordlys.clustering._spectral import SpectralClusterer
+from nordlys.clustering.spectral import SpectralClusterer
 
 
 class TestSpectralClusterer:

@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from nordlys.clustering._gmm import GMMClusterer
+from nordlys.clustering.gmm import GMMClusterer
 
 
 class TestGMMClusterer:
