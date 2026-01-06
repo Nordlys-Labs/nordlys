@@ -28,13 +28,22 @@ function Write-Failure {
 }
 
 function Test-ZedInstalled {
+    # Check if Zed config directory exists (more reliable than checking PATH)
+    $configDir = "$env:APPDATA\Zed"
+    
+    if (Test-Path $configDir) {
+        Write-Success "Zed editor config directory found"
+        return $true
+    }
+    
+    # Also check if zed is in PATH as fallback
     $zedPath = Get-Command zed -ErrorAction SilentlyContinue
     if ($zedPath) {
         Write-Success "Zed editor is installed"
         return $true
     }
     
-    Write-Failure "Zed editor is not installed. Please install from https://zed.dev"
+    Write-Failure "Zed editor is not installed. Please install from https://zed.dev and run it at least once"
     return $false
 }
 

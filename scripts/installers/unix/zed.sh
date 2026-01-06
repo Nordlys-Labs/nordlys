@@ -64,13 +64,22 @@ create_config_backup() {
 # ========================
 
 check_zed_installed() {
+	# Check if Zed config directory exists (more reliable than checking PATH)
+	local config_dir="$HOME/.config/zed"
+	
+	if [ -d "$config_dir" ]; then
+		log_success "Zed editor config directory found"
+		return 0
+	fi
+	
+	# Also check if zed is in PATH as fallback
 	if command -v zed &>/dev/null; then
 		log_success "Zed editor is installed"
 		return 0
 	fi
 
 	log_error "Zed editor is not installed"
-	log_info "Please install Zed from: https://zed.dev"
+	log_info "Please install Zed from: https://zed.dev and run it at least once"
 	exit 1
 }
 
