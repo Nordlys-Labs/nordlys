@@ -160,7 +160,7 @@ config['language_models']['openai_compatible']['Nordlys'] = {
     'available_models': [
         {
             'name': model,
-            'display_name': 'Hypernova (Nordlys MoM)',
+            'display_name': 'Hypernova',
             'max_tokens': 200000,
             'capabilities': {
                 'tools': True,
@@ -263,7 +263,7 @@ main() {
 	log_info "Next steps:"
 	echo "  1. Restart Zed editor"
 	echo "  2. Open Agent Panel (Cmd/Ctrl + Shift + A)"
-	echo "  3. Select 'Hypernova (Nordlys MoM)' from model dropdown"
+	echo "  3. Select 'Hypernova' from model dropdown"
 	echo "  4. Start using Nordlys Mixture of Models!"
 	echo ""
 	log_info "Documentation: https://docs.nordlyslabs.com/developer-tools/zed"

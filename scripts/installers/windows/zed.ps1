@@ -126,7 +126,7 @@ function Update-ZedConfig {
         available_models = @(
             @{
                 name = $DefaultModel
-                display_name = 'Hypernova (Nordlys MoM)'
+                display_name = 'Hypernova'
                 max_tokens = 200000
                 capabilities = @{
                     tools = $true
@@ -195,7 +195,7 @@ function Main {
     Write-Info "Next steps:"
     Write-Host "  1. Restart Zed editor"
     Write-Host "  2. Open Agent Panel (Ctrl + Shift + A)"
-    Write-Host "  3. Select 'Hypernova (Nordlys MoM)' from model dropdown"
+    Write-Host "  3. Select 'Hypernova' from model dropdown"
     Write-Host "  4. Start using Nordlys Mixture of Models!"
     Write-Host ""
     Write-Info "Documentation: https://docs.nordlyslabs.com/developer-tools/zed"
