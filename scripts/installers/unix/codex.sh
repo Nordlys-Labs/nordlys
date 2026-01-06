@@ -77,6 +77,26 @@ portable_sed() {
 	mv "$tmp" "$file"
 }
 
+# Portable prepend line to file
+prepend_line() {
+	local line="$1"
+	local file="$2"
+	local tmp
+	tmp=$(mktemp) || {
+		log_error "Failed to create temp file"
+		exit 1
+	}
+	{
+		echo "$line"
+		cat "$file"
+	} >"$tmp" || {
+		rm -f "$tmp"
+		log_error "prepend failed"
+		exit 1
+	}
+	mv "$tmp" "$file"
+}
+
 # ========================
 #     Installation Detection
 # ========================
@@ -237,7 +257,7 @@ configure_nordlys_provider() {
 		# Update model_provider to nordlys if not already set to a specific provider
 		if ! grep -q "^model_provider" "$config_file" 2>/dev/null; then
 			# Add model_provider if it doesn't exist
-			portable_sed "1i model_provider = \"$model_provider\"" "$config_file"
+			prepend_line "model_provider = \"$model_provider\"" "$config_file"
 		elif [ "$model_provider" = "nordlys" ]; then
 			# Only update to nordlys if that's what we want
 			portable_sed "s/^model_provider = .*/model_provider = \"$model_provider\"/" "$config_file"
@@ -245,7 +265,7 @@ configure_nordlys_provider() {
 
 		# Update model if specified and not already set
 		if [ -n "$model" ] && ! grep -q "^model = " "$config_file" 2>/dev/null; then
-			portable_sed "1i model = \"$model\"" "$config_file"
+			prepend_line "model = \"$model\"" "$config_file"
 		elif [ -n "$model" ] && [ "$model" != "$DEFAULT_MODEL" ]; then
 			portable_sed "s/^model = .*/model = \"$model\"/" "$config_file"
 		fi
