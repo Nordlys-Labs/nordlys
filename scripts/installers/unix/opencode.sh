@@ -8,7 +8,7 @@ set -euo pipefail
 #       Constants
 # ========================
 SCRIPT_NAME="OpenCode Nordlys Installer"
-SCRIPT_VERSION="1.0.1"
+SCRIPT_VERSION="1.1.0"
 
 NODE_MIN_VERSION=18
 NODE_INSTALL_VERSION=22
@@ -281,7 +281,11 @@ create_opencode_config() {
       },
       "models": {
         "${effective_model}": {
-          "name": "Hypernova"
+          "name": "Hypernova",
+          "limit": {
+            "context": 200000,
+            "output": 65536
+          }
         }
       }
     }

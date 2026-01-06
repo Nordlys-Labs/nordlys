@@ -6,7 +6,7 @@ set -euo pipefail
 #       Constants
 # ========================
 SCRIPT_NAME="OpenAI Codex Nordlys Installer"
-SCRIPT_VERSION="1.0.0"
+SCRIPT_VERSION="1.1.0"
 CONFIG_DIR="$HOME/.codex"
 API_BASE_URL="https://api.nordlyslabs.com/v1"
 API_KEY_URL="https://nordlyslabs.com/api-platform/orgs"
@@ -214,7 +214,7 @@ configure_nordlys_provider() {
       echo "name = \"Nordlys\""
       echo "base_url = \"$API_BASE_URL\""
       echo "env_key = \"NORDLYS_API_KEY\""
-      echo "wire_api = \"chat\""
+      echo "wire_api = \"responses\""
     } >> "$config_file"
 
     # Update model_provider to nordlys if not already set to a specific provider
@@ -247,7 +247,7 @@ approval_policy = "untrusted"
 name = "Nordlys"
 base_url = "$API_BASE_URL"
 env_key = "NORDLYS_API_KEY"
-wire_api = "chat"
+wire_api = "responses"
 EOF
     log_success "New Codex configuration created with Nordlys integration"
   fi
@@ -339,7 +339,7 @@ configure_codex() {
     echo "name = \"Nordlys\""
     echo "base_url = \"https://api.nordlyslabs.com/v1\""
     echo "env_key = \"NORDLYS_API_KEY\""
-    echo "wire_api = \"chat\""
+    echo "wire_api = \"responses\""
     echo "EOF"
     echo ""
     echo "🔗 Get your API key: $API_KEY_URL"

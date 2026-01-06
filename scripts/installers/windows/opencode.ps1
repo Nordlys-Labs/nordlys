@@ -179,7 +179,11 @@ function Write-Config {
       },
       "models": {
         "$ModelValue": {
-          "name": "Hypernova"
+          "name": "Hypernova",
+          "limit": {
+            "context": 200000,
+            "output": 65536
+          }
         }
       }
     }
