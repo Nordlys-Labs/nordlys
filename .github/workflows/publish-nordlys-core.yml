@@ -46,7 +46,7 @@ jobs:
           echo "Version verified: $VERSION"
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v3.3.0
+        uses: pypa/cibuildwheel@v3.3.1
         env:
           CIBW_BUILD: "cp311-* cp312-* cp313-*"
           CIBW_SKIP: "*-musllinux_* *-win32 *_i686"
@@ -106,7 +106,7 @@ jobs:
           echo "Version sync verified: CPU=$CPU_VERSION, CUDA=$CUDA_VERSION"
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v3.3.0
+        uses: pypa/cibuildwheel@v3.3.1
         env:
           CIBW_BUILD: "cp311-* cp312-* cp313-*"
           CIBW_SKIP: "*-musllinux_* *-win32 *_i686 *-macosx_* *-win_*"
