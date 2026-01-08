@@ -4,12 +4,8 @@
 #include <limits>
 #include <memory>
 #include <type_traits>
-#include <usearch/index.hpp>
-#include <usearch/index_dense.hpp>
 #include <utility>
 #include <vector>
-
-#include "nordlys_core/tracy.hpp"
 
 // Backend type enumeration
 enum class ClusterBackendType {
@@ -48,6 +44,15 @@ public:
 protected:
   IClusterBackendT() = default;
 };
+
+// CPU backend only available when not compiling with nvcc
+// (usearch headers are not CUDA-compatible)
+#ifndef __CUDACC__
+
+#include <usearch/index.hpp>
+#include <usearch/index_dense.hpp>
+
+#include "nordlys_core/tracy.hpp"
 
 // CPU backend: Hardware-accelerated implementation using SimSIMD
 // Uses direct metric computation (brute-force) with SIMD instructions
@@ -115,6 +120,8 @@ private:
   int n_clusters_ = 0;
   int dim_ = 0;
 };
+
+#endif  // __CUDACC__
 
 // Factory function to create appropriate backend
 template <typename Scalar>

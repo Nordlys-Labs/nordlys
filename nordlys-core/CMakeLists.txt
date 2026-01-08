@@ -44,10 +44,12 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Include shared CMake utilities
 include(cmake/NordlysCompileOptions.cmake)
 
-# USearch and SimSIMD (header-only, fetched via FetchContent)
+# =============================================================================
+# CPU Dependencies (only needed for CPU backend)
+# =============================================================================
 include(FetchContent)
 
-# Fetch SimSIMD first (required by USearch)
+# SimSIMD (required by USearch for SIMD-accelerated distance computations)
 FetchContent_Declare(
   simsimd
   GIT_REPOSITORY https://github.com/ashvardanian/SimSIMD.git
@@ -59,7 +61,7 @@ set(SIMSIMD_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(SIMSIMD_BUILD_BENCHMARKS OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(simsimd)
 
-# Fetch USearch
+# USearch (CPU vector search with SimSIMD backend)
 FetchContent_Declare(
   usearch
   GIT_REPOSITORY https://github.com/unum-cloud/usearch.git
@@ -67,7 +69,6 @@ FetchContent_Declare(
   GIT_SHALLOW    TRUE
   SYSTEM
 )
-# Workaround for older cmake_minimum_required in USearch
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5 CACHE STRING "" FORCE)
 set(USEARCH_BUILD_TEST OFF CACHE BOOL "" FORCE)
 set(USEARCH_BUILD_BENCHMARK OFF CACHE BOOL "" FORCE)
@@ -76,12 +77,14 @@ set(USEARCH_USE_FP16LIB OFF CACHE BOOL "" FORCE)
 set(USEARCH_USE_SIMSIMD ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(usearch)
 
-# Dependencies
+# =============================================================================
+# Common Dependencies
+# =============================================================================
 find_package(Eigen3 REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(msgpack-cxx REQUIRED)
 
-# Tracy profiler (optional, for benchmarking)
+# Tracy profiler (optional)
 if(NORDLYS_ENABLE_TRACY)
   find_package(Tracy REQUIRED)
   add_compile_definitions(TRACY_ENABLE)
@@ -106,10 +109,10 @@ endif()
 # Summary
 message(STATUS "")
 message(STATUS "=== nordlys_core ${PROJECT_VERSION} ===")
-message(STATUS "  CUDA:       ${NORDLYS_ENABLE_CUDA}")
-message(STATUS "  Python:     ${NORDLYS_BUILD_PYTHON}")
-message(STATUS "  C bindings: ${NORDLYS_BUILD_C}")
-message(STATUS "  Tests:      ${NORDLYS_BUILD_TESTS}")
-message(STATUS "  Benchmarks: ${NORDLYS_BUILD_BENCHMARKS}")
-message(STATUS "  Tracy:      ${NORDLYS_ENABLE_TRACY}")
+message(STATUS "  CUDA:         ${NORDLYS_ENABLE_CUDA}")
+message(STATUS "  Python:       ${NORDLYS_BUILD_PYTHON}")
+message(STATUS "  C bindings:   ${NORDLYS_BUILD_C}")
+message(STATUS "  Tests:        ${NORDLYS_BUILD_TESTS}")
+message(STATUS "  Benchmarks:   ${NORDLYS_BUILD_BENCHMARKS}")
+message(STATUS "  Tracy:        ${NORDLYS_ENABLE_TRACY}")
 message(STATUS "")
