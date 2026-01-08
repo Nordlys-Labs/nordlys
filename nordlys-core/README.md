@@ -80,6 +80,7 @@ cmake --build .
 - `DNORDLYS_BUILD_C=ON|OFF` - Build C FFI bindings (default: OFF)
 - `DNORDLYS_BUILD_TESTS=ON|OFF` - Build test suite (default: OFF)
 - `DNORDLYS_BUILD_BENCHMARKS=ON|OFF` - Build benchmark suite (default: OFF)
+- `DNORDLYS_BUILD_PROFILE=ON|OFF` - Build with profiling symbols (default: OFF)
 - `DNORDLYS_ENABLE_CUDA=ON|OFF` - Enable CUDA support (default: OFF)
 
 ## Testing
@@ -123,6 +124,37 @@ Benchmarks measure:
 - **Concurrent routing** performance with multiple threads
 
 See [benchmarks/README.md](benchmarks/README.md) for detailed documentation.
+
+## Profiling
+
+Profile benchmarks to identify performance bottlenecks:
+
+```bash
+# Build with profiling symbols
+cmake --preset conan-release \
+  -DNORDLYS_BUILD_BENCHMARKS=ON \
+  -DNORDLYS_BUILD_PROFILE=ON
+cmake --build --preset conan-release
+
+# Run CPU profiling with perf
+./benchmarks/scripts/profile_perf.sh RoutingSingle_Medium
+
+# Generate visual flamegraph
+./benchmarks/scripts/profile_flamegraph.sh RoutingSingle_Medium
+firefox benchmarks/profiling/flamegraph.svg
+
+# Or run comprehensive profiling suite
+cmake --build --preset conan-release --target bench_profile_all
+```
+
+Available profiling tools:
+- **perf** - CPU performance counters (IPC, cache-misses, branch-misses)
+- **flamegraph** - Visual CPU hotspot analysis
+- **callgrind** - Detailed cache/branch simulation
+- **heaptrack** - Heap memory allocation tracking
+- **strace** - System call tracing for I/O analysis
+
+See [benchmarks/PROFILING.md](benchmarks/PROFILING.md) for detailed usage guide.
 
 ## Usage Examples
 

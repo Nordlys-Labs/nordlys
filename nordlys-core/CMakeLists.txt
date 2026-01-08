@@ -15,6 +15,7 @@ option(NORDLYS_BUILD_C "Build C FFI bindings" ON)
 option(NORDLYS_ENABLE_SANITIZERS "Enable sanitizers in Debug" OFF)
 option(NORDLYS_WARNINGS_AS_ERRORS "Treat warnings as errors" ON)
 option(NORDLYS_BUILD_BENCHMARKS "Build benchmark suite" OFF)
+option(NORDLYS_BUILD_PROFILE "Build with profiling symbols (-g -fno-omit-frame-pointer)" OFF)
 
 # CUDA auto-detection
 if(NORDLYS_ENABLE_CUDA STREQUAL "AUTO")
@@ -71,4 +72,5 @@ message(STATUS "  Python:     ${NORDLYS_BUILD_PYTHON}")
 message(STATUS "  C bindings: ${NORDLYS_BUILD_C}")
 message(STATUS "  Tests:      ${NORDLYS_BUILD_TESTS}")
 message(STATUS "  Benchmarks: ${NORDLYS_BUILD_BENCHMARKS}")
+message(STATUS "  Profiling:  ${NORDLYS_BUILD_PROFILE}")
 message(STATUS "")

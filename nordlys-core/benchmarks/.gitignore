@@ -7,5 +7,16 @@ benchmark_results*.json
 results_*.json
 *.csv
 
-# Keep fixtures
+# Profiling outputs
+profiling/*.txt
+profiling/*.svg
+profiling/*.gz
+profiling/*.data
+profiling/*.data.*
+profiling/*.out
+profiling/*.out.*
+profiling/*.folded
+
+# Keep fixtures and profiling directory structure
 !fixtures/
+!profiling/.gitkeep

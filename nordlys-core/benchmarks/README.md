@@ -182,6 +182,55 @@ Actual performance varies based on:
 - Profile characteristics (dimensionality, cluster count)
 - Compiler optimizations
 
+## Profiling
+
+Profile benchmarks to identify performance bottlenecks and optimization opportunities.
+
+### Quick Start
+
+```bash
+# Build with profiling symbols
+cmake --preset conan-release \
+  -DNORDLYS_BUILD_BENCHMARKS=ON \
+  -DNORDLYS_BUILD_PROFILE=ON
+cmake --build --preset conan-release
+
+# Run CPU profiling
+./benchmarks/scripts/profile_perf.sh RoutingSingle_Medium
+
+# Generate flamegraph
+./benchmarks/scripts/profile_flamegraph.sh RoutingSingle_Medium
+```
+
+### Available Tools
+
+| Tool | Purpose | Script |
+|------|---------|--------|
+| **perf** | CPU counters (IPC, cache-misses, branches) | `profile_perf.sh` |
+| **flamegraph** | Visual CPU hotspot analysis | `profile_flamegraph.sh` |
+| **callgrind** | Cache/branch simulation | `profile_callgrind.sh` |
+| **heaptrack** | Heap allocation tracking | `profile_memory.sh` |
+| **strace** | System call tracing | `profile_strace.sh` |
+
+### CMake Targets
+
+When built with `-DNORDLYS_BUILD_PROFILE=ON`:
+
+```bash
+# Quick CPU profile
+cmake --build --preset conan-release --target bench_profile
+
+# Generate flamegraph
+cmake --build --preset conan-release --target bench_flamegraph
+
+# Comprehensive suite
+cmake --build --preset conan-release --target bench_profile_all
+```
+
+All profiling outputs are saved to `benchmarks/profiling/`.
+
+See [PROFILING.md](./PROFILING.md) for detailed usage and interpretation guide.
+
 ## Contributing
 
 When adding new benchmarks:
@@ -194,6 +243,7 @@ When adding new benchmarks:
 
 ## See Also
 
+- [Profiling Guide](./PROFILING.md) - Detailed profiling documentation
 - [Google Benchmark User Guide](https://github.com/google/benchmark/blob/main/docs/user_guide.md)
 - [Nordlys Core README](../README.md)
 - [Contributing Guide](../../CONTRIBUTING.md)
