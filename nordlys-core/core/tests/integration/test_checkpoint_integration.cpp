@@ -10,7 +10,7 @@ namespace fs = std::filesystem;
 class CheckpointIntegrationTest : public ::testing::Test {
 protected:
   static fs::path get_test_data_dir() {
-    return fs::path(__FILE__).parent_path().parent_path() / "data";
+    return fs::path(__FILE__).parent_path().parent_path() / "fixtures";
   }
 
   static fs::path get_checkpoint_path(const std::string& name) {
