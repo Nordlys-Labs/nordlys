@@ -21,9 +21,24 @@ target_include_directories(bench_nordlys_core PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-# Copy fixtures to build directory for easy access
-file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
-     DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+# Copy fixtures to build directory at build-time
+file(GLOB FIXTURE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/*.json)
+
+add_custom_command(
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/fixtures/.fixtures_copied
+  COMMAND ${CMAKE_COMMAND} -E copy_directory
+          ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
+          ${CMAKE_CURRENT_BINARY_DIR}/fixtures
+  COMMAND ${CMAKE_COMMAND} -E touch ${CMAKE_CURRENT_BINARY_DIR}/fixtures/.fixtures_copied
+  DEPENDS ${FIXTURE_FILES}
+  COMMENT "Copying benchmark fixtures to build directory"
+)
+
+add_custom_target(copy_benchmark_fixtures
+  DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/fixtures/.fixtures_copied
+)
+
+add_dependencies(bench_nordlys_core copy_benchmark_fixtures)
 
 # CUDA Benchmarks (conditional, only if CUDA enabled)
 if(NORDLYS_ENABLE_CUDA)

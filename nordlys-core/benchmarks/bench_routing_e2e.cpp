@@ -13,8 +13,13 @@ static NordlysCheckpoint LoadCheckpoint(const std::string& profile_name) {
 static void BM_RoutingSingle_Small(benchmark::State& state) {
   auto checkpoint = LoadCheckpoint("profile_small.json");
   auto router_result = Nordlys32::from_checkpoint(std::move(checkpoint));
+  
+  if (!router_result.has_value()) {
+    state.SkipWithError(("Failed to create router: " + router_result.error()).c_str());
+    return;
+  }
+  
   auto router = std::move(router_result.value());
-
   auto embedding = bench_utils::GenerateRandomEmbedding(router.get_embedding_dim());
 
   for (auto _ : state) {
@@ -27,8 +32,13 @@ BENCHMARK(BM_RoutingSingle_Small)->Unit(benchmark::kMicrosecond);
 static void BM_RoutingSingle_Medium(benchmark::State& state) {
   auto checkpoint = LoadCheckpoint("profile_medium.json");
   auto router_result = Nordlys32::from_checkpoint(std::move(checkpoint));
+  
+  if (!router_result.has_value()) {
+    state.SkipWithError(("Failed to create router: " + router_result.error()).c_str());
+    return;
+  }
+  
   auto router = std::move(router_result.value());
-
   auto embedding = bench_utils::GenerateRandomEmbedding(router.get_embedding_dim());
 
   for (auto _ : state) {
@@ -41,8 +51,13 @@ BENCHMARK(BM_RoutingSingle_Medium)->Unit(benchmark::kMicrosecond);
 static void BM_RoutingSingle_Large(benchmark::State& state) {
   auto checkpoint = LoadCheckpoint("profile_large.json");
   auto router_result = Nordlys32::from_checkpoint(std::move(checkpoint));
+  
+  if (!router_result.has_value()) {
+    state.SkipWithError(("Failed to create router: " + router_result.error()).c_str());
+    return;
+  }
+  
   auto router = std::move(router_result.value());
-
   auto embedding = bench_utils::GenerateRandomEmbedding(router.get_embedding_dim());
 
   for (auto _ : state) {
@@ -55,8 +70,13 @@ BENCHMARK(BM_RoutingSingle_Large)->Unit(benchmark::kMicrosecond);
 static void BM_RoutingSingle_XL(benchmark::State& state) {
   auto checkpoint = LoadCheckpoint("profile_xl.json");
   auto router_result = Nordlys32::from_checkpoint(std::move(checkpoint));
+  
+  if (!router_result.has_value()) {
+    state.SkipWithError(("Failed to create router: " + router_result.error()).c_str());
+    return;
+  }
+  
   auto router = std::move(router_result.value());
-
   auto embedding = bench_utils::GenerateRandomEmbedding(router.get_embedding_dim());
 
   for (auto _ : state) {
@@ -69,8 +89,13 @@ BENCHMARK(BM_RoutingSingle_XL)->Unit(benchmark::kMicrosecond);
 static void BM_RoutingBatch(benchmark::State& state) {
   auto checkpoint = LoadCheckpoint("profile_medium.json");
   auto router_result = Nordlys32::from_checkpoint(std::move(checkpoint));
+  
+  if (!router_result.has_value()) {
+    state.SkipWithError(("Failed to create router: " + router_result.error()).c_str());
+    return;
+  }
+  
   auto router = std::move(router_result.value());
-
   const int batch_size = state.range(0);
   auto embeddings = bench_utils::GenerateBatchEmbeddings(batch_size, router.get_embedding_dim());
 
@@ -88,8 +113,13 @@ BENCHMARK(BM_RoutingBatch)->Arg(10)->Arg(100)->Arg(1000)->Unit(benchmark::kMilli
 static void BM_RoutingCostBias(benchmark::State& state) {
   auto checkpoint = LoadCheckpoint("profile_medium.json");
   auto router_result = Nordlys32::from_checkpoint(std::move(checkpoint));
+  
+  if (!router_result.has_value()) {
+    state.SkipWithError(("Failed to create router: " + router_result.error()).c_str());
+    return;
+  }
+  
   auto router = std::move(router_result.value());
-
   auto embedding = bench_utils::GenerateRandomEmbedding(router.get_embedding_dim());
 
   const float cost_bias = static_cast<float>(state.range(0)) / 100.0f;
@@ -115,6 +145,12 @@ static void BM_RoutingColdStart_Small(benchmark::State& state) {
   for (auto _ : state) {
     auto checkpoint = LoadCheckpoint("profile_small.json");
     auto router_result = Nordlys32::from_checkpoint(std::move(checkpoint));
+    
+    if (!router_result.has_value()) {
+      state.SkipWithError(("Failed to create router: " + router_result.error()).c_str());
+      return;
+    }
+    
     auto router = std::move(router_result.value());
     auto result = router.route(embedding.data(), embedding.size(), 0.5f);
     benchmark::DoNotOptimize(result);
@@ -128,6 +164,12 @@ static void BM_RoutingColdStart_Medium(benchmark::State& state) {
   for (auto _ : state) {
     auto checkpoint = LoadCheckpoint("profile_medium.json");
     auto router_result = Nordlys32::from_checkpoint(std::move(checkpoint));
+    
+    if (!router_result.has_value()) {
+      state.SkipWithError(("Failed to create router: " + router_result.error()).c_str());
+      return;
+    }
+    
     auto router = std::move(router_result.value());
     auto result = router.route(embedding.data(), embedding.size(), 0.5f);
     benchmark::DoNotOptimize(result);
@@ -138,8 +180,13 @@ BENCHMARK(BM_RoutingColdStart_Medium)->Unit(benchmark::kMillisecond);
 static void BM_RoutingConcurrent(benchmark::State& state) {
   auto checkpoint = LoadCheckpoint("profile_medium.json");
   auto router_result = Nordlys32::from_checkpoint(std::move(checkpoint));
+  
+  if (!router_result.has_value()) {
+    state.SkipWithError(("Failed to create router: " + router_result.error()).c_str());
+    return;
+  }
+  
   auto router = std::move(router_result.value());
-
   const int num_threads = state.range(0);
   auto embeddings = bench_utils::GenerateBatchEmbeddings(num_threads, router.get_embedding_dim());
 
