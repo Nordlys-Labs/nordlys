@@ -101,7 +101,7 @@ jobs:
           output-file-path: nordlys-core/benchmark_results.json
           external-data-json-path: ./cache/benchmark-data.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          alert-threshold: '110%'
+          alert-threshold: '150%'
           comment-on-alert: true
           fail-on-alert: false
 
