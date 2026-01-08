@@ -2,13 +2,13 @@
 
 #include <vector>
 
-#include <nordlys_core/router.hpp>
+#include <nordlys_core/nordlys.hpp>
 
 // Suppress nodiscard warnings in tests since EXPECT_THROW requires ignoring return values
 #pragma GCC diagnostic ignored "-Wunused-result"
 
 // ============================================================================
-// Test Fixture for Router Tests
+// Test Fixture for Nordlys32 Tests
 // ============================================================================
 
 // Test profile JSON for creating valid routers
@@ -98,12 +98,12 @@ static const char* kTestProfileJsonFloat64 = R"({
   ]
 })";
 
-class RouterTest : public ::testing::Test {
+class Nordlysest : public ::testing::Test {
  protected:
   // Helper to create a test router from JSON string
-  Router CreateTestRouter() {
-    auto profile = RouterProfile::from_json_string(kTestProfileJson);
-    auto result = Router::from_profile(std::move(profile));
+  Nordlys32 CreateTestRouter() {
+    auto profile = NordlysCheckpoint::from_json_string(kTestProfileJson);
+    auto result = Nordlys32::from_checkpoint(std::move(profile));
     if (!result) {
       throw std::runtime_error("Failed to create test router: " + result.error());
     }
@@ -111,9 +111,9 @@ class RouterTest : public ::testing::Test {
   }
 
   // Helper to create a double-precision test router
-  RouterT<double> CreateTestRouterDouble() {
-    auto profile = RouterProfile::from_json_string(kTestProfileJsonFloat64);
-    auto result = RouterT<double>::from_profile(std::move(profile));
+  Nordlys<double> CreateTestRouterDouble() {
+    auto profile = NordlysCheckpoint::from_json_string(kTestProfileJsonFloat64);
+    auto result = Nordlys<double>::from_checkpoint(std::move(profile));
     if (!result) {
       throw std::runtime_error("Failed to create test router (double): " + result.error());
     }
@@ -122,10 +122,10 @@ class RouterTest : public ::testing::Test {
 };
 
 // ============================================================================
-// Tests for Router Basic Initialization and Properties
+// Tests for Nordlys32 Basic Initialization and Properties
 // ============================================================================
 
-TEST_F(RouterTest, BasicInitialization) {
+TEST_F(Nordlysest, BasicInitialization) {
   // Verify router can be created and basic properties are accessible
   auto router = CreateTestRouter();
 
@@ -137,7 +137,7 @@ TEST_F(RouterTest, BasicInitialization) {
   EXPECT_EQ(models.size(), 2);
 }
 
-TEST_F(RouterTest, EmbeddingDimension) {
+TEST_F(Nordlysest, EmbeddingDimension) {
   // Verify get_embedding_dim() returns correct value from profile
   auto router = CreateTestRouter();
 
@@ -145,7 +145,7 @@ TEST_F(RouterTest, EmbeddingDimension) {
   EXPECT_EQ(router.get_embedding_dim(), 4);
 }
 
-TEST_F(RouterTest, NClusters) {
+TEST_F(Nordlysest, NClusters) {
   // Verify get_n_clusters() returns correct value from profile
   auto router = CreateTestRouter();
 
@@ -153,7 +153,7 @@ TEST_F(RouterTest, NClusters) {
   EXPECT_EQ(router.get_n_clusters(), 3);
 }
 
-TEST_F(RouterTest, SupportedModels) {
+TEST_F(Nordlysest, SupportedModels) {
   // Verify get_supported_models() returns all models from profile
   auto router = CreateTestRouter();
 
@@ -166,10 +166,10 @@ TEST_F(RouterTest, SupportedModels) {
 }
 
 // ============================================================================
-// Tests for Router Routing Functionality
+// Tests for Nordlys32 Routing Functionality
 // ============================================================================
 
-TEST_F(RouterTest, BasicRoutingWithFloat) {
+TEST_F(Nordlysest, BasicRoutingWithFloat) {
   // Verify route() works with valid float embedding and returns proper response
   auto router = CreateTestRouter();
 
@@ -185,7 +185,7 @@ TEST_F(RouterTest, BasicRoutingWithFloat) {
   EXPECT_GE(response.alternatives.size(), 0);
 }
 
-TEST_F(RouterTest, RoutingWithCustomCostBias) {
+TEST_F(Nordlysest, RoutingWithCustomCostBias) {
   // Verify cost_bias parameter affects model selection
   auto router = CreateTestRouter();
 
@@ -202,7 +202,7 @@ TEST_F(RouterTest, RoutingWithCustomCostBias) {
   EXPECT_EQ(response_cost.cluster_id, 0);
 }
 
-TEST_F(RouterTest, RoutingWithFilteredModels) {
+TEST_F(Nordlysest, RoutingWithFilteredModels) {
   // Verify routing works with model filter
   auto router = CreateTestRouter();
 
@@ -219,8 +219,8 @@ TEST_F(RouterTest, RoutingWithFilteredModels) {
 // Tests for Multi-Precision Support
 // ============================================================================
 
-TEST_F(RouterTest, RoutingWithDouble) {
-  // Verify RouterT<double> works with double precision
+TEST_F(Nordlysest, RoutingWithDouble) {
+  // Verify Nordlys<double> works with double precision
   auto router = CreateTestRouterDouble();
 
   // Create double-precision embedding
@@ -233,7 +233,7 @@ TEST_F(RouterTest, RoutingWithDouble) {
   EXPECT_FALSE(response.selected_model.empty());
 }
 
-TEST_F(RouterTest, FloatAndDoublePrecisionConsistency) {
+TEST_F(Nordlysest, FloatAndDoublePrecisionConsistency) {
   // Verify float and double routers give consistent cluster assignments
   auto router_float = CreateTestRouter();
   auto router_double = CreateTestRouterDouble();
@@ -252,7 +252,7 @@ TEST_F(RouterTest, FloatAndDoublePrecisionConsistency) {
 // Tests for Error Handling
 // ============================================================================
 
-TEST_F(RouterTest, DimensionMismatchThrows) {
+TEST_F(Nordlysest, DimensionMismatchThrows) {
   // Verify route() throws std::invalid_argument on embedding dimension mismatch
   auto router = CreateTestRouter();
 
@@ -264,7 +264,7 @@ TEST_F(RouterTest, DimensionMismatchThrows) {
       std::invalid_argument);
 }
 
-TEST_F(RouterTest, DimensionMismatchErrorMessage) {
+TEST_F(Nordlysest, DimensionMismatchErrorMessage) {
   // Verify error message contains dimension information
   auto router = CreateTestRouter();
 
@@ -285,7 +285,7 @@ TEST_F(RouterTest, DimensionMismatchErrorMessage) {
 // Tests for Model Filtering
 // ============================================================================
 
-TEST_F(RouterTest, RoutingWithEmptyModelFilter) {
+TEST_F(Nordlysest, RoutingWithEmptyModelFilter) {
   // Empty filter should use all available models
   auto router = CreateTestRouter();
 
@@ -298,7 +298,7 @@ TEST_F(RouterTest, RoutingWithEmptyModelFilter) {
   EXPECT_FALSE(response.selected_model.empty());
 }
 
-TEST_F(RouterTest, RoutingWithSingleModelFilter) {
+TEST_F(Nordlysest, RoutingWithSingleModelFilter) {
   // Filter to only one model - should always select that model
   auto router = CreateTestRouter();
 
@@ -311,7 +311,7 @@ TEST_F(RouterTest, RoutingWithSingleModelFilter) {
   EXPECT_EQ(response.selected_model, "provider2/llama");
 }
 
-TEST_F(RouterTest, AlternativesRespectMaxAlternatives) {
+TEST_F(Nordlysest, AlternativesRespectMaxAlternatives) {
   // Verify that alternatives count doesn't exceed max_alternatives
   auto router = CreateTestRouter();
 
@@ -328,7 +328,7 @@ TEST_F(RouterTest, AlternativesRespectMaxAlternatives) {
 // Tests for Cluster Assignment
 // ============================================================================
 
-TEST_F(RouterTest, DifferentEmbeddingsAssignToDifferentClusters) {
+TEST_F(Nordlysest, DifferentEmbeddingsAssignToDifferentClusters) {
   // Verify that embeddings close to different centroids are assigned correctly
   auto router = CreateTestRouter();
 
@@ -345,7 +345,7 @@ TEST_F(RouterTest, DifferentEmbeddingsAssignToDifferentClusters) {
   EXPECT_EQ(response3.cluster_id, 2);
 }
 
-TEST_F(RouterTest, ClusterDistanceIsNonNegative) {
+TEST_F(Nordlysest, ClusterDistanceIsNonNegative) {
   // Verify cluster distance is always non-negative
   auto router = CreateTestRouter();
 
@@ -356,7 +356,7 @@ TEST_F(RouterTest, ClusterDistanceIsNonNegative) {
   EXPECT_GE(response.cluster_distance, 0.0f);
 }
 
-TEST_F(RouterTest, ExactCentroidMatchHasSmallDistance) {
+TEST_F(Nordlysest, ExactCentroidMatchHasSmallDistance) {
   // Embedding exactly matching a centroid should have very small distance
   auto router = CreateTestRouter();
 
@@ -373,7 +373,7 @@ TEST_F(RouterTest, ExactCentroidMatchHasSmallDistance) {
 // Tests for Cost Bias Effects
 // ============================================================================
 
-TEST_F(RouterTest, CostBiasAffectsModelSelection) {
+TEST_F(Nordlysest, CostBiasAffectsModelSelection) {
   // Different cost biases may lead to different model selections
   auto router = CreateTestRouter();
 
@@ -390,7 +390,7 @@ TEST_F(RouterTest, CostBiasAffectsModelSelection) {
   EXPECT_FALSE(response_cost.selected_model.empty());
 }
 
-TEST_F(RouterTest, ExtremeCostBiasValues) {
+TEST_F(Nordlysest, ExtremeCostBiasValues) {
   // Test with extreme cost bias values
   auto router = CreateTestRouter();
 
@@ -408,7 +408,7 @@ TEST_F(RouterTest, ExtremeCostBiasValues) {
 // Tests for Response Structure
 // ============================================================================
 
-TEST_F(RouterTest, ResponseContainsAllRequiredFields) {
+TEST_F(Nordlysest, ResponseContainsAllRequiredFields) {
   // Verify response has all required fields populated
   auto router = CreateTestRouter();
 
@@ -429,7 +429,7 @@ TEST_F(RouterTest, ResponseContainsAllRequiredFields) {
   EXPECT_LE(response.alternatives.size(), max_possible_alternatives);
 }
 
-TEST_F(RouterTest, AlternativeModelsAreDifferentFromSelected) {
+TEST_F(Nordlysest, AlternativeModelsAreDifferentFromSelected) {
   // Verify alternative models don't include the selected model
   auto router = CreateTestRouter();
 
@@ -443,10 +443,10 @@ TEST_F(RouterTest, AlternativeModelsAreDifferentFromSelected) {
 }
 
 // ============================================================================
-// Tests for Router Creation from Different Sources
+// Tests for Nordlys32 Creation from Different Sources
 // ============================================================================
 
-TEST_F(RouterTest, CreateFromJsonString) {
+TEST_F(Nordlysest, CreateFromJsonString) {
   // Test creating router from JSON string
   std::string json_profile = R"({
     "metadata": {
@@ -472,8 +472,8 @@ TEST_F(RouterTest, CreateFromJsonString) {
     ]
   })";
 
-  auto profile = RouterProfile::from_json_string(json_profile);
-  auto result = Router::from_profile(std::move(profile));
+  auto profile = NordlysCheckpoint::from_json_string(json_profile);
+  auto result = Nordlys32::from_checkpoint(std::move(profile));
 
   ASSERT_TRUE(result.has_value()) << "Failed to create router from JSON: " << result.error();
 
@@ -482,20 +482,20 @@ TEST_F(RouterTest, CreateFromJsonString) {
   EXPECT_EQ(router.get_n_clusters(), 2);
 }
 
-TEST_F(RouterTest, CreateFromInvalidJsonStringFails) {
+TEST_F(Nordlysest, CreateFromInvalidJsonStringFails) {
   // Test that invalid JSON throws an exception
   std::string invalid_json = "{ invalid json }";
 
-  EXPECT_THROW(RouterProfile::from_json_string(invalid_json), std::exception);
+  EXPECT_THROW(NordlysCheckpoint::from_json_string(invalid_json), std::exception);
 }
 
-TEST_F(RouterTest, CreateFromNonexistentFileFails) {
+TEST_F(Nordlysest, CreateFromNonexistentFileFails) {
   // Test that loading from nonexistent file throws an exception
-  EXPECT_THROW(RouterProfile::from_json("nonexistent_file.json"), std::exception);
+  EXPECT_THROW(NordlysCheckpoint::from_json("nonexistent_file.json"), std::exception);
 }
 
-TEST_F(RouterTest, DoublePrecisionClusterDistance) {
-  // Verify RouteResponseT<double> preserves double precision
+TEST_F(Nordlysest, DoublePrecisionClusterDistance) {
+  // Verify RouteResult<double> preserves double precision
   auto router = CreateTestRouterDouble();
 
   std::vector<double> embedding = {0.95, 0.05, 0.0, 0.0};
@@ -508,23 +508,23 @@ TEST_F(RouterTest, DoublePrecisionClusterDistance) {
   EXPECT_GE(response.cluster_distance, 0.0);
 }
 
-TEST_F(RouterTest, DtypeMismatchValidation) {
-  // Test that RouterT<float> rejects float64 profiles and vice versa
+TEST_F(Nordlysest, DtypeMismatchValidation) {
+  // Test that Nordlys<float> rejects float64 profiles and vice versa
 
   // Create float64 profile
-  auto float64_profile = RouterProfile::from_json_string(kTestProfileJsonFloat64);
+  auto float64_profile = NordlysCheckpoint::from_json_string(kTestProfileJsonFloat64);
 
-  // Try to create RouterT<float> with float64 profile - should fail
-  auto result_float = Router::from_profile(float64_profile);
+  // Try to create Nordlys<float> with float64 profile - should fail
+  auto result_float = Nordlys32::from_checkpoint(float64_profile);
   EXPECT_FALSE(result_float.has_value());
-  EXPECT_TRUE(result_float.error().find("requires float32 profile") != std::string::npos);
+  EXPECT_TRUE(result_float.error().find("requires float32 checkpoint") != std::string::npos);
 
   // Create float32 profile
-  auto float32_profile = RouterProfile::from_json_string(kTestProfileJson);
+  auto float32_profile = NordlysCheckpoint::from_json_string(kTestProfileJson);
 
-  // Try to create RouterT<double> with float32 profile - should fail
-  auto result_double = RouterT<double>::from_profile(float32_profile);
+  // Try to create Nordlys<double> with float32 profile - should fail
+  auto result_double = Nordlys<double>::from_checkpoint(float32_profile);
   EXPECT_FALSE(result_double.has_value());
-  EXPECT_TRUE(result_double.error().find("requires float64 profile") != std::string::npos);
+  EXPECT_TRUE(result_double.error().find("requires float64 checkpoint") != std::string::npos);
 }
 

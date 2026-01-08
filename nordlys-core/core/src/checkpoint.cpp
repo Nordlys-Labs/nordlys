@@ -1,4 +1,4 @@
-#include <nordlys_core/profile.hpp>
+#include <nordlys_core/checkpoint.hpp>
 
 #include <algorithm>
 #include <cstdint>
@@ -46,8 +46,8 @@ void to_json(json& json_obj, const ModelFeatures& features) {
   };
 }
 
-// Define to_json for ProfileMetadata
-void to_json(json& json_obj, const ProfileMetadata& meta) {
+// Define to_json for CheckpointMetadata
+void to_json(json& json_obj, const CheckpointMetadata& meta) {
   json_obj = {
     {"n_clusters", meta.n_clusters},
     {"embedding_model", meta.embedding_model},
@@ -86,8 +86,8 @@ void from_json(const json& json_obj, ModelFeatures& features) {
   json_obj.at("error_rates").get_to(features.error_rates);
 }
 
-// Define from_json for ProfileMetadata
-void from_json(const json& json_obj, ProfileMetadata& meta) {
+// Define from_json for CheckpointMetadata
+void from_json(const json& json_obj, CheckpointMetadata& meta) {
   json_obj.at("n_clusters").get_to(meta.n_clusters);
   json_obj.at("embedding_model").get_to(meta.embedding_model);
   meta.dtype = json_obj.value("dtype", "float32");  // Default float32 for backwards compat
@@ -103,7 +103,7 @@ void from_json(const json& json_obj, ProfileMetadata& meta) {
   }
 }
 
-RouterProfile RouterProfile::from_json(const std::string& path) {
+NordlysCheckpoint NordlysCheckpoint::from_json(const std::string& path) {
   std::ifstream file(path);
   if (!file.is_open()) {
     throw std::runtime_error(std::format("Failed to open profile file: {}", path));
@@ -114,13 +114,13 @@ RouterProfile RouterProfile::from_json(const std::string& path) {
   return from_json_string(buffer.str());
 }
 
-RouterProfile RouterProfile::from_json_string(const std::string& json_str) {
+NordlysCheckpoint NordlysCheckpoint::from_json_string(const std::string& json_str) {
   json profile_json = json::parse(json_str);  // Let parse_error propagate naturally
 
-  RouterProfile profile;
+  NordlysCheckpoint profile;
 
   // Parse metadata first to get dtype
-  profile.metadata = profile_json.at("metadata").get<ProfileMetadata>();
+  profile.metadata = profile_json.at("metadata").get<CheckpointMetadata>();
 
   // Parse cluster centers
   const auto& centers_json = profile_json.at("cluster_centers");
@@ -190,7 +190,7 @@ RouterProfile RouterProfile::from_json_string(const std::string& json_str) {
   return profile;
 }
 
-RouterProfile RouterProfile::from_binary(const std::string& path) {
+NordlysCheckpoint NordlysCheckpoint::from_msgpack(const std::string& path) {
   std::ifstream file(path, std::ios::binary);
   if (!file.is_open()) {
     throw std::runtime_error(std::format("Failed to open binary profile file: {}", path));
@@ -200,7 +200,7 @@ RouterProfile RouterProfile::from_binary(const std::string& path) {
   msgpack::object_handle handle = msgpack::unpack(buffer.data(), buffer.size());
   auto map = handle.get().as<std::map<std::string, msgpack::object>>();
 
-  RouterProfile profile;
+  NordlysCheckpoint profile;
 
   // Parse metadata first to get dtype
   auto meta = map.at("metadata").as<std::map<std::string, msgpack::object>>();
@@ -302,7 +302,7 @@ RouterProfile RouterProfile::from_binary(const std::string& path) {
   return profile;
 }
 
-std::string RouterProfile::to_json_string() const {
+std::string NordlysCheckpoint::to_json_string() const {
   json profile_json;
 
   // Add metadata
@@ -336,7 +336,7 @@ std::string RouterProfile::to_json_string() const {
   return profile_json.dump(2);  // Pretty print with 2-space indent
 }
 
-void RouterProfile::to_json(const std::string& path) const {
+void NordlysCheckpoint::to_json(const std::string& path) const {
   std::string json_str = to_json_string();
   std::ofstream file(path);
   if (!file.is_open()) {
@@ -345,7 +345,7 @@ void RouterProfile::to_json(const std::string& path) const {
   file << json_str;
 }
 
-std::string RouterProfile::to_binary_string() const {
+std::string NordlysCheckpoint::to_msgpack_string() const {
   msgpack::sbuffer buffer;
   msgpack::packer<msgpack::sbuffer> pk(&buffer);
 
@@ -443,8 +443,8 @@ std::string RouterProfile::to_binary_string() const {
   return std::string(buffer.data(), buffer.size());
 }
 
-void RouterProfile::to_binary(const std::string& path) const {
-  std::string binary_data = to_binary_string();
+void NordlysCheckpoint::to_msgpack(const std::string& path) const {
+  std::string binary_data = to_msgpack_string();
   std::ofstream file(path, std::ios::binary);
   if (!file.is_open()) {
     throw std::runtime_error(std::format("Failed to open binary profile file for writing: {}", path));
@@ -452,11 +452,11 @@ void RouterProfile::to_binary(const std::string& path) const {
   file.write(binary_data.data(), static_cast<std::streamsize>(binary_data.size()));
 }
 
-RouterProfile RouterProfile::from_binary_string(const std::string& data) {
+NordlysCheckpoint NordlysCheckpoint::from_msgpack_string(const std::string& data) {
   msgpack::object_handle handle = msgpack::unpack(data.data(), data.size());
   auto map = handle.get().as<std::map<std::string, msgpack::object>>();
 
-  RouterProfile profile;
+  NordlysCheckpoint profile;
 
   // Parse metadata first to get dtype
   auto meta = map.at("metadata").as<std::map<std::string, msgpack::object>>();
@@ -558,7 +558,7 @@ RouterProfile RouterProfile::from_binary_string(const std::string& data) {
   return profile;
 }
 
-void RouterProfile::validate() const {
+void NordlysCheckpoint::validate() const {
   // Validate metadata
   if (metadata.n_clusters <= 0) {
     throw std::invalid_argument(std::format("n_clusters must be positive, got {}", metadata.n_clusters));

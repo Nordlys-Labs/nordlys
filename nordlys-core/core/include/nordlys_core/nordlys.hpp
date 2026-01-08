@@ -4,13 +4,13 @@
 #include <string>
 #include <vector>
 
+#include "checkpoint.hpp"
 #include "cluster.hpp"
-#include "profile.hpp"
 #include "result.hpp"
 #include "scorer.hpp"
 
 template<typename Scalar = float>
-struct RouteResponseT {
+struct RouteResult {
   std::string selected_model;
   std::vector<std::string> alternatives;
   int cluster_id;
@@ -18,40 +18,39 @@ struct RouteResponseT {
 };
 
 template<typename Scalar = float>
-class RouterT {
+class Nordlys {
 public:
-  using value_type = Scalar;  // Enable type detection in std::visit
+  using value_type = Scalar;
 
-  static Result<RouterT, std::string> from_profile(RouterProfile profile) noexcept {
-    // Validate dtype compatibility before initialization
+  static Result<Nordlys, std::string> from_checkpoint(NordlysCheckpoint checkpoint) noexcept {
     if constexpr (std::is_same_v<Scalar, float>) {
-      if (!profile.is_float32()) {
-        return Unexpected("RouterT<float> requires float32 profile, but profile dtype is " +
-                         profile.metadata.dtype);
+      if (!checkpoint.is_float32()) {
+        return Unexpected("Nordlys<float> requires float32 checkpoint, but checkpoint dtype is " +
+                         checkpoint.metadata.dtype);
       }
     } else if constexpr (std::is_same_v<Scalar, double>) {
-      if (!profile.is_float64()) {
-        return Unexpected("RouterT<double> requires float64 profile, but profile dtype is " +
-                         profile.metadata.dtype);
+      if (!checkpoint.is_float64()) {
+        return Unexpected("Nordlys<double> requires float64 checkpoint, but checkpoint dtype is " +
+                         checkpoint.metadata.dtype);
       }
     }
 
     try {
-      RouterT r;
-      r.init(std::move(profile));
-      return r;
+      Nordlys engine;
+      engine.init(std::move(checkpoint));
+      return engine;
     } catch (const std::exception& e) {
       return Unexpected(std::string(e.what()));
     }
   }
 
-  RouterT() = default;
-  RouterT(RouterT&&) = default;
-  RouterT& operator=(RouterT&&) = default;
-  RouterT(const RouterT&) = delete;
-  RouterT& operator=(const RouterT&) = delete;
+  Nordlys() = default;
+  Nordlys(Nordlys&&) = default;
+  Nordlys& operator=(Nordlys&&) = default;
+  Nordlys(const Nordlys&) = delete;
+  Nordlys& operator=(const Nordlys&) = delete;
 
-  RouteResponseT<Scalar> route(const Scalar* data, size_t size, float cost_bias = 0.5f,
+  RouteResult<Scalar> route(const Scalar* data, size_t size, float cost_bias = 0.5f,
                            const std::vector<std::string>& models = {}) {
     if (size != static_cast<size_t>(dim_)) {
       throw std::invalid_argument(std::format("dimension mismatch: {} vs {}", dim_, size));
@@ -64,7 +63,7 @@ public:
 
     auto scores = scorer_.score_models(cid, cost_bias, models);
 
-    RouteResponseT<Scalar> resp{
+    RouteResult<Scalar> resp{
       .selected_model = scores.empty() ? "" : scores[0].model_id,
       .alternatives = {},
       .cluster_id = cid,
@@ -72,7 +71,7 @@ public:
     };
 
     if (scores.size() > 1) {
-      size_t n = std::min(scores.size() - 1, static_cast<size_t>(profile_.metadata.routing.max_alternatives));
+      size_t n = std::min(scores.size() - 1, static_cast<size_t>(checkpoint_.metadata.routing.max_alternatives));
       auto alts = scores | std::views::drop(1) | std::views::take(n)
                         | std::views::transform(&ModelScore::model_id);
       resp.alternatives.assign(alts.begin(), alts.end());
@@ -81,7 +80,7 @@ public:
   }
 
   std::vector<std::string> get_supported_models() const {
-    auto ids = profile_.models | std::views::transform(&ModelFeatures::model_id);
+    auto ids = checkpoint_.models | std::views::transform(&ModelFeatures::model_id);
     return {ids.begin(), ids.end()};
   }
 
@@ -89,23 +88,23 @@ public:
   int get_embedding_dim() const { return dim_; }
 
 private:
-  void init(RouterProfile profile) {
-    profile_ = std::move(profile);
+  void init(NordlysCheckpoint checkpoint) {
+    checkpoint_ = std::move(checkpoint);
 
-    // Get centers with correct type from variant
-    const auto& centers = profile_.centers<Scalar>();
+    const auto& centers = checkpoint_.centers<Scalar>();
     dim_ = static_cast<int>(centers.cols());
     engine_.load_centroids(centers);
 
-    scorer_.load_models(profile_.models);
-    scorer_.set_lambda_params(profile_.metadata.routing.lambda_min,
-                               profile_.metadata.routing.lambda_max);
+    scorer_.load_models(checkpoint_.models);
+    scorer_.set_lambda_params(checkpoint_.metadata.routing.lambda_min,
+                               checkpoint_.metadata.routing.lambda_max);
   }
 
   ClusterEngineT<Scalar> engine_;
   ModelScorer scorer_;
-  RouterProfile profile_;
+  NordlysCheckpoint checkpoint_;
   int dim_ = 0;
 };
 
-using Router = RouterT<float>;
+using Nordlys32 = Nordlys<float>;
+using Nordlys64 = Nordlys<double>;

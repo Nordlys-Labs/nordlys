@@ -101,8 +101,8 @@ ctest -R cuda --output-on-failure
 ```c
 #include "nordlys.h"
 
-// Create router from profile
-NordlysRouter* router = nordlys_router_create("profile.json");
+// Create router from checkpoint
+NordlysRouter* router = nordlys_router_create("checkpoint.json");
 
 // Route with embedding
 float embedding[] = {0.1f, 0.2f, ...};
@@ -122,11 +122,12 @@ nordlys_router_destroy(router);
 
 ```python
 # The C++ core is automatically used by the Python package
-from nordlys import ModelRouter
+from nordlys_core_ext import Nordlys32, NordlysCheckpoint
 
-router = ModelRouter.from_file("profile.json")
-response = router.select_model(prompt="Write a Python function")
-print(f"Selected: {response.model_id}")
+checkpoint = NordlysCheckpoint.from_json_file("checkpoint.json")
+engine = Nordlys32.from_checkpoint(checkpoint)
+result = engine.route(embedding, cost_bias=0.5)
+print(f"Selected: {result.selected_model}")
 ```
 
 ## Architecture

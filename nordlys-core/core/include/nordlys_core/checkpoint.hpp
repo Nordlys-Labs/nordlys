@@ -21,7 +21,7 @@ struct RoutingConfig {
   int max_alternatives = 5;
 };
 
-struct ProfileMetadata {
+struct CheckpointMetadata {
   int n_clusters;
   std::string embedding_model;
   std::string dtype = "float32";  // "float32" or "float64"
@@ -34,22 +34,22 @@ struct ProfileMetadata {
 // Cluster centers can be either float or double
 using ClusterCenters = std::variant<EmbeddingMatrixT<float>, EmbeddingMatrixT<double>>;
 
-struct RouterProfile {
+struct NordlysCheckpoint {
   ClusterCenters cluster_centers;
   std::vector<ModelFeatures> models;
-  ProfileMetadata metadata;
+  CheckpointMetadata metadata;
 
   // Load from JSON file
-  [[nodiscard]] static RouterProfile from_json(const std::string& path);
+  [[nodiscard]] static NordlysCheckpoint from_json(const std::string& path);
 
   // Load from MessagePack binary file
-  [[nodiscard]] static RouterProfile from_binary(const std::string& path);
+  [[nodiscard]] static NordlysCheckpoint from_msgpack(const std::string& path);
 
   // Load from JSON string
-  [[nodiscard]] static RouterProfile from_json_string(const std::string& json_str);
+  [[nodiscard]] static NordlysCheckpoint from_json_string(const std::string& json_str);
 
   // Load from MessagePack binary string
-  [[nodiscard]] static RouterProfile from_binary_string(const std::string& data);
+  [[nodiscard]] static NordlysCheckpoint from_msgpack_string(const std::string& data);
 
   // Save to JSON file
   void to_json(const std::string& path) const;
@@ -58,12 +58,12 @@ struct RouterProfile {
   [[nodiscard]] std::string to_json_string() const;
 
   // Save to MessagePack binary file
-  void to_binary(const std::string& path) const;
+  void to_msgpack(const std::string& path) const;
 
   // Save to MessagePack binary string
-  [[nodiscard]] std::string to_binary_string() const;
+  [[nodiscard]] std::string to_msgpack_string() const;
 
-  // Validate profile data
+  // Validate checkpoint data
   void validate() const;
 
   // Type helpers

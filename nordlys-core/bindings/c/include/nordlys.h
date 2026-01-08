@@ -106,7 +106,7 @@ NORDLYS_API NordlysRouter* nordlys_router_create_from_json(const char* json_str)
  * @param path Path to the binary profile file
  * @return Router handle, or NULL on error
  */
-NORDLYS_API NordlysRouter* nordlys_router_create_from_binary(const char* path);
+NORDLYS_API NordlysRouter* nordlys_router_create_from_msgpack(const char* path);
 
 /**
  * Destroy a router and free its resources
