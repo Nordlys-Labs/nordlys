@@ -110,7 +110,7 @@ NB_MODULE(nordlys_core_ext, m) {
           [](NordlysCheckpoint checkpoint) {
               auto result = Nordlys<float>::from_checkpoint(std::move(checkpoint));
               if (!result) {
-                  throw nb::value_error(result.error());
+                  throw nb::value_error(result.error().c_str());
               }
               return std::move(result.value());
           },
@@ -177,7 +177,7 @@ NB_MODULE(nordlys_core_ext, m) {
           [](NordlysCheckpoint checkpoint) {
               auto result = Nordlys<double>::from_checkpoint(std::move(checkpoint));
               if (!result) {
-                  throw nb::value_error(result.error());
+                  throw nb::value_error(result.error().c_str());
               }
               return std::move(result.value());
           },
