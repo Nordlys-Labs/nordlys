@@ -1,5 +1,3 @@
-$ErrorActionPreference = "Stop"
-
 param(
     [string]$ApiKey,
     [string]$PrimaryModel,
@@ -9,6 +7,8 @@ param(
     [string]$HaikuModel,
     [string]$SubagentModel
 )
+
+$ErrorActionPreference = "Stop"
 
 $ScriptName = "Claude Code Nordlys Installer"
 $NodeMinVersion = 18
