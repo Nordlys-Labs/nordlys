@@ -127,34 +127,31 @@ See [benchmarks/README.md](benchmarks/README.md) for detailed documentation.
 
 ## Profiling
 
-Profile benchmarks to identify performance bottlenecks:
+Profile benchmarks using Tracy Profiler - a unified real-time profiling tool:
 
 ```bash
-# Build with profiling symbols
+# Build with Tracy enabled
 cmake --preset conan-release \
   -DNORDLYS_BUILD_BENCHMARKS=ON \
-  -DNORDLYS_BUILD_PROFILE=ON
+  -DNORDLYS_ENABLE_TRACY=ON
 cmake --build --preset conan-release
 
-# Run CPU profiling with perf
-./benchmarks/scripts/profile_perf.sh RoutingSingle_Medium
+# Run Tracy profiler (downloads GUI automatically on first run)
+./benchmarks/scripts/run_tracy.sh RoutingSingle_Medium
 
-# Generate visual flamegraph
-./benchmarks/scripts/profile_flamegraph.sh RoutingSingle_Medium
-firefox benchmarks/profiling/flamegraph.svg
-
-# Or run comprehensive profiling suite
-cmake --build --preset conan-release --target bench_profile_all
+# Or use CMake target
+cmake --build --preset conan-release --target bench_tracy
 ```
 
-Available profiling tools:
-- **perf** - CPU performance counters (IPC, cache-misses, branch-misses)
-- **flamegraph** - Visual CPU hotspot analysis
-- **callgrind** - Detailed cache/branch simulation
-- **heaptrack** - Heap memory allocation tracking
-- **strace** - System call tracing for I/O analysis
+**Tracy provides:**
+- Real-time CPU profiling with flame graphs
+- Memory allocation tracking
+- GPU profiling (CUDA support)
+- Interactive GUI with zoom/filter
+- <1% performance overhead
+- Cross-platform (Linux, macOS, Windows)
 
-See [benchmarks/PROFILING.md](benchmarks/PROFILING.md) for detailed usage guide.
+See [benchmarks/PROFILING.md](benchmarks/PROFILING.md) for detailed guide.
 
 ## Usage Examples
 

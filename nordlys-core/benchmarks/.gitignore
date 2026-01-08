@@ -7,16 +7,8 @@ benchmark_results*.json
 results_*.json
 *.csv
 
-# Profiling outputs
-profiling/*.txt
-profiling/*.svg
-profiling/*.gz
-profiling/*.data
-profiling/*.data.*
-profiling/*.out
-profiling/*.out.*
-profiling/*.folded
+# Tracy profiler captures
+*.tracy
 
-# Keep fixtures and profiling directory structure
+# Keep fixtures directory
 !fixtures/
-!profiling/.gitkeep

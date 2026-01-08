@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <nordlys_core/tracy.hpp>
 #include <random>
 #include <string>
 #include <vector>

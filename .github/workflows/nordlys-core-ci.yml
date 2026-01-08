@@ -70,7 +70,8 @@ jobs:
             -DNORDLYS_BUILD_PYTHON=ON \
             -DNORDLYS_BUILD_C=ON \
             -DNORDLYS_BUILD_BENCHMARKS=ON \
-            -DNORDLYS_ENABLE_CUDA=OFF
+            -DNORDLYS_ENABLE_CUDA=OFF \
+            -DNORDLYS_ENABLE_TRACY=ON
 
       - name: Build
         working-directory: nordlys-core
@@ -86,6 +87,22 @@ jobs:
           ./build/Release/benchmarks/bench_nordlys_core \
             --benchmark_format=json \
             --benchmark_out=benchmark_results.json
+
+      - name: Capture Tracy Profile (Linux only)
+        if: matrix.os == 'linux'
+        working-directory: nordlys-core
+        run: |
+          ./benchmarks/scripts/tracy_ci_capture.sh RoutingSingle_Medium --time 15
+        continue-on-error: true
+
+      - name: Upload Tracy Capture
+        if: matrix.os == 'linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tracy-capture-${{ matrix.os }}
+          path: nordlys-core/benchmarks/tracy_captures/*.tracy
+          retention-days: 30
+          if-no-files-found: ignore
 
       - name: Download previous benchmark data
         uses: actions/cache@v5

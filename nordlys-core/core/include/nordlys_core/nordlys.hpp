@@ -8,6 +8,7 @@
 #include "cluster.hpp"
 #include "result.hpp"
 #include "scorer.hpp"
+#include "tracy.hpp"
 
 template<typename Scalar = float>
 struct RouteResult {
@@ -23,6 +24,7 @@ public:
   using value_type = Scalar;
 
   static Result<Nordlys, std::string> from_checkpoint(NordlysCheckpoint checkpoint) noexcept {
+    NORDLYS_ZONE_N("Nordlys::from_checkpoint");
     if constexpr (std::is_same_v<Scalar, float>) {
       if (!checkpoint.is_float32()) {
         return Unexpected("Nordlys<float> requires float32 checkpoint, but checkpoint dtype is " +
@@ -52,6 +54,7 @@ public:
 
   RouteResult<Scalar> route(const Scalar* data, size_t size, float cost_bias = 0.5f,
                            const std::vector<std::string>& models = {}) {
+    NORDLYS_ZONE_N("Nordlys::route");
     if (size != static_cast<size_t>(dim_)) {
       throw std::invalid_argument(std::format("dimension mismatch: {} vs {}", dim_, size));
     }
@@ -89,6 +92,7 @@ public:
 
 private:
   void init(NordlysCheckpoint checkpoint) {
+    NORDLYS_ZONE_N("Nordlys::init");
     checkpoint_ = std::move(checkpoint);
 
     const auto& centers = checkpoint_.centers<Scalar>();

@@ -184,52 +184,43 @@ Actual performance varies based on:
 
 ## Profiling
 
-Profile benchmarks to identify performance bottlenecks and optimization opportunities.
+Profile benchmarks with Tracy Profiler - a unified real-time profiling tool with GUI.
 
 ### Quick Start
 
 ```bash
-# Build with profiling symbols
+# Build with Tracy enabled
 cmake --preset conan-release \
   -DNORDLYS_BUILD_BENCHMARKS=ON \
-  -DNORDLYS_BUILD_PROFILE=ON
+  -DNORDLYS_ENABLE_TRACY=ON
 cmake --build --preset conan-release
 
-# Run CPU profiling
-./benchmarks/scripts/profile_perf.sh RoutingSingle_Medium
+# Run Tracy profiler (auto-downloads GUI)
+./benchmarks/scripts/run_tracy.sh RoutingSingle_Medium
 
-# Generate flamegraph
-./benchmarks/scripts/profile_flamegraph.sh RoutingSingle_Medium
+# Or use CMake target
+cmake --build --preset conan-release --target bench_tracy
 ```
 
-### Available Tools
+### Tracy Features
 
-| Tool | Purpose | Script |
-|------|---------|--------|
-| **perf** | CPU counters (IPC, cache-misses, branches) | `profile_perf.sh` |
-| **flamegraph** | Visual CPU hotspot analysis | `profile_flamegraph.sh` |
-| **callgrind** | Cache/branch simulation | `profile_callgrind.sh` |
-| **heaptrack** | Heap allocation tracking | `profile_memory.sh` |
-| **strace** | System call tracing | `profile_strace.sh` |
+Tracy provides in a single tool:
+- **Real-time CPU profiling** with interactive flame graphs
+- **Memory allocation tracking** per function
+- **GPU profiling** for CUDA benchmarks  
+- **Lock contention analysis** for concurrent code
+- **<1% overhead** - minimal performance impact
 
-### CMake Targets
+### Viewing Profiles
 
-When built with `-DNORDLYS_BUILD_PROFILE=ON`:
+After running Tracy:
+1. GUI opens automatically and connects to benchmark
+2. Browse timeline to see function execution
+3. Click "Statistics" for aggregate timing data
+4. Click "Memory" to see allocations
+5. Zoom/pan to analyze specific regions
 
-```bash
-# Quick CPU profile
-cmake --build --preset conan-release --target bench_profile
-
-# Generate flamegraph
-cmake --build --preset conan-release --target bench_flamegraph
-
-# Comprehensive suite
-cmake --build --preset conan-release --target bench_profile_all
-```
-
-All profiling outputs are saved to `benchmarks/profiling/`.
-
-See [PROFILING.md](./PROFILING.md) for detailed usage and interpretation guide.
+See [PROFILING.md](./PROFILING.md) for detailed guide on interpreting results and adding instrumentation.
 
 ## Contributing
 
