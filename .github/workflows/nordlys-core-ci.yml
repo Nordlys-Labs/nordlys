@@ -59,7 +59,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: nordlys-core
-        run: conan install . --build=missing -of=build -s compiler.cppstd=20
+        run: conan install . --build=missing -s compiler.cppstd=20
 
       - name: Configure
         working-directory: nordlys-core
