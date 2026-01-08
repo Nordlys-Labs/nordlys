@@ -85,6 +85,11 @@ TEST_F(NordlysIntegrationTest, CostBiasAffectsModelSelection) {
   EXPECT_FALSE(response_quality.selected_model.empty());
   
   EXPECT_EQ(response_cheap.cluster_id, response_quality.cluster_id);
+  
+  EXPECT_EQ(response_cheap.selected_model, "meta/llama-3-70b");
+  
+  EXPECT_TRUE(response_quality.selected_model == "openai/gpt-4" || 
+              response_quality.selected_model == "anthropic/claude-3-opus");
 }
 
 TEST_F(NordlysIntegrationTest, ModelFilteringWorks) {
