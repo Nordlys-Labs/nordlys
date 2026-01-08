@@ -14,6 +14,7 @@ option(NORDLYS_BUILD_PYTHON "Build Python bindings" ON)
 option(NORDLYS_BUILD_C "Build C FFI bindings" ON)
 option(NORDLYS_ENABLE_SANITIZERS "Enable sanitizers in Debug" OFF)
 option(NORDLYS_WARNINGS_AS_ERRORS "Treat warnings as errors" ON)
+option(NORDLYS_BUILD_BENCHMARKS "Build benchmark suite" OFF)
 
 # CUDA auto-detection
 if(NORDLYS_ENABLE_CUDA STREQUAL "AUTO")
@@ -57,6 +58,11 @@ endif()
 add_subdirectory(core)
 add_subdirectory(bindings)
 
+# Benchmarks
+if(NORDLYS_BUILD_BENCHMARKS)
+  add_subdirectory(benchmarks)
+endif()
+
 # Summary
 message(STATUS "")
 message(STATUS "=== nordlys_core ${PROJECT_VERSION} ===")
@@ -64,4 +70,5 @@ message(STATUS "  CUDA:       ${NORDLYS_ENABLE_CUDA}")
 message(STATUS "  Python:     ${NORDLYS_BUILD_PYTHON}")
 message(STATUS "  C bindings: ${NORDLYS_BUILD_C}")
 message(STATUS "  Tests:      ${NORDLYS_BUILD_TESTS}")
+message(STATUS "  Benchmarks: ${NORDLYS_BUILD_BENCHMARKS}")
 message(STATUS "")
