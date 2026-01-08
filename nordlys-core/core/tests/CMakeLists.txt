@@ -11,6 +11,8 @@ add_executable(test_nordlys_core
   test_checkpoint.cpp
 )
 
+add_subdirectory(integration)
+
 target_link_libraries(test_nordlys_core
   PRIVATE
     nordlys::core
