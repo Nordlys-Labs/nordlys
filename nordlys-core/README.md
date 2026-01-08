@@ -79,6 +79,7 @@ cmake --build .
 - `DNORDLYS_BUILD_PYTHON=ON|OFF` - Build Python bindings (default: ON)
 - `DNORDLYS_BUILD_C=ON|OFF` - Build C FFI bindings (default: OFF)
 - `DNORDLYS_BUILD_TESTS=ON|OFF` - Build test suite (default: OFF)
+- `DNORDLYS_BUILD_BENCHMARKS=ON|OFF` - Build benchmark suite (default: OFF)
 - `DNORDLYS_ENABLE_CUDA=ON|OFF` - Enable CUDA support (default: OFF)
 
 ## Testing
@@ -93,6 +94,35 @@ ctest --output-on-failure
 # Run tests with GPU (if CUDA enabled)
 ctest -R cuda --output-on-failure
 ```
+
+## Benchmarking
+
+Run performance benchmarks to measure routing latency and throughput:
+
+```bash
+# Build with benchmarks enabled
+cmake --preset conan-release -DNORDLYS_BUILD_BENCHMARKS=ON
+cmake --build --preset conan-release
+
+# Run all benchmarks
+./build/Release/benchmarks/bench_nordlys_core
+
+# Run specific benchmark pattern
+./build/Release/benchmarks/bench_nordlys_core --benchmark_filter=RoutingSingle
+
+# Save results to JSON
+./build/Release/benchmarks/bench_nordlys_core \
+  --benchmark_format=json \
+  --benchmark_out=results.json
+```
+
+Benchmarks measure:
+- **Single routing latency** across different profile sizes
+- **Batch routing throughput** for high-load scenarios
+- **Checkpoint loading** and router initialization time
+- **Concurrent routing** performance with multiple threads
+
+See [benchmarks/README.md](benchmarks/README.md) for detailed documentation.
 
 ## Usage Examples
 

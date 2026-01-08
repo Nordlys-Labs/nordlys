@@ -20,6 +20,9 @@ target_link_libraries(test_nordlys_core
     GTest::gtest_main
 )
 
+# Suppress nodiscard warnings in tests globally
+target_compile_options(test_nordlys_core PRIVATE -Wno-unused-result)
+
 include(GoogleTest)
 gtest_discover_tests(test_nordlys_core
   PROPERTIES TIMEOUT 30 LABELS "core"
