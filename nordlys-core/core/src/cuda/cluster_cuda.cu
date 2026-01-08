@@ -142,7 +142,7 @@ __global__ void fused_argmin_kernel(
   }
   
   // Handle remaining elements
-  for (int j = i; j < n; j += blockDim.x * 4) {
+  for (int j = i; j < n; j += blockDim.x) {
     Scalar dist = c_norms[j] + e_norm - two * dots[j];
     if (dist < local_min) {
       local_min = dist;
