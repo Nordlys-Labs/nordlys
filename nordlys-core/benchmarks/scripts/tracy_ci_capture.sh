@@ -96,6 +96,8 @@ find_benchmark_binary() {
     local bench_name="$1"
     
     local candidates=(
+        "$PROJECT_ROOT/build/Release/benchmarks/bench_nordlys_core"
+        "$PROJECT_ROOT/build/benchmarks/bench_nordlys_core"
         "$PROJECT_ROOT/build/Release/benchmarks/bench_routing_e2e"
         "$PROJECT_ROOT/build/Release/benchmarks/bench_checkpoint_e2e"
         "$PROJECT_ROOT/build/Release/benchmarks/bench_routing_cuda"

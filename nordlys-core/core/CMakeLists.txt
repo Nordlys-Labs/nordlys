@@ -13,6 +13,8 @@ target_include_directories(nordlys_core
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+  SYSTEM PUBLIC
+    ${simsimd_SOURCE_DIR}/include
 )
 
 target_link_libraries(nordlys_core
@@ -20,6 +22,7 @@ target_link_libraries(nordlys_core
     Eigen3::Eigen
     nlohmann_json::nlohmann_json
     msgpack-cxx
+    usearch
     $<$<BOOL:${NORDLYS_ENABLE_TRACY}>:Tracy::TracyClient>
 )
 

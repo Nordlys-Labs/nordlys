@@ -16,6 +16,7 @@ endif()
 add_executable(bench_nordlys_core
   bench_routing_e2e.cpp
   bench_checkpoint_e2e.cpp
+  bench_cluster_backend.cpp
 )
 
 target_link_libraries(bench_nordlys_core

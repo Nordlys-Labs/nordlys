@@ -7,6 +7,7 @@ find_package(GTest REQUIRED)
 add_executable(test_nordlys_core
   test_nordlys.cpp
   test_cluster.cpp
+  test_cluster_threadsafety.cpp
   test_scorer.cpp
   test_checkpoint.cpp
 )

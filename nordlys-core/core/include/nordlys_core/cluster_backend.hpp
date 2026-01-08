@@ -1,20 +1,25 @@
 #pragma once
-#include <Eigen/Dense>
-#include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <limits>
 #include <memory>
-#include <ranges>
+#include <type_traits>
+#include <usearch/index.hpp>
+#include <usearch/index_dense.hpp>
 #include <utility>
+#include <vector>
 
 #include "nordlys_core/tracy.hpp"
 
 // Backend type enumeration
-enum class ClusterBackendType { CPU, CUDA, Auto };
+enum class ClusterBackendType {
+  Cpu,   // CPU with SimSIMD acceleration (default)
+  CUDA,  // GPU acceleration
+  Auto   // Auto-select best available
+};
 
 // Templated abstract interface for cluster assignment backends
-template<typename Scalar>
-class IClusterBackendT {
+template <typename Scalar> class IClusterBackendT {
 public:
   virtual ~IClusterBackendT() = default;
 
@@ -44,46 +49,56 @@ protected:
   IClusterBackendT() = default;
 };
 
-// CPU backend using Eigen (header-only implementation)
-template<typename Scalar>
-class CpuClusterBackendT : public IClusterBackendT<Scalar> {
+// CPU backend: Hardware-accelerated implementation using SimSIMD
+// Uses direct metric computation (brute-force) with SIMD instructions
+template <typename Scalar> class CpuClusterBackendT : public IClusterBackendT<Scalar> {
 public:
   CpuClusterBackendT() = default;
   ~CpuClusterBackendT() override = default;
 
   void load_centroids(const Scalar* data, int n_clusters, int dim) override {
+    NORDLYS_ZONE_N("CpuClusterBackend::load_centroids");
+
     n_clusters_ = n_clusters;
     dim_ = dim;
 
-    // Map raw data to Eigen matrix (row-major input)
-    Eigen::Map<const Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>> input(
-        data, n_clusters, dim);
-    centroids_ = input;
+    using namespace unum::usearch;
+
+    scalar_kind_t scalar_kind
+        = std::is_same_v<Scalar, float> ? scalar_kind_t::f32_k : scalar_kind_t::f64_k;
+
+    metric_ = metric_punned_t(static_cast<std::size_t>(dim), metric_kind_t::l2sq_k, scalar_kind);
+
+    // Store centroids directly for brute-force search (no HNSW index overhead)
+    centroids_.resize(static_cast<std::size_t>(n_clusters) * static_cast<std::size_t>(dim));
+    std::memcpy(centroids_.data(), data, centroids_.size() * sizeof(Scalar));
   }
 
-  [[nodiscard]] std::pair<int, Scalar> assign(const Scalar* embedding, int dim) override {
+  [[nodiscard]] std::pair<int, Scalar> assign(const Scalar* embedding, int) override {
     NORDLYS_ZONE_N("CpuClusterBackend::assign");
-    if (n_clusters_ == 0 || dim != dim_) {
+
+    if (n_clusters_ == 0) {
       return {-1, static_cast<Scalar>(0)};
     }
 
-    // Map embedding to Eigen vector (zero-copy)
-    Eigen::Map<const Eigen::Matrix<Scalar, Eigen::Dynamic, 1>> emb(embedding, dim);
+    // Brute-force search using SimSIMD-accelerated metric
+    int best_cluster = -1;
+    Scalar best_squared_dist = std::numeric_limits<Scalar>::max();
 
-    // Find nearest centroid using ranges
-    auto cluster_indices = std::views::iota(0, n_clusters_);
+    const auto* emb_bytes = reinterpret_cast<const unum::usearch::byte_t*>(embedding);
 
-    auto distance_calc = [&](int i) -> std::pair<int, Scalar> {
-      Scalar dist = (centroids_.row(i).transpose() - emb).squaredNorm();
-      return {i, dist};
-    };
+    for (int i = 0; i < n_clusters_; ++i) {
+      const Scalar* centroid_ptr = centroids_.data() + (i * dim_);
+      const auto* centroid_bytes = reinterpret_cast<const unum::usearch::byte_t*>(centroid_ptr);
 
-    auto distances = cluster_indices | std::views::transform(distance_calc);
-    auto [best_cluster, best_squared_dist] = std::ranges::min(
-      distances,
-      {},
-      [](const auto& p) { return p.second; }
-    );
+      // metric_punned_t stores dim internally, takes only 2 args
+      auto squared_dist = static_cast<Scalar>(metric_(emb_bytes, centroid_bytes));
+
+      if (squared_dist < best_squared_dist) {
+        best_squared_dist = squared_dist;
+        best_cluster = i;
+      }
+    }
 
     return {best_cluster, std::sqrt(best_squared_dist)};
   }
@@ -95,13 +110,14 @@ public:
   [[nodiscard]] bool is_gpu_accelerated() const noexcept override { return false; }
 
 private:
-  Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> centroids_;
+  std::vector<Scalar> centroids_;
+  unum::usearch::metric_punned_t metric_;
   int n_clusters_ = 0;
   int dim_ = 0;
 };
 
 // Factory function to create appropriate backend
-template<typename Scalar>
+template <typename Scalar>
 [[nodiscard]] std::unique_ptr<IClusterBackendT<Scalar>> create_cluster_backend(
     ClusterBackendType type = ClusterBackendType::Auto);
 

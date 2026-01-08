@@ -1,8 +1,9 @@
 #include <nordlys_core/cluster_backend.hpp>
 
 #ifdef NORDLYS_HAS_CUDA
-#include <nordlys_core/cuda/cluster_cuda.hpp>
-#include <cuda_runtime.h>
+#  include <cuda_runtime.h>
+
+#  include <nordlys_core/cuda/cluster_cuda.hpp>
 #endif
 
 bool cuda_available() noexcept {
@@ -16,10 +17,10 @@ bool cuda_available() noexcept {
 }
 
 // Float specialization
-template<>
+template <>
 std::unique_ptr<IClusterBackendT<float>> create_cluster_backend(ClusterBackendType type) {
   switch (type) {
-    case ClusterBackendType::CPU:
+    case ClusterBackendType::Cpu:
       return std::make_unique<CpuClusterBackendT<float>>();
 
     case ClusterBackendType::CUDA:
@@ -42,10 +43,10 @@ std::unique_ptr<IClusterBackendT<float>> create_cluster_backend(ClusterBackendTy
 }
 
 // Double specialization
-template<>
+template <>
 std::unique_ptr<IClusterBackendT<double>> create_cluster_backend(ClusterBackendType type) {
   switch (type) {
-    case ClusterBackendType::CPU:
+    case ClusterBackendType::Cpu:
       return std::make_unique<CpuClusterBackendT<double>>();
 
     case ClusterBackendType::CUDA:

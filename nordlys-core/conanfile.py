@@ -23,7 +23,7 @@ class NordlysCoreConan(ConanFile):
     def build_requirements(self):
         self.test_requires("gtest/1.17.0")
         self.test_requires("benchmark/1.9.4")
-        self.test_requires("tracy/0.11.1")
+        self.test_requires("tracy/0.13.1")
 
     def layout(self):
         cmake_layout(self)

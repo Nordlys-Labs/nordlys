@@ -12,7 +12,7 @@ function(nordlys_target_compile_options target)
         -Wold-style-cast -Wcast-qual
         -Wformat=2 -Wimplicit-fallthrough
       >
-      $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<BOOL:${NORDLYS_WARNINGS_AS_ERRORS}>>:-Werror>
+      $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<BOOL:${NORDLYS_WARNINGS_AS_ERRORS}>>:-Werror -Wno-error=cpp>
     )
 
     # Sanitizers for Debug builds (works with multi-config generators like VS/Xcode/Ninja Multi-Config)

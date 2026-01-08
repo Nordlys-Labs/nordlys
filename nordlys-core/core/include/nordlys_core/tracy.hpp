@@ -16,7 +16,7 @@
 
 #define NORDLYS_ZONE ZoneScoped
 #define NORDLYS_ZONE_N(name) ZoneScopedN(name)
-#define NORDLYS_ZONE_SCOPED(name) ZoneScopedC(tracy::Color::Blue)
+#define NORDLYS_ZONE_SCOPED(name) ZoneScopedNC(name, tracy::Color::Blue)
 #define NORDLYS_FRAME_MARK FrameMark
 
 #else
@@ -24,7 +24,7 @@
 // No-op macros when Tracy is disabled (zero overhead)
 #define NORDLYS_ZONE
 #define NORDLYS_ZONE_N(name)
-#define NORDLYS_ZONE_SCOPED(name)
+#define NORDLYS_ZONE_SCOPED(name) (void)0
 #define NORDLYS_FRAME_MARK
 
 #endif

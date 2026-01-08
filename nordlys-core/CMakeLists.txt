@@ -44,6 +44,36 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Include shared CMake utilities
 include(cmake/NordlysCompileOptions.cmake)
 
+# USearch and SimSIMD (header-only, fetched via FetchContent)
+include(FetchContent)
+
+# Fetch SimSIMD first (required by USearch)
+FetchContent_Declare(
+  simsimd
+  GIT_REPOSITORY https://github.com/ashvardanian/SimSIMD.git
+  GIT_TAG        v6.5.12
+  GIT_SHALLOW    TRUE
+  SYSTEM
+)
+set(SIMSIMD_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(SIMSIMD_BUILD_BENCHMARKS OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(simsimd)
+
+# Fetch USearch
+FetchContent_Declare(
+  usearch
+  GIT_REPOSITORY https://github.com/unum-cloud/usearch.git
+  GIT_TAG        v2.16.5
+  GIT_SHALLOW    TRUE
+  SYSTEM
+)
+set(USEARCH_BUILD_TEST OFF CACHE BOOL "" FORCE)
+set(USEARCH_BUILD_BENCHMARK OFF CACHE BOOL "" FORCE)
+set(USEARCH_USE_OPENMP OFF CACHE BOOL "" FORCE)
+set(USEARCH_USE_FP16LIB OFF CACHE BOOL "" FORCE)
+set(USEARCH_USE_SIMSIMD ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(usearch)
+
 # Dependencies
 find_package(Eigen3 REQUIRED)
 find_package(nlohmann_json REQUIRED)
