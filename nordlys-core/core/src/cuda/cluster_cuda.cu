@@ -310,6 +310,10 @@ std::pair<int, float> CudaClusterBackendT<float>::assign(const float* embedding,
     return {-1, 0.0f};
   }
 
+  if (!graph_valid_ || !graph_exec_) {
+    throw std::runtime_error("CUDA graph not initialized - call load_centroids first");
+  }
+
   // Copy to pinned memory (norm computed on GPU)
   std::memcpy(h_embedding_, embedding, static_cast<size_t>(dim) * sizeof(float));
 
@@ -427,6 +431,10 @@ template <>
 std::pair<int, double> CudaClusterBackendT<double>::assign(const double* embedding, int dim) {
   if (n_clusters_ == 0 || dim != dim_) {
     return {-1, 0.0};
+  }
+
+  if (!graph_valid_ || !graph_exec_) {
+    throw std::runtime_error("CUDA graph not initialized - call load_centroids first");
   }
 
   std::memcpy(h_embedding_, embedding, static_cast<size_t>(dim) * sizeof(double));
