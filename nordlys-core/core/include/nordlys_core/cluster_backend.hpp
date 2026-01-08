@@ -7,6 +7,8 @@
 #include <ranges>
 #include <utility>
 
+#include "nordlys_core/tracy.hpp"
+
 // Backend type enumeration
 enum class ClusterBackendType { CPU, CUDA, Auto };
 
@@ -60,6 +62,7 @@ public:
   }
 
   [[nodiscard]] std::pair<int, Scalar> assign(const Scalar* embedding, int dim) override {
+    NORDLYS_ZONE_N("CpuClusterBackend::assign");
     if (n_clusters_ == 0 || dim != dim_) {
       return {-1, static_cast<Scalar>(0)};
     }

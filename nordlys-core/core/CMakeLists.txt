@@ -20,6 +20,7 @@ target_link_libraries(nordlys_core
     Eigen3::Eigen
     nlohmann_json::nlohmann_json
     msgpack-cxx
+    $<$<BOOL:${NORDLYS_ENABLE_TRACY}>:Tracy::TracyClient>
 )
 
 nordlys_target_compile_options(nordlys_core)

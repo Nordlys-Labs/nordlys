@@ -7,5 +7,8 @@ benchmark_results*.json
 results_*.json
 *.csv
 
-# Keep fixtures
+# Tracy profiler captures
+*.tracy
+
+# Keep fixtures directory
 !fixtures/

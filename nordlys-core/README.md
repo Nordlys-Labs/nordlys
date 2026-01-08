@@ -80,6 +80,7 @@ cmake --build .
 - `DNORDLYS_BUILD_C=ON|OFF` - Build C FFI bindings (default: OFF)
 - `DNORDLYS_BUILD_TESTS=ON|OFF` - Build test suite (default: OFF)
 - `DNORDLYS_BUILD_BENCHMARKS=ON|OFF` - Build benchmark suite (default: OFF)
+- `DNORDLYS_BUILD_PROFILE=ON|OFF` - Build with profiling symbols (default: OFF)
 - `DNORDLYS_ENABLE_CUDA=ON|OFF` - Enable CUDA support (default: OFF)
 
 ## Testing
@@ -123,6 +124,34 @@ Benchmarks measure:
 - **Concurrent routing** performance with multiple threads
 
 See [benchmarks/README.md](benchmarks/README.md) for detailed documentation.
+
+## Profiling
+
+Profile benchmarks using Tracy Profiler - a unified real-time profiling tool:
+
+```bash
+# Build with Tracy enabled
+cmake --preset conan-release \
+  -DNORDLYS_BUILD_BENCHMARKS=ON \
+  -DNORDLYS_ENABLE_TRACY=ON
+cmake --build --preset conan-release
+
+# Run Tracy profiler (downloads GUI automatically on first run)
+./benchmarks/scripts/run_tracy.sh RoutingSingle_Medium
+
+# Or use CMake target
+cmake --build --preset conan-release --target bench_tracy
+```
+
+**Tracy provides:**
+- Real-time CPU profiling with flame graphs
+- Memory allocation tracking
+- GPU profiling (CUDA support)
+- Interactive GUI with zoom/filter
+- <1% performance overhead
+- Cross-platform (Linux, macOS, Windows)
+
+See [benchmarks/PROFILING.md](benchmarks/PROFILING.md) for detailed guide.
 
 ## Usage Examples
 

@@ -8,6 +8,7 @@
 #include <limits>
 #include <msgpack.hpp>
 #include <nlohmann/json.hpp>
+#include <nordlys_core/tracy.hpp>
 #include <ranges>
 #include <sstream>
 #include <stdexcept>
@@ -104,6 +105,7 @@ void from_json(const json& json_obj, CheckpointMetadata& meta) {
 }
 
 NordlysCheckpoint NordlysCheckpoint::from_json(const std::string& path) {
+  NORDLYS_ZONE;
   std::ifstream file(path);
   if (!file.is_open()) {
     throw std::runtime_error(std::format("Failed to open profile file: {}", path));
@@ -115,6 +117,7 @@ NordlysCheckpoint NordlysCheckpoint::from_json(const std::string& path) {
 }
 
 NordlysCheckpoint NordlysCheckpoint::from_json_string(const std::string& json_str) {
+  NORDLYS_ZONE;
   json profile_json = json::parse(json_str);  // Let parse_error propagate naturally
 
   NordlysCheckpoint profile;

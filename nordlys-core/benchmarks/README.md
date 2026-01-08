@@ -182,6 +182,46 @@ Actual performance varies based on:
 - Profile characteristics (dimensionality, cluster count)
 - Compiler optimizations
 
+## Profiling
+
+Profile benchmarks with Tracy Profiler - a unified real-time profiling tool with GUI.
+
+### Quick Start
+
+```bash
+# Build with Tracy enabled
+cmake --preset conan-release \
+  -DNORDLYS_BUILD_BENCHMARKS=ON \
+  -DNORDLYS_ENABLE_TRACY=ON
+cmake --build --preset conan-release
+
+# Run Tracy profiler (auto-downloads GUI)
+./benchmarks/scripts/run_tracy.sh RoutingSingle_Medium
+
+# Or use CMake target
+cmake --build --preset conan-release --target bench_tracy
+```
+
+### Tracy Features
+
+Tracy provides in a single tool:
+- **Real-time CPU profiling** with interactive flame graphs
+- **Memory allocation tracking** per function
+- **GPU profiling** for CUDA benchmarks  
+- **Lock contention analysis** for concurrent code
+- **<1% overhead** - minimal performance impact
+
+### Viewing Profiles
+
+After running Tracy:
+1. GUI opens automatically and connects to benchmark
+2. Browse timeline to see function execution
+3. Click "Statistics" for aggregate timing data
+4. Click "Memory" to see allocations
+5. Zoom/pan to analyze specific regions
+
+See [PROFILING.md](./PROFILING.md) for detailed guide on interpreting results and adding instrumentation.
+
 ## Contributing
 
 When adding new benchmarks:
@@ -194,6 +234,7 @@ When adding new benchmarks:
 
 ## See Also
 
+- [Profiling Guide](./PROFILING.md) - Detailed profiling documentation
 - [Google Benchmark User Guide](https://github.com/google/benchmark/blob/main/docs/user_guide.md)
 - [Nordlys Core README](../README.md)
 - [Contributing Guide](../../CONTRIBUTING.md)
