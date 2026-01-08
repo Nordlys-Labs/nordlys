@@ -31,9 +31,11 @@ target_link_libraries(nordlys_core
 )
 
 # Tracy profiler (optional)
+# Must be PUBLIC because tracy.hpp is a public header - consumers need TRACY_ENABLE
+# defined to know whether to include <tracy/Tracy.hpp>
 if(NORDLYS_ENABLE_TRACY)
-  target_link_libraries(nordlys_core PRIVATE Tracy::TracyClient)
-  target_compile_definitions(nordlys_core PRIVATE TRACY_ENABLE)
+  target_link_libraries(nordlys_core PUBLIC Tracy::TracyClient)
+  target_compile_definitions(nordlys_core PUBLIC TRACY_ENABLE)
 endif()
 
 # Apply common compile options

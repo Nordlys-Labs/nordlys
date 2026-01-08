@@ -85,9 +85,11 @@ find_package(nlohmann_json REQUIRED)
 find_package(msgpack-cxx REQUIRED)
 
 # Tracy profiler (optional)
+# NOTE: Do NOT use add_compile_definitions(TRACY_ENABLE) here - it would affect
+# all targets globally, but only targets that link Tracy::TracyClient have access
+# to the headers. Each target that wants Tracy must add the definition itself.
 if(NORDLYS_ENABLE_TRACY)
   find_package(Tracy REQUIRED)
-  add_compile_definitions(TRACY_ENABLE)
   message(STATUS "Tracy profiler enabled")
 endif()
 
