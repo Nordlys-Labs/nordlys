@@ -1,4 +1,4 @@
-"""Tests for Python bindings - Nordlys32 class."""
+"""Tests for Python bindings - Nordlys32/Nordlys64 classes."""
 
 import numpy as np
 import pytest
@@ -7,27 +7,30 @@ import pytest
 class TestNordlys32Creation:
     """Test Nordlys32 factory methods."""
 
-    def test_from_json_string(self, sample_profile_json: str):
-        """Test creating nordlys32 from JSON string."""
-        from nordlys_core_ext import Nordlys32
+    def test_from_checkpoint(self, sample_profile_json: str):
+        """Test creating nordlys32 from checkpoint."""
+        from nordlys_core_ext import Nordlys32, NordlysCheckpoint
 
-        nordlys32 = Nordlys32.from_json_string(sample_profile_json)
-        assert nordlys32.get_n_clusters() == 3
-        assert nordlys32.get_embedding_dim() == 4
+        checkpoint = NordlysCheckpoint.from_json_string(sample_profile_json)
+        nordlys32 = Nordlys32.from_checkpoint(checkpoint)
+        assert nordlys32.n_clusters == 3
+        assert nordlys32.embedding_dim == 4
 
-    def test_from_json_file(self, sample_profile_path):
-        """Test creating nordlys32 from JSON file."""
-        from nordlys_core_ext import Nordlys32
+    def test_from_checkpoint_file(self, sample_profile_path):
+        """Test creating nordlys32 from checkpoint loaded from file."""
+        from nordlys_core_ext import Nordlys32, NordlysCheckpoint
 
-        nordlys32 = Nordlys32.from_json_file(str(sample_profile_path))
-        assert nordlys32.get_n_clusters() == 3
+        checkpoint = NordlysCheckpoint.from_json_file(str(sample_profile_path))
+        nordlys32 = Nordlys32.from_checkpoint(checkpoint)
+        assert nordlys32.n_clusters == 3
 
-    def test_invalid_json_raises(self):
-        """Test that invalid JSON raises an error."""
-        from nordlys_core_ext import Nordlys32
+    def test_dtype_mismatch_raises(self, sample_profile_json_float64: str):
+        """Test that loading float64 checkpoint into Nordlys32 raises error."""
+        from nordlys_core_ext import Nordlys32, NordlysCheckpoint
 
-        with pytest.raises(RuntimeError):
-            Nordlys32.from_json_string("not valid json")
+        checkpoint = NordlysCheckpoint.from_json_string(sample_profile_json_float64)
+        with pytest.raises(ValueError):
+            Nordlys32.from_checkpoint(checkpoint)
 
     def test_get_supported_models(self, nordlys32):
         """Test getting supported models."""
@@ -52,12 +55,12 @@ class TestRouting:
         assert 0 <= response.cluster_id < 3
         assert response.cluster_distance >= 0.0
 
-    def test_route_float64(self, nordlys32_float64):
+    def test_route_float64(self, nordlys64):
         """Test routing with float64 embedding."""
         from nordlys_core_ext import RouteResult64
 
         embedding = np.array([0.0, 0.9, 0.1, 0.0], dtype=np.float64)
-        response = nordlys32_float64.route(embedding, cost_bias=0.5)
+        response = nordlys64.route(embedding, cost_bias=0.5)
 
         assert isinstance(response, RouteResult64)
         assert response.selected_model is not None
