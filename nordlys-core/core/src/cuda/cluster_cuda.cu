@@ -127,9 +127,10 @@ __global__ void fused_argmin_kernel(
   int local_idx = -1;
 
   // Process 4 elements per iteration for better ILP
+  // Each thread handles indices: tid*4, tid*4 + blockDim.x*4, tid*4 + blockDim.x*8, ...
   const Scalar two = Scalar(2);
-  int i = tid * 4;
-  for (; i + 3 < n; i += blockDim.x * 4) {
+  int vec_end = (n / 4) * 4;
+  for (int i = tid * 4; i < vec_end; i += blockDim.x * 4) {
     Scalar d0 = c_norms[i] + e_norm - two * dots[i];
     Scalar d1 = c_norms[i + 1] + e_norm - two * dots[i + 1];
     Scalar d2 = c_norms[i + 2] + e_norm - two * dots[i + 2];
@@ -141,8 +142,8 @@ __global__ void fused_argmin_kernel(
     if (d3 < local_min) { local_min = d3; local_idx = i + 3; }
   }
   
-  // Handle remaining elements
-  for (int j = i; j < n; j += blockDim.x) {
+  // Handle remaining elements (n % 4 elements starting at vec_end)
+  for (int j = vec_end + tid; j < n; j += blockDim.x) {
     Scalar dist = c_norms[j] + e_norm - two * dots[j];
     if (dist < local_min) {
       local_min = dist;
@@ -209,9 +210,17 @@ void CudaClusterBackendT<float>::free_memory() {
 
 template <>
 CudaClusterBackendT<float>::CudaClusterBackendT() {
-  CUDA_CHECK(cudaStreamCreate(&stream_));
-  CUBLAS_CHECK(cublasCreate(&cublas_));
-  CUBLAS_CHECK(cublasSetStream(cublas_, stream_));
+  try {
+    CUDA_CHECK(cudaStreamCreate(&stream_));
+    CUBLAS_CHECK(cublasCreate(&cublas_));
+    CUBLAS_CHECK(cublasSetStream(cublas_, stream_));
+  } catch (...) {
+    // Destructor will clean up any successfully created resources
+    // since members are initialized to nullptr in the header
+    if (cublas_) { cublasDestroy(cublas_); cublas_ = nullptr; }
+    if (stream_) { cudaStreamDestroy(stream_); stream_ = nullptr; }
+    throw;
+  }
 }
 
 template <>
@@ -343,9 +352,16 @@ void CudaClusterBackendT<double>::free_memory() {
 
 template <>
 CudaClusterBackendT<double>::CudaClusterBackendT() {
-  CUDA_CHECK(cudaStreamCreate(&stream_));
-  CUBLAS_CHECK(cublasCreate(&cublas_));
-  CUBLAS_CHECK(cublasSetStream(cublas_, stream_));
+  try {
+    CUDA_CHECK(cudaStreamCreate(&stream_));
+    CUBLAS_CHECK(cublasCreate(&cublas_));
+    CUBLAS_CHECK(cublasSetStream(cublas_, stream_));
+  } catch (...) {
+    // Clean up any successfully created resources before re-throwing
+    if (cublas_) { cublasDestroy(cublas_); cublas_ = nullptr; }
+    if (stream_) { cudaStreamDestroy(stream_); stream_ = nullptr; }
+    throw;
+  }
 }
 
 template <>
