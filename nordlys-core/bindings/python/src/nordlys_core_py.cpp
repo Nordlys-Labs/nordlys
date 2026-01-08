@@ -3,193 +3,254 @@
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
 
-#include <nordlys_core/router.hpp>
-#include <nordlys_core/profile.hpp>
-#include <variant>
+#include <nordlys_core/nordlys.hpp>
+#include <nordlys_core/checkpoint.hpp>
 
 namespace nb = nanobind;
 using namespace nb::literals;
 
-// Type-erased router wrapper for Python
-class RouterWrapper {
-public:
-  using RouterVariant = std::variant<RouterT<float>, RouterT<double>>;
-
-  RouterVariant router;
-  bool is_float64;
-
-  RouterWrapper(RouterT<float> r) : router(std::move(r)), is_float64(false) {}
-  RouterWrapper(RouterT<double> r) : router(std::move(r)), is_float64(true) {}
-
-  static RouterWrapper from_profile(RouterProfile profile) {
-    if (profile.is_float64()) {
-      auto r = RouterT<double>::from_profile(std::move(profile));
-      if (!r) throw std::runtime_error(r.error());
-      return RouterWrapper(std::move(r.value()));
-    } else {
-      auto r = RouterT<float>::from_profile(std::move(profile));
-      if (!r) throw std::runtime_error(r.error());
-      return RouterWrapper(std::move(r.value()));
-    }
-  }
-
-  RouteResponseT<float> route_f32(nb::ndarray<float, nb::ndim<1>, nb::c_contig> emb,
-                               float bias, const std::vector<std::string>& models) {
-    if (is_float64) throw std::invalid_argument("Router expects float64, got float32");
-    return std::get<RouterT<float>>(router).route(emb.data(), emb.shape(0), bias, models);
-  }
-
-  RouteResponseT<double> route_f64(nb::ndarray<double, nb::ndim<1>, nb::c_contig> emb,
-                                float bias, const std::vector<std::string>& models) {
-    if (!is_float64) throw std::invalid_argument("Router expects float32, got float64");
-    return std::get<RouterT<double>>(router).route(emb.data(), emb.shape(0), bias, models);
-  }
-
-  std::vector<RouteResponseT<float>> route_batch_f32(nb::ndarray<float, nb::ndim<2>, nb::c_contig> embs,
-                                                   float bias, const std::vector<std::string>& models) {
-    if (is_float64) throw std::invalid_argument("Router expects float64, got float32");
-    auto& r = std::get<RouterT<float>>(router);
-    size_t n = embs.shape(0), d = embs.shape(1);
-    std::vector<RouteResponseT<float>> out;
-    out.reserve(n);
-    const float* ptr = embs.data();
-    for (size_t i = 0; i < n; ++i)
-      out.push_back(r.route(ptr + i * d, d, bias, models));
-    return out;
-  }
-
-  std::vector<RouteResponseT<double>> route_batch_f64(nb::ndarray<double, nb::ndim<2>, nb::c_contig> embs,
-                                                   float bias, const std::vector<std::string>& models) {
-    if (!is_float64) throw std::invalid_argument("Router expects float32, got float64");
-    auto& r = std::get<RouterT<double>>(router);
-    size_t n = embs.shape(0), d = embs.shape(1);
-    std::vector<RouteResponseT<double>> out;
-    out.reserve(n);
-    const double* ptr = embs.data();
-    for (size_t i = 0; i < n; ++i)
-      out.push_back(r.route(ptr + i * d, d, bias, models));
-    return out;
-  }
-
-  std::vector<std::string> get_supported_models() const {
-    return std::visit([](const auto& r) { return r.get_supported_models(); }, router);
-  }
-
-  int get_n_clusters() const {
-    return std::visit([](const auto& r) { return r.get_n_clusters(); }, router);
-  }
-
-  int get_embedding_dim() const {
-    return std::visit([](const auto& r) { return r.get_embedding_dim(); }, router);
-  }
-
-  std::string get_dtype() const { return is_float64 ? "float64" : "float32"; }
-
-  // Explicit cleanup to help prevent nanobind memory leaks on shutdown
-  void cleanup() {
-    // Reset the variant to default state, triggering destructor of held router
-    if (is_float64) {
-      router = RouterT<double>();
-    } else {
-      router = RouterT<float>();
-    }
-  }
-};
-
 NB_MODULE(nordlys_core_ext, m) {
   m.doc() = "Nordlys Core - High-performance routing engine";
 
-  nb::class_<RouteResponseT<float>>(m, "RouteResponse32")
-      .def_ro("selected_model", &RouteResponseT<float>::selected_model)
-      .def_ro("alternatives", &RouteResponseT<float>::alternatives)
-      .def_ro("cluster_id", &RouteResponseT<float>::cluster_id)
-      .def_ro("cluster_distance", &RouteResponseT<float>::cluster_distance);
+  // Result types
+  nb::class_<RouteResult<float>>(m, "RouteResult32",
+      "Routing result for float32 precision")
+      .def_ro("selected_model", &RouteResult<float>::selected_model,
+          "Selected model ID")
+      .def_ro("alternatives", &RouteResult<float>::alternatives,
+          "List of alternative model IDs")
+      .def_ro("cluster_id", &RouteResult<float>::cluster_id,
+          "Assigned cluster ID")
+      .def_ro("cluster_distance", &RouteResult<float>::cluster_distance,
+          "Distance to cluster center")
+      .def("__repr__", [](const RouteResult<float>& r) {
+          return "<RouteResult32 model='" + r.selected_model + "' cluster=" + 
+                 std::to_string(r.cluster_id) + ">";
+      });
 
-  nb::class_<RouteResponseT<double>>(m, "RouteResponse64")
-      .def_ro("selected_model", &RouteResponseT<double>::selected_model)
-      .def_ro("alternatives", &RouteResponseT<double>::alternatives)
-      .def_ro("cluster_id", &RouteResponseT<double>::cluster_id)
-      .def_ro("cluster_distance", &RouteResponseT<double>::cluster_distance);
+  nb::class_<RouteResult<double>>(m, "RouteResult64",
+      "Routing result for float64 precision")
+      .def_ro("selected_model", &RouteResult<double>::selected_model,
+          "Selected model ID")
+      .def_ro("alternatives", &RouteResult<double>::alternatives,
+          "List of alternative model IDs")
+      .def_ro("cluster_id", &RouteResult<double>::cluster_id,
+          "Assigned cluster ID")
+      .def_ro("cluster_distance", &RouteResult<double>::cluster_distance,
+          "Distance to cluster center")
+      .def("__repr__", [](const RouteResult<double>& r) {
+          return "<RouteResult64 model='" + r.selected_model + "' cluster=" + 
+                 std::to_string(r.cluster_id) + ">";
+      });
 
-  nb::class_<RouterProfile>(m, "RouterProfile")
-      // Static factory methods for loading profiles
-      .def_static("from_json_file", &RouterProfile::from_json,
-          "path"_a, "Load profile from JSON file")
-      .def_static("from_json_string", &RouterProfile::from_json_string,
-          "json_str"_a, "Load profile from JSON string")
-      .def_static("from_msgpack_file", &RouterProfile::from_binary,
-          "path"_a, "Load profile from MessagePack binary file")
-      .def_static("from_msgpack_bytes", [] (nb::bytes data) {
-          return RouterProfile::from_binary_string(std::string(data.c_str(), data.size()));
-      }, "data"_a, "Load profile from MessagePack binary data")
+  // Checkpoint
+  nb::class_<NordlysCheckpoint>(m, "NordlysCheckpoint",
+      "Serialized Nordlys model checkpoint containing cluster centers and model metadata")
+      // Loading methods
+      .def_static("from_json_file", &NordlysCheckpoint::from_json,
+          "path"_a,
+          "Load checkpoint from JSON file\n\n"
+          "Args:\n"
+          "    path: Path to JSON file\n\n"
+          "Returns:\n"
+          "    NordlysCheckpoint instance")
+      .def_static("from_json_string", &NordlysCheckpoint::from_json_string,
+          "json_str"_a,
+          "Load checkpoint from JSON string")
+      .def_static("from_msgpack_file", &NordlysCheckpoint::from_msgpack,
+          "path"_a,
+          "Load checkpoint from MessagePack file")
+      .def_static("from_msgpack_bytes", [](nb::bytes data) {
+          return NordlysCheckpoint::from_msgpack_string(std::string(data.c_str(), data.size()));
+      }, "data"_a,
+         "Load checkpoint from MessagePack bytes")
 
       // Serialization methods
-      .def("to_json_string", &RouterProfile::to_json_string,
-          "Serialize profile to JSON string")
-      .def("to_json_file", &RouterProfile::to_json,
-          "path"_a, "Write profile to JSON file")
-      .def("to_msgpack_bytes", [] (const RouterProfile& p) {
-          std::string data = p.to_binary_string();
+      .def("to_json_string", &NordlysCheckpoint::to_json_string,
+          "Serialize checkpoint to JSON string")
+      .def("to_json_file", &NordlysCheckpoint::to_json,
+          "path"_a,
+          "Write checkpoint to JSON file")
+      .def("to_msgpack_bytes", [](const NordlysCheckpoint& c) {
+          std::string data = c.to_msgpack_string();
           return nb::bytes(data.data(), data.size());
-      }, "Serialize profile to MessagePack binary data")
-      .def("to_msgpack_file", &RouterProfile::to_binary,
-          "path"_a, "Write profile to MessagePack binary file")
+      }, "Serialize checkpoint to MessagePack bytes")
+      .def("to_msgpack_file", &NordlysCheckpoint::to_msgpack,
+          "path"_a,
+          "Write checkpoint to MessagePack file")
 
       // Validation
-      .def("validate", &RouterProfile::validate,
-          "Validate profile data")
+      .def("validate", &NordlysCheckpoint::validate,
+          "Validate checkpoint data integrity")
 
       // Properties
-      .def_prop_ro("n_clusters", [](const RouterProfile& p) { return p.metadata.n_clusters; })
-      .def_prop_ro("embedding_model", [](const RouterProfile& p) { return p.metadata.embedding_model; })
-      .def_prop_ro("dtype", [](const RouterProfile& p) { return p.metadata.dtype; })
-      .def_prop_ro("silhouette_score", [](const RouterProfile& p) { return p.metadata.silhouette_score; })
-      .def_prop_ro("allow_trust_remote_code", [](const RouterProfile& p) { return p.metadata.allow_trust_remote_code; })
-      .def_prop_ro("default_cost_preference", [](const RouterProfile& p) { return p.metadata.routing.default_cost_preference; })
-      .def_prop_ro("lambda_min", [](const RouterProfile& p) { return p.metadata.routing.lambda_min; })
-      .def_prop_ro("lambda_max", [](const RouterProfile& p) { return p.metadata.routing.lambda_max; })
-      .def_prop_ro("max_alternatives", [](const RouterProfile& p) { return p.metadata.routing.max_alternatives; })
-      .def_prop_ro("max_iter", [](const RouterProfile& p) { return p.metadata.clustering.max_iter; })
-      .def_prop_ro("random_state", [](const RouterProfile& p) { return p.metadata.clustering.random_state; })
-      .def_prop_ro("n_init", [](const RouterProfile& p) { return p.metadata.clustering.n_init; })
-      .def_prop_ro("algorithm", [](const RouterProfile& p) { return p.metadata.clustering.algorithm; })
-      .def_prop_ro("normalization_strategy", [](const RouterProfile& p) { return p.metadata.clustering.normalization_strategy; })
-      .def_prop_ro("is_float32", &RouterProfile::is_float32)
-      .def_prop_ro("is_float64", &RouterProfile::is_float64);
+      .def_prop_ro("n_clusters", [](const NordlysCheckpoint& c) { 
+          return c.metadata.n_clusters; 
+      }, "Number of clusters")
+      .def_prop_ro("embedding_model", [](const NordlysCheckpoint& c) { 
+          return c.metadata.embedding_model; 
+      }, "Embedding model name")
+      .def_prop_ro("dtype", [](const NordlysCheckpoint& c) { 
+          return c.metadata.dtype; 
+      }, "Data type ('float32' or 'float64')")
+      .def_prop_ro("silhouette_score", [](const NordlysCheckpoint& c) { 
+          return c.metadata.silhouette_score; 
+      }, "Silhouette score")
+      .def_prop_ro("is_float32", &NordlysCheckpoint::is_float32,
+          "True if checkpoint uses float32 precision")
+      .def_prop_ro("is_float64", &NordlysCheckpoint::is_float64,
+          "True if checkpoint uses float64 precision");
 
-  nb::class_<RouterWrapper>(m, "Router")
-      .def_static("from_json_file", [](const std::string& path) {
-        return RouterWrapper::from_profile(RouterProfile::from_json(path));
-      }, "path"_a, "Load router from JSON profile file")
+  // Nordlys32 (float32)
+  nb::class_<Nordlys<float>>(m, "Nordlys32",
+      "High-performance routing engine with float32 precision\n\n"
+      "This class provides intelligent model selection based on prompt clustering.\n"
+      "Use Nordlys32.from_checkpoint() to load a trained model.")
+      .def_static("from_checkpoint",
+          [](NordlysCheckpoint checkpoint) {
+              auto result = Nordlys<float>::from_checkpoint(std::move(checkpoint));
+              if (!result) {
+                  throw nb::value_error(result.error());
+              }
+              return std::move(result.value());
+          },
+          "checkpoint"_a,
+          "Load engine from checkpoint\n\n"
+          "Args:\n"
+          "    checkpoint: NordlysCheckpoint instance with float32 dtype\n\n"
+          "Returns:\n"
+          "    Nordlys32 engine instance\n\n"
+          "Raises:\n"
+          "    ValueError: If checkpoint dtype doesn't match float32")
+      .def("route",
+          [](Nordlys<float>& self,
+             nb::ndarray<float, nb::ndim<1>, nb::c_contig> embedding,
+             float cost_bias,
+             const std::vector<std::string>& models) {
+              return self.route(embedding.data(), embedding.shape(0), cost_bias, models);
+          },
+          "embedding"_a, "cost_bias"_a = 0.5f, "models"_a = std::vector<std::string>{},
+          "Route an embedding to the best model\n\n"
+          "Args:\n"
+          "    embedding: 1D numpy array of float32\n"
+          "    cost_bias: Cost preference (0.0=cheapest, 1.0=highest quality)\n"
+          "    models: Optional list of model IDs to consider\n\n"
+          "Returns:\n"
+          "    RouteResult32 with selected model and alternatives")
+      .def("route_batch",
+          [](Nordlys<float>& self,
+             nb::ndarray<float, nb::ndim<2>, nb::c_contig> embeddings,
+             float cost_bias,
+             const std::vector<std::string>& models) {
+              size_t n = embeddings.shape(0), d = embeddings.shape(1);
+              std::vector<RouteResult<float>> results;
+              results.reserve(n);
+              const float* ptr = embeddings.data();
+              for (size_t i = 0; i < n; ++i) {
+                  results.push_back(self.route(ptr + i * d, d, cost_bias, models));
+              }
+              return results;
+          },
+          "embeddings"_a, "cost_bias"_a = 0.5f, "models"_a = std::vector<std::string>{},
+          "Batch route multiple embeddings\n\n"
+          "Args:\n"
+          "    embeddings: 2D numpy array of float32, shape (n_samples, embedding_dim)\n"
+          "    cost_bias: Cost preference (0.0=cheapest, 1.0=highest quality)\n"
+          "    models: Optional list of model IDs to consider\n\n"
+          "Returns:\n"
+          "    List of RouteResult32")
+      .def("get_supported_models", &Nordlys<float>::get_supported_models,
+          "Get list of all supported model IDs")
+      .def_prop_ro("n_clusters", &Nordlys<float>::get_n_clusters,
+          "Number of clusters in the model")
+      .def_prop_ro("embedding_dim", &Nordlys<float>::get_embedding_dim,
+          "Expected embedding dimensionality")
+      .def_prop_ro("dtype", [](const Nordlys<float>&) { return "float32"; },
+          "Data type of the engine");
 
-      .def_static("from_json_string", [](const std::string& json) {
-        return RouterWrapper::from_profile(RouterProfile::from_json_string(json));
-      }, "json_str"_a, "Load router from JSON string")
+  // Nordlys64 (float64)
+  nb::class_<Nordlys<double>>(m, "Nordlys64",
+      "High-performance routing engine with float64 precision\n\n"
+      "This class provides intelligent model selection based on prompt clustering.\n"
+      "Use Nordlys64.from_checkpoint() to load a trained model.")
+      .def_static("from_checkpoint",
+          [](NordlysCheckpoint checkpoint) {
+              auto result = Nordlys<double>::from_checkpoint(std::move(checkpoint));
+              if (!result) {
+                  throw nb::value_error(result.error());
+              }
+              return std::move(result.value());
+          },
+          "checkpoint"_a,
+          "Load engine from checkpoint\n\n"
+          "Args:\n"
+          "    checkpoint: NordlysCheckpoint instance with float64 dtype\n\n"
+          "Returns:\n"
+          "    Nordlys64 engine instance\n\n"
+          "Raises:\n"
+          "    ValueError: If checkpoint dtype doesn't match float64")
+      .def("route",
+          [](Nordlys<double>& self,
+             nb::ndarray<double, nb::ndim<1>, nb::c_contig> embedding,
+             float cost_bias,
+             const std::vector<std::string>& models) {
+              return self.route(embedding.data(), embedding.shape(0), cost_bias, models);
+          },
+          "embedding"_a, "cost_bias"_a = 0.5f, "models"_a = std::vector<std::string>{},
+          "Route an embedding to the best model\n\n"
+          "Args:\n"
+          "    embedding: 1D numpy array of float64\n"
+          "    cost_bias: Cost preference (0.0=cheapest, 1.0=highest quality)\n"
+          "    models: Optional list of model IDs to consider\n\n"
+          "Returns:\n"
+          "    RouteResult64 with selected model and alternatives")
+      .def("route_batch",
+          [](Nordlys<double>& self,
+             nb::ndarray<double, nb::ndim<2>, nb::c_contig> embeddings,
+             float cost_bias,
+             const std::vector<std::string>& models) {
+              size_t n = embeddings.shape(0), d = embeddings.shape(1);
+              std::vector<RouteResult<double>> results;
+              results.reserve(n);
+              const double* ptr = embeddings.data();
+              for (size_t i = 0; i < n; ++i) {
+                  results.push_back(self.route(ptr + i * d, d, cost_bias, models));
+              }
+              return results;
+          },
+          "embeddings"_a, "cost_bias"_a = 0.5f, "models"_a = std::vector<std::string>{},
+          "Batch route multiple embeddings\n\n"
+          "Args:\n"
+          "    embeddings: 2D numpy array of float64, shape (n_samples, embedding_dim)\n"
+          "    cost_bias: Cost preference (0.0=cheapest, 1.0=highest quality)\n"
+          "    models: Optional list of model IDs to consider\n\n"
+          "Returns:\n"
+          "    List of RouteResult64")
+      .def("get_supported_models", &Nordlys<double>::get_supported_models,
+          "Get list of all supported model IDs")
+      .def_prop_ro("n_clusters", &Nordlys<double>::get_n_clusters,
+          "Number of clusters in the model")
+      .def_prop_ro("embedding_dim", &Nordlys<double>::get_embedding_dim,
+          "Expected embedding dimensionality")
+      .def_prop_ro("dtype", [](const Nordlys<double>&) { return "float64"; },
+          "Data type of the engine");
 
-      .def_static("from_msgpack_file", [](const std::string& path) {
-        return RouterWrapper::from_profile(RouterProfile::from_binary(path));
-      }, "path"_a, "Load router from MessagePack binary file")
-
-      // Overloaded route - nanobind dispatches based on array dtype
-      .def("route", &RouterWrapper::route_f32,
-           "embedding"_a, "cost_bias"_a = 0.5f, "models"_a = std::vector<std::string>{},
-           "Route using embedding (float32)")
-      .def("route", &RouterWrapper::route_f64,
-           "embedding"_a, "cost_bias"_a = 0.5f, "models"_a = std::vector<std::string>{},
-           "Route using embedding (float64)")
-
-      .def("route_batch", &RouterWrapper::route_batch_f32,
-           "embeddings"_a, "cost_bias"_a = 0.5f, "models"_a = std::vector<std::string>{},
-           "Batch route embeddings (float32)")
-      .def("route_batch", &RouterWrapper::route_batch_f64,
-           "embeddings"_a, "cost_bias"_a = 0.5f, "models"_a = std::vector<std::string>{},
-           "Batch route embeddings (float64)")
-
-      .def("get_supported_models", &RouterWrapper::get_supported_models)
-      .def("get_n_clusters", &RouterWrapper::get_n_clusters)
-      .def("get_embedding_dim", &RouterWrapper::get_embedding_dim)
-      .def("cleanup", &RouterWrapper::cleanup, "Explicit cleanup to prevent memory leaks")
-      .def_prop_ro("dtype", &RouterWrapper::get_dtype);
+  // Convenience factory function
+  m.def("load_checkpoint",
+      [](const std::string& path) {
+          // Detect format based on extension
+          if (path.ends_with(".msgpack") || path.ends_with(".bin")) {
+              return NordlysCheckpoint::from_msgpack(path);
+          } else {
+              return NordlysCheckpoint::from_json(path);
+          }
+      },
+      "path"_a,
+      "Load checkpoint from file (auto-detects format)\n\n"
+      "Args:\n"
+      "    path: Path to checkpoint file (.json or .msgpack)\n\n"
+      "Returns:\n"
+      "    NordlysCheckpoint instance");
 
   m.attr("__version__") = NORDLYS_VERSION;
 }

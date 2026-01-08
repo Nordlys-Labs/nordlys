@@ -120,7 +120,7 @@ TEST_F(CFFITest, RouterCreationFromJsonStringFailsWithInvalidJson) {
 }
 
 TEST_F(CFFITest, RouterCreationFromBinaryFailsWithInvalidPath) {
-  NordlysRouter* router = nordlys_router_create_from_binary("nonexistent_file.msgpack");
+  NordlysRouter* router = nordlys_router_create_from_msgpack("nonexistent_file.msgpack");
   EXPECT_EQ(router, nullptr);
 }
 

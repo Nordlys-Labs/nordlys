@@ -5,7 +5,7 @@
 add_library(nordlys_core STATIC
   src/cluster_backend.cpp
   src/scorer.cpp
-  src/profile.cpp
+  src/checkpoint.cpp
 )
 add_library(nordlys::core ALIAS nordlys_core)
 

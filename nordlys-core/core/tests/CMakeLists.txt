@@ -5,10 +5,10 @@
 find_package(GTest REQUIRED)
 
 add_executable(test_nordlys_core
-  test_router.cpp
+  test_nordlys.cpp
   test_cluster.cpp
   test_scorer.cpp
-  test_profile.cpp
+  test_checkpoint.cpp
 )
 
 target_link_libraries(test_nordlys_core

@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include <cstdio>
 #include <random>
-#include <nordlys_core/profile.hpp>
+#include <nordlys_core/checkpoint.hpp>
 
 // Suppress nodiscard warnings in tests since EXPECT_THROW requires ignoring return values
 #pragma GCC diagnostic ignored "-Wunused-result"
@@ -107,7 +107,7 @@ static const char* kTestProfileJsonFloat64 = R"({
 
 class ProfileTest : public ::testing::Test {
 protected:
-  RouterProfile test_profile = RouterProfile::from_json_string(kTestProfileJson);
+  NordlysCheckpoint test_profile = NordlysCheckpoint::from_json_string(kTestProfileJson);
 };
 
 TEST_F(ProfileTest, RoundTripJson) {
@@ -115,7 +115,7 @@ TEST_F(ProfileTest, RoundTripJson) {
   std::string json_str = test_profile.to_json_string();
 
   // Deserialize from JSON
-  RouterProfile loaded = RouterProfile::from_json_string(json_str);
+  NordlysCheckpoint loaded = NordlysCheckpoint::from_json_string(json_str);
 
   // Compare metadata
   EXPECT_EQ(loaded.metadata.n_clusters, test_profile.metadata.n_clusters);
@@ -160,10 +160,10 @@ TEST_F(ProfileTest, RoundTripJson) {
 
 TEST_F(ProfileTest, RoundTripMsgpack) {
   // Serialize to msgpack
-  std::string msgpack_data = test_profile.to_binary_string();
+  std::string msgpack_data = test_profile.to_msgpack_string();
 
   // Deserialize from msgpack
-  RouterProfile loaded = RouterProfile::from_binary_string(msgpack_data);
+  NordlysCheckpoint loaded = NordlysCheckpoint::from_msgpack_string(msgpack_data);
 
   // Compare metadata
   EXPECT_EQ(loaded.metadata.n_clusters, test_profile.metadata.n_clusters);
@@ -198,16 +198,16 @@ TEST_F(ProfileTest, FileOperations) {
   std::string json_file = "/tmp/test_profile.json";
   test_profile.to_json(json_file);
 
-  RouterProfile loaded_json = RouterProfile::from_json(json_file);
+  NordlysCheckpoint loaded_json = NordlysCheckpoint::from_json(json_file);
 
   EXPECT_EQ(loaded_json.metadata.n_clusters, test_profile.metadata.n_clusters);
   EXPECT_EQ(loaded_json.models.size(), test_profile.models.size());
 
   // Test msgpack file operations
   std::string msgpack_file = "/tmp/test_profile.msgpack";
-  test_profile.to_binary(msgpack_file);
+  test_profile.to_msgpack(msgpack_file);
 
-  RouterProfile loaded_msgpack = RouterProfile::from_binary(msgpack_file);
+  NordlysCheckpoint loaded_msgpack = NordlysCheckpoint::from_msgpack(msgpack_file);
 
   EXPECT_EQ(loaded_msgpack.metadata.n_clusters, test_profile.metadata.n_clusters);
   EXPECT_EQ(loaded_msgpack.models.size(), test_profile.models.size());
@@ -222,7 +222,7 @@ TEST_F(ProfileTest, Validation) {
   EXPECT_NO_THROW(test_profile.validate());
 
   // Test invalid n_clusters
-  RouterProfile invalid_profile = test_profile;
+  NordlysCheckpoint invalid_profile = test_profile;
   invalid_profile.metadata.n_clusters = -1;
   EXPECT_THROW(invalid_profile.validate(), std::invalid_argument);
 
@@ -249,7 +249,7 @@ TEST_F(ProfileTest, Validation) {
 
 TEST_F(ProfileTest, Float64Support) {
   // Load a float64 profile from JSON
-  RouterProfile double_profile = RouterProfile::from_json_string(kTestProfileJsonFloat64);
+  NordlysCheckpoint double_profile = NordlysCheckpoint::from_json_string(kTestProfileJsonFloat64);
 
   // Test that it's properly identified as float64
   EXPECT_EQ(double_profile.metadata.dtype, "float64");
@@ -258,15 +258,15 @@ TEST_F(ProfileTest, Float64Support) {
 
   // Test JSON round trip
   std::string json_str = double_profile.to_json_string();
-  RouterProfile loaded = RouterProfile::from_json_string(json_str);
+  NordlysCheckpoint loaded = NordlysCheckpoint::from_json_string(json_str);
 
   EXPECT_EQ(loaded.metadata.dtype, "float64");
   EXPECT_TRUE(loaded.is_float64());
   EXPECT_FALSE(loaded.is_float32());
 
   // Test msgpack round trip
-  std::string msgpack_data = double_profile.to_binary_string();
-  RouterProfile loaded_msgpack = RouterProfile::from_binary_string(msgpack_data);
+  std::string msgpack_data = double_profile.to_msgpack_string();
+  NordlysCheckpoint loaded_msgpack = NordlysCheckpoint::from_msgpack_string(msgpack_data);
 
   EXPECT_EQ(loaded_msgpack.metadata.dtype, "float64");
   EXPECT_TRUE(loaded_msgpack.is_float64());
@@ -275,14 +275,14 @@ TEST_F(ProfileTest, Float64Support) {
 TEST_F(ProfileTest, InvalidJsonParsing) {
   // Test invalid JSON string
   std::string invalid_json = "{ invalid json }";
-  EXPECT_THROW(RouterProfile::from_json_string(invalid_json), std::exception);
+  EXPECT_THROW(NordlysCheckpoint::from_json_string(invalid_json), std::exception);
 
   // Test missing required fields
   std::string missing_metadata = R"({
     "cluster_centers": {"n_clusters": 1, "feature_dim": 1, "cluster_centers": [[1.0]]},
     "models": [{"provider": "test", "model_name": "model", "cost_per_1m_input_tokens": 1.0, "cost_per_1m_output_tokens": 1.0, "error_rates": [0.1]}]
   })";
-  EXPECT_THROW(RouterProfile::from_json_string(missing_metadata), std::exception);
+  EXPECT_THROW(NordlysCheckpoint::from_json_string(missing_metadata), std::exception);
 
   // Test malformed cluster centers
   std::string bad_centers = R"({
@@ -290,25 +290,25 @@ TEST_F(ProfileTest, InvalidJsonParsing) {
     "cluster_centers": {"n_clusters": 1, "feature_dim": 1, "cluster_centers": "not_an_array"},
     "models": [{"provider": "test", "model_name": "model", "cost_per_1m_input_tokens": 1.0, "cost_per_1m_output_tokens": 1.0, "error_rates": [0.1]}]
   })";
-  EXPECT_THROW(RouterProfile::from_json_string(bad_centers), std::exception);
+  EXPECT_THROW(NordlysCheckpoint::from_json_string(bad_centers), std::exception);
 }
 
 TEST_F(ProfileTest, InvalidMsgpackParsing) {
   // Test invalid msgpack binary data
   std::string invalid_msgpack = "not msgpack data";
-  EXPECT_THROW(RouterProfile::from_binary_string(invalid_msgpack), std::exception);
+  EXPECT_THROW(NordlysCheckpoint::from_msgpack_string(invalid_msgpack), std::exception);
 
   // Test corrupted msgpack (valid msgpack but wrong structure)
   std::string corrupted_msgpack = "\x81\xa4test\x01";  // Simple map with one key-value, not our expected structure
-  EXPECT_THROW(RouterProfile::from_binary_string(corrupted_msgpack), std::exception);
+  EXPECT_THROW(NordlysCheckpoint::from_msgpack_string(corrupted_msgpack), std::exception);
 }
 
 TEST_F(ProfileTest, FileOperationErrors) {
   // Test reading from non-existent JSON file
-  EXPECT_THROW(RouterProfile::from_json("/nonexistent/file.json"), std::runtime_error);
+  EXPECT_THROW(NordlysCheckpoint::from_json("/nonexistent/file.json"), std::runtime_error);
 
   // Test reading from non-existent msgpack file
-  EXPECT_THROW(RouterProfile::from_binary("/nonexistent/file.msgpack"), std::runtime_error);
+  EXPECT_THROW(NordlysCheckpoint::from_msgpack("/nonexistent/file.msgpack"), std::runtime_error);
 
   // Test writing to invalid path (though this might succeed on some systems)
   // This is harder to test reliably across platforms, so we'll skip it for now
