@@ -182,7 +182,7 @@ class TestNordlysCheckpointProperties:
         # Test silhouette_score (-1.0 if not available)
         score = checkpoint.silhouette_score
         assert isinstance(score, float)
-        assert score == 0.85
+        assert abs(score - 0.85) < 1e-6
 
         # Test dtype consistency
         assert checkpoint.dtype in ("float32", "float64")
