@@ -1,1 +1,0 @@
-/usr/bin/nvcc -forward-unknown-to-host-compiler -O3 -DNDEBUG "--generate-code=arch=compute_52,code=[compute_52,sm_52]" -Xcompiler=-fPIC -Wno-deprecated-gpu-targets -shared -dlink --options-file CMakeFiles/nordlys_cuda.dir/deviceObjects1.rsp -o CMakeFiles/nordlys_cuda.dir/cmake_device_link.o --options-file CMakeFiles/nordlys_cuda.dir/deviceLinkLibs.rsp -L"/lib/x86_64-linux-gnu"

@@ -1,4 +1,0 @@
-Name: usearch
-Description: Smaller & Faster Single-File Vector Search Engine from Unum
-Version: 2.16.8
-Cflags: -I/usr/local/include

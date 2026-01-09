@@ -1,3 +1,0 @@
-/usr/bin/ar qc libnordlys_cuda.a CMakeFiles/nordlys_cuda.dir/cluster_cuda.cu.o
-/usr/bin/ar q libnordlys_cuda.a CMakeFiles/nordlys_cuda.dir/cmake_device_link.o
-/usr/bin/ranlib libnordlys_cuda.a

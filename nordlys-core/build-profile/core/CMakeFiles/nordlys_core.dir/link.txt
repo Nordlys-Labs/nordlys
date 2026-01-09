@@ -1,2 +1,0 @@
-/usr/bin/ar qc libnordlys_core.a CMakeFiles/nordlys_core.dir/src/cluster_backend.cpp.o CMakeFiles/nordlys_core.dir/src/scorer.cpp.o CMakeFiles/nordlys_core.dir/src/checkpoint.cpp.o
-/usr/bin/ranlib libnordlys_core.a
