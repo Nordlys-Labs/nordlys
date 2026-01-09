@@ -141,7 +141,7 @@ TEST_F(Nordlysest, EmbeddingDimension) {
   // Verify get_embedding_dim() returns correct value from checkpoint
   auto router = CreateTestRouter();
 
-  // Profile has 4D embeddings (3 clusters x 4 dimensions)
+  // Checkpoint has 4D embeddings (3 clusters x 4 dimensions)
   EXPECT_EQ(router.get_embedding_dim(), 4);
 }
 
@@ -149,7 +149,7 @@ TEST_F(Nordlysest, NClusters) {
   // Verify get_n_clusters() returns correct value from checkpoint
   auto router = CreateTestRouter();
 
-  // Profile has 3 clusters
+  // Checkpoint has 3 clusters
   EXPECT_EQ(router.get_n_clusters(), 3);
 }
 
@@ -445,7 +445,7 @@ TEST_F(Nordlysest, AlternativeModelsAreDifferentFromSelected) {
 
 TEST_F(Nordlysest, CreateFromJsonString) {
   // Test creating router from JSON string
-  std::string json_profile = R"({
+  std::string json_checkpoint = R"({
     "version": "2.0",
     "cluster_centers": [[1.0, 0.0], [0.0, 1.0]],
     "models": [
@@ -462,7 +462,7 @@ TEST_F(Nordlysest, CreateFromJsonString) {
     "metrics": {"silhouette_score": 0.8}
   })";
 
-  auto checkpoint = NordlysCheckpoint::from_json_string(json_profile);
+  auto checkpoint = NordlysCheckpoint::from_json_string(json_checkpoint);
   auto result = Nordlys32::from_checkpoint(std::move(checkpoint));
 
   ASSERT_TRUE(result.has_value()) << "Failed to create router from JSON: " << result.error();
@@ -505,7 +505,7 @@ TEST_F(Nordlysest, DtypeMismatchValidation) {
   auto float64_checkpoint = NordlysCheckpoint::from_json_string(kTestCheckpointJsonFloat64);
 
   // Try to create Nordlys<float> with float64 checkpoint - should fail
-  auto result_float = Nordlys32::from_checkpoint(float64_checkpoint);
+  auto result_float = Nordlys32::from_checkpoint(std::move(float64_checkpoint));
   EXPECT_FALSE(result_float.has_value());
   EXPECT_TRUE(result_float.error().find("requires float32 checkpoint") != std::string::npos);
 
@@ -513,7 +513,7 @@ TEST_F(Nordlysest, DtypeMismatchValidation) {
   auto float32_checkpoint = NordlysCheckpoint::from_json_string(kTestCheckpointJson);
 
   // Try to create Nordlys<double> with float32 checkpoint - should fail
-  auto result_double = Nordlys<double>::from_checkpoint(float32_checkpoint);
+  auto result_double = Nordlys<double>::from_checkpoint(std::move(float32_checkpoint));
   EXPECT_FALSE(result_double.has_value());
   EXPECT_TRUE(result_double.error().find("requires float64 checkpoint") != std::string::npos);
 }

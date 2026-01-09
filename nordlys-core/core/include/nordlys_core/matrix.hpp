@@ -1,6 +1,7 @@
 #pragma once
 #include <algorithm>
 #include <cstddef>
+#include <limits>
 #include <stdexcept>
 #include <vector>
 
@@ -11,7 +12,12 @@ public:
 
   Matrix() = default;
 
-  Matrix(size_t rows, size_t cols) : rows_(rows), cols_(cols), data_(rows * cols) {}
+  Matrix(size_t rows, size_t cols) : rows_(rows), cols_(cols) {
+    if (cols != 0 && rows > std::numeric_limits<size_t>::max() / cols) {
+      throw std::overflow_error("Matrix size overflow: rows * cols exceeds size_t max");
+    }
+    data_.resize(rows * cols);
+  }
 
   Matrix(size_t rows, size_t cols, const T* src)
       : rows_(rows), cols_(cols), data_(src, src + rows * cols) {}

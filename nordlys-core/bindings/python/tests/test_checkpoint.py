@@ -157,12 +157,13 @@ class TestNordlysCheckpointValidation:
         """Test that invalid checkpoints fail validation."""
         from nordlys_core_ext import NordlysCheckpoint
 
-        # Create a checkpoint with invalid data (empty cluster_centers)
+        # Create a checkpoint with invalid n_clusters but valid cluster_centers
         invalid_json = json.loads(sample_checkpoint_json)
-        invalid_json["cluster_centers"] = []
+        invalid_json["clustering"]["n_clusters"] = -1
 
+        checkpoint = NordlysCheckpoint.from_json_string(json.dumps(invalid_json))
         with pytest.raises((RuntimeError, ValueError)):
-            NordlysCheckpoint.from_json_string(json.dumps(invalid_json))
+            checkpoint.validate()
 
 
 class TestNordlysCheckpointProperties:
@@ -179,10 +180,10 @@ class TestNordlysCheckpointProperties:
         assert isinstance(checkpoint.embedding_model, str)
         assert isinstance(checkpoint.dtype, str)
 
-        # Test silhouette_score (-1.0 if not available)
+        # Test silhouette_score
         score = checkpoint.silhouette_score
         assert isinstance(score, float)
-        assert abs(score - 0.85) < 1e-6
+        assert score == pytest.approx(0.85)
 
         # Test dtype consistency
         assert checkpoint.dtype in ("float32", "float64")

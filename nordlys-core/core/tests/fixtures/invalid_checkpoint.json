@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "cluster_centers": [],
+  "cluster_centers": [[1.0, 0.0], [0.0, 1.0]],
   "models": [],
   "embedding": {
     "model": "invalid-test",

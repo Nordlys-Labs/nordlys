@@ -2,6 +2,7 @@
 #include <nanobind/ndarray.h>
 #include <nanobind/stl/optional.h>
 #include <nanobind/stl/string.h>
+#include <nanobind/stl/variant.h>
 #include <nanobind/stl/vector.h>
 
 #include <nordlys_core/checkpoint.hpp>
@@ -130,9 +131,20 @@ NB_MODULE(nordlys_core_ext, m) {
       // Version
       .def_ro("version", &NordlysCheckpoint::version, "Checkpoint format version")
 
-      // Core data
-      .def_ro("cluster_centers", &NordlysCheckpoint::cluster_centers,
-              "Cluster centers (variant of float32 or float64 matrices)")
+      // Core data - convert Matrix to ndarray for Python
+      .def_prop_ro(
+          "cluster_centers",
+          [](const NordlysCheckpoint& c) {
+            return std::visit(
+                [](const auto& centers) -> nb::object {
+                  using Scalar = typename std::decay_t<decltype(centers)>::Scalar;
+                  size_t shape[2] = {centers.rows(), centers.cols()};
+                  return nb::cast(nb::ndarray<nb::numpy, Scalar, nb::ndim<2>>(
+                      const_cast<Scalar*>(centers.data()), 2, shape, nb::handle()));
+                },
+                c.cluster_centers);
+          },
+          "Cluster centers as numpy array")
       .def_ro("models", &NordlysCheckpoint::models, "List of model configurations")
 
       // Configuration structs

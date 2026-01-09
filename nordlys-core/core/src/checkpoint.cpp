@@ -498,6 +498,9 @@ std::string NordlysCheckpoint::to_msgpack_string() const {
         pk.pack("data");
         size_t data_size = static_cast<size_t>(centers.rows()) * static_cast<size_t>(centers.cols())
                            * sizeof(Scalar);
+        if (data_size > std::numeric_limits<uint32_t>::max()) {
+          throw std::overflow_error("Matrix data size exceeds uint32_t max for msgpack");
+        }
         pk.pack_bin(static_cast<uint32_t>(data_size));
         pk.pack_bin_body(reinterpret_cast<const char*>(centers.data()),
                          static_cast<uint32_t>(data_size));

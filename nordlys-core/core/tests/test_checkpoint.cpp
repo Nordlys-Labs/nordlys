@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
+#include <unistd.h>
 
 #include <cstdio>
+#include <filesystem>
 #include <nordlys_core/checkpoint.hpp>
 #include <random>
 
@@ -181,7 +183,9 @@ TEST_F(ProfileTest, RoundTripMsgpack) {
 }
 
 TEST_F(ProfileTest, FileOperations) {
-  std::string json_file = "/tmp/test_profile.json";
+  auto temp_dir = std::filesystem::temp_directory_path();
+  auto pid_suffix = std::to_string(getpid());
+  std::string json_file = (temp_dir / ("test_profile_" + pid_suffix + ".json")).string();
   test_profile.to_json(json_file);
 
   NordlysCheckpoint loaded_json = NordlysCheckpoint::from_json(json_file);
@@ -189,7 +193,7 @@ TEST_F(ProfileTest, FileOperations) {
   EXPECT_EQ(loaded_json.clustering.n_clusters, test_profile.clustering.n_clusters);
   EXPECT_EQ(loaded_json.models.size(), test_profile.models.size());
 
-  std::string msgpack_file = "/tmp/test_profile.msgpack";
+  std::string msgpack_file = (temp_dir / ("test_profile_" + pid_suffix + ".msgpack")).string();
   test_profile.to_msgpack(msgpack_file);
 
   NordlysCheckpoint loaded_msgpack = NordlysCheckpoint::from_msgpack(msgpack_file);
