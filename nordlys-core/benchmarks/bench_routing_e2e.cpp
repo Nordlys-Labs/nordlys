@@ -34,7 +34,7 @@ BENCHMARK(BM_RoutingSingle_Small)->Unit(benchmark::kMicrosecond);
 
 static void BM_RoutingSingle_Medium(benchmark::State& state) {
   NORDLYS_ZONE;
-  auto checkpoint = LoadCheckpoint("profile_medium.json");
+  auto checkpoint = LoadCheckpoint("checkpoint_medium.json");
   auto router_result = Nordlys32::from_checkpoint(std::move(checkpoint));
 
   if (!router_result.has_value()) {
@@ -56,7 +56,7 @@ BENCHMARK(BM_RoutingSingle_Medium)->Unit(benchmark::kMicrosecond);
 
 static void BM_RoutingSingle_Large(benchmark::State& state) {
   NORDLYS_ZONE;
-  auto checkpoint = LoadCheckpoint("profile_large.json");
+  auto checkpoint = LoadCheckpoint("checkpoint_large.json");
   auto router_result = Nordlys32::from_checkpoint(std::move(checkpoint));
 
   if (!router_result.has_value()) {
@@ -78,7 +78,7 @@ BENCHMARK(BM_RoutingSingle_Large)->Unit(benchmark::kMicrosecond);
 
 static void BM_RoutingSingle_XL(benchmark::State& state) {
   NORDLYS_ZONE;
-  auto checkpoint = LoadCheckpoint("profile_xl.json");
+  auto checkpoint = LoadCheckpoint("checkpoint_xl.json");
   auto router_result = Nordlys32::from_checkpoint(std::move(checkpoint));
 
   if (!router_result.has_value()) {
@@ -100,7 +100,7 @@ BENCHMARK(BM_RoutingSingle_XL)->Unit(benchmark::kMicrosecond);
 
 static void BM_RoutingBatch(benchmark::State& state) {
   NORDLYS_ZONE;
-  auto checkpoint = LoadCheckpoint("profile_medium.json");
+  auto checkpoint = LoadCheckpoint("checkpoint_medium.json");
   auto router_result = Nordlys32::from_checkpoint(std::move(checkpoint));
 
   if (!router_result.has_value()) {
@@ -125,7 +125,7 @@ BENCHMARK(BM_RoutingBatch)->Arg(10)->Arg(100)->Arg(1000)->Unit(benchmark::kMilli
 
 static void BM_RoutingCostBias(benchmark::State& state) {
   NORDLYS_ZONE;
-  auto checkpoint = LoadCheckpoint("profile_medium.json");
+  auto checkpoint = LoadCheckpoint("checkpoint_medium.json");
   auto router_result = Nordlys32::from_checkpoint(std::move(checkpoint));
 
   if (!router_result.has_value()) {
@@ -180,7 +180,7 @@ static void BM_RoutingColdStart_Medium(benchmark::State& state) {
   auto embedding = bench_utils::GenerateRandomEmbedding(512);
 
   for (auto _ : state) {
-    auto checkpoint = LoadCheckpoint("profile_medium.json");
+    auto checkpoint = LoadCheckpoint("checkpoint_medium.json");
     auto router_result = Nordlys32::from_checkpoint(std::move(checkpoint));
 
     if (!router_result.has_value()) {
@@ -198,7 +198,7 @@ BENCHMARK(BM_RoutingColdStart_Medium)->Unit(benchmark::kMillisecond);
 
 static void BM_RoutingConcurrent(benchmark::State& state) {
   NORDLYS_ZONE;
-  auto checkpoint = LoadCheckpoint("profile_medium.json");
+  auto checkpoint = LoadCheckpoint("checkpoint_medium.json");
   auto router_result = Nordlys32::from_checkpoint(std::move(checkpoint));
 
   if (!router_result.has_value()) {
