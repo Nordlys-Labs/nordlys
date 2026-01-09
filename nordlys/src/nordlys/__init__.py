@@ -40,7 +40,13 @@ from nordlys import reduction
 from nordlys import clustering
 
 # C++ Core types
-from nordlys_core_ext import NordlysCheckpoint
+from nordlys_core_ext import (
+    NordlysCheckpoint,
+    CheckpointMetadata,
+    ClusteringConfig,
+    RoutingConfig,
+    ModelFeatures,
+)
 
 # ============================================================================
 # Package metadata
@@ -56,6 +62,10 @@ __all__ = [
     "Alternative",
     # C++ Core types
     "NordlysCheckpoint",
+    "CheckpointMetadata",
+    "ClusteringConfig",
+    "RoutingConfig",
+    "ModelFeatures",
     # Modules
     "reduction",
     "clustering",

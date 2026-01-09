@@ -756,66 +756,37 @@ class Nordlys:
         models: list[ModelConfig] | None = None,
     ) -> "Nordlys":
         """Create Nordlys instance from NordlysCheckpoint."""
-        # Parse checkpoint to dict for extracting model info
-        checkpoint_dict = json.loads(checkpoint.to_json_string())
-
-        # Extract or create model configs
+        # Extract model configs from checkpoint if not provided
         if models is None:
-            models = []
-            for m in checkpoint_dict["models"]:
-                model_id = f"{m['provider']}/{m['model_name']}"
-                models.append(
-                    ModelConfig(
-                        id=model_id,
-                        cost_input=m["cost_per_1m_input_tokens"],
-                        cost_output=m["cost_per_1m_output_tokens"],
-                    )
+            models = [
+                ModelConfig(
+                    id=m.model_id,
+                    cost_input=m.cost_per_1m_input_tokens,
+                    cost_output=m.cost_per_1m_output_tokens,
                 )
+                for m in checkpoint.models
+            ]
 
         # Create instance
         instance = cls(
             models=models,
             embedding_model=checkpoint.embedding_model,
             nr_clusters=checkpoint.n_clusters,
-            random_state=42,  # Use default, not exposed in checkpoint properties
-            allow_trust_remote_code=False,  # Use default
+            random_state=checkpoint.random_state,
+            allow_trust_remote_code=checkpoint.allow_trust_remote_code,
         )
 
-        # Restore fitted state
-        centers = checkpoint_dict["cluster_centers"]["cluster_centers"]
-        instance._centroids = np.array(centers)
-        instance._dtype = checkpoint.dtype
-
-        # Restore model accuracies from error rates
-        instance._model_accuracies = {}
-        n_clusters = len(centers)
-        for cluster_id in range(n_clusters):
-            cluster_acc = {}
-            for m in checkpoint_dict["models"]:
-                model_id = f"{m['provider']}/{m['model_name']}"
-                error_rate = m["error_rates"][cluster_id]
-                cluster_acc[model_id] = 1.0 - error_rate
-            instance._model_accuracies[cluster_id] = cluster_acc
-
-        # Create dummy labels/embeddings/metrics for compatibility
-        instance._labels = np.zeros(1, dtype=np.int32)
-        instance._embeddings = np.zeros((1, len(centers[0]) if centers else 1))
-        instance._metrics = ClusterMetrics(
-            silhouette_score=checkpoint.silhouette_score,
-            n_clusters=n_clusters,
-            n_samples=0,
-            cluster_sizes=[0] * n_clusters,
-        )
-
-        # Initialize C++ core for fast routing
+        # Initialize C++ core - this is the source of truth for all routing
         if checkpoint.dtype == "float32":
             instance._core_engine = Nordlys32.from_checkpoint(checkpoint)
         else:
             instance._core_engine = Nordlys64.from_checkpoint(checkpoint)
 
-        logger.info(f"C++ core initialized for fast routing ({checkpoint.dtype})")
-
+        # Mark as fitted
+        instance._dtype = checkpoint.dtype
         instance._is_fitted = True
+
+        logger.info(f"Loaded checkpoint with C++ core ({checkpoint.dtype})")
         return instance
 
     def __repr__(self) -> str:
