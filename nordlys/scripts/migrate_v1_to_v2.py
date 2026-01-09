@@ -45,10 +45,33 @@ def migrate_v1_to_v2(v1_data: dict) -> dict:
         n_clusters = metadata.get("n_clusters", len(cluster_centers))
 
     models_v2 = []
-    for m in v1_data.get("models", []):
-        provider = m.get("provider", "")
-        model_name = m.get("model_name", "")
-        model_id = m.get("model_id") or f"{provider}/{model_name}"
+    for idx, m in enumerate(v1_data.get("models", [])):
+        provider = m.get("provider", "").strip()
+        model_name = m.get("model_name", "").strip()
+
+        # Build model_id - validate we don't get empty or "/"
+        if m.get("model_id"):
+            model_id = m["model_id"].strip()
+        elif provider and model_name:
+            model_id = f"{provider}/{model_name}"
+        elif provider:
+            model_id = provider
+        elif model_name:
+            model_id = model_name
+        else:
+            print(
+                f"Warning: Skipping model {idx} with empty provider and model_name",
+                file=sys.stderr,
+            )
+            continue
+
+        if not model_id or model_id == "/":
+            print(
+                f"Warning: Skipping model {idx} with invalid model_id: '{model_id}'",
+                file=sys.stderr,
+            )
+            continue
+
         models_v2.append(
             {
                 "model_id": model_id,

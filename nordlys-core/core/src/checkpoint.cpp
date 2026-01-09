@@ -146,18 +146,29 @@ NordlysCheckpoint NordlysCheckpoint::from_json_string(const std::string& json_st
     checkpoint.metrics = j.at("metrics").get<TrainingMetrics>();
   }
 
-  // Cluster centers - validate structure
+  // Cluster centers - validate structure before accessing
+  if (!j.contains("cluster_centers")) {
+    throw std::invalid_argument("Missing required field: cluster_centers");
+  }
+
   const auto& centers_json = j.at("cluster_centers");
   if (!centers_json.is_array() || centers_json.empty()) {
     throw std::invalid_argument("cluster_centers must be a non-empty array");
   }
 
+  // Validate n_clusters is positive before casting
+  if (checkpoint.clustering.n_clusters <= 0) {
+    throw std::invalid_argument(
+        std::format("n_clusters must be positive, got {}", checkpoint.clustering.n_clusters));
+  }
+
   auto n_clusters = static_cast<size_t>(checkpoint.clustering.n_clusters);
-  if (centers_json.size() < n_clusters) {
+  if (centers_json.size() != n_clusters) {
     throw std::invalid_argument(std::format("cluster_centers has {} rows but n_clusters is {}",
                                             centers_json.size(), n_clusters));
   }
 
+  // Validate first row exists and is valid array
   if (!centers_json[0].is_array() || centers_json[0].empty()) {
     throw std::invalid_argument("cluster_centers[0] must be a non-empty array");
   }
@@ -348,10 +359,32 @@ NordlysCheckpoint NordlysCheckpoint::from_msgpack_string(const std::string& data
     if (met.contains("inertia")) checkpoint.metrics.inertia = met.at("inertia").as<float>();
   }
 
-  // Cluster centers (binary blob)
+  // Cluster centers (binary blob) - validate required fields
+  if (!map.contains("cluster_centers")) {
+    throw std::invalid_argument("Missing required field: cluster_centers");
+  }
+
   auto centers_map = map.at("cluster_centers").as<std::map<std::string, msgpack::object>>();
+  if (!centers_map.contains("rows") || !centers_map.contains("cols")
+      || !centers_map.contains("data")) {
+    throw std::invalid_argument("cluster_centers must contain rows, cols, and data fields");
+  }
+
   int n_clusters = centers_map.at("rows").as<int>();
   int feature_dim = centers_map.at("cols").as<int>();
+
+  // Validate dimensions are positive
+  if (n_clusters <= 0 || feature_dim <= 0) {
+    throw std::invalid_argument(std::format(
+        "cluster_centers dimensions must be positive: rows={}, cols={}", n_clusters, feature_dim));
+  }
+
+  // Validate n_clusters matches clustering config
+  if (n_clusters != checkpoint.clustering.n_clusters) {
+    throw std::invalid_argument(
+        std::format("cluster_centers rows ({}) does not match n_clusters ({})", n_clusters,
+                    checkpoint.clustering.n_clusters));
+  }
 
   // Extract binary data (BIN type only)
   const auto& data_obj = centers_map.at("data");
@@ -363,6 +396,11 @@ NordlysCheckpoint NordlysCheckpoint::from_msgpack_string(const std::string& data
   uint64_t total_elements = static_cast<uint64_t>(n_clusters) * static_cast<uint64_t>(feature_dim);
 
   if (checkpoint.embedding.dtype == "float64") {
+    // Check for overflow before computing expected_size
+    if (total_elements > SIZE_MAX / sizeof(double)) {
+      throw std::invalid_argument(std::format(
+          "cluster_centers dimensions too large: {}x{} would overflow", n_clusters, feature_dim));
+    }
     size_t expected_size = total_elements * sizeof(double);
     if (centers_bytes.size() != expected_size) {
       throw std::invalid_argument(
@@ -373,6 +411,11 @@ NordlysCheckpoint NordlysCheckpoint::from_msgpack_string(const std::string& data
     std::memcpy(centers.data(), centers_bytes.data(), expected_size);
     checkpoint.cluster_centers = std::move(centers);
   } else {
+    // Check for overflow before computing expected_size
+    if (total_elements > SIZE_MAX / sizeof(float)) {
+      throw std::invalid_argument(std::format(
+          "cluster_centers dimensions too large: {}x{} would overflow", n_clusters, feature_dim));
+    }
     size_t expected_size = total_elements * sizeof(float);
     if (centers_bytes.size() != expected_size) {
       throw std::invalid_argument(
