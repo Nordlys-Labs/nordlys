@@ -154,16 +154,15 @@ class TestNordlysCheckpointValidation:
         checkpoint.validate()
 
     def test_invalid_checkpoint_fails_validation(self, sample_checkpoint_json: str):
-        """Test that invalid checkpoints fail validation."""
+        """Test that invalid checkpoints fail validation during parsing."""
         from nordlys_core_ext import NordlysCheckpoint
 
-        # Create a checkpoint with invalid n_clusters but valid cluster_centers
+        # Create a checkpoint with invalid n_clusters - validation happens during parsing
         invalid_json = json.loads(sample_checkpoint_json)
         invalid_json["clustering"]["n_clusters"] = -1
 
-        checkpoint = NordlysCheckpoint.from_json_string(json.dumps(invalid_json))
         with pytest.raises((RuntimeError, ValueError)):
-            checkpoint.validate()
+            NordlysCheckpoint.from_json_string(json.dumps(invalid_json))
 
 
 class TestNordlysCheckpointProperties:
