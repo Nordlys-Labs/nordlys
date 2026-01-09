@@ -151,7 +151,9 @@ NordlysCheckpoint NordlysCheckpoint::from_json_string(const std::string& json_st
 
   if (checkpoint.embedding.dtype == "float64") {
     EmbeddingMatrixT<double> centers(static_cast<int>(n_clusters), static_cast<int>(feature_dim));
+#pragma unroll
     for (size_t i = 0; i < n_clusters; ++i) {
+#pragma unroll
       for (size_t col = 0; col < feature_dim; ++col) {
         centers(static_cast<int>(i), static_cast<int>(col)) = centers_json[i][col].get<double>();
       }
@@ -159,7 +161,9 @@ NordlysCheckpoint NordlysCheckpoint::from_json_string(const std::string& json_st
     checkpoint.cluster_centers = std::move(centers);
   } else {
     EmbeddingMatrixT<float> centers(static_cast<int>(n_clusters), static_cast<int>(feature_dim));
+#pragma unroll
     for (size_t i = 0; i < n_clusters; ++i) {
+#pragma unroll
       for (size_t col = 0; col < feature_dim; ++col) {
         centers(static_cast<int>(i), static_cast<int>(col)) = centers_json[i][col].get<float>();
       }
