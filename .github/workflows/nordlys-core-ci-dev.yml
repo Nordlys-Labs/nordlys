@@ -50,10 +50,6 @@ jobs:
       - name: Install build tools
         run: uv pip install conan --system
 
-      - name: Install Python test dependencies
-        working-directory: nordlys-core/bindings/python
-        run: uv sync --group test --no-install-project
-
       - name: Setup Conan profile
         run: conan profile detect --force
 
@@ -71,15 +67,15 @@ jobs:
             -DNORDLYS_BUILD_C=ON \
             -DNORDLYS_BUILD_BENCHMARKS=ON \
             -DNORDLYS_ENABLE_CUDA=OFF \
-            -DNORDLYS_ENABLE_TRACY=ON
+            -DNORDLYS_ENABLE_TRACY=OFF
 
       - name: Build
         working-directory: nordlys-core
         run: cmake --build --preset conan-release --parallel
 
-      - name: Test
+      - name: Test (C++ only)
         working-directory: nordlys-core
-        run: ctest --preset conan-release --output-on-failure
+        run: ctest --preset conan-release --output-on-failure -E python_bindings
 
       - name: Run Benchmarks
         working-directory: nordlys-core
@@ -87,22 +83,6 @@ jobs:
           ./build/Release/benchmarks/bench_nordlys_core \
             --benchmark_format=json \
             --benchmark_out=benchmark_results.json
-
-      - name: Capture Tracy Profile (Linux only)
-        if: matrix.os == 'linux'
-        working-directory: nordlys-core
-        run: |
-          ./benchmarks/scripts/tracy_ci_capture.sh RoutingSingle_Medium --time 15
-        continue-on-error: true
-
-      - name: Upload Tracy Capture
-        if: matrix.os == 'linux'
-        uses: actions/upload-artifact@v4
-        with:
-          name: tracy-capture-${{ matrix.os }}
-          path: nordlys-core/benchmarks/tracy_captures/*.tracy
-          retention-days: 30
-          if-no-files-found: ignore
 
       - name: Download previous benchmark data
         uses: actions/cache@v5
@@ -129,6 +109,73 @@ jobs:
           name: benchmark-results-${{ matrix.os }}
           path: nordlys-core/benchmark_results.json
           retention-days: 90
+
+  # ============================================
+  # Python Bindings Tests
+  # ============================================
+  python-bindings-test:
+    name: Python Bindings (${{ matrix.os }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: linux, runner: ubuntu-24.04 }
+          - { os: macos, runner: macos-15 }
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Cache Conan packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.conan2
+          key: conan-${{ runner.os }}-${{ hashFiles('nordlys-core/conanfile.py') }}
+          restore-keys: |
+            conan-${{ runner.os }}-
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install build tools
+        run: uv pip install conan --system
+
+      - name: Install Python test dependencies
+        working-directory: nordlys-core/bindings/python
+        run: uv sync --group test --no-install-project
+
+      - name: Setup Conan profile
+        run: conan profile detect --force
+
+      - name: Install dependencies
+        working-directory: nordlys-core
+        run: conan install . --build=missing -s compiler.cppstd=20
+
+      - name: Configure
+        working-directory: nordlys-core
+        shell: bash
+        run: |
+          cmake --preset conan-release \
+            -DNORDLYS_BUILD_TESTS=OFF \
+            -DNORDLYS_BUILD_PYTHON=ON \
+            -DNORDLYS_BUILD_C=OFF \
+            -DNORDLYS_BUILD_BENCHMARKS=OFF \
+            -DNORDLYS_ENABLE_CUDA=OFF \
+            -DNORDLYS_ENABLE_TRACY=OFF
+
+      - name: Build Python bindings
+        working-directory: nordlys-core
+        run: cmake --build --preset conan-release --parallel --target nordlys_core_ext
+
+      - name: Run Python tests
+        working-directory: nordlys-core/bindings/python
+        run: |
+          uv run pytest tests/ -v --tb=short
 
   # ============================================
   # Build Wheels (CPU and CUDA in parallel)
