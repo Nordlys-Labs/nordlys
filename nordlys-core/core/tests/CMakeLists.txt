@@ -10,6 +10,7 @@ add_executable(test_nordlys_core
   test_cluster_threadsafety.cpp
   test_scorer.cpp
   test_checkpoint.cpp
+  test_matrix.cpp
 )
 
 add_subdirectory(integration)

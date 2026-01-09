@@ -19,8 +19,13 @@ public:
     data_.resize(rows * cols);
   }
 
-  Matrix(size_t rows, size_t cols, const T* src)
-      : rows_(rows), cols_(cols), data_(src, src + rows * cols) {}
+  Matrix(size_t rows, size_t cols, const T* src) : rows_(rows), cols_(cols) {
+    if (cols != 0 && rows > std::numeric_limits<size_t>::max() / cols) {
+      throw std::overflow_error("Matrix size overflow: rows * cols exceeds size_t max");
+    }
+    size_t total = rows * cols;
+    data_ = std::vector<T>(src, src + total);
+  }
 
   [[nodiscard]] size_t rows() const noexcept { return rows_; }
   [[nodiscard]] size_t cols() const noexcept { return cols_; }
@@ -33,6 +38,9 @@ public:
   const T& operator()(size_t row, size_t col) const { return data_[row * cols_ + col]; }
 
   void resize(size_t rows, size_t cols) {
+    if (cols != 0 && rows > std::numeric_limits<size_t>::max() / cols) {
+      throw std::overflow_error("Matrix size overflow: rows * cols exceeds size_t max");
+    }
     rows_ = rows;
     cols_ = cols;
     data_.resize(rows * cols);

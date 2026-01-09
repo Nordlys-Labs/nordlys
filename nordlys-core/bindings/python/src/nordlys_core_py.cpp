@@ -144,6 +144,7 @@ NB_MODULE(nordlys_core_ext, m) {
                 },
                 c.cluster_centers);
           },
+          nb::rv_policy::reference_internal,
           "Cluster centers as numpy array")
       .def_ro("models", &NordlysCheckpoint::models, "List of model configurations")
 

@@ -1,5 +1,12 @@
 #include <gtest/gtest.h>
+
+#ifdef _WIN32
+#include <process.h>
+#define GETPID() _getpid()
+#else
 #include <unistd.h>
+#define GETPID() getpid()
+#endif
 
 #include <cstdio>
 #include <filesystem>
@@ -184,7 +191,7 @@ TEST_F(ProfileTest, RoundTripMsgpack) {
 
 TEST_F(ProfileTest, FileOperations) {
   auto temp_dir = std::filesystem::temp_directory_path();
-  auto pid_suffix = std::to_string(getpid());
+  auto pid_suffix = std::to_string(GETPID());
   std::string json_file = (temp_dir / ("test_profile_" + pid_suffix + ".json")).string();
   test_profile.to_json(json_file);
 
