@@ -205,11 +205,6 @@ class Nordlys:
         self._is_fitted = False
         self._dtype = "float32"
 
-    def __del__(self) -> None:
-        """Cleanup router resources."""
-        if self._core_engine is not None:
-            self._core_engine.cleanup()
-
     def _load_embedding_model(self) -> SentenceTransformer:
         """Load the embedding model lazily."""
         if self._embedding_model is not None:
@@ -571,24 +566,27 @@ class Nordlys:
         assert self._model_accuracies is not None
         assert self._metrics is not None
 
-        # Build models list with error rates
-        def _build_model_dict(model_config: ModelConfig) -> dict:
-            parts = model_config.id.split("/", 1)
-            return {
-                "provider": parts[0] if len(parts) > 1 else "unknown",
-                "model_name": parts[1] if len(parts) > 1 else model_config.id,
-                "cost_per_1m_input_tokens": model_config.cost_input,
-                "cost_per_1m_output_tokens": model_config.cost_output,
-                "error_rates": [
-                    1.0
-                    - self._model_accuracies.get(cluster_id, {}).get(
-                        model_config.id, 0.5
-                    )
-                    for cluster_id in range(len(self._centroids))
-                ],
-            }
+        centroids = self._centroids
+        model_accuracies = self._model_accuracies
+        n_clusters = len(centroids)
 
-        models = [_build_model_dict(model_config) for model_config in self._models]
+        # Build models list with error rates
+        models = []
+        for model_config in self._models:
+            parts = model_config.id.split("/", 1)
+            models.append(
+                {
+                    "provider": parts[0] if len(parts) > 1 else "unknown",
+                    "model_name": parts[1] if len(parts) > 1 else model_config.id,
+                    "cost_per_1m_input_tokens": model_config.cost_input,
+                    "cost_per_1m_output_tokens": model_config.cost_output,
+                    "error_rates": [
+                        1.0
+                        - model_accuracies.get(cluster_id, {}).get(model_config.id, 0.5)
+                        for cluster_id in range(n_clusters)
+                    ],
+                }
+            )
 
         # Cluster centers (use reduced if available, else full embeddings)
         centers = self._centroids.tolist()
