@@ -213,8 +213,8 @@ class TestNordlysFitValidation:
             }
         )
 
-        # Empty DataFrame will cause issues in embedding or clustering
-        with pytest.raises(Exception):  # Could be various errors
+        # Empty DataFrame causes ValueError (empty array in embedding/clustering)
+        with pytest.raises(ValueError, match="array"):
             nordlys.fit(df)
 
     def test_fit_with_wrong_column_names_raises(self, three_models):

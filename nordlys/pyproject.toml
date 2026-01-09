@@ -103,6 +103,8 @@ filterwarnings = [
   "ignore:Graph is not fully connected:UserWarning",
   "ignore::DeprecationWarning",
   "ignore:invalid escape sequence:SyntaxWarning",
+  "ignore::FutureWarning",
+  "ignore:.*torch.*:UserWarning",
 ]
 
 [tool.coverage.report]

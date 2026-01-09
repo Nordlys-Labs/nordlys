@@ -57,16 +57,19 @@ class TestRoutingCostBias:
     """Test cost_bias parameter in routing."""
 
     def test_route_cost_bias_0_prefers_cheap(self, fitted_nordlys):
-        """Test that cost_bias=0 tends toward cheaper models."""
-        # Run multiple times to check tendency
-        cheap_count = 0
-        for _ in range(5):
-            result = fitted_nordlys.route("What is 2+2?", cost_bias=0.0)
-            if "gpt-3.5" in result.model_id or "haiku" in result.model_id:
-                cheap_count += 1
+        """Test that cost_bias=0 returns a valid model (smoke test).
 
-        # Should tend toward cheaper models (but not guaranteed)
-        assert cheap_count >= 0  # Sanity check
+        Note: The actual model selection depends on cluster assignments and
+        error rates, so we only verify a valid model is returned. The cost_bias
+        parameter influences the tradeoff but doesn't guarantee the cheapest model.
+        """
+        result = fitted_nordlys.route("What is 2+2?", cost_bias=0.0)
+        # Verify a valid model is returned
+        assert result.model_id in [
+            "openai/gpt-4",
+            "openai/gpt-3.5-turbo",
+            "anthropic/claude-3-sonnet",
+        ]
 
     def test_route_cost_bias_1_prefers_quality(self, fitted_nordlys):
         """Test that cost_bias=1 tends toward quality models."""
