@@ -40,7 +40,7 @@ curl -fsSL https://raw.githubusercontent.com/Nordlys-Labs/nordlys/main/scripts/i
 ```
 
 ```powershell
-iwr -useb https://raw.githubusercontent.com/Nordlys-Labs/nordlys/main/scripts/installers/windows/claude-code.ps1 | iex
+iwr https://raw.githubusercontent.com/Nordlys-Labs/nordlys/main/scripts/installers/windows/claude-code.ps1 -OutFile claude-code.ps1; Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass; .\claude-code.ps1
 ```
 
 ```bat
