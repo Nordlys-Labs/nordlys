@@ -89,7 +89,5 @@ struct NordlysCheckpoint {
   [[nodiscard]] const std::string& embedding_model() const { return embedding.model; }
   [[nodiscard]] int random_state() const { return clustering.random_state; }
   [[nodiscard]] bool allow_trust_remote_code() const { return embedding.trust_remote_code; }
-  [[nodiscard]] float silhouette_score() const {
-    return metrics.silhouette_score.value_or(-1.0f);
-  }
+  [[nodiscard]] float silhouette_score() const { return metrics.silhouette_score.value_or(-1.0f); }
 };

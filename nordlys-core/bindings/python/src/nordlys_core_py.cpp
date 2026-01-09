@@ -152,9 +152,8 @@ NB_MODULE(nordlys_core_ext, m) {
       .def_prop_ro("random_state", &NordlysCheckpoint::random_state, "Random state")
       .def_prop_ro("allow_trust_remote_code", &NordlysCheckpoint::allow_trust_remote_code,
                    "Trust remote code flag")
-      .def_prop_ro(
-          "silhouette_score", &NordlysCheckpoint::silhouette_score,
-          "Silhouette score (-1.0 if not available)");
+      .def_prop_ro("silhouette_score", &NordlysCheckpoint::silhouette_score,
+                   "Silhouette score (-1.0 if not available)");
 
   // Nordlys32 (float32)
   nb::class_<Nordlys<float>>(

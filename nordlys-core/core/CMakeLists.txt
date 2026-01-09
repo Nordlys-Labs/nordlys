@@ -52,7 +52,6 @@ target_include_directories(nordlys_core
 # Common dependencies (always required)
 target_link_libraries(nordlys_core
   PUBLIC
-    Eigen3::Eigen
     nlohmann_json::nlohmann_json
     msgpack-cxx
     # USearch is in public API (CpuClusterBackendT uses it)

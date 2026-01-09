@@ -47,7 +47,6 @@ include(cmake/NordlysCompileOptions.cmake)
 # =============================================================================
 # Common Dependencies (Conan-managed)
 # =============================================================================
-find_package(Eigen3 REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(msgpack-cxx REQUIRED)
 
