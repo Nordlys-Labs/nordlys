@@ -2,6 +2,36 @@
 # Nordlys Core - C++ Library
 # =============================================================================
 
+include(FetchContent)
+
+# SimSIMD (required by USearch for SIMD-accelerated distance computations)
+FetchContent_Declare(
+  simsimd
+  GIT_REPOSITORY https://github.com/ashvardanian/SimSIMD.git
+  GIT_TAG        v6.5.12
+  GIT_SHALLOW    TRUE
+  SYSTEM
+)
+set(SIMSIMD_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(SIMSIMD_BUILD_BENCHMARKS OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(simsimd)
+
+# USearch (CPU vector search with SimSIMD backend)
+FetchContent_Declare(
+  usearch
+  GIT_REPOSITORY https://github.com/unum-cloud/usearch.git
+  GIT_TAG        v2.16.8
+  GIT_SHALLOW    TRUE
+  SYSTEM
+)
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5 CACHE STRING "" FORCE)
+set(USEARCH_BUILD_TEST OFF CACHE BOOL "" FORCE)
+set(USEARCH_BUILD_BENCHMARK OFF CACHE BOOL "" FORCE)
+set(USEARCH_USE_OPENMP OFF CACHE BOOL "" FORCE)
+set(USEARCH_USE_FP16LIB OFF CACHE BOOL "" FORCE)
+set(USEARCH_USE_SIMSIMD ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(usearch)
+
 # Core library
 add_library(nordlys_core STATIC
   src/cluster_backend.cpp
