@@ -39,10 +39,33 @@ def migrate_v1_to_v2(v1_data: dict) -> dict:
 
     if isinstance(v1_centers, dict):
         cluster_centers = v1_centers.get("cluster_centers", [])
-        n_clusters = v1_centers.get("n_clusters", len(cluster_centers))
+        n_clusters = int(v1_centers.get("n_clusters", len(cluster_centers)))
     else:
         cluster_centers = v1_centers
-        n_clusters = metadata.get("n_clusters", len(cluster_centers))
+        n_clusters = int(metadata.get("n_clusters", len(cluster_centers)))
+
+    if not isinstance(cluster_centers, list) or not cluster_centers:
+        raise ValueError(
+            "Invalid v1 checkpoint: cluster_centers must be a non-empty 2D array"
+        )
+    if not all(isinstance(row, list) and row for row in cluster_centers):
+        raise ValueError(
+            "Invalid v1 checkpoint: cluster_centers must be a non-empty 2D array"
+        )
+    feature_dim = len(cluster_centers[0])
+    if any(len(row) != feature_dim for row in cluster_centers):
+        raise ValueError(
+            "Invalid v1 checkpoint: cluster_centers rows must have equal length"
+        )
+    if n_clusters <= 0:
+        raise ValueError(
+            f"Invalid v1 checkpoint: n_clusters must be positive, got {n_clusters}"
+        )
+    if n_clusters != len(cluster_centers):
+        raise ValueError(
+            f"Invalid v1 checkpoint: n_clusters ({n_clusters}) does not match "
+            f"len(cluster_centers) ({len(cluster_centers)})"
+        )
 
     models_v2 = []
     for idx, m in enumerate(v1_data.get("models", [])):
