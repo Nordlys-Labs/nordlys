@@ -1,7 +1,13 @@
+#ifdef _WIN32
+#include <io.h>
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#else
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#endif
 
 #include <algorithm>
 #include <cstdint>
@@ -247,19 +253,35 @@ void NordlysCheckpoint::to_json(const std::string& path) const {
 }
 
 // ============================================================================
-// MessagePack File I/O (with mmap)
+// MessagePack File I/O
 // ============================================================================
 
 NordlysCheckpoint NordlysCheckpoint::from_msgpack(const std::string& path) {
   NORDLYS_ZONE;
 
-  // Open file
+#ifdef _WIN32
+  // Windows: use standard file I/O
+  std::ifstream file(path, std::ios::binary | std::ios::ate);
+  if (!file) {
+    throw std::runtime_error(std::format("Failed to open msgpack file: {}", path));
+  }
+
+  auto file_size = file.tellg();
+  file.seekg(0, std::ios::beg);
+
+  std::string data(static_cast<size_t>(file_size), '\0');
+  if (!file.read(data.data(), file_size)) {
+    throw std::runtime_error(std::format("Failed to read msgpack file: {}", path));
+  }
+
+  return from_msgpack_string(data);
+#else
+  // Unix: use mmap for better performance
   int fd = open(path.c_str(), O_RDONLY);
   if (fd == -1) {
     throw std::runtime_error(std::format("Failed to open msgpack file: {}", path));
   }
 
-  // Get file size
   struct stat sb;
   if (fstat(fd, &sb) == -1) {
     close(fd);
@@ -267,14 +289,12 @@ NordlysCheckpoint NordlysCheckpoint::from_msgpack(const std::string& path) {
   }
   size_t file_size = static_cast<size_t>(sb.st_size);
 
-  // Memory map the file
   void* mapped = mmap(nullptr, file_size, PROT_READ, MAP_PRIVATE, fd, 0);
   if (mapped == MAP_FAILED) {
     close(fd);
     throw std::runtime_error(std::format("Failed to mmap msgpack file: {}", path));
   }
 
-  // Parse from mapped memory
   try {
     auto result = from_msgpack_string(std::string(static_cast<const char*>(mapped), file_size));
     munmap(mapped, file_size);
@@ -285,6 +305,7 @@ NordlysCheckpoint NordlysCheckpoint::from_msgpack(const std::string& path) {
     close(fd);
     throw;
   }
+#endif
 }
 
 NordlysCheckpoint NordlysCheckpoint::from_msgpack_string(const std::string& data) {
