@@ -31,10 +31,12 @@ void to_json(json& j, const TrainingMetrics& m) {
 }
 
 void from_json(const json& j, TrainingMetrics& m) {
-  if (j.contains("n_samples")) m.n_samples = j["n_samples"].get<int>();
-  if (j.contains("cluster_sizes")) m.cluster_sizes = j["cluster_sizes"].get<std::vector<int>>();
-  if (j.contains("silhouette_score")) m.silhouette_score = j["silhouette_score"].get<float>();
-  if (j.contains("inertia")) m.inertia = j["inertia"].get<float>();
+  if (j.contains("n_samples") && !j["n_samples"].is_null()) m.n_samples = j["n_samples"].get<int>();
+  if (j.contains("cluster_sizes") && !j["cluster_sizes"].is_null())
+    m.cluster_sizes = j["cluster_sizes"].get<std::vector<int>>();
+  if (j.contains("silhouette_score") && !j["silhouette_score"].is_null())
+    m.silhouette_score = j["silhouette_score"].get<float>();
+  if (j.contains("inertia") && !j["inertia"].is_null()) m.inertia = j["inertia"].get<float>();
 }
 
 // ============================================================================
@@ -144,10 +146,34 @@ NordlysCheckpoint NordlysCheckpoint::from_json_string(const std::string& json_st
     checkpoint.metrics = j.at("metrics").get<TrainingMetrics>();
   }
 
-  // Cluster centers
+  // Cluster centers - validate structure
   const auto& centers_json = j.at("cluster_centers");
+  if (!centers_json.is_array() || centers_json.empty()) {
+    throw std::invalid_argument("cluster_centers must be a non-empty array");
+  }
+
   auto n_clusters = static_cast<size_t>(checkpoint.clustering.n_clusters);
+  if (centers_json.size() < n_clusters) {
+    throw std::invalid_argument(std::format("cluster_centers has {} rows but n_clusters is {}",
+                                            centers_json.size(), n_clusters));
+  }
+
+  if (!centers_json[0].is_array() || centers_json[0].empty()) {
+    throw std::invalid_argument("cluster_centers[0] must be a non-empty array");
+  }
+
   size_t feature_dim = centers_json[0].size();
+
+  // Validate all rows have same dimension
+  for (size_t i = 0; i < n_clusters; ++i) {
+    if (!centers_json[i].is_array()) {
+      throw std::invalid_argument(std::format("cluster_centers[{}] is not an array", i));
+    }
+    if (centers_json[i].size() != feature_dim) {
+      throw std::invalid_argument(std::format("cluster_centers[{}] has {} columns but expected {}",
+                                              i, centers_json[i].size(), feature_dim));
+    }
+  }
 
   if (checkpoint.embedding.dtype == "float64") {
     EmbeddingMatrixT<double> centers(static_cast<int>(n_clusters), static_cast<int>(feature_dim));
@@ -166,6 +192,8 @@ NordlysCheckpoint NordlysCheckpoint::from_json_string(const std::string& json_st
     }
     checkpoint.cluster_centers = std::move(centers);
   }
+
+  checkpoint.validate();
 
   return checkpoint;
 }
@@ -324,7 +352,13 @@ NordlysCheckpoint NordlysCheckpoint::from_msgpack_string(const std::string& data
   auto centers_map = map.at("cluster_centers").as<std::map<std::string, msgpack::object>>();
   int n_clusters = centers_map.at("rows").as<int>();
   int feature_dim = centers_map.at("cols").as<int>();
-  std::string centers_bytes = centers_map.at("data").as<std::string>();
+
+  // Extract binary data (BIN type only)
+  const auto& data_obj = centers_map.at("data");
+  if (data_obj.type != msgpack::type::BIN) {
+    throw std::invalid_argument("cluster_centers data must be BIN type");
+  }
+  std::string centers_bytes(data_obj.via.bin.ptr, data_obj.via.bin.size);
 
   uint64_t total_elements = static_cast<uint64_t>(n_clusters) * static_cast<uint64_t>(feature_dim);
 

@@ -20,27 +20,27 @@ struct TrainingMetrics {
 
 // Embedding configuration
 struct EmbeddingConfig {
-  std::string model;  // e.g., "sentence-transformers/all-MiniLM-L6-v2"
-  std::string dtype;  // "float32" or "float64" (single source of truth)
-  bool trust_remote_code = false;
+  std::string model;
+  std::string dtype;
+  bool trust_remote_code;
 };
 
 // Clustering hyperparameters (full config for reproducibility)
 struct ClusteringConfig {
   int n_clusters;
-  int random_state = 42;
-  int max_iter = 300;
-  int n_init = 10;
-  std::string algorithm = "lloyd";
-  std::string normalization = "l2";
+  int random_state;
+  int max_iter;
+  int n_init;
+  std::string algorithm;
+  std::string normalization;
 };
 
 // Routing hyperparameters
 struct RoutingConfig {
-  float cost_bias_min = 0.0f;
-  float cost_bias_max = 1.0f;
-  float default_cost_bias = 0.5f;
-  int max_alternatives = 5;
+  float cost_bias_min;
+  float cost_bias_max;
+  float default_cost_bias;
+  int max_alternatives;
 };
 
 // Cluster centers (zero-copy variant)
@@ -48,7 +48,7 @@ using ClusterCenters = std::variant<EmbeddingMatrixT<float>, EmbeddingMatrixT<do
 
 // Optimized checkpoint structure
 struct NordlysCheckpoint {
-  std::string version = CHECKPOINT_VERSION;
+  std::string version;
 
   // Core data (required for routing)
   ClusterCenters cluster_centers;  // Shape: (n_clusters, feature_dim)
