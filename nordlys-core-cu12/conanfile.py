@@ -1,15 +1,10 @@
 from conan import ConanFile
 from conan.tools.cmake import cmake_layout
-from pathlib import Path
 
 
 class NordlysCoreCu12Conan(ConanFile):
     name = "nordlys_core_cu12"
-
-    def set_version(self):
-        # Read version from VERSION file (single source of truth)
-        version_file = Path(__file__).parent / "../nordlys-core/VERSION"
-        self.version = version_file.read_text().strip()
+    version = "0.1.4"
 
     settings = "os", "compiler", "build_type", "arch"
     generators = "CMakeToolchain", "CMakeDeps"
