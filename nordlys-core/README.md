@@ -79,6 +79,8 @@ cmake --build .
 - `DNORDLYS_BUILD_PYTHON=ON|OFF` - Build Python bindings (default: ON)
 - `DNORDLYS_BUILD_C=ON|OFF` - Build C FFI bindings (default: OFF)
 - `DNORDLYS_BUILD_TESTS=ON|OFF` - Build test suite (default: OFF)
+- `DNORDLYS_BUILD_BENCHMARKS=ON|OFF` - Build benchmark suite (default: OFF)
+- `DNORDLYS_BUILD_PROFILE=ON|OFF` - Build with profiling symbols (default: OFF)
 - `DNORDLYS_ENABLE_CUDA=ON|OFF` - Enable CUDA support (default: OFF)
 
 ## Testing
@@ -94,6 +96,63 @@ ctest --output-on-failure
 ctest -R cuda --output-on-failure
 ```
 
+## Benchmarking
+
+Run performance benchmarks to measure routing latency and throughput:
+
+```bash
+# Build with benchmarks enabled
+cmake --preset conan-release -DNORDLYS_BUILD_BENCHMARKS=ON
+cmake --build --preset conan-release
+
+# Run all benchmarks
+./build/Release/benchmarks/bench_nordlys_core
+
+# Run specific benchmark pattern
+./build/Release/benchmarks/bench_nordlys_core --benchmark_filter=RoutingSingle
+
+# Save results to JSON
+./build/Release/benchmarks/bench_nordlys_core \
+  --benchmark_format=json \
+  --benchmark_out=results.json
+```
+
+Benchmarks measure:
+- **Single routing latency** across different profile sizes
+- **Batch routing throughput** for high-load scenarios
+- **Checkpoint loading** and router initialization time
+- **Concurrent routing** performance with multiple threads
+
+See [benchmarks/README.md](benchmarks/README.md) for detailed documentation.
+
+## Profiling
+
+Profile benchmarks using Tracy Profiler - a unified real-time profiling tool:
+
+```bash
+# Build with Tracy enabled
+cmake --preset conan-release \
+  -DNORDLYS_BUILD_BENCHMARKS=ON \
+  -DNORDLYS_ENABLE_TRACY=ON
+cmake --build --preset conan-release
+
+# Run Tracy profiler (downloads GUI automatically on first run)
+./benchmarks/scripts/run_tracy.sh RoutingSingle_Medium
+
+# Or use CMake target
+cmake --build --preset conan-release --target bench_tracy
+```
+
+**Tracy provides:**
+- Real-time CPU profiling with flame graphs
+- Memory allocation tracking
+- GPU profiling (CUDA support)
+- Interactive GUI with zoom/filter
+- <1% performance overhead
+- Cross-platform (Linux, macOS, Windows)
+
+See [benchmarks/PROFILING.md](benchmarks/PROFILING.md) for detailed guide.
+
 ## Usage Examples
 
 ### C API Usage
@@ -101,8 +160,8 @@ ctest -R cuda --output-on-failure
 ```c
 #include "nordlys.h"
 
-// Create router from profile
-NordlysRouter* router = nordlys_router_create("profile.json");
+// Create router from checkpoint
+NordlysRouter* router = nordlys_router_create("checkpoint.json");
 
 // Route with embedding
 float embedding[] = {0.1f, 0.2f, ...};
@@ -122,11 +181,12 @@ nordlys_router_destroy(router);
 
 ```python
 # The C++ core is automatically used by the Python package
-from nordlys import ModelRouter
+from nordlys_core_ext import Nordlys32, NordlysCheckpoint
 
-router = ModelRouter.from_file("profile.json")
-response = router.select_model(prompt="Write a Python function")
-print(f"Selected: {response.model_id}")
+checkpoint = NordlysCheckpoint.from_json_file("checkpoint.json")
+engine = Nordlys32.from_checkpoint(checkpoint)
+result = engine.route(embedding, cost_bias=0.5)
+print(f"Selected: {result.selected_model}")
 ```
 
 ## Architecture

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <format>
+#include <nordlys_core/tracy.hpp>
 #include <ranges>
 #include <stdexcept>
 #include <unordered_map>
@@ -45,6 +46,7 @@ void ModelScorer::set_lambda_params(float lambda_min, float lambda_max) {
 
 std::vector<ModelScore> ModelScorer::score_models(int cluster_id, float cost_bias,
                                                   const std::vector<std::string>& filter) {
+  NORDLYS_ZONE;
   // Validate cluster_id
   if (cluster_id < 0) {
     throw std::invalid_argument(

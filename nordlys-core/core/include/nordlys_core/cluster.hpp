@@ -4,6 +4,7 @@
 #include <utility>
 
 #include "nordlys_core/cluster_backend.hpp"
+#include "nordlys_core/tracy.hpp"
 
 // Templated types for multi-precision support
 template<typename Scalar>
@@ -30,6 +31,7 @@ public:
   ClusterEngineT& operator=(const ClusterEngineT&) = delete;
 
   void load_centroids(const EmbeddingMatrixT<Scalar>& centers) {
+    NORDLYS_ZONE;
     dim_ = static_cast<int>(centers.cols());
     int n_clusters = static_cast<int>(centers.rows());
 
@@ -38,6 +40,7 @@ public:
   }
 
   [[nodiscard]] std::pair<int, Scalar> assign(const EmbeddingVectorT<Scalar>& embedding) {
+    NORDLYS_ZONE;
     return backend_->assign(embedding.data(), static_cast<int>(embedding.size()));
   }
 

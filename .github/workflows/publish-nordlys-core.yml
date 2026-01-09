@@ -51,6 +51,7 @@ jobs:
           CIBW_BUILD: "cp311-* cp312-* cp313-*"
           CIBW_SKIP: "*-musllinux_* *-win32 *_i686"
           CIBW_BUILD_VERBOSITY: 1
+          CIBW_BUILD_FRONTEND: "build[uv]"
           CIBW_MANYLINUX_X86_64_IMAGE: "quay.io/pypa/manylinux_2_34_x86_64"
           CIBW_BEFORE_ALL_LINUX: "dnf install -y cmake"
           CIBW_BEFORE_ALL_MACOS: "brew install cmake"
@@ -60,6 +61,7 @@ jobs:
           CIBW_ENVIRONMENT: "NORDLYS_ENABLE_CUDA=OFF"
         with:
           package-dir: ./nordlys-core/bindings/python
+          extras: uv
 
       - uses: actions/upload-artifact@v6
         with:
@@ -111,6 +113,7 @@ jobs:
           CIBW_BUILD: "cp311-* cp312-* cp313-*"
           CIBW_SKIP: "*-musllinux_* *-win32 *_i686 *-macosx_* *-win_*"
           CIBW_BUILD_VERBOSITY: 1
+          CIBW_BUILD_FRONTEND: "build[uv]"
           CIBW_MANYLINUX_X86_64_IMAGE: "quay.io/pypa/manylinux_2_34_x86_64"
           CIBW_BEFORE_ALL_LINUX: >
             dnf install -y wget cmake dnf-plugins-core &&
@@ -140,6 +143,7 @@ jobs:
             -w {dest_dir} {wheel}
         with:
           package-dir: ./nordlys-core-cu12
+          extras: uv
 
       - uses: actions/upload-artifact@v6
         with:

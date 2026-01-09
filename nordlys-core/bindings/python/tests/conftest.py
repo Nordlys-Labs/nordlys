@@ -79,16 +79,18 @@ def sample_profile_json_float64() -> str:
 
 
 @pytest.fixture
-def router(sample_profile_json: str):
-    """Create a Router instance from sample profile."""
-    from nordlys_core_ext import Router
+def nordlys32(sample_profile_json: str):
+    """Create a Nordlys32 instance from sample profile."""
+    from nordlys_core_ext import Nordlys32, NordlysCheckpoint
 
-    return Router.from_json_string(sample_profile_json)
+    checkpoint = NordlysCheckpoint.from_json_string(sample_profile_json)
+    return Nordlys32.from_checkpoint(checkpoint)
 
 
 @pytest.fixture
-def router_float64(sample_profile_json_float64: str):
-    """Create a float64 Router instance from sample profile."""
-    from nordlys_core_ext import Router
+def nordlys64(sample_profile_json_float64: str):
+    """Create a Nordlys64 instance from sample profile."""
+    from nordlys_core_ext import Nordlys64, NordlysCheckpoint
 
-    return Router.from_json_string(sample_profile_json_float64)
+    checkpoint = NordlysCheckpoint.from_json_string(sample_profile_json_float64)
+    return Nordlys64.from_checkpoint(checkpoint)

@@ -4,10 +4,7 @@ from conan.tools.cmake import cmake_layout
 
 class NordlysCoreCu12Conan(ConanFile):
     name = "nordlys_core_cu12"
-
-    def set_version(self):
-        # Hardcoded version to match pyproject.toml
-        self.version = "0.1.0"
+    version = "0.1.4"
 
     settings = "os", "compiler", "build_type", "arch"
     generators = "CMakeToolchain", "CMakeDeps"

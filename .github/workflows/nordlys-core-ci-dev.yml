@@ -59,7 +59,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: nordlys-core
-        run: conan install . --build=missing -of=build -s compiler.cppstd=20
+        run: conan install . --build=missing -s compiler.cppstd=20
 
       - name: Configure
         working-directory: nordlys-core
@@ -69,7 +69,9 @@ jobs:
             -DNORDLYS_BUILD_TESTS=ON \
             -DNORDLYS_BUILD_PYTHON=ON \
             -DNORDLYS_BUILD_C=ON \
-            -DNORDLYS_ENABLE_CUDA=OFF
+            -DNORDLYS_BUILD_BENCHMARKS=ON \
+            -DNORDLYS_ENABLE_CUDA=OFF \
+            -DNORDLYS_ENABLE_TRACY=ON
 
       - name: Build
         working-directory: nordlys-core
@@ -78,3 +80,52 @@ jobs:
       - name: Test
         working-directory: nordlys-core
         run: ctest --preset conan-release --output-on-failure
+
+      - name: Run Benchmarks
+        working-directory: nordlys-core
+        run: |
+          ./build/Release/benchmarks/bench_nordlys_core \
+            --benchmark_format=json \
+            --benchmark_out=benchmark_results.json
+
+      - name: Capture Tracy Profile (Linux only)
+        if: matrix.os == 'linux'
+        working-directory: nordlys-core
+        run: |
+          ./benchmarks/scripts/tracy_ci_capture.sh RoutingSingle_Medium --time 15
+        continue-on-error: true
+
+      - name: Upload Tracy Capture
+        if: matrix.os == 'linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tracy-capture-${{ matrix.os }}
+          path: nordlys-core/benchmarks/tracy_captures/*.tracy
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Download previous benchmark data
+        uses: actions/cache@v5
+        with:
+          path: ./cache
+          key: ${{ runner.os }}-benchmark-nordlys-core
+
+      - name: Store and Compare Benchmark Results
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: Nordlys Core Benchmarks (${{ matrix.os }})
+          tool: 'googlecpp'
+          output-file-path: nordlys-core/benchmark_results.json
+          external-data-json-path: ./cache/benchmark-data.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          alert-threshold: '150%'
+          comment-on-alert: true
+          fail-on-alert: false
+
+      - name: Upload Benchmark Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: benchmark-results-${{ matrix.os }}
+          path: nordlys-core/benchmark_results.json
+          retention-days: 90

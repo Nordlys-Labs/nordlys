@@ -8,11 +8,11 @@
 #include <variant>
 
 #include "nordlys.h"
-#include <nordlys_core/router.hpp>
-#include <nordlys_core/profile.hpp>
+#include <nordlys_core/nordlys.hpp>
+#include <nordlys_core/checkpoint.hpp>
 
 // Type-erased router: either float or double precision
-using RouterVariant = std::variant<RouterT<float>, RouterT<double>>;
+using RouterVariant = std::variant<Nordlys<float>, Nordlys<double>>;
 
 // Internal helper to convert std::string to C string
 static char* str_duplicate(const std::string& str) {
@@ -48,21 +48,21 @@ static RouterVariant* get_router(NordlysRouter* router) {
 }
 
 // Factory: creates correct router type based on profile dtype
-static std::optional<RouterVariant> create_router_variant(RouterProfile profile) {
+static std::optional<RouterVariant> create_router_variant(NordlysCheckpoint profile) {
   if (profile.is_float64()) {
-    auto result = RouterT<double>::from_profile(std::move(profile));
+    auto result = Nordlys<double>::from_checkpoint(std::move(profile));
     if (!result) return std::nullopt;
-    return RouterVariant{std::in_place_type<RouterT<double>>, std::move(result.value())};
+    return RouterVariant{std::in_place_type<Nordlys<double>>, std::move(result.value())};
   } else {
-    auto result = RouterT<float>::from_profile(std::move(profile));
+    auto result = Nordlys<float>::from_checkpoint(std::move(profile));
     if (!result) return std::nullopt;
-    return RouterVariant{std::in_place_type<RouterT<float>>, std::move(result.value())};
+    return RouterVariant{std::in_place_type<Nordlys<float>>, std::move(result.value())};
   }
 }
 
-// Helper to build precision-specific result from RouteResponseT<Scalar>
+// Helper to build precision-specific result from RouteResult<Scalar>
 template<typename Scalar, typename ResultT>
-static ResultT* build_route_result(const RouteResponseT<Scalar>& response) {
+static ResultT* build_route_result(const RouteResult<Scalar>& response) {
    auto* result = static_cast<ResultT*>(malloc(sizeof(ResultT)));
    if (!result) return nullptr;
 
@@ -107,7 +107,7 @@ extern "C" {
 NordlysRouter* nordlys_router_create(const char* profile_path) {
   if (!profile_path) return nullptr;
   try {
-    auto profile = RouterProfile::from_json(profile_path);
+    auto profile = NordlysCheckpoint::from_json(profile_path);
     auto variant = create_router_variant(std::move(profile));
     if (!variant) return nullptr;
     return reinterpret_cast<NordlysRouter*>(new RouterVariant(std::move(*variant)));
@@ -119,7 +119,7 @@ NordlysRouter* nordlys_router_create(const char* profile_path) {
 NordlysRouter* nordlys_router_create_from_json(const char* json_str) {
   if (!json_str) return nullptr;
   try {
-    auto profile = RouterProfile::from_json_string(json_str);
+    auto profile = NordlysCheckpoint::from_json_string(json_str);
     auto variant = create_router_variant(std::move(profile));
     if (!variant) return nullptr;
     return reinterpret_cast<NordlysRouter*>(new RouterVariant(std::move(*variant)));
@@ -128,10 +128,10 @@ NordlysRouter* nordlys_router_create_from_json(const char* json_str) {
   }
 }
 
-NordlysRouter* nordlys_router_create_from_binary(const char* path) {
+NordlysRouter* nordlys_router_create_from_msgpack(const char* path) {
   if (!path) return nullptr;
   try {
-    auto profile = RouterProfile::from_binary(path);
+    auto profile = NordlysCheckpoint::from_msgpack(path);
     auto variant = create_router_variant(std::move(profile));
     if (!variant) return nullptr;
     return reinterpret_cast<NordlysRouter*>(new RouterVariant(std::move(*variant)));
@@ -162,12 +162,12 @@ NordlysRouteResult32* nordlys_router_route_f32(NordlysRouter* router, const floa
     auto* var = get_router(router);
 
     // Strict: only works on float32 router
-    if (!std::holds_alternative<RouterT<float>>(*var)) {
+    if (!std::holds_alternative<Nordlys<float>>(*var)) {
       if (error_out) *error_out = NORDLYS_ERROR_TYPE_MISMATCH;
       return nullptr;
     }
 
-    auto& r = std::get<RouterT<float>>(*var);
+    auto& r = std::get<Nordlys<float>>(*var);
     auto response = r.route(embedding, embedding_size, cost_bias);
     return build_route_result<float, NordlysRouteResult32>(response);
   } catch (...) {
@@ -208,12 +208,12 @@ NordlysRouteResult64* nordlys_router_route_f64(NordlysRouter* router, const doub
     auto* var = get_router(router);
 
     // Strict: only works on float64 router
-    if (!std::holds_alternative<RouterT<double>>(*var)) {
+    if (!std::holds_alternative<Nordlys<double>>(*var)) {
       if (error_out) *error_out = NORDLYS_ERROR_TYPE_MISMATCH;
       return nullptr;
     }
 
-    auto& r = std::get<RouterT<double>>(*var);
+    auto& r = std::get<Nordlys<double>>(*var);
     auto response = r.route(embedding, embedding_size, cost_bias);
     return build_route_result<double, NordlysRouteResult64>(response);
   } catch (...) {
@@ -475,7 +475,7 @@ void nordlys_string_array_free(char** strings, size_t count) {
 NordlysPrecision nordlys_router_get_precision(NordlysRouter* router) {
   if (!router) return NORDLYS_PRECISION_UNKNOWN;
   auto* var = get_router(router);
-  return std::holds_alternative<RouterT<double>>(*var)
+  return std::holds_alternative<Nordlys<double>>(*var)
       ? NORDLYS_PRECISION_FLOAT64
       : NORDLYS_PRECISION_FLOAT32;
 }
