@@ -149,8 +149,7 @@ class Nordlys:
     def __init__(
         self,
         models: list[ModelConfig],
-        embedding_model: str
-        | SentenceTransformer = "sentence-transformers/all-MiniLM-L6-v2",
+        embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2",
         umap_model: Reducer | None = None,
         cluster_model: Clusterer | None = None,
         nr_clusters: int = 20,
@@ -161,7 +160,7 @@ class Nordlys:
 
         Args:
             models: List of model configurations with costs
-            embedding_model: Sentence transformer model name or instance
+            embedding_model: Hugging Face model ID (e.g., "sentence-transformers/all-MiniLM-L6-v2")
             umap_model: Optional dimensionality reducer (e.g., UMAPReducer, PCAReducer)
             cluster_model: Clustering algorithm (default: KMeansClusterer)
             nr_clusters: Number of clusters (used if cluster_model is None)
@@ -177,19 +176,9 @@ class Nordlys:
         self._models = models
         self._model_ids = [m.id for m in models]
 
-        # Embedding model
-        self._embedding_model_name = (
-            embedding_model
-            if isinstance(embedding_model, str)
-            else embedding_model.model_card_data.model_name
-            if hasattr(embedding_model, "model_card_data")
-            else "custom"
-        )
-        self._embedding_model: SentenceTransformer | None = (
-            embedding_model
-            if isinstance(embedding_model, SentenceTransformer)
-            else None
-        )
+        # Embedding model - lazy loaded on first use
+        self._embedding_model_name = embedding_model
+        self._embedding_model: SentenceTransformer | None = None
         self._allow_trust_remote_code = allow_trust_remote_code
 
         # Reducer (optional)
@@ -313,22 +302,29 @@ class Nordlys:
         logger.info(f"Clustering complete: {self._metrics}")
 
         # Step 5: Compute per-cluster accuracy for each model
-        self._model_accuracies = {}
-        for cluster_id in range(self._clusterer.n_clusters_):
-            mask = self._labels == cluster_id
-            if not mask.any():
-                continue
-
-            cluster_accuracies = {}
-            for model_id in self._model_ids:
-                accuracy = df.loc[mask, model_id].mean()
-                cluster_accuracies[model_id] = float(accuracy)
-
-            self._model_accuracies[cluster_id] = cluster_accuracies
+        self._model_accuracies = {
+            cluster_id: {
+                model_id: float(df.loc[mask, model_id].mean())
+                for model_id in self._model_ids
+            }
+            for cluster_id in range(self._clusterer.n_clusters_)
+            if (mask := self._labels == cluster_id).any()
+        }
 
         self._is_fitted = True
-        logger.info("Nordlys fitting complete")
 
+        # Step 6: Initialize C++ core engine - required for routing
+        logger.info("Initializing C++ core engine...")
+        checkpoint = self._to_checkpoint()
+        try:
+            if self._dtype == "float32":
+                self._core_engine = Nordlys32.from_checkpoint(checkpoint)
+            else:
+                self._core_engine = Nordlys64.from_checkpoint(checkpoint)
+        except Exception as e:
+            raise RuntimeError(f"Failed to initialize C++ core engine: {e}") from e
+
+        logger.info("Nordlys fitting complete")
         return self
 
     def fit_transform(
@@ -379,7 +375,7 @@ class Nordlys:
         prompt: str,
         cost_bias: float = 0.5,
     ) -> RouteResult:
-        """Route a prompt to the best model.
+        """Route a prompt to the best model using C++ core engine.
 
         Args:
             prompt: The text prompt to route
@@ -389,62 +385,8 @@ class Nordlys:
             RouteResult with selected model and alternatives
         """
         self._check_is_fitted()
-
-        # Use C++ core if available (faster)
-        if self._core_engine is not None:
-            return self._route_with_core(prompt, cost_bias)
-
-        # Fall back to Python implementation
-        return self._route_python(prompt, cost_bias)
-
-    def _route_python(self, prompt: str, cost_bias: float) -> RouteResult:
-        """Python implementation of routing."""
-        # Compute embedding
-        embedding = self._compute_embeddings([prompt])[0]
-
-        # Apply reducer if fitted
-        if self._reducer is not None:
-            reduced = self._reducer.transform(embedding.reshape(1, -1))[0]
-        else:
-            reduced = embedding
-
-        # Find nearest cluster (centroids guaranteed set after _check_is_fitted)
-        assert self._centroids is not None
-        assert self._model_accuracies is not None
-        distances = np.linalg.norm(self._centroids - reduced, axis=1)
-        cluster_id = int(np.argmin(distances))
-        cluster_distance = float(distances[cluster_id])
-
-        # Score models for this cluster
-        cluster_accuracies = self._model_accuracies.get(cluster_id, {})
-        scored_models = self._score_models(cluster_accuracies, cost_bias)
-
-        if not scored_models:
-            # Fallback to cheapest model
-            sorted_by_cost = sorted(self._models, key=lambda m: m.cost_average)
-            return RouteResult(
-                model_id=sorted_by_cost[0].id,
-                cluster_id=cluster_id,
-                cluster_distance=cluster_distance,
-                alternatives=[],
-            )
-
-        # Best model is first
-        best = scored_models[0]
-        alternatives = [
-            Alternative(model_id=m[0], score=m[1]) for m in scored_models[1:]
-        ]
-
-        return RouteResult(
-            model_id=best[0],
-            cluster_id=cluster_id,
-            cluster_distance=cluster_distance,
-            alternatives=alternatives,
-        )
-
-    def _route_with_core(self, prompt: str, cost_bias: float) -> RouteResult:
-        """Route using C++ core."""
         assert self._core_engine is not None
+
         # Compute embedding
         embedding = self._compute_embeddings([prompt])[0]
 
@@ -457,8 +399,7 @@ class Nordlys:
         response = self._core_engine.route(embedding, cost_bias, [])
 
         alternatives = [
-            Alternative(model_id=m, score=0.0)  # C++ doesn't return scores
-            for m in response.alternatives
+            Alternative(model_id=m, score=0.0) for m in response.alternatives
         ]
 
         return RouteResult(
@@ -483,41 +424,6 @@ class Nordlys:
             List of RouteResults
         """
         return [self.route(p, cost_bias) for p in prompts]
-
-    def _score_models(
-        self,
-        cluster_accuracies: dict[str, float],
-        cost_bias: float,
-    ) -> list[tuple[str, float]]:
-        """Score and rank models for a cluster.
-
-        Score = accuracy * cost_bias - normalized_cost * (1 - cost_bias)
-
-        Higher cost_bias = prefer accuracy
-        Lower cost_bias = prefer cheaper models
-        """
-        if not cluster_accuracies:
-            return []
-
-        # Normalize costs
-        costs = {m.id: m.cost_average for m in self._models}
-        max_cost = max(costs.values()) if costs else 1.0
-        min_cost = min(costs.values()) if costs else 0.0
-        cost_range = max_cost - min_cost if max_cost > min_cost else 1.0
-
-        scored = []
-        for model_id in self._model_ids:
-            accuracy = cluster_accuracies.get(model_id, 0.5)
-            cost = costs.get(model_id, max_cost)
-            normalized_cost = (cost - min_cost) / cost_range
-
-            # Score: higher is better
-            score = accuracy * cost_bias - normalized_cost * (1 - cost_bias)
-            scored.append((model_id, score))
-
-        # Sort by score descending
-        scored.sort(key=lambda x: x[1], reverse=True)
-        return scored
 
     def _check_is_fitted(self) -> None:
         """Check if model is fitted."""
@@ -564,11 +470,10 @@ class Nordlys:
         self._check_is_fitted()
         assert self._centroids is not None
 
-        clusters = []
-        for cluster_id in range(len(self._centroids)):
-            clusters.append(self.get_cluster_info(cluster_id))
-
-        return clusters
+        return [
+            self.get_cluster_info(cluster_id)
+            for cluster_id in range(len(self._centroids))
+        ]
 
     def get_metrics(self) -> ClusterMetrics:
         """Get clustering metrics.
@@ -667,28 +572,23 @@ class Nordlys:
         assert self._metrics is not None
 
         # Build models list with error rates
-        models = []
-        for model_config in self._models:
-            error_rates = []
-            for cluster_id in range(len(self._centroids)):
-                accuracy = self._model_accuracies.get(cluster_id, {}).get(
-                    model_config.id, 0.5
-                )
-                error_rates.append(1.0 - accuracy)
-
+        def _build_model_dict(model_config: ModelConfig) -> dict:
             parts = model_config.id.split("/", 1)
-            provider = parts[0] if len(parts) > 1 else "unknown"
-            model_name = parts[1] if len(parts) > 1 else model_config.id
+            return {
+                "provider": parts[0] if len(parts) > 1 else "unknown",
+                "model_name": parts[1] if len(parts) > 1 else model_config.id,
+                "cost_per_1m_input_tokens": model_config.cost_input,
+                "cost_per_1m_output_tokens": model_config.cost_output,
+                "error_rates": [
+                    1.0
+                    - self._model_accuracies.get(cluster_id, {}).get(
+                        model_config.id, 0.5
+                    )
+                    for cluster_id in range(len(self._centroids))
+                ],
+            }
 
-            models.append(
-                {
-                    "provider": provider,
-                    "model_name": model_name,
-                    "cost_per_1m_input_tokens": model_config.cost_input,
-                    "cost_per_1m_output_tokens": model_config.cost_output,
-                    "error_rates": error_rates,
-                }
-            )
+        models = [_build_model_dict(model_config) for model_config in self._models]
 
         # Cluster centers (use reduced if available, else full embeddings)
         centers = self._centroids.tolist()
