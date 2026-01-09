@@ -61,6 +61,15 @@ set(SIMSIMD_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(SIMSIMD_BUILD_BENCHMARKS OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(simsimd)
 
+# Suppress MSVC unreachable code warning in SimSIMD (external dependency)
+if(TARGET simsimd)
+  if(MSVC)
+    target_compile_options(simsimd PRIVATE /wd4702)
+  else()
+    target_compile_options(simsimd PRIVATE -Wno-unreachable-code)
+  endif()
+endif()
+
 # USearch (CPU vector search with SimSIMD backend)
 FetchContent_Declare(
   usearch
