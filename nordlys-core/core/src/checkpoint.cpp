@@ -146,22 +146,22 @@ NordlysCheckpoint NordlysCheckpoint::from_json_string(const std::string& json_st
 
   // Cluster centers
   const auto& centers_json = j.at("cluster_centers");
-  int n_clusters = checkpoint.clustering.n_clusters;
-  int feature_dim = static_cast<int>(centers_json[0].size());
+  auto n_clusters = static_cast<size_t>(checkpoint.clustering.n_clusters);
+  size_t feature_dim = centers_json[0].size();
 
   if (checkpoint.embedding.dtype == "float64") {
-    EmbeddingMatrixT<double> centers(n_clusters, feature_dim);
-    for (int i = 0; i < n_clusters; ++i) {
-      for (int col = 0; col < feature_dim; ++col) {
-        centers(i, col) = centers_json[i][col].get<double>();
+    EmbeddingMatrixT<double> centers(static_cast<int>(n_clusters), static_cast<int>(feature_dim));
+    for (size_t i = 0; i < n_clusters; ++i) {
+      for (size_t col = 0; col < feature_dim; ++col) {
+        centers(static_cast<int>(i), static_cast<int>(col)) = centers_json[i][col].get<double>();
       }
     }
     checkpoint.cluster_centers = std::move(centers);
   } else {
-    EmbeddingMatrixT<float> centers(n_clusters, feature_dim);
-    for (int i = 0; i < n_clusters; ++i) {
-      for (int col = 0; col < feature_dim; ++col) {
-        centers(i, col) = centers_json[i][col].get<float>();
+    EmbeddingMatrixT<float> centers(static_cast<int>(n_clusters), static_cast<int>(feature_dim));
+    for (size_t i = 0; i < n_clusters; ++i) {
+      for (size_t col = 0; col < feature_dim; ++col) {
+        centers(static_cast<int>(i), static_cast<int>(col)) = centers_json[i][col].get<float>();
       }
     }
     checkpoint.cluster_centers = std::move(centers);
