@@ -1,0 +1,69 @@
+name: Build CPU Wheels
+
+on:
+  workflow_call:
+    inputs:
+      validate-version:
+        description: 'Validate wheel versions match VERSION file and tag'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  build_wheels_cpu:
+    name: Build CPU wheels (${{ matrix.os }})
+    runs-on: ${{ matrix.runs-on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: linux-intel, runs-on: ubuntu-latest }
+          - { os: windows-intel, runs-on: windows-latest }
+          - { os: macos-intel, runs-on: macos-15-intel }
+          - { os: macos-arm, runs-on: macos-latest }
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Extract version from tag (publish only)
+        if: inputs.validate-version
+        id: version
+        shell: bash
+        run: |
+          TAG_VERSION=$(echo "${GITHUB_REF#refs/tags/core-v}" | sed 's/^v//')
+          echo "version=$TAG_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Assert version matches tag (publish only)
+        if: inputs.validate-version
+        shell: bash
+        run: |
+          VERSION=$(cat nordlys-core/VERSION | tr -d '[:space:]')
+          TAG_VERSION=${{ steps.version.outputs.version }}
+          if [ "$VERSION" != "$TAG_VERSION" ]; then
+            echo "Error: VERSION file version ($VERSION) does not match tag ($TAG_VERSION)"
+            exit 1
+          fi
+          echo "Version verified: $VERSION"
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v3.3.1
+        env:
+          CIBW_BUILD: "cp311-* cp312-* cp313-*"
+          CIBW_SKIP: "*-musllinux_* *-win32 *_i686"
+          CIBW_BUILD_VERBOSITY: 1
+          CIBW_BUILD_FRONTEND: "build[uv]"
+          CIBW_MANYLINUX_X86_64_IMAGE: "quay.io/pypa/manylinux_2_34_x86_64"
+          CIBW_BEFORE_ALL_LINUX: "dnf install -y cmake"
+          CIBW_BEFORE_ALL_MACOS: "brew install cmake"
+          CIBW_BEFORE_BUILD: "pip install conan && conan profile detect --force"
+          CIBW_BEFORE_BUILD_MACOS: "pip install conan && conan profile detect --force --name default"
+          CIBW_ENVIRONMENT_MACOS: "CONAN_PROFILE_HOST=default MACOSX_DEPLOYMENT_TARGET=13.3"
+          CIBW_ENVIRONMENT: "NORDLYS_ENABLE_CUDA=OFF"
+        with:
+          package-dir: ./nordlys-core/bindings/python
+          extras: uv
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: cibw-wheels-cpu-${{ matrix.os }}
+          path: ./wheelhouse/*.whl

@@ -129,3 +129,16 @@ jobs:
           name: benchmark-results-${{ matrix.os }}
           path: nordlys-core/benchmark_results.json
           retention-days: 90
+
+  # ============================================
+  # Build Wheels (CPU and CUDA in parallel)
+  # ============================================
+  build_wheels_cpu:
+    uses: ./.github/workflows/_build-wheels-cpu.yml
+    with:
+      validate-version: false
+
+  build_wheels_cuda:
+    uses: ./.github/workflows/_build-wheels-cuda.yml
+    with:
+      validate-version: false
