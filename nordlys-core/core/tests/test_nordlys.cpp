@@ -11,8 +11,8 @@
 // Test Fixture for Nordlys32 Tests
 // ============================================================================
 
-// Test profile JSON for creating valid routers
-static const char* kTestProfileJson = R"({
+// Test checkpoint JSON for creating valid routers
+static const char* kTestCheckpointJson = R"({
   "metadata": {
     "n_clusters": 3,
     "embedding_model": "test-model",
@@ -54,8 +54,8 @@ static const char* kTestProfileJson = R"({
   ]
 })";
 
-// Test profile JSON for creating double-precision routers
-static const char* kTestProfileJsonFloat64 = R"({
+// Test checkpoint JSON for creating double-precision routers
+static const char* kTestCheckpointJsonFloat64 = R"({
   "metadata": {
     "n_clusters": 3,
     "embedding_model": "test-model",
@@ -102,8 +102,8 @@ class Nordlysest : public ::testing::Test {
  protected:
   // Helper to create a test router from JSON string
   Nordlys32 CreateTestRouter() {
-    auto profile = NordlysCheckpoint::from_json_string(kTestProfileJson);
-    auto result = Nordlys32::from_checkpoint(std::move(profile));
+    auto checkpoint = NordlysCheckpoint::from_json_string(kTestCheckpointJson);
+    auto result = Nordlys32::from_checkpoint(std::move(checkpoint));
     if (!result) {
       throw std::runtime_error("Failed to create test router: " + result.error());
     }
@@ -112,8 +112,8 @@ class Nordlysest : public ::testing::Test {
 
   // Helper to create a double-precision test router
   Nordlys<double> CreateTestRouterDouble() {
-    auto profile = NordlysCheckpoint::from_json_string(kTestProfileJsonFloat64);
-    auto result = Nordlys<double>::from_checkpoint(std::move(profile));
+    auto checkpoint = NordlysCheckpoint::from_json_string(kTestCheckpointJsonFloat64);
+    auto result = Nordlys<double>::from_checkpoint(std::move(checkpoint));
     if (!result) {
       throw std::runtime_error("Failed to create test router (double): " + result.error());
     }
@@ -138,7 +138,7 @@ TEST_F(Nordlysest, BasicInitialization) {
 }
 
 TEST_F(Nordlysest, EmbeddingDimension) {
-  // Verify get_embedding_dim() returns correct value from profile
+  // Verify get_embedding_dim() returns correct value from checkpoint
   auto router = CreateTestRouter();
 
   // Profile has 4D embeddings (3 clusters x 4 dimensions)
@@ -146,7 +146,7 @@ TEST_F(Nordlysest, EmbeddingDimension) {
 }
 
 TEST_F(Nordlysest, NClusters) {
-  // Verify get_n_clusters() returns correct value from profile
+  // Verify get_n_clusters() returns correct value from checkpoint
   auto router = CreateTestRouter();
 
   // Profile has 3 clusters
@@ -154,7 +154,7 @@ TEST_F(Nordlysest, NClusters) {
 }
 
 TEST_F(Nordlysest, SupportedModels) {
-  // Verify get_supported_models() returns all models from profile
+  // Verify get_supported_models() returns all models from checkpoint
   auto router = CreateTestRouter();
 
   auto models = router.get_supported_models();
@@ -319,7 +319,7 @@ TEST_F(Nordlysest, AlternativesRespectMaxAlternatives) {
 
   auto response = router.route(embedding.data(), embedding.size(), 0.5f);
 
-  // max_alternatives is 2 in test profile, and we have 2 models total
+  // max_alternatives is 2 in test checkpoint, and we have 2 models total
   // So alternatives should be at most 1 (total - selected = 2 - 1)
   EXPECT_LE(response.alternatives.size(), 2);
 }
@@ -424,7 +424,7 @@ TEST_F(Nordlysest, ResponseContainsAllRequiredFields) {
   // alternatives can be empty, but should not exceed min(max_alternatives, model_count - 1)
   const auto models = router.get_supported_models();
   const auto model_count = static_cast<unsigned int>(models.size());
-  const auto max_alternatives = 2u;  // from test profile routing.max_alternatives
+  const auto max_alternatives = 2u;  // from test checkpoint routing.max_alternatives
   const auto max_possible_alternatives = std::min(max_alternatives, model_count - 1u);
   EXPECT_LE(response.alternatives.size(), max_possible_alternatives);
 }
@@ -472,8 +472,8 @@ TEST_F(Nordlysest, CreateFromJsonString) {
     ]
   })";
 
-  auto profile = NordlysCheckpoint::from_json_string(json_profile);
-  auto result = Nordlys32::from_checkpoint(std::move(profile));
+  auto checkpoint = NordlysCheckpoint::from_json_string(json_profile);
+  auto result = Nordlys32::from_checkpoint(std::move(checkpoint));
 
   ASSERT_TRUE(result.has_value()) << "Failed to create router from JSON: " << result.error();
 
@@ -509,21 +509,21 @@ TEST_F(Nordlysest, DoublePrecisionClusterDistance) {
 }
 
 TEST_F(Nordlysest, DtypeMismatchValidation) {
-  // Test that Nordlys<float> rejects float64 profiles and vice versa
+  // Test that Nordlys<float> rejects float64 checkpoints and vice versa
 
-  // Create float64 profile
-  auto float64_profile = NordlysCheckpoint::from_json_string(kTestProfileJsonFloat64);
+  // Create float64 checkpoint
+  auto float64_checkpoint = NordlysCheckpoint::from_json_string(kTestCheckpointJsonFloat64);
 
-  // Try to create Nordlys<float> with float64 profile - should fail
-  auto result_float = Nordlys32::from_checkpoint(float64_profile);
+  // Try to create Nordlys<float> with float64 checkpoint - should fail
+  auto result_float = Nordlys32::from_checkpoint(float64_checkpoint);
   EXPECT_FALSE(result_float.has_value());
   EXPECT_TRUE(result_float.error().find("requires float32 checkpoint") != std::string::npos);
 
-  // Create float32 profile
-  auto float32_profile = NordlysCheckpoint::from_json_string(kTestProfileJson);
+  // Create float32 checkpoint
+  auto float32_checkpoint = NordlysCheckpoint::from_json_string(kTestCheckpointJson);
 
-  // Try to create Nordlys<double> with float32 profile - should fail
-  auto result_double = Nordlys<double>::from_checkpoint(float32_profile);
+  // Try to create Nordlys<double> with float32 checkpoint - should fail
+  auto result_double = Nordlys<double>::from_checkpoint(float32_checkpoint);
   EXPECT_FALSE(result_double.has_value());
   EXPECT_TRUE(result_double.error().find("requires float64 checkpoint") != std::string::npos);
 }

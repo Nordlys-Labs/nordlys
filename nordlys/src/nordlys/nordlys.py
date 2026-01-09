@@ -11,7 +11,6 @@ import logging
 import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
@@ -26,9 +25,7 @@ from nordlys.clustering import (
     compute_cluster_metrics,
 )
 from nordlys.reduction import Reducer
-
-if TYPE_CHECKING:
-    from nordlys_core_ext import Router as CoreRouter
+from nordlys_core_ext import Nordlys32, Nordlys64, NordlysCheckpoint
 
 
 logger = logging.getLogger(__name__)
@@ -216,16 +213,13 @@ class Nordlys:
         self._is_fitted = False
 
         # C++ core (initialized on load or after fit)
-        self._core_router: CoreRouter | None = None
+        self._core_engine: Nordlys32 | Nordlys64 | None = None
         self._dtype = "float32"
 
     def __del__(self) -> None:
         """Cleanup router resources."""
-        if hasattr(self, "_core_router") and self._core_router is not None:
-            try:
-                self._core_router.cleanup()
-            except (AttributeError, Exception):
-                pass
+        if self._core_engine is not None:
+            self._core_engine.cleanup()
 
     def _load_embedding_model(self) -> SentenceTransformer:
         """Load the embedding model lazily."""
@@ -397,7 +391,7 @@ class Nordlys:
         self._check_is_fitted()
 
         # Use C++ core if available (faster)
-        if self._core_router is not None:
+        if self._core_engine is not None:
             return self._route_with_core(prompt, cost_bias)
 
         # Fall back to Python implementation
@@ -450,7 +444,7 @@ class Nordlys:
 
     def _route_with_core(self, prompt: str, cost_bias: float) -> RouteResult:
         """Route using C++ core."""
-        assert self._core_router is not None
+        assert self._core_engine is not None
         # Compute embedding
         embedding = self._compute_embeddings([prompt])[0]
 
@@ -460,7 +454,7 @@ class Nordlys:
             embedding = np.ascontiguousarray(embedding, dtype=target_dtype)
 
         # Route using C++ core
-        response = self._core_router.route(embedding, cost_bias, [])
+        response = self._core_engine.route(embedding, cost_bias, [])
 
         alternatives = [
             Alternative(model_id=m, score=0.0)  # C++ doesn't return scores
@@ -649,31 +643,29 @@ class Nordlys:
     def save(self, path: str | Path) -> None:
         """Save the fitted model to a file.
 
-        Supports JSON (.json) and MessagePack (.msgpack) formats.
+        Supports both JSON (.json) and MessagePack (.msgpack) formats.
 
         Args:
-            path: Output file path
-
-        Raises:
-            RuntimeError: If model is not fitted
+            path: Output path (extension determines format)
         """
         self._check_is_fitted()
 
         path = Path(path)
-        profile = self._to_profile()
+        checkpoint = self._to_checkpoint()
 
         if path.suffix.lower() == ".msgpack":
-            self._save_msgpack(profile, path)
+            checkpoint.to_msgpack_file(str(path))
         else:
-            self._save_json(profile, path)
+            checkpoint.to_json_file(str(path))
 
         logger.info(f"Saved Nordlys model to {path}")
 
-    def _to_profile(self) -> dict[str, Any]:
-        """Convert fitted state to RouterProfile dict format."""
+    def _to_checkpoint(self) -> NordlysCheckpoint:
+        """Convert fitted state to NordlysCheckpoint."""
         assert self._centroids is not None
         assert self._model_accuracies is not None
         assert self._metrics is not None
+
         # Build models list with error rates
         models = []
         for model_config in self._models:
@@ -701,7 +693,7 @@ class Nordlys:
         # Cluster centers (use reduced if available, else full embeddings)
         centers = self._centroids.tolist()
 
-        return {
+        checkpoint_dict = {
             "cluster_centers": {
                 "n_clusters": len(centers),
                 "feature_dim": len(centers[0]) if centers else 0,
@@ -728,21 +720,12 @@ class Nordlys:
                     "lambda_min": 0.0,
                     "lambda_max": 2.0,
                     "default_cost_preference": 0.5,
+                    "max_alternatives": 5,
                 },
             },
         }
 
-    def _save_json(self, profile: dict[str, Any], path: Path) -> None:
-        """Save profile as JSON."""
-        with open(path, "w") as f:
-            json.dump(profile, f, indent=2)
-
-    def _save_msgpack(self, profile: dict[str, Any], path: Path) -> None:
-        """Save profile as MessagePack using C++ core."""
-        from nordlys_core_ext import RouterProfile as CppRouterProfile
-
-        cpp_profile = CppRouterProfile.from_json_string(json.dumps(profile))
-        cpp_profile.to_msgpack_file(str(path))
+        return NordlysCheckpoint.from_json_string(json.dumps(checkpoint_dict))
 
     @classmethod
     def load(
@@ -760,39 +743,26 @@ class Nordlys:
         path = Path(path)
 
         if path.suffix.lower() == ".msgpack":
-            profile = cls._load_profile_msgpack(path)
+            checkpoint = NordlysCheckpoint.from_msgpack_file(str(path))
         else:
-            profile = cls._load_profile_json(path)
+            checkpoint = NordlysCheckpoint.from_json_file(str(path))
 
-        return cls._from_profile(profile, models)
-
-    @staticmethod
-    def _load_profile_json(path: Path) -> dict[str, Any]:
-        """Load profile from JSON."""
-        with open(path) as f:
-            return json.load(f)
-
-    @staticmethod
-    def _load_profile_msgpack(path: Path) -> dict[str, Any]:
-        """Load profile from MessagePack."""
-        from nordlys_core_ext import RouterProfile as CppRouterProfile
-
-        cpp_profile = CppRouterProfile.from_msgpack_file(str(path))
-        return json.loads(cpp_profile.to_json_string())
+        return cls._from_checkpoint(checkpoint, models)
 
     @classmethod
-    def _from_profile(
+    def _from_checkpoint(
         cls,
-        profile: dict[str, Any],
+        checkpoint: NordlysCheckpoint,
         models: list[ModelConfig] | None = None,
     ) -> "Nordlys":
-        """Create Nordlys instance from profile dict."""
-        metadata = profile["metadata"]
+        """Create Nordlys instance from NordlysCheckpoint."""
+        # Parse checkpoint to dict for extracting model info
+        checkpoint_dict = json.loads(checkpoint.to_json_string())
 
         # Extract or create model configs
         if models is None:
             models = []
-            for m in profile["models"]:
+            for m in checkpoint_dict["models"]:
                 model_id = f"{m['provider']}/{m['model_name']}"
                 models.append(
                     ModelConfig(
@@ -805,23 +775,23 @@ class Nordlys:
         # Create instance
         instance = cls(
             models=models,
-            embedding_model=metadata["embedding_model"],
-            nr_clusters=metadata["n_clusters"],
-            random_state=metadata.get("clustering", {}).get("random_state", 42),
-            allow_trust_remote_code=metadata.get("allow_trust_remote_code", False),
+            embedding_model=checkpoint.embedding_model,
+            nr_clusters=checkpoint.n_clusters,
+            random_state=42,  # Use default, not exposed in checkpoint properties
+            allow_trust_remote_code=False,  # Use default
         )
 
         # Restore fitted state
-        centers = profile["cluster_centers"]["cluster_centers"]
+        centers = checkpoint_dict["cluster_centers"]["cluster_centers"]
         instance._centroids = np.array(centers)
-        instance._dtype = metadata.get("dtype", "float32")
+        instance._dtype = checkpoint.dtype
 
         # Restore model accuracies from error rates
         instance._model_accuracies = {}
         n_clusters = len(centers)
         for cluster_id in range(n_clusters):
             cluster_acc = {}
-            for m in profile["models"]:
+            for m in checkpoint_dict["models"]:
                 model_id = f"{m['provider']}/{m['model_name']}"
                 error_rate = m["error_rates"][cluster_id]
                 cluster_acc[model_id] = 1.0 - error_rate
@@ -831,22 +801,19 @@ class Nordlys:
         instance._labels = np.zeros(1, dtype=np.int32)
         instance._embeddings = np.zeros((1, len(centers[0]) if centers else 1))
         instance._metrics = ClusterMetrics(
-            silhouette_score=metadata.get("silhouette_score", 0.0),
+            silhouette_score=checkpoint.silhouette_score,
             n_clusters=n_clusters,
             n_samples=0,
             cluster_sizes=[0] * n_clusters,
         )
 
         # Initialize C++ core for fast routing
-        try:
-            from nordlys_core_ext import Router as CoreRouter
+        if checkpoint.dtype == "float32":
+            instance._core_engine = Nordlys32.from_checkpoint(checkpoint)
+        else:
+            instance._core_engine = Nordlys64.from_checkpoint(checkpoint)
 
-            profile_json = json.dumps(profile)
-            instance._core_router = CoreRouter.from_json_string(profile_json)
-            logger.info("C++ core initialized for fast routing")
-        except (ImportError, Exception) as e:
-            logger.warning(f"C++ core not available, using Python routing: {e}")
-            instance._core_router = None
+        logger.info(f"C++ core initialized for fast routing ({checkpoint.dtype})")
 
         instance._is_fitted = True
         return instance

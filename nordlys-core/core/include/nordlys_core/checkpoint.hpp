@@ -75,8 +75,7 @@ struct NordlysCheckpoint {
     return std::holds_alternative<EmbeddingMatrixT<double>>(cluster_centers);
   }
 
-  template<typename Scalar>
-  [[nodiscard]] const EmbeddingMatrixT<Scalar>& centers() const {
+  template <typename Scalar> [[nodiscard]] const EmbeddingMatrixT<Scalar>& centers() const {
     return std::get<EmbeddingMatrixT<Scalar>>(cluster_centers);
   }
 };

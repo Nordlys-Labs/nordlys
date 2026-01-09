@@ -1,8 +1,7 @@
-#include <nordlys_core/scorer.hpp>
-
 #include <algorithm>
 #include <cmath>
 #include <format>
+#include <nordlys_core/scorer.hpp>
 #include <nordlys_core/tracy.hpp>
 #include <ranges>
 #include <stdexcept>
@@ -49,9 +48,7 @@ std::vector<ModelScore> ModelScorer::score_models(int cluster_id, float cost_bia
   NORDLYS_ZONE;
   // Validate cluster_id
   if (cluster_id < 0) {
-    throw std::invalid_argument(
-      std::format("cluster_id must be non-negative, got {}", cluster_id)
-    );
+    throw std::invalid_argument(std::format("cluster_id must be non-negative, got {}", cluster_id));
   }
 
   // Build filter set if provided
@@ -65,9 +62,8 @@ std::vector<ModelScore> ModelScorer::score_models(int cluster_id, float cost_bia
     // Validate cluster_id is within bounds for this model's error_rates
     if (cluster_id >= static_cast<int>(model.error_rates.size())) {
       throw std::invalid_argument(
-        std::format("cluster_id {} is out of bounds for model '{}' which has {} error rates",
-                    cluster_id, model.model_id, model.error_rates.size())
-      );
+          std::format("cluster_id {} is out of bounds for model '{}' which has {} error rates",
+                      cluster_id, model.model_id, model.error_rates.size()));
     }
 
     float error_rate = model.error_rates[static_cast<std::size_t>(cluster_id)];
@@ -77,22 +73,19 @@ std::vector<ModelScore> ModelScorer::score_models(int cluster_id, float cost_bia
     // Score = error_rate + lambda * normalized_cost (lower is better)
     float score = error_rate + lambda * normalized_cost;
 
-    return ModelScore{
-      .model_id = model.model_id,
-      .score = score,
-      .error_rate = error_rate,
-      .accuracy = 1.0f - error_rate,
-      .cost = cost,
-      .normalized_cost = normalized_cost
-    };
+    return ModelScore{.model_id = model.model_id,
+                      .score = score,
+                      .error_rate = error_rate,
+                      .accuracy = 1.0f - error_rate,
+                      .cost = cost,
+                      .normalized_cost = normalized_cost};
   };
 
   // Filter models and transform to scores using ranges pipeline
-  auto filtered_models = models_
-    | std::views::filter([&](const auto& model) {
-        return !use_filter || filter_set.contains(model.model_id);
-      })
-    | std::views::transform(create_score);
+  auto filtered_models = models_ | std::views::filter([&](const auto& model) {
+                           return !use_filter || filter_set.contains(model.model_id);
+                         })
+                         | std::views::transform(create_score);
 
   // Convert to vector and sort
   std::vector<ModelScore> scores(filtered_models.begin(), filtered_models.end());

@@ -8,8 +8,8 @@ import numpy as np
 import pytest
 
 
-# Sample profile for testing
-SAMPLE_PROFILE = {
+# Sample checkpoint for testing
+SAMPLE_CHECKPOINT = {
     "metadata": {
         "n_clusters": 3,
         "embedding_model": "test-model",
@@ -51,46 +51,46 @@ SAMPLE_PROFILE = {
 
 
 @pytest.fixture
-def sample_profile_json() -> str:
-    """Return sample profile as JSON string."""
-    return json.dumps(SAMPLE_PROFILE)
+def sample_checkpoint_json() -> str:
+    """Return sample checkpoint as JSON string."""
+    return json.dumps(SAMPLE_CHECKPOINT)
 
 
 @pytest.fixture
-def sample_profile_path(tmp_path: Path) -> Path:
-    """Create a temporary profile file and return its path."""
-    profile_path = tmp_path / "test_profile.json"
-    profile_path.write_text(json.dumps(SAMPLE_PROFILE))
-    return profile_path
+def sample_checkpoint_path(tmp_path: Path) -> Path:
+    """Create a temporary checkpoint file and return its path."""
+    checkpoint_path = tmp_path / "test_checkpoint.json"
+    checkpoint_path.write_text(json.dumps(SAMPLE_CHECKPOINT))
+    return checkpoint_path
 
 
 @pytest.fixture
 def sample_embedding() -> np.ndarray:
-    """Return a sample 4-dim embedding matching the test profile."""
+    """Return a sample 4-dim embedding matching the test checkpoint."""
     return np.array([0.9, 0.1, 0.0, 0.0], dtype=np.float32)
 
 
 @pytest.fixture
-def sample_profile_json_float64() -> str:
-    """Return sample profile with float64 dtype as JSON string."""
-    profile = copy.deepcopy(SAMPLE_PROFILE)
-    profile["metadata"]["dtype"] = "float64"
-    return json.dumps(profile)
+def sample_checkpoint_json_float64() -> str:
+    """Return sample checkpoint with float64 dtype as JSON string."""
+    checkpoint = copy.deepcopy(SAMPLE_CHECKPOINT)
+    checkpoint["metadata"]["dtype"] = "float64"
+    return json.dumps(checkpoint)
 
 
 @pytest.fixture
-def nordlys32(sample_profile_json: str):
-    """Create a Nordlys32 instance from sample profile."""
+def nordlys32(sample_checkpoint_json: str):
+    """Create a Nordlys32 instance from sample checkpoint."""
     from nordlys_core_ext import Nordlys32, NordlysCheckpoint
 
-    checkpoint = NordlysCheckpoint.from_json_string(sample_profile_json)
+    checkpoint = NordlysCheckpoint.from_json_string(sample_checkpoint_json)
     return Nordlys32.from_checkpoint(checkpoint)
 
 
 @pytest.fixture
-def nordlys64(sample_profile_json_float64: str):
-    """Create a Nordlys64 instance from sample profile."""
+def nordlys64(sample_checkpoint_json_float64: str):
+    """Create a Nordlys64 instance from sample checkpoint."""
     from nordlys_core_ext import Nordlys64, NordlysCheckpoint
 
-    checkpoint = NordlysCheckpoint.from_json_string(sample_profile_json_float64)
+    checkpoint = NordlysCheckpoint.from_json_string(sample_checkpoint_json_float64)
     return Nordlys64.from_checkpoint(checkpoint)

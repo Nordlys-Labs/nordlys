@@ -10,16 +10,14 @@
 #include "scorer.hpp"
 #include "tracy.hpp"
 
-template<typename Scalar = float>
-struct RouteResult {
+template <typename Scalar = float> struct RouteResult {
   std::string selected_model;
   std::vector<std::string> alternatives;
   int cluster_id;
   Scalar cluster_distance;
 };
 
-template<typename Scalar = float>
-class Nordlys {
+template <typename Scalar = float> class Nordlys {
 public:
   using value_type = Scalar;
 
@@ -27,13 +25,13 @@ public:
     NORDLYS_ZONE_N("Nordlys::from_checkpoint");
     if constexpr (std::is_same_v<Scalar, float>) {
       if (!checkpoint.is_float32()) {
-        return Unexpected("Nordlys<float> requires float32 checkpoint, but checkpoint dtype is " +
-                         checkpoint.metadata.dtype);
+        return Unexpected("Nordlys<float> requires float32 checkpoint, but checkpoint dtype is "
+                          + checkpoint.metadata.dtype);
       }
     } else if constexpr (std::is_same_v<Scalar, double>) {
       if (!checkpoint.is_float64()) {
-        return Unexpected("Nordlys<double> requires float64 checkpoint, but checkpoint dtype is " +
-                         checkpoint.metadata.dtype);
+        return Unexpected("Nordlys<double> requires float64 checkpoint, but checkpoint dtype is "
+                          + checkpoint.metadata.dtype);
       }
     }
 
@@ -53,7 +51,7 @@ public:
   Nordlys& operator=(const Nordlys&) = delete;
 
   RouteResult<Scalar> route(const Scalar* data, size_t size, float cost_bias = 0.5f,
-                           const std::vector<std::string>& models = {}) {
+                            const std::vector<std::string>& models = {}) {
     NORDLYS_ZONE_N("Nordlys::route");
     if (size != static_cast<size_t>(dim_)) {
       throw std::invalid_argument(std::format("dimension mismatch: {} vs {}", dim_, size));
@@ -66,17 +64,16 @@ public:
 
     auto scores = scorer_.score_models(cid, cost_bias, models);
 
-    RouteResult<Scalar> resp{
-      .selected_model = scores.empty() ? "" : scores[0].model_id,
-      .alternatives = {},
-      .cluster_id = cid,
-      .cluster_distance = dist
-    };
+    RouteResult<Scalar> resp{.selected_model = scores.empty() ? "" : scores[0].model_id,
+                             .alternatives = {},
+                             .cluster_id = cid,
+                             .cluster_distance = dist};
 
     if (scores.size() > 1) {
-      size_t n = std::min(scores.size() - 1, static_cast<size_t>(checkpoint_.metadata.routing.max_alternatives));
+      size_t n = std::min(scores.size() - 1,
+                          static_cast<size_t>(checkpoint_.metadata.routing.max_alternatives));
       auto alts = scores | std::views::drop(1) | std::views::take(n)
-                        | std::views::transform(&ModelScore::model_id);
+                  | std::views::transform(&ModelScore::model_id);
       resp.alternatives.assign(alts.begin(), alts.end());
     }
     return resp;
@@ -101,7 +98,7 @@ private:
 
     scorer_.load_models(checkpoint_.models);
     scorer_.set_lambda_params(checkpoint_.metadata.routing.lambda_min,
-                               checkpoint_.metadata.routing.lambda_max);
+                              checkpoint_.metadata.routing.lambda_max);
   }
 
   ClusterEngineT<Scalar> engine_;

@@ -12,7 +12,7 @@ static NordlysCheckpoint LoadCheckpoint(const std::string& profile_name) {
 
 static void BM_RoutingSingle_Small(benchmark::State& state) {
   NORDLYS_ZONE;
-  auto checkpoint = LoadCheckpoint("profile_small.json");
+  auto checkpoint = LoadCheckpoint("checkpoint_small.json");
   auto router_result = Nordlys32::from_checkpoint(std::move(checkpoint));
 
   if (!router_result.has_value()) {
@@ -159,7 +159,7 @@ static void BM_RoutingColdStart_Small(benchmark::State& state) {
   auto embedding = bench_utils::GenerateRandomEmbedding(128);
 
   for (auto _ : state) {
-    auto checkpoint = LoadCheckpoint("profile_small.json");
+    auto checkpoint = LoadCheckpoint("checkpoint_small.json");
     auto router_result = Nordlys32::from_checkpoint(std::move(checkpoint));
 
     if (!router_result.has_value()) {

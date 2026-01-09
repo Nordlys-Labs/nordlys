@@ -7,28 +7,28 @@ import pytest
 class TestNordlys32Creation:
     """Test Nordlys32 factory methods."""
 
-    def test_from_checkpoint(self, sample_profile_json: str):
+    def test_from_checkpoint(self, sample_checkpoint_json: str):
         """Test creating nordlys32 from checkpoint."""
         from nordlys_core_ext import Nordlys32, NordlysCheckpoint
 
-        checkpoint = NordlysCheckpoint.from_json_string(sample_profile_json)
+        checkpoint = NordlysCheckpoint.from_json_string(sample_checkpoint_json)
         nordlys32 = Nordlys32.from_checkpoint(checkpoint)
         assert nordlys32.n_clusters == 3
         assert nordlys32.embedding_dim == 4
 
-    def test_from_checkpoint_file(self, sample_profile_path):
+    def test_from_checkpoint_file(self, sample_checkpoint_path):
         """Test creating nordlys32 from checkpoint loaded from file."""
         from nordlys_core_ext import Nordlys32, NordlysCheckpoint
 
-        checkpoint = NordlysCheckpoint.from_json_file(str(sample_profile_path))
+        checkpoint = NordlysCheckpoint.from_json_file(str(sample_checkpoint_path))
         nordlys32 = Nordlys32.from_checkpoint(checkpoint)
         assert nordlys32.n_clusters == 3
 
-    def test_dtype_mismatch_raises(self, sample_profile_json_float64: str):
+    def test_dtype_mismatch_raises(self, sample_checkpoint_json_float64: str):
         """Test that loading float64 checkpoint into Nordlys32 raises error."""
         from nordlys_core_ext import Nordlys32, NordlysCheckpoint
 
-        checkpoint = NordlysCheckpoint.from_json_string(sample_profile_json_float64)
+        checkpoint = NordlysCheckpoint.from_json_string(sample_checkpoint_json_float64)
         with pytest.raises(ValueError):
             Nordlys32.from_checkpoint(checkpoint)
 

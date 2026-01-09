@@ -49,10 +49,10 @@ protected:
 // (usearch headers are not CUDA-compatible)
 #ifndef __CUDACC__
 
-#include <usearch/index.hpp>
-#include <usearch/index_dense.hpp>
+#  include <usearch/index.hpp>
+#  include <usearch/index_dense.hpp>
 
-#include "nordlys_core/tracy.hpp"
+#  include "nordlys_core/tracy.hpp"
 
 // CPU backend: Hardware-accelerated implementation using SimSIMD
 // Uses direct metric computation (brute-force) with SIMD instructions

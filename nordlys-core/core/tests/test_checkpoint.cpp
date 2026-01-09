@@ -6,8 +6,8 @@
 // Suppress nodiscard warnings in tests since EXPECT_THROW requires ignoring return values
 #pragma GCC diagnostic ignored "-Wunused-result"
 
-// Test profile JSON for float32 profiles
-static const char* kTestProfileJson = R"({
+// Test checkpoint JSON for float32 checkpoints
+static const char* kTestCheckpointJson = R"({
   "metadata": {
     "n_clusters": 3,
     "embedding_model": "test-model",
@@ -59,8 +59,8 @@ static const char* kTestProfileJson = R"({
   ]
 })";
 
-// Test profile JSON for float64 profiles
-static const char* kTestProfileJsonFloat64 = R"({
+// Test checkpoint JSON for float64 checkpoints
+static const char* kTestCheckpointJsonFloat64 = R"({
   "metadata": {
     "n_clusters": 3,
     "embedding_model": "test-model",
@@ -107,7 +107,7 @@ static const char* kTestProfileJsonFloat64 = R"({
 
 class ProfileTest : public ::testing::Test {
 protected:
-  NordlysCheckpoint test_profile = NordlysCheckpoint::from_json_string(kTestProfileJson);
+  NordlysCheckpoint test_profile = NordlysCheckpoint::from_json_string(kTestCheckpointJson);
 };
 
 TEST_F(ProfileTest, RoundTripJson) {
@@ -218,7 +218,7 @@ TEST_F(ProfileTest, FileOperations) {
 }
 
 TEST_F(ProfileTest, Validation) {
-  // Valid profile should pass validation
+  // Valid checkpoint should pass validation
   EXPECT_NO_THROW(test_profile.validate());
 
   // Test invalid n_clusters
@@ -248,8 +248,8 @@ TEST_F(ProfileTest, Validation) {
 }
 
 TEST_F(ProfileTest, Float64Support) {
-  // Load a float64 profile from JSON
-  NordlysCheckpoint double_profile = NordlysCheckpoint::from_json_string(kTestProfileJsonFloat64);
+  // Load a float64 checkpoint from JSON
+  NordlysCheckpoint double_profile = NordlysCheckpoint::from_json_string(kTestCheckpointJsonFloat64);
 
   // Test that it's properly identified as float64
   EXPECT_EQ(double_profile.metadata.dtype, "float64");

@@ -7,18 +7,15 @@
 #include "nordlys_core/tracy.hpp"
 
 // Templated types for multi-precision support
-template<typename Scalar>
-using EmbeddingVectorT = Eigen::Matrix<Scalar, Eigen::Dynamic, 1>;
+template <typename Scalar> using EmbeddingVectorT = Eigen::Matrix<Scalar, Eigen::Dynamic, 1>;
 
 // Row-major storage to match serialized binary format
-template<typename Scalar>
-using EmbeddingMatrixT = Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+template <typename Scalar> using EmbeddingMatrixT
+    = Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
 
-template<typename Scalar = float>
-class ClusterEngineT {
+template <typename Scalar = float> class ClusterEngineT {
 public:
-  ClusterEngineT()
-      : backend_(create_cluster_backend<Scalar>(ClusterBackendType::Auto)) {}
+  ClusterEngineT() : backend_(create_cluster_backend<Scalar>(ClusterBackendType::Auto)) {}
 
   explicit ClusterEngineT(ClusterBackendType backend_type)
       : backend_(create_cluster_backend<Scalar>(backend_type)) {}
@@ -44,13 +41,9 @@ public:
     return backend_->assign(embedding.data(), static_cast<int>(embedding.size()));
   }
 
-  [[nodiscard]] int get_n_clusters() const noexcept {
-    return backend_->get_n_clusters();
-  }
+  [[nodiscard]] int get_n_clusters() const noexcept { return backend_->get_n_clusters(); }
 
-  [[nodiscard]] bool is_gpu_accelerated() const noexcept {
-    return backend_->is_gpu_accelerated();
-  }
+  [[nodiscard]] bool is_gpu_accelerated() const noexcept { return backend_->is_gpu_accelerated(); }
 
 private:
   std::unique_ptr<IClusterBackendT<Scalar>> backend_;
