@@ -1,22 +1,6 @@
-"""Tests for Alternative and RouteResult dataclasses."""
+"""Tests for RouteResult dataclass."""
 
-from nordlys import Alternative, RouteResult
-
-
-class TestAlternative:
-    """Test Alternative dataclass."""
-
-    def test_create_alternative(self):
-        """Test creating an Alternative instance."""
-        alt = Alternative(model_id="openai/gpt-4", score=0.85)
-        assert alt.model_id == "openai/gpt-4"
-        assert alt.score == 0.85
-
-    def test_alternative_comparison(self):
-        """Test Alternative comparison."""
-        alt1 = Alternative(model_id="model1", score=0.9)
-        alt2 = Alternative(model_id="model2", score=0.8)
-        assert alt1.score > alt2.score
+from nordlys import RouteResult
 
 
 class TestRouteResult:
@@ -28,9 +12,7 @@ class TestRouteResult:
             model_id="openai/gpt-4",
             cluster_id=5,
             cluster_distance=0.15,
-            alternatives=[
-                Alternative(model_id="anthropic/claude-3", score=0.85),
-            ],
+            alternatives=["anthropic/claude-3"],
         )
         assert result.model_id == "openai/gpt-4"
         assert result.cluster_id == 5
@@ -48,11 +30,7 @@ class TestRouteResult:
 
     def test_route_result_with_multiple_alternatives(self):
         """Test RouteResult with multiple alternatives."""
-        alternatives = [
-            Alternative(model_id="model1", score=0.9),
-            Alternative(model_id="model2", score=0.8),
-            Alternative(model_id="model3", score=0.7),
-        ]
+        alternatives = ["model1", "model2", "model3"]
         result = RouteResult(
             model_id="openai/gpt-4",
             cluster_id=2,
@@ -60,4 +38,4 @@ class TestRouteResult:
             alternatives=alternatives,
         )
         assert len(result.alternatives) == 3
-        assert result.alternatives[0].score == 0.9
+        assert result.alternatives[0] == "model1"

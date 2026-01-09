@@ -24,12 +24,6 @@ class TestPackageImports:
 
         assert RouteResult is not None
 
-    def test_import_alternative(self):
-        """Test importing Alternative."""
-        from nordlys import Alternative
-
-        assert Alternative is not None
-
     def test_import_reduction_module(self):
         """Test importing reduction module."""
         from nordlys import reduction
@@ -63,9 +57,9 @@ class TestPackageMetadata:
             "Nordlys",
             "ModelConfig",
             "RouteResult",
-            "Alternative",
             "NordlysCheckpoint",
-            "CheckpointMetadata",
+            "TrainingMetrics",
+            "EmbeddingConfig",
             "ClusteringConfig",
             "RoutingConfig",
             "ModelFeatures",

@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "nordlys"
-version = "0.1.4"
+version = "0.1.5"
 description = "Intelligent LLM Infrastructure with Smart Model Selection"
 authors = [{ name = "Botir Khaltaev", email = "botirkhaltaev@llmadaptive.uk" }]
 requires-python = ">=3.11,<4.0"
@@ -46,7 +46,7 @@ Documentation = "https://docs.nordlyslabs.com"
 
 
 [project.optional-dependencies]
-cpu = ["nordlys-core>=0.1.4,<1", "torch>=2.2.0"]
+cpu = ["nordlys-core>=0.1.5,<1", "torch>=2.2.0"]
 cu12 = ["nordlys-core-cu12>=0.1.4,<1 ; sys_platform == 'linux'", "torch>=2.2.0"]
 
 [tool.uv]
@@ -76,11 +76,11 @@ dev = [
   "ruff>=0.11.11,<0.14",
   "types-pyyaml>=6.0.12.20250516,<7",
   "types-pyjwt>=1.7.1",
-  "pytest>=8.4.1",
+  "pytest>=9.0.2",
   "pytest-cov>=6.2.1",
   "pytest-asyncio>=0.26.0",
 ]
-test = ["pytest>=8.4.1,<9", "pytest-cov>=6.2.1,<8", "pytest-asyncio>=0.24.0,<1"]
+test = ["pytest>=9.0.2", "pytest-cov>=6.2.1,<8", "pytest-asyncio>=0.26.0"]
 
 [tool.uv-build]
 packages = ["nordlys"]
@@ -98,6 +98,12 @@ unresolved-import = "ignore"
 
 [tool.pytest.ini_options]
 addopts = "-v"
+filterwarnings = [
+  "ignore::sklearn.exceptions.ConvergenceWarning",
+  "ignore:Graph is not fully connected:UserWarning",
+  "ignore::DeprecationWarning",
+  "ignore:invalid escape sequence:SyntaxWarning",
+]
 
 [tool.coverage.report]
 exclude_lines = [
