@@ -1,2 +1,1 @@
 """Fixtures for unit tests."""
-
