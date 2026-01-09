@@ -1,6 +1,7 @@
 #include <benchmark/benchmark.h>
 
 #include <nordlys_core/cluster.hpp>
+#include <random>
 
 #include "bench_utils.hpp"
 
@@ -9,13 +10,23 @@ template <typename Scalar> static void BM_ClusterAssign(benchmark::State& state)
   const int dim = state.range(1);
 
   ClusterEngineT<Scalar> engine{ClusterBackendType::Cpu};
-  EmbeddingMatrixT<Scalar> centers = EmbeddingMatrixT<Scalar>::Random(n_clusters, dim);
+  EmbeddingMatrixT<Scalar> centers(n_clusters, dim);
+  std::mt19937 rng(42);
+  std::uniform_real_distribution<Scalar> dist(-1.0, 1.0);
+  for (size_t i = 0; i < centers.rows(); ++i) {
+    for (size_t j = 0; j < centers.cols(); ++j) {
+      centers(i, j) = dist(rng);
+    }
+  }
   engine.load_centroids(centers);
 
-  EmbeddingVectorT<Scalar> query = EmbeddingVectorT<Scalar>::Random(dim);
+  std::vector<Scalar> query(dim);
+  for (auto& v : query) {
+    v = dist(rng);
+  }
 
   for (auto _ : state) {
-    auto [cluster_id, distance] = engine.assign(query);
+    auto [cluster_id, distance] = engine.assign(query.data(), query.size());
     benchmark::DoNotOptimize(cluster_id);
     benchmark::DoNotOptimize(distance);
   }
@@ -43,7 +54,14 @@ template <typename Scalar> static void BM_ClusterLoadCentroids(benchmark::State&
   const int n_clusters = state.range(0);
   const int dim = state.range(1);
 
-  EmbeddingMatrixT<Scalar> centers = EmbeddingMatrixT<Scalar>::Random(n_clusters, dim);
+  EmbeddingMatrixT<Scalar> centers(n_clusters, dim);
+  std::mt19937 rng(42);
+  std::uniform_real_distribution<Scalar> dist(-1.0, 1.0);
+  for (size_t i = 0; i < centers.rows(); ++i) {
+    for (size_t j = 0; j < centers.cols(); ++j) {
+      centers(i, j) = dist(rng);
+    }
+  }
 
   for (auto _ : state) {
     ClusterEngineT<Scalar> engine{ClusterBackendType::Cpu};
@@ -63,18 +81,29 @@ template <typename Scalar> static void BM_ClusterBatchAssign(benchmark::State& s
   const int batch_size = 100;
 
   ClusterEngineT<Scalar> engine{ClusterBackendType::Cpu};
-  EmbeddingMatrixT<Scalar> centers = EmbeddingMatrixT<Scalar>::Random(n_clusters, dim);
+  EmbeddingMatrixT<Scalar> centers(n_clusters, dim);
+  std::mt19937 rng(42);
+  std::uniform_real_distribution<Scalar> dist(-1.0, 1.0);
+  for (size_t i = 0; i < centers.rows(); ++i) {
+    for (size_t j = 0; j < centers.cols(); ++j) {
+      centers(i, j) = dist(rng);
+    }
+  }
   engine.load_centroids(centers);
 
-  std::vector<EmbeddingVectorT<Scalar>> queries;
+  std::vector<std::vector<Scalar>> queries;
   queries.reserve(batch_size);
   for (int i = 0; i < batch_size; ++i) {
-    queries.push_back(EmbeddingVectorT<Scalar>::Random(dim));
+    std::vector<Scalar> query(dim);
+    for (auto& v : query) {
+      v = dist(rng);
+    }
+    queries.push_back(std::move(query));
   }
 
   for (auto _ : state) {
     for (const auto& query : queries) {
-      auto [cluster_id, distance] = engine.assign(query);
+      auto [cluster_id, distance] = engine.assign(query.data(), query.size());
       benchmark::DoNotOptimize(cluster_id);
       benchmark::DoNotOptimize(distance);
     }
