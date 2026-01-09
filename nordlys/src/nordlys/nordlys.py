@@ -168,6 +168,9 @@ class Nordlys:
             random_state: Random seed for reproducibility
             allow_trust_remote_code: Allow remote code execution for embedding model
         """
+        # C++ core (initialized on load or after fit) - set early to avoid __del__ errors
+        self._core_engine: Nordlys32 | Nordlys64 | None = None
+
         if not models:
             raise ValueError("At least one model configuration is required")
 
@@ -211,9 +214,6 @@ class Nordlys:
         self._metrics: ClusterMetrics | None = None
         self._model_accuracies: dict[int, dict[str, float]] | None = None
         self._is_fitted = False
-
-        # C++ core (initialized on load or after fit)
-        self._core_engine: Nordlys32 | Nordlys64 | None = None
         self._dtype = "float32"
 
     def __del__(self) -> None:
