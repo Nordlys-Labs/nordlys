@@ -12,45 +12,59 @@ using namespace nb::literals;
 NB_MODULE(nordlys_core_ext, m) {
   m.doc() = "Nordlys Core - High-performance routing engine";
 
+  // TrainingMetrics type
+  nb::class_<TrainingMetrics>(m, "TrainingMetrics", "Training metrics (optional fields)")
+      .def_prop_ro(
+          "n_samples", [](const TrainingMetrics& m) -> std::optional<int> { return m.n_samples; },
+          "Number of training samples (None if not available)")
+      .def_prop_ro(
+          "cluster_sizes",
+          [](const TrainingMetrics& m) -> std::optional<std::vector<int>> {
+            return m.cluster_sizes;
+          },
+          "Cluster sizes (None if not available)")
+      .def_prop_ro(
+          "silhouette_score",
+          [](const TrainingMetrics& m) -> std::optional<float> { return m.silhouette_score; },
+          "Silhouette score (None if not available)")
+      .def_prop_ro(
+          "inertia", [](const TrainingMetrics& m) -> std::optional<float> { return m.inertia; },
+          "Inertia (None if not available)");
+
+  // EmbeddingConfig type
+  nb::class_<EmbeddingConfig>(m, "EmbeddingConfig", "Embedding configuration")
+      .def_ro("model", &EmbeddingConfig::model, "Embedding model ID")
+      .def_ro("dtype", &EmbeddingConfig::dtype, "Data type ('float32' or 'float64')")
+      .def_ro("trust_remote_code", &EmbeddingConfig::trust_remote_code,
+              "Whether to trust remote code");
+
   // ClusteringConfig type
   nb::class_<ClusteringConfig>(m, "ClusteringConfig", "Clustering configuration parameters")
-      .def_ro("max_iter", &ClusteringConfig::max_iter, "Maximum iterations")
+      .def_ro("n_clusters", &ClusteringConfig::n_clusters, "Number of clusters")
       .def_ro("random_state", &ClusteringConfig::random_state, "Random state for reproducibility")
+      .def_ro("max_iter", &ClusteringConfig::max_iter, "Maximum iterations")
       .def_ro("n_init", &ClusteringConfig::n_init, "Number of initializations")
       .def_ro("algorithm", &ClusteringConfig::algorithm, "Clustering algorithm")
-      .def_ro("normalization_strategy", &ClusteringConfig::normalization_strategy,
-              "Normalization strategy");
+      .def_ro("normalization", &ClusteringConfig::normalization, "Normalization strategy");
 
   // RoutingConfig type
   nb::class_<RoutingConfig>(m, "RoutingConfig", "Routing configuration parameters")
-      .def_ro("lambda_min", &RoutingConfig::lambda_min, "Minimum lambda value")
-      .def_ro("lambda_max", &RoutingConfig::lambda_max, "Maximum lambda value")
-      .def_ro("default_cost_preference", &RoutingConfig::default_cost_preference,
-              "Default cost preference")
+      .def_ro("cost_bias_min", &RoutingConfig::cost_bias_min, "Minimum cost bias")
+      .def_ro("cost_bias_max", &RoutingConfig::cost_bias_max, "Maximum cost bias")
+      .def_ro("default_cost_bias", &RoutingConfig::default_cost_bias, "Default cost bias")
       .def_ro("max_alternatives", &RoutingConfig::max_alternatives,
               "Maximum alternatives to return");
 
-  // CheckpointMetadata type
-  nb::class_<CheckpointMetadata>(m, "CheckpointMetadata", "Checkpoint metadata")
-      .def_ro("n_clusters", &CheckpointMetadata::n_clusters, "Number of clusters")
-      .def_ro("embedding_model", &CheckpointMetadata::embedding_model, "Embedding model name")
-      .def_ro("dtype", &CheckpointMetadata::dtype, "Data type ('float32' or 'float64')")
-      .def_ro("silhouette_score", &CheckpointMetadata::silhouette_score, "Silhouette score")
-      .def_ro("allow_trust_remote_code", &CheckpointMetadata::allow_trust_remote_code,
-              "Whether to allow trust remote code for embedding model")
-      .def_ro("clustering", &CheckpointMetadata::clustering, "Clustering configuration")
-      .def_ro("routing", &CheckpointMetadata::routing, "Routing configuration");
-
   // ModelFeatures type
   nb::class_<ModelFeatures>(m, "ModelFeatures", "Model configuration with error rates")
-      .def_ro("model_id", &ModelFeatures::model_id, "Full model ID (provider/model_name)")
-      .def_ro("provider", &ModelFeatures::provider, "Model provider")
-      .def_ro("model_name", &ModelFeatures::model_name, "Model name")
+      .def_ro("model_id", &ModelFeatures::model_id, "Full model ID (e.g., 'openai/gpt-4')")
       .def_ro("error_rates", &ModelFeatures::error_rates, "Per-cluster error rates")
       .def_ro("cost_per_1m_input_tokens", &ModelFeatures::cost_per_1m_input_tokens,
               "Cost per 1M input tokens")
       .def_ro("cost_per_1m_output_tokens", &ModelFeatures::cost_per_1m_output_tokens,
               "Cost per 1M output tokens")
+      .def("provider", &ModelFeatures::provider, "Extract provider from model_id")
+      .def("model_name", &ModelFeatures::model_name, "Extract model name from model_id")
       .def("cost_per_1m_tokens", &ModelFeatures::cost_per_1m_tokens, "Average cost per 1M tokens");
 
   // Result types
@@ -115,40 +129,33 @@ NB_MODULE(nordlys_core_ext, m) {
       // Validation
       .def("validate", &NordlysCheckpoint::validate, "Validate checkpoint data integrity")
 
-      // Properties
-      .def_prop_ro(
-          "n_clusters", [](const NordlysCheckpoint& c) { return c.metadata.n_clusters; },
-          "Number of clusters")
-      .def_prop_ro(
-          "embedding_model", [](const NordlysCheckpoint& c) { return c.metadata.embedding_model; },
-          "Embedding model name")
-      .def_prop_ro(
-          "dtype", [](const NordlysCheckpoint& c) { return c.metadata.dtype; },
-          "Data type ('float32' or 'float64')")
-      .def_prop_ro(
-          "silhouette_score",
-          [](const NordlysCheckpoint& c) { return c.metadata.silhouette_score; },
-          "Silhouette score")
-      .def_prop_ro(
-          "allow_trust_remote_code",
-          [](const NordlysCheckpoint& c) { return c.metadata.allow_trust_remote_code; },
-          "Whether to allow trust remote code for embedding model")
-      .def_prop_ro(
-          "random_state",
-          [](const NordlysCheckpoint& c) { return c.metadata.clustering.random_state; },
-          "Random state used for clustering")
-      .def_prop_ro(
-          "metadata",
-          [](const NordlysCheckpoint& c) -> const CheckpointMetadata& { return c.metadata; },
-          nb::rv_policy::reference_internal, "Full checkpoint metadata")
-      .def_prop_ro(
-          "models",
-          [](const NordlysCheckpoint& c) -> const std::vector<ModelFeatures>& { return c.models; },
-          nb::rv_policy::reference_internal, "List of model configurations")
-      .def_prop_ro("is_float32", &NordlysCheckpoint::is_float32,
-                   "True if checkpoint uses float32 precision")
-      .def_prop_ro("is_float64", &NordlysCheckpoint::is_float64,
-                   "True if checkpoint uses float64 precision");
+      // Version
+      .def_ro("version", &NordlysCheckpoint::version, "Checkpoint format version")
+
+      // Core data
+      .def_ro("cluster_centers", &NordlysCheckpoint::cluster_centers,
+              "Cluster centers (variant of float32 or float64 matrices)")
+      .def_ro("models", &NordlysCheckpoint::models, "List of model configurations")
+
+      // Configuration structs
+      .def_ro("embedding", &NordlysCheckpoint::embedding, "Embedding configuration")
+      .def_ro("clustering", &NordlysCheckpoint::clustering, "Clustering configuration")
+      .def_ro("routing", &NordlysCheckpoint::routing, "Routing configuration")
+      .def_ro("metrics", &NordlysCheckpoint::metrics, "Training metrics (optional fields)")
+
+      // Computed properties
+      .def_prop_ro("n_clusters", &NordlysCheckpoint::n_clusters, "Number of clusters (computed)")
+      .def_prop_ro("feature_dim", &NordlysCheckpoint::feature_dim,
+                   "Feature dimensionality (computed)")
+
+      // Convenience accessors (aliases)
+      .def_prop_ro("dtype", &NordlysCheckpoint::dtype, "Data type ('float32' or 'float64')")
+      .def_prop_ro("embedding_model", &NordlysCheckpoint::embedding_model, "Embedding model ID")
+      .def_prop_ro("random_state", &NordlysCheckpoint::random_state, "Random state")
+      .def_prop_ro("allow_trust_remote_code", &NordlysCheckpoint::allow_trust_remote_code,
+                   "Trust remote code flag")
+      .def_prop_ro("silhouette_score", &NordlysCheckpoint::silhouette_score,
+                   "Silhouette score (None if not available)");
 
   // Nordlys32 (float32)
   nb::class_<Nordlys<float>>(

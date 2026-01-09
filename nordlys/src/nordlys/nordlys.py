@@ -70,19 +70,6 @@ class ModelConfig(BaseModel):
 
 
 @dataclass
-class Alternative:
-    """Alternative model option with score.
-
-    Attributes:
-        model_id: Model identifier (e.g., "openai/gpt-4")
-        score: Combined accuracy-cost score (higher is better)
-    """
-
-    model_id: str
-    score: float
-
-
-@dataclass
 class RouteResult:
     """Result of routing a prompt to a model.
 
@@ -90,13 +77,13 @@ class RouteResult:
         model_id: Selected model identifier
         cluster_id: Assigned cluster ID
         cluster_distance: Distance to cluster centroid
-        alternatives: Ranked list of alternative models
+        alternatives: Ranked list of alternative model IDs (best to worst)
     """
 
     model_id: str
     cluster_id: int
     cluster_distance: float
-    alternatives: list[Alternative] = field(default_factory=list)
+    alternatives: list[str] = field(default_factory=list)
 
 
 def _get_device() -> str:
@@ -393,15 +380,11 @@ class Nordlys:
         # Route using C++ core
         response = self._core_engine.route(embedding, cost_bias, [])
 
-        alternatives = [
-            Alternative(model_id=m, score=0.0) for m in response.alternatives
-        ]
-
         return RouteResult(
             model_id=response.selected_model,
             cluster_id=response.cluster_id,
             cluster_distance=float(response.cluster_distance),
-            alternatives=alternatives,
+            alternatives=list(response.alternatives),
         )
 
     def route_batch(
@@ -570,56 +553,49 @@ class Nordlys:
         model_accuracies = self._model_accuracies
         n_clusters = len(centroids)
 
-        # Build models list with error rates
-        models = []
-        for model_config in self._models:
-            parts = model_config.id.split("/", 1)
-            models.append(
-                {
-                    "provider": parts[0] if len(parts) > 1 else "unknown",
-                    "model_name": parts[1] if len(parts) > 1 else model_config.id,
-                    "cost_per_1m_input_tokens": model_config.cost_input,
-                    "cost_per_1m_output_tokens": model_config.cost_output,
-                    "error_rates": [
-                        1.0
-                        - model_accuracies.get(cluster_id, {}).get(model_config.id, 0.5)
-                        for cluster_id in range(n_clusters)
-                    ],
-                }
-            )
+        # Build models list with error rates (only model_id, no provider/model_name split)
+        models = [
+            {
+                "model_id": model_config.id,
+                "cost_per_1m_input_tokens": model_config.cost_input,
+                "cost_per_1m_output_tokens": model_config.cost_output,
+                "error_rates": [
+                    1.0 - model_accuracies.get(cluster_id, {}).get(model_config.id, 0.5)
+                    for cluster_id in range(n_clusters)
+                ],
+            }
+            for model_config in self._models
+        ]
 
-        # Cluster centers (use reduced if available, else full embeddings)
-        centers = self._centroids.tolist()
-
+        # New optimized checkpoint format (v2.0)
         checkpoint_dict = {
-            "cluster_centers": {
-                "n_clusters": len(centers),
-                "feature_dim": len(centers[0]) if centers else 0,
-                "cluster_centers": centers,
-            },
+            "version": "2.0",
+            "cluster_centers": centroids.tolist(),
             "models": models,
-            "metadata": {
-                "n_clusters": len(centers),
-                "embedding_model": self._embedding_model_name,
+            "embedding": {
+                "model": self._embedding_model_name,
                 "dtype": self._dtype,
-                "silhouette_score": self._metrics.silhouette_score
-                if self._metrics
-                else 0.0,
-                "allow_trust_remote_code": self._allow_trust_remote_code,
-                "clustering": {
-                    "max_iter": 300,
-                    "random_state": self._random_state,
-                    "n_init": 10,
-                    "algorithm": "lloyd",
-                    "normalization_strategy": "l2",
-                    "n_iter": 0,
-                },
-                "routing": {
-                    "lambda_min": 0.0,
-                    "lambda_max": 2.0,
-                    "default_cost_preference": 0.5,
-                    "max_alternatives": 5,
-                },
+                "trust_remote_code": self._allow_trust_remote_code,
+            },
+            "clustering": {
+                "n_clusters": n_clusters,
+                "random_state": self._random_state,
+                "max_iter": 300,
+                "n_init": 10,
+                "algorithm": "lloyd",
+                "normalization": "l2",
+            },
+            "routing": {
+                "cost_bias_min": 0.0,
+                "cost_bias_max": 1.0,
+                "default_cost_bias": 0.5,
+                "max_alternatives": 5,
+            },
+            "metrics": {
+                "n_samples": self._metrics.n_samples,
+                "cluster_sizes": self._metrics.cluster_sizes,
+                "silhouette_score": self._metrics.silhouette_score,
+                "inertia": self._metrics.inertia,
             },
         }
 
@@ -665,26 +641,55 @@ class Nordlys:
                 for m in checkpoint.models
             ]
 
-        # Create instance
+        # Create instance using new checkpoint structure
         instance = cls(
             models=models,
-            embedding_model=checkpoint.embedding_model,
-            nr_clusters=checkpoint.n_clusters,
-            random_state=checkpoint.random_state,
-            allow_trust_remote_code=checkpoint.allow_trust_remote_code,
+            embedding_model=checkpoint.embedding.model,
+            nr_clusters=checkpoint.clustering.n_clusters,
+            random_state=checkpoint.clustering.random_state,
+            allow_trust_remote_code=checkpoint.embedding.trust_remote_code,
         )
 
         # Initialize C++ core - this is the source of truth for all routing
-        if checkpoint.dtype == "float32":
+        if checkpoint.embedding.dtype == "float32":
             instance._core_engine = Nordlys32.from_checkpoint(checkpoint)
         else:
             instance._core_engine = Nordlys64.from_checkpoint(checkpoint)
 
-        # Mark as fitted
-        instance._dtype = checkpoint.dtype
+        # Populate Python-side fitted state from checkpoint
+        instance._dtype = checkpoint.embedding.dtype
+        instance._centroids = np.asarray(
+            checkpoint.cluster_centers,
+            dtype=np.float32 if checkpoint.embedding.dtype == "float32" else np.float64,
+        )
+
+        # Build model_accuracies from checkpoint.models error_rates
+        # Structure: {cluster_id: {model_id: accuracy}}
+        instance._model_accuracies = {
+            cluster_id: {
+                model.model_id: 1.0 - model.error_rates[cluster_id]
+                for model in checkpoint.models
+            }
+            for cluster_id in range(checkpoint.clustering.n_clusters)
+        }
+
+        # Restore metrics from checkpoint (all fields may be None)
+        instance._metrics = ClusterMetrics(
+            silhouette_score=checkpoint.metrics.silhouette_score,
+            n_clusters=checkpoint.clustering.n_clusters,
+            n_samples=checkpoint.metrics.n_samples,
+            cluster_sizes=checkpoint.metrics.cluster_sizes,
+            inertia=checkpoint.metrics.inertia,
+        )
+
+        # These cannot be restored from checkpoint (require original training data)
+        instance._labels = None
+        instance._embeddings = None
+        instance._reduced_embeddings = None
+
         instance._is_fitted = True
 
-        logger.info(f"Loaded checkpoint with C++ core ({checkpoint.dtype})")
+        logger.info(f"Loaded checkpoint with C++ core ({checkpoint.embedding.dtype})")
         return instance
 
     def __repr__(self) -> str:

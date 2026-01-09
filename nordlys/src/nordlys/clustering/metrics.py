@@ -42,10 +42,10 @@ class ClusterMetrics:
         inertia: Sum of squared distances to closest centroid (if applicable)
     """
 
-    silhouette_score: float
+    silhouette_score: float | None
     n_clusters: int
-    n_samples: int
-    cluster_sizes: list[int]
+    n_samples: int | None
+    cluster_sizes: list[int] | None
     inertia: float | None = None
 
     @property
@@ -66,10 +66,20 @@ class ClusterMetrics:
         return sum(self.cluster_sizes) / len(self.cluster_sizes)
 
     def __repr__(self) -> str:
+        silhouette_str = (
+            f"{self.silhouette_score:.3f}"
+            if self.silhouette_score is not None
+            else "N/A"
+        )
+        sizes_str = (
+            f"{self.min_cluster_size}-{self.max_cluster_size}"
+            if self.cluster_sizes
+            else "N/A"
+        )
         return (
             f"ClusterMetrics(n_clusters={self.n_clusters}, "
-            f"silhouette={self.silhouette_score:.3f}, "
-            f"sizes={self.min_cluster_size}-{self.max_cluster_size})"
+            f"silhouette={silhouette_str}, "
+            f"sizes={sizes_str})"
         )
 
 

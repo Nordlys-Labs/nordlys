@@ -1,3 +1,8 @@
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
@@ -14,86 +19,96 @@
 
 using json = nlohmann::json;
 
-// Define to_json for ClusteringConfig
-void to_json(json& json_obj, const ClusteringConfig& config) {
-  json_obj = {{"max_iter", config.max_iter},
-              {"random_state", config.random_state},
-              {"n_init", config.n_init},
-              {"algorithm", config.algorithm},
-              {"normalization_strategy", config.normalization_strategy}};
+// ============================================================================
+// JSON Serialization - TrainingMetrics
+// ============================================================================
+
+void to_json(json& j, const TrainingMetrics& m) {
+  if (m.n_samples) j["n_samples"] = *m.n_samples;
+  if (m.cluster_sizes) j["cluster_sizes"] = *m.cluster_sizes;
+  if (m.silhouette_score) j["silhouette_score"] = *m.silhouette_score;
+  if (m.inertia) j["inertia"] = *m.inertia;
 }
 
-// Define to_json for RoutingConfig
-void to_json(json& json_obj, const RoutingConfig& config) {
-  json_obj = {{"lambda_min", config.lambda_min},
-              {"lambda_max", config.lambda_max},
-              {"default_cost_preference", config.default_cost_preference},
-              {"max_alternatives", config.max_alternatives}};
+void from_json(const json& j, TrainingMetrics& m) {
+  if (j.contains("n_samples")) m.n_samples = j["n_samples"].get<int>();
+  if (j.contains("cluster_sizes")) m.cluster_sizes = j["cluster_sizes"].get<std::vector<int>>();
+  if (j.contains("silhouette_score")) m.silhouette_score = j["silhouette_score"].get<float>();
+  if (j.contains("inertia")) m.inertia = j["inertia"].get<float>();
 }
 
-// Define to_json for ModelFeatures
-void to_json(json& json_obj, const ModelFeatures& features) {
-  json_obj = {{"provider", features.provider},
-              {"model_name", features.model_name},
-              {"cost_per_1m_input_tokens", features.cost_per_1m_input_tokens},
-              {"cost_per_1m_output_tokens", features.cost_per_1m_output_tokens},
-              {"error_rates", features.error_rates}};
+// ============================================================================
+// JSON Serialization - EmbeddingConfig
+// ============================================================================
+
+void to_json(json& j, const EmbeddingConfig& c) {
+  j = {{"model", c.model}, {"dtype", c.dtype}, {"trust_remote_code", c.trust_remote_code}};
 }
 
-// Define to_json for CheckpointMetadata
-void to_json(json& json_obj, const CheckpointMetadata& meta) {
-  json_obj = {{"n_clusters", meta.n_clusters},
-              {"embedding_model", meta.embedding_model},
-              {"dtype", meta.dtype},
-              {"silhouette_score", meta.silhouette_score},
-              {"allow_trust_remote_code", meta.allow_trust_remote_code},
-              {"clustering", meta.clustering},
-              {"routing", meta.routing}};
+void from_json(const json& j, EmbeddingConfig& c) {
+  j.at("model").get_to(c.model);
+  c.dtype = j.value("dtype", "float32");
+  c.trust_remote_code = j.value("trust_remote_code", false);
 }
 
-// Define from_json for ClusteringConfig
-void from_json(const json& json_obj, ClusteringConfig& config) {
-  config.max_iter = json_obj.value("max_iter", 300);
-  config.random_state = json_obj.value("random_state", 42);
-  config.n_init = json_obj.value("n_init", 10);
-  config.algorithm = json_obj.value("algorithm", "lloyd");
-  config.normalization_strategy = json_obj.value("normalization_strategy", "l2");
+// ============================================================================
+// JSON Serialization - ClusteringConfig
+// ============================================================================
+
+void to_json(json& j, const ClusteringConfig& c) {
+  j = {{"n_clusters", c.n_clusters}, {"random_state", c.random_state},
+       {"max_iter", c.max_iter},     {"n_init", c.n_init},
+       {"algorithm", c.algorithm},   {"normalization", c.normalization}};
 }
 
-// Define from_json for RoutingConfig
-void from_json(const json& json_obj, RoutingConfig& config) {
-  config.lambda_min = json_obj.value("lambda_min", 0.0f);
-  config.lambda_max = json_obj.value("lambda_max", 2.0f);
-  config.default_cost_preference = json_obj.value("default_cost_preference", 0.5f);
-  config.max_alternatives = json_obj.value("max_alternatives", 5);
+void from_json(const json& j, ClusteringConfig& c) {
+  j.at("n_clusters").get_to(c.n_clusters);
+  c.random_state = j.value("random_state", 42);
+  c.max_iter = j.value("max_iter", 300);
+  c.n_init = j.value("n_init", 10);
+  c.algorithm = j.value("algorithm", "lloyd");
+  c.normalization = j.value("normalization", "l2");
 }
 
-// Define from_json for ModelFeatures
-void from_json(const json& json_obj, ModelFeatures& features) {
-  json_obj.at("provider").get_to(features.provider);
-  json_obj.at("model_name").get_to(features.model_name);
-  features.model_id = features.provider + "/" + features.model_name;
-  json_obj.at("cost_per_1m_input_tokens").get_to(features.cost_per_1m_input_tokens);
-  json_obj.at("cost_per_1m_output_tokens").get_to(features.cost_per_1m_output_tokens);
-  json_obj.at("error_rates").get_to(features.error_rates);
+// ============================================================================
+// JSON Serialization - RoutingConfig
+// ============================================================================
+
+void to_json(json& j, const RoutingConfig& c) {
+  j = {{"cost_bias_min", c.cost_bias_min},
+       {"cost_bias_max", c.cost_bias_max},
+       {"default_cost_bias", c.default_cost_bias},
+       {"max_alternatives", c.max_alternatives}};
 }
 
-// Define from_json for CheckpointMetadata
-void from_json(const json& json_obj, CheckpointMetadata& meta) {
-  json_obj.at("n_clusters").get_to(meta.n_clusters);
-  json_obj.at("embedding_model").get_to(meta.embedding_model);
-  meta.dtype = json_obj.value("dtype", "float32");  // Default float32 for backwards compat
-  meta.silhouette_score = json_obj.value("silhouette_score", 0.0f);
-  meta.allow_trust_remote_code = json_obj.value("allow_trust_remote_code", false);
-
-  if (json_obj.contains("clustering")) {
-    json_obj.at("clustering").get_to(meta.clustering);
-  }
-
-  if (json_obj.contains("routing")) {
-    json_obj.at("routing").get_to(meta.routing);
-  }
+void from_json(const json& j, RoutingConfig& c) {
+  c.cost_bias_min = j.value("cost_bias_min", 0.0f);
+  c.cost_bias_max = j.value("cost_bias_max", 1.0f);
+  c.default_cost_bias = j.value("default_cost_bias", 0.5f);
+  c.max_alternatives = j.value("max_alternatives", 5);
 }
+
+// ============================================================================
+// JSON Serialization - ModelFeatures
+// ============================================================================
+
+void to_json(json& j, const ModelFeatures& f) {
+  j = {{"model_id", f.model_id},
+       {"cost_per_1m_input_tokens", f.cost_per_1m_input_tokens},
+       {"cost_per_1m_output_tokens", f.cost_per_1m_output_tokens},
+       {"error_rates", f.error_rates}};
+}
+
+void from_json(const json& j, ModelFeatures& f) {
+  j.at("model_id").get_to(f.model_id);
+  j.at("cost_per_1m_input_tokens").get_to(f.cost_per_1m_input_tokens);
+  j.at("cost_per_1m_output_tokens").get_to(f.cost_per_1m_output_tokens);
+  j.at("error_rates").get_to(f.error_rates);
+}
+
+// ============================================================================
+// JSON File I/O
+// ============================================================================
 
 NordlysCheckpoint NordlysCheckpoint::from_json(const std::string& path) {
   NORDLYS_ZONE;
@@ -109,346 +124,342 @@ NordlysCheckpoint NordlysCheckpoint::from_json(const std::string& path) {
 
 NordlysCheckpoint NordlysCheckpoint::from_json_string(const std::string& json_str) {
   NORDLYS_ZONE;
-  json profile_json = json::parse(json_str);  // Let parse_error propagate naturally
+  json j = json::parse(json_str);
 
-  NordlysCheckpoint profile;
+  NordlysCheckpoint checkpoint;
 
-  // Parse metadata first to get dtype
-  profile.metadata = profile_json.at("metadata").get<CheckpointMetadata>();
+  // Version
+  checkpoint.version = j.value("version", "2.0");
 
-  // Parse cluster centers
-  const auto& centers_json = profile_json.at("cluster_centers");
-  int n_clusters = centers_json.at("n_clusters").get<int>();
-  int feature_dim = centers_json.at("feature_dim").get<int>();
-  const auto& centers_data = centers_json.at("cluster_centers");
+  // Configuration
+  checkpoint.embedding = j.at("embedding").get<EmbeddingConfig>();
+  checkpoint.clustering = j.at("clustering").get<ClusteringConfig>();
+  checkpoint.routing = j.at("routing").get<RoutingConfig>();
 
-  // Validate dimensions
-  if (n_clusters <= 0) {
-    throw std::invalid_argument(std::format("n_clusters must be positive, got {}", n_clusters));
-  }
-  if (feature_dim <= 0) {
-    throw std::invalid_argument(std::format("feature_dim must be positive, got {}", feature_dim));
-  }
+  // Models
+  checkpoint.models = j.at("models").get<std::vector<ModelFeatures>>();
 
-  // Check for overflow
-  uint64_t total_elements = static_cast<uint64_t>(n_clusters) * static_cast<uint64_t>(feature_dim);
-  if (total_elements > static_cast<uint64_t>(std::numeric_limits<Eigen::Index>::max())) {
-    throw std::invalid_argument(
-        std::format("Cluster centers dimensions overflow: n_clusters={}, feature_dim={}",
-                    n_clusters, feature_dim));
+  // Training metrics (optional)
+  if (j.contains("metrics")) {
+    checkpoint.metrics = j.at("metrics").get<TrainingMetrics>();
   }
 
-  if (!centers_data.is_array() || static_cast<int>(centers_data.size()) != n_clusters) {
-    throw std::invalid_argument(
-        std::format("cluster_centers array size ({}) does not match n_clusters ({})",
-                    centers_data.size(), n_clusters));
-  }
+  // Cluster centers
+  const auto& centers_json = j.at("cluster_centers");
+  int n_clusters = checkpoint.clustering.n_clusters;
+  int feature_dim = static_cast<int>(centers_json[0].size());
 
-  auto n_clusters_u = static_cast<std::size_t>(n_clusters);
-  auto feature_dim_u = static_cast<std::size_t>(feature_dim);
-
-  // Parse cluster centers based on dtype
-  if (profile.metadata.dtype == "float64") {
+  if (checkpoint.embedding.dtype == "float64") {
     EmbeddingMatrixT<double> centers(n_clusters, feature_dim);
-    for (auto cluster_idx : std::views::iota(std::size_t{0}, n_clusters_u)) {
-      const auto& center = centers_data[cluster_idx];
-      if (!center.is_array() || center.size() != feature_dim_u) {
-        throw std::invalid_argument(
-            std::format("Invalid cluster center at index {}: expected {} dimensions, got {}",
-                        cluster_idx, feature_dim, center.size()));
-      }
-      for (auto col : std::views::iota(std::size_t{0}, feature_dim_u)) {
-        centers(static_cast<Eigen::Index>(cluster_idx), static_cast<Eigen::Index>(col))
-            = center[col].get<double>();
+    for (int i = 0; i < n_clusters; ++i) {
+      for (int col = 0; col < feature_dim; ++col) {
+        centers(i, col) = centers_json[i][col].get<double>();
       }
     }
-    profile.cluster_centers = std::move(centers);
+    checkpoint.cluster_centers = std::move(centers);
   } else {
     EmbeddingMatrixT<float> centers(n_clusters, feature_dim);
-    for (auto cluster_idx : std::views::iota(std::size_t{0}, n_clusters_u)) {
-      const auto& center = centers_data[cluster_idx];
-      if (!center.is_array() || center.size() != feature_dim_u) {
-        throw std::invalid_argument(
-            std::format("Invalid cluster center at index {}: expected {} dimensions, got {}",
-                        cluster_idx, feature_dim, center.size()));
-      }
-      for (auto col : std::views::iota(std::size_t{0}, feature_dim_u)) {
-        centers(static_cast<Eigen::Index>(cluster_idx), static_cast<Eigen::Index>(col))
-            = center[col].get<float>();
+    for (int i = 0; i < n_clusters; ++i) {
+      for (int col = 0; col < feature_dim; ++col) {
+        centers(i, col) = centers_json[i][col].get<float>();
       }
     }
-    profile.cluster_centers = std::move(centers);
+    checkpoint.cluster_centers = std::move(centers);
   }
 
-  // Parse models
-  profile.models = profile_json.at("models").get<std::vector<ModelFeatures>>();
-
-  return profile;
-}
-
-NordlysCheckpoint NordlysCheckpoint::from_msgpack(const std::string& path) {
-  std::ifstream file(path, std::ios::binary);
-  if (!file.is_open()) {
-    throw std::runtime_error(std::format("Failed to open binary checkpoint file: {}", path));
-  }
-
-  std::string buffer((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-  msgpack::object_handle handle = msgpack::unpack(buffer.data(), buffer.size());
-  auto map = handle.get().as<std::map<std::string, msgpack::object>>();
-
-  NordlysCheckpoint profile;
-
-  // Parse metadata first to get dtype
-  auto meta = map.at("metadata").as<std::map<std::string, msgpack::object>>();
-  profile.metadata.n_clusters = meta.at("n_clusters").as<int>();
-  profile.metadata.embedding_model = meta.at("embedding_model").as<std::string>();
-  profile.metadata.dtype = meta.contains("dtype") ? meta.at("dtype").as<std::string>() : "float32";
-  profile.metadata.silhouette_score
-      = meta.contains("silhouette_score") ? meta.at("silhouette_score").as<float>() : 0.0f;
-  profile.metadata.allow_trust_remote_code = meta.contains("allow_trust_remote_code")
-                                                 ? meta.at("allow_trust_remote_code").as<bool>()
-                                                 : false;
-
-  // Parse optional clustering config
-  if (meta.contains("clustering")) {
-    auto clustering_map = meta.at("clustering").as<std::map<std::string, msgpack::object>>();
-    if (clustering_map.contains("max_iter"))
-      profile.metadata.clustering.max_iter = clustering_map.at("max_iter").as<int>();
-    if (clustering_map.contains("random_state"))
-      profile.metadata.clustering.random_state = clustering_map.at("random_state").as<int>();
-    if (clustering_map.contains("n_init"))
-      profile.metadata.clustering.n_init = clustering_map.at("n_init").as<int>();
-    if (clustering_map.contains("algorithm"))
-      profile.metadata.clustering.algorithm = clustering_map.at("algorithm").as<std::string>();
-    if (clustering_map.contains("normalization_strategy"))
-      profile.metadata.clustering.normalization_strategy
-          = clustering_map.at("normalization_strategy").as<std::string>();
-  }
-
-  // Parse optional routing config
-  if (meta.contains("routing")) {
-    auto routing_map = meta.at("routing").as<std::map<std::string, msgpack::object>>();
-    if (routing_map.contains("lambda_min"))
-      profile.metadata.routing.lambda_min = routing_map.at("lambda_min").as<float>();
-    if (routing_map.contains("lambda_max"))
-      profile.metadata.routing.lambda_max = routing_map.at("lambda_max").as<float>();
-    if (routing_map.contains("default_cost_preference"))
-      profile.metadata.routing.default_cost_preference
-          = routing_map.at("default_cost_preference").as<float>();
-    if (routing_map.contains("max_alternatives"))
-      profile.metadata.routing.max_alternatives = routing_map.at("max_alternatives").as<int>();
-  }
-
-  // Parse cluster centers
-  auto centers_map = map.at("cluster_centers").as<std::map<std::string, msgpack::object>>();
-  int n_clusters = centers_map.at("n_clusters").as<int>();
-  int feature_dim = centers_map.at("feature_dim").as<int>();
-  std::string centers_bytes = centers_map.at("data").as<std::string>();
-
-  // Validate dimensions
-  if (n_clusters <= 0) {
-    throw std::invalid_argument(std::format("n_clusters must be positive, got {}", n_clusters));
-  }
-  if (feature_dim <= 0) {
-    throw std::invalid_argument(std::format("feature_dim must be positive, got {}", feature_dim));
-  }
-
-  // Check for overflow
-  uint64_t total_elements = static_cast<uint64_t>(n_clusters) * static_cast<uint64_t>(feature_dim);
-  if (total_elements > static_cast<uint64_t>(std::numeric_limits<Eigen::Index>::max())) {
-    throw std::invalid_argument(
-        std::format("Cluster centers dimensions overflow: n_clusters={}, feature_dim={}",
-                    n_clusters, feature_dim));
-  }
-
-  // Parse cluster centers based on dtype
-  if (profile.metadata.dtype == "float64") {
-    size_t expected_size = total_elements * sizeof(double);
-    if (centers_bytes.size() != expected_size) {
-      throw std::invalid_argument(
-          std::format("cluster_centers data size mismatch: expected {} bytes (float64), got {}",
-                      expected_size, centers_bytes.size()));
-    }
-    EmbeddingMatrixT<double> centers(n_clusters, feature_dim);
-    std::memcpy(centers.data(), centers_bytes.data(),
-                static_cast<size_t>(total_elements) * sizeof(double));
-    profile.cluster_centers = std::move(centers);
-  } else {
-    size_t expected_size = total_elements * sizeof(float);
-    if (centers_bytes.size() != expected_size) {
-      throw std::invalid_argument(
-          std::format("cluster_centers data size mismatch: expected {} bytes (float32), got {}",
-                      expected_size, centers_bytes.size()));
-    }
-    EmbeddingMatrixT<float> centers(n_clusters, feature_dim);
-    std::memcpy(centers.data(), centers_bytes.data(),
-                static_cast<size_t>(total_elements) * sizeof(float));
-    profile.cluster_centers = std::move(centers);
-  }
-
-  // Parse models
-  auto models_arr = map.at("models").as<std::vector<msgpack::object>>();
-  profile.models.reserve(models_arr.size());
-
-  for (auto idx : std::views::iota(size_t{0}, models_arr.size())) {
-    auto model_map = models_arr[idx].as<std::map<std::string, msgpack::object>>();
-    ModelFeatures model;
-
-    model.provider = model_map.at("provider").as<std::string>();
-    model.model_name = model_map.at("model_name").as<std::string>();
-    model.model_id = model.provider + "/" + model.model_name;
-    model.cost_per_1m_input_tokens = model_map.at("cost_per_1m_input_tokens").as<float>();
-    model.cost_per_1m_output_tokens = model_map.at("cost_per_1m_output_tokens").as<float>();
-    model.error_rates = model_map.at("error_rates").as<std::vector<float>>();
-    profile.models.push_back(std::move(model));
-  }
-
-  return profile;
+  return checkpoint;
 }
 
 std::string NordlysCheckpoint::to_json_string() const {
-  json profile_json;
+  json j;
 
-  // Add metadata
-  profile_json["metadata"] = metadata;
+  j["version"] = version;
 
-  // Add cluster centers
-  json centers_json;
-  centers_json["n_clusters"] = metadata.n_clusters;
+  // Configuration
+  j["embedding"] = embedding;
+  j["clustering"] = clustering;
+  j["routing"] = routing;
 
+  // Models
+  j["models"] = models;
+
+  // Training metrics
+  j["metrics"] = metrics;
+
+  // Cluster centers as 2D array
   std::visit(
       [&](const auto& centers) {
-        using Scalar = typename std::decay_t<decltype(centers)>::Scalar;
-        centers_json["feature_dim"] = centers.cols();
-        centers_json["dtype"] = std::is_same_v<Scalar, double> ? "float64" : "float32";
-
         json centers_array = json::array();
         for (Eigen::Index i = 0; i < centers.rows(); ++i) {
-          json center = json::array();
-          for (Eigen::Index j = 0; j < centers.cols(); ++j) {
-            center.push_back(centers(i, j));
+          json row = json::array();
+          for (Eigen::Index col = 0; col < centers.cols(); ++col) {
+            row.push_back(centers(i, col));
           }
-          centers_array.push_back(center);
+          centers_array.push_back(row);
         }
-        centers_json["cluster_centers"] = centers_array;
+        j["cluster_centers"] = centers_array;
       },
       cluster_centers);
 
-  profile_json["cluster_centers"] = centers_json;
-
-  // Add models
-  profile_json["models"] = models;
-
-  return profile_json.dump(2);  // Pretty print with 2-space indent
+  return j.dump(2);
 }
 
 void NordlysCheckpoint::to_json(const std::string& path) const {
-  std::string json_str = to_json_string();
   std::ofstream file(path);
   if (!file.is_open()) {
     throw std::runtime_error(std::format("Failed to open checkpoint file for writing: {}", path));
   }
-  file << json_str;
+  file << to_json_string();
+}
+
+// ============================================================================
+// MessagePack File I/O (with mmap)
+// ============================================================================
+
+NordlysCheckpoint NordlysCheckpoint::from_msgpack(const std::string& path) {
+  NORDLYS_ZONE;
+
+  // Open file
+  int fd = open(path.c_str(), O_RDONLY);
+  if (fd == -1) {
+    throw std::runtime_error(std::format("Failed to open msgpack file: {}", path));
+  }
+
+  // Get file size
+  struct stat sb;
+  if (fstat(fd, &sb) == -1) {
+    close(fd);
+    throw std::runtime_error(std::format("Failed to stat msgpack file: {}", path));
+  }
+  size_t file_size = static_cast<size_t>(sb.st_size);
+
+  // Memory map the file
+  void* mapped = mmap(nullptr, file_size, PROT_READ, MAP_PRIVATE, fd, 0);
+  if (mapped == MAP_FAILED) {
+    close(fd);
+    throw std::runtime_error(std::format("Failed to mmap msgpack file: {}", path));
+  }
+
+  // Parse from mapped memory
+  try {
+    auto result = from_msgpack_string(std::string(static_cast<const char*>(mapped), file_size));
+    munmap(mapped, file_size);
+    close(fd);
+    return result;
+  } catch (...) {
+    munmap(mapped, file_size);
+    close(fd);
+    throw;
+  }
+}
+
+NordlysCheckpoint NordlysCheckpoint::from_msgpack_string(const std::string& data) {
+  NORDLYS_ZONE;
+
+  msgpack::object_handle handle = msgpack::unpack(data.data(), data.size());
+  auto map = handle.get().as<std::map<std::string, msgpack::object>>();
+
+  NordlysCheckpoint checkpoint;
+
+  // Version
+  checkpoint.version = map.contains("version") ? map.at("version").as<std::string>() : "2.0";
+
+  // Embedding config
+  auto emb = map.at("embedding").as<std::map<std::string, msgpack::object>>();
+  checkpoint.embedding.model = emb.at("model").as<std::string>();
+  checkpoint.embedding.dtype
+      = emb.contains("dtype") ? emb.at("dtype").as<std::string>() : "float32";
+  checkpoint.embedding.trust_remote_code
+      = emb.contains("trust_remote_code") ? emb.at("trust_remote_code").as<bool>() : false;
+
+  // Clustering config
+  auto clust = map.at("clustering").as<std::map<std::string, msgpack::object>>();
+  checkpoint.clustering.n_clusters = clust.at("n_clusters").as<int>();
+  checkpoint.clustering.random_state
+      = clust.contains("random_state") ? clust.at("random_state").as<int>() : 42;
+  checkpoint.clustering.max_iter
+      = clust.contains("max_iter") ? clust.at("max_iter").as<int>() : 300;
+  checkpoint.clustering.n_init = clust.contains("n_init") ? clust.at("n_init").as<int>() : 10;
+  checkpoint.clustering.algorithm
+      = clust.contains("algorithm") ? clust.at("algorithm").as<std::string>() : "lloyd";
+  checkpoint.clustering.normalization
+      = clust.contains("normalization") ? clust.at("normalization").as<std::string>() : "l2";
+
+  // Routing config
+  auto rout = map.at("routing").as<std::map<std::string, msgpack::object>>();
+  checkpoint.routing.cost_bias_min
+      = rout.contains("cost_bias_min") ? rout.at("cost_bias_min").as<float>() : 0.0f;
+  checkpoint.routing.cost_bias_max
+      = rout.contains("cost_bias_max") ? rout.at("cost_bias_max").as<float>() : 1.0f;
+  checkpoint.routing.default_cost_bias
+      = rout.contains("default_cost_bias") ? rout.at("default_cost_bias").as<float>() : 0.5f;
+  checkpoint.routing.max_alternatives
+      = rout.contains("max_alternatives") ? rout.at("max_alternatives").as<int>() : 5;
+
+  // Models
+  auto models_arr = map.at("models").as<std::vector<msgpack::object>>();
+  checkpoint.models.reserve(models_arr.size());
+  for (const auto& model_obj : models_arr) {
+    auto model_map = model_obj.as<std::map<std::string, msgpack::object>>();
+    ModelFeatures model;
+    model.model_id = model_map.at("model_id").as<std::string>();
+    model.cost_per_1m_input_tokens = model_map.at("cost_per_1m_input_tokens").as<float>();
+    model.cost_per_1m_output_tokens = model_map.at("cost_per_1m_output_tokens").as<float>();
+    model.error_rates = model_map.at("error_rates").as<std::vector<float>>();
+    checkpoint.models.push_back(std::move(model));
+  }
+
+  // Training metrics (optional)
+  if (map.contains("metrics")) {
+    auto met = map.at("metrics").as<std::map<std::string, msgpack::object>>();
+    if (met.contains("n_samples")) checkpoint.metrics.n_samples = met.at("n_samples").as<int>();
+    if (met.contains("cluster_sizes"))
+      checkpoint.metrics.cluster_sizes = met.at("cluster_sizes").as<std::vector<int>>();
+    if (met.contains("silhouette_score"))
+      checkpoint.metrics.silhouette_score = met.at("silhouette_score").as<float>();
+    if (met.contains("inertia")) checkpoint.metrics.inertia = met.at("inertia").as<float>();
+  }
+
+  // Cluster centers (binary blob)
+  auto centers_map = map.at("cluster_centers").as<std::map<std::string, msgpack::object>>();
+  int n_clusters = centers_map.at("rows").as<int>();
+  int feature_dim = centers_map.at("cols").as<int>();
+  std::string centers_bytes = centers_map.at("data").as<std::string>();
+
+  uint64_t total_elements = static_cast<uint64_t>(n_clusters) * static_cast<uint64_t>(feature_dim);
+
+  if (checkpoint.embedding.dtype == "float64") {
+    size_t expected_size = total_elements * sizeof(double);
+    if (centers_bytes.size() != expected_size) {
+      throw std::invalid_argument(
+          std::format("cluster_centers data size mismatch: expected {} bytes, got {}",
+                      expected_size, centers_bytes.size()));
+    }
+    EmbeddingMatrixT<double> centers(n_clusters, feature_dim);
+    std::memcpy(centers.data(), centers_bytes.data(), expected_size);
+    checkpoint.cluster_centers = std::move(centers);
+  } else {
+    size_t expected_size = total_elements * sizeof(float);
+    if (centers_bytes.size() != expected_size) {
+      throw std::invalid_argument(
+          std::format("cluster_centers data size mismatch: expected {} bytes, got {}",
+                      expected_size, centers_bytes.size()));
+    }
+    EmbeddingMatrixT<float> centers(n_clusters, feature_dim);
+    std::memcpy(centers.data(), centers_bytes.data(), expected_size);
+    checkpoint.cluster_centers = std::move(centers);
+  }
+
+  return checkpoint;
 }
 
 std::string NordlysCheckpoint::to_msgpack_string() const {
   msgpack::sbuffer buffer;
   msgpack::packer<msgpack::sbuffer> pk(&buffer);
 
-  // Top-level map with 3 keys: metadata, cluster_centers, models
+  // Top-level map with 7 keys
+  pk.pack_map(7);
+
+  // Version
+  pk.pack("version");
+  pk.pack(version);
+
+  // Embedding config
+  pk.pack("embedding");
   pk.pack_map(3);
-
-  // Pack metadata
-  pk.pack("metadata");
-  pk.pack_map(7);  // n_clusters, embedding_model, dtype, silhouette_score, allow_trust_remote_code,
-                   // clustering, routing
-
-  pk.pack("n_clusters");
-  pk.pack(metadata.n_clusters);
-
-  pk.pack("embedding_model");
-  pk.pack(metadata.embedding_model);
-
+  pk.pack("model");
+  pk.pack(embedding.model);
   pk.pack("dtype");
-  pk.pack(metadata.dtype);
+  pk.pack(embedding.dtype);
+  pk.pack("trust_remote_code");
+  pk.pack(embedding.trust_remote_code);
 
-  pk.pack("silhouette_score");
-  pk.pack(metadata.silhouette_score);
-
-  pk.pack("allow_trust_remote_code");
-  pk.pack(metadata.allow_trust_remote_code);
-
-  // Pack clustering config
+  // Clustering config
   pk.pack("clustering");
-  pk.pack_map(5);
-  pk.pack("max_iter");
-  pk.pack(metadata.clustering.max_iter);
+  pk.pack_map(6);
+  pk.pack("n_clusters");
+  pk.pack(clustering.n_clusters);
   pk.pack("random_state");
-  pk.pack(metadata.clustering.random_state);
+  pk.pack(clustering.random_state);
+  pk.pack("max_iter");
+  pk.pack(clustering.max_iter);
   pk.pack("n_init");
-  pk.pack(metadata.clustering.n_init);
+  pk.pack(clustering.n_init);
   pk.pack("algorithm");
-  pk.pack(metadata.clustering.algorithm);
-  pk.pack("normalization_strategy");
-  pk.pack(metadata.clustering.normalization_strategy);
+  pk.pack(clustering.algorithm);
+  pk.pack("normalization");
+  pk.pack(clustering.normalization);
 
-  // Pack routing config
+  // Routing config
   pk.pack("routing");
   pk.pack_map(4);
-  pk.pack("lambda_min");
-  pk.pack(metadata.routing.lambda_min);
-  pk.pack("lambda_max");
-  pk.pack(metadata.routing.lambda_max);
-  pk.pack("default_cost_preference");
-  pk.pack(metadata.routing.default_cost_preference);
+  pk.pack("cost_bias_min");
+  pk.pack(routing.cost_bias_min);
+  pk.pack("cost_bias_max");
+  pk.pack(routing.cost_bias_max);
+  pk.pack("default_cost_bias");
+  pk.pack(routing.default_cost_bias);
   pk.pack("max_alternatives");
-  pk.pack(metadata.routing.max_alternatives);
+  pk.pack(routing.max_alternatives);
 
-  // Pack cluster centers
-  pk.pack("cluster_centers");
-  pk.pack_map(4);  // n_clusters, feature_dim, dtype, data
-
-  pk.pack("n_clusters");
-  pk.pack(metadata.n_clusters);
-
-  std::visit(
-      [&](const auto& centers) {
-        using Scalar = typename std::decay_t<decltype(centers)>::Scalar;
-        pk.pack("feature_dim");
-        pk.pack(static_cast<int>(centers.cols()));
-
-        pk.pack("dtype");
-        pk.pack(std::is_same_v<Scalar, double> ? "float64" : "float32");
-
-        pk.pack("data");
-        // Pack as binary data
-        size_t data_size = static_cast<size_t>(centers.rows()) * static_cast<size_t>(centers.cols())
-                           * sizeof(Scalar);
-        if (data_size > std::numeric_limits<uint32_t>::max()) {
-          throw std::overflow_error("Cluster centers data exceeds MessagePack bin32 limit");
-        }
-        pk.pack_bin(static_cast<uint32_t>(data_size));
-        pk.pack_bin_body(reinterpret_cast<const char*>(centers.data()),
-                         static_cast<uint32_t>(data_size));
-      },
-      cluster_centers);
-
-  // Pack models
+  // Models
   pk.pack("models");
   pk.pack_array(static_cast<uint32_t>(models.size()));
-
   for (const auto& model : models) {
-    pk.pack_map(5);
-    pk.pack("provider");
-    pk.pack(model.provider);
-    pk.pack("model_name");
-    pk.pack(model.model_name);
+    pk.pack_map(4);
+    pk.pack("model_id");
+    pk.pack(model.model_id);
     pk.pack("cost_per_1m_input_tokens");
     pk.pack(model.cost_per_1m_input_tokens);
     pk.pack("cost_per_1m_output_tokens");
     pk.pack(model.cost_per_1m_output_tokens);
     pk.pack("error_rates");
     pk.pack(model.error_rates);
+  }
+
+  // Cluster centers (binary blob)
+  pk.pack("cluster_centers");
+  pk.pack_map(3);
+  std::visit(
+      [&](const auto& centers) {
+        using Scalar = typename std::decay_t<decltype(centers)>::Scalar;
+        pk.pack("rows");
+        pk.pack(static_cast<int>(centers.rows()));
+        pk.pack("cols");
+        pk.pack(static_cast<int>(centers.cols()));
+        pk.pack("data");
+        size_t data_size = static_cast<size_t>(centers.rows()) * static_cast<size_t>(centers.cols())
+                           * sizeof(Scalar);
+        pk.pack_bin(static_cast<uint32_t>(data_size));
+        pk.pack_bin_body(reinterpret_cast<const char*>(centers.data()),
+                         static_cast<uint32_t>(data_size));
+      },
+      cluster_centers);
+
+  // Training metrics (count non-null fields)
+  pk.pack("metrics");
+  int metrics_count = 0;
+  if (metrics.n_samples) ++metrics_count;
+  if (metrics.cluster_sizes) ++metrics_count;
+  if (metrics.silhouette_score) ++metrics_count;
+  if (metrics.inertia) ++metrics_count;
+
+  pk.pack_map(static_cast<uint32_t>(metrics_count));
+  if (metrics.n_samples) {
+    pk.pack("n_samples");
+    pk.pack(*metrics.n_samples);
+  }
+  if (metrics.cluster_sizes) {
+    pk.pack("cluster_sizes");
+    pk.pack(*metrics.cluster_sizes);
+  }
+  if (metrics.silhouette_score) {
+    pk.pack("silhouette_score");
+    pk.pack(*metrics.silhouette_score);
+  }
+  if (metrics.inertia) {
+    pk.pack("inertia");
+    pk.pack(*metrics.inertia);
   }
 
   return std::string(buffer.data(), buffer.size());
@@ -458,136 +469,26 @@ void NordlysCheckpoint::to_msgpack(const std::string& path) const {
   std::string binary_data = to_msgpack_string();
   std::ofstream file(path, std::ios::binary);
   if (!file.is_open()) {
-    throw std::runtime_error(
-        std::format("Failed to open binary checkpoint file for writing: {}", path));
+    throw std::runtime_error(std::format("Failed to open msgpack file for writing: {}", path));
   }
   file.write(binary_data.data(), static_cast<std::streamsize>(binary_data.size()));
 }
 
-NordlysCheckpoint NordlysCheckpoint::from_msgpack_string(const std::string& data) {
-  msgpack::object_handle handle = msgpack::unpack(data.data(), data.size());
-  auto map = handle.get().as<std::map<std::string, msgpack::object>>();
-
-  NordlysCheckpoint profile;
-
-  // Parse metadata first to get dtype
-  auto meta = map.at("metadata").as<std::map<std::string, msgpack::object>>();
-  profile.metadata.n_clusters = meta.at("n_clusters").as<int>();
-  profile.metadata.embedding_model = meta.at("embedding_model").as<std::string>();
-  profile.metadata.dtype = meta.contains("dtype") ? meta.at("dtype").as<std::string>() : "float32";
-  profile.metadata.silhouette_score
-      = meta.contains("silhouette_score") ? meta.at("silhouette_score").as<float>() : 0.0f;
-  profile.metadata.allow_trust_remote_code = meta.contains("allow_trust_remote_code")
-                                                 ? meta.at("allow_trust_remote_code").as<bool>()
-                                                 : false;
-
-  // Parse optional clustering config
-  if (meta.contains("clustering")) {
-    auto clustering_map = meta.at("clustering").as<std::map<std::string, msgpack::object>>();
-    if (clustering_map.contains("max_iter"))
-      profile.metadata.clustering.max_iter = clustering_map.at("max_iter").as<int>();
-    if (clustering_map.contains("random_state"))
-      profile.metadata.clustering.random_state = clustering_map.at("random_state").as<int>();
-    if (clustering_map.contains("n_init"))
-      profile.metadata.clustering.n_init = clustering_map.at("n_init").as<int>();
-    if (clustering_map.contains("algorithm"))
-      profile.metadata.clustering.algorithm = clustering_map.at("algorithm").as<std::string>();
-    if (clustering_map.contains("normalization_strategy"))
-      profile.metadata.clustering.normalization_strategy
-          = clustering_map.at("normalization_strategy").as<std::string>();
-  }
-
-  // Parse optional routing config
-  if (meta.contains("routing")) {
-    auto routing_map = meta.at("routing").as<std::map<std::string, msgpack::object>>();
-    if (routing_map.contains("lambda_min"))
-      profile.metadata.routing.lambda_min = routing_map.at("lambda_min").as<float>();
-    if (routing_map.contains("lambda_max"))
-      profile.metadata.routing.lambda_max = routing_map.at("lambda_max").as<float>();
-    if (routing_map.contains("default_cost_preference"))
-      profile.metadata.routing.default_cost_preference
-          = routing_map.at("default_cost_preference").as<float>();
-    if (routing_map.contains("max_alternatives"))
-      profile.metadata.routing.max_alternatives = routing_map.at("max_alternatives").as<int>();
-  }
-
-  // Parse cluster centers
-  auto centers_map = map.at("cluster_centers").as<std::map<std::string, msgpack::object>>();
-  int n_clusters = centers_map.at("n_clusters").as<int>();
-  int feature_dim = centers_map.at("feature_dim").as<int>();
-  std::string centers_bytes = centers_map.at("data").as<std::string>();
-
-  // Validate dimensions
-  if (n_clusters <= 0) {
-    throw std::invalid_argument(std::format("n_clusters must be positive, got {}", n_clusters));
-  }
-  if (feature_dim <= 0) {
-    throw std::invalid_argument(std::format("feature_dim must be positive, got {}", feature_dim));
-  }
-
-  // Check for overflow
-  uint64_t total_elements = static_cast<uint64_t>(n_clusters) * static_cast<uint64_t>(feature_dim);
-  if (total_elements > static_cast<uint64_t>(std::numeric_limits<Eigen::Index>::max())) {
-    throw std::invalid_argument(
-        std::format("Cluster centers dimensions overflow: n_clusters={}, feature_dim={}",
-                    n_clusters, feature_dim));
-  }
-
-  // Parse cluster centers based on dtype
-  if (profile.metadata.dtype == "float64") {
-    size_t expected_size = total_elements * sizeof(double);
-    if (centers_bytes.size() != expected_size) {
-      throw std::invalid_argument(
-          std::format("cluster_centers data size mismatch: expected {} bytes (float64), got {}",
-                      expected_size, centers_bytes.size()));
-    }
-    EmbeddingMatrixT<double> centers(n_clusters, feature_dim);
-    std::memcpy(centers.data(), centers_bytes.data(),
-                static_cast<size_t>(total_elements) * sizeof(double));
-    profile.cluster_centers = std::move(centers);
-  } else {
-    size_t expected_size = total_elements * sizeof(float);
-    if (centers_bytes.size() != expected_size) {
-      throw std::invalid_argument(
-          std::format("cluster_centers data size mismatch: expected {} bytes (float32), got {}",
-                      expected_size, centers_bytes.size()));
-    }
-    EmbeddingMatrixT<float> centers(n_clusters, feature_dim);
-    std::memcpy(centers.data(), centers_bytes.data(),
-                static_cast<size_t>(total_elements) * sizeof(float));
-    profile.cluster_centers = std::move(centers);
-  }
-
-  // Parse models
-  auto models_arr = map.at("models").as<std::vector<msgpack::object>>();
-  profile.models.reserve(models_arr.size());
-
-  for (auto idx : std::views::iota(size_t{0}, models_arr.size())) {
-    auto model_map = models_arr[idx].as<std::map<std::string, msgpack::object>>();
-    ModelFeatures model;
-
-    model.provider = model_map.at("provider").as<std::string>();
-    model.model_name = model_map.at("model_name").as<std::string>();
-    model.model_id = model.provider + "/" + model.model_name;
-    model.cost_per_1m_input_tokens = model_map.at("cost_per_1m_input_tokens").as<float>();
-    model.cost_per_1m_output_tokens = model_map.at("cost_per_1m_output_tokens").as<float>();
-    model.error_rates = model_map.at("error_rates").as<std::vector<float>>();
-    profile.models.push_back(std::move(model));
-  }
-
-  return profile;
-}
+// ============================================================================
+// Validation
+// ============================================================================
 
 void NordlysCheckpoint::validate() const {
-  // Validate metadata
-  if (metadata.n_clusters <= 0) {
+  // Validate clustering config
+  if (clustering.n_clusters <= 0) {
     throw std::invalid_argument(
-        std::format("n_clusters must be positive, got {}", metadata.n_clusters));
+        std::format("n_clusters must be positive, got {}", clustering.n_clusters));
   }
 
-  if (metadata.dtype != "float32" && metadata.dtype != "float64") {
+  // Validate dtype
+  if (embedding.dtype != "float32" && embedding.dtype != "float64") {
     throw std::invalid_argument(
-        std::format("dtype must be 'float32' or 'float64', got '{}'", metadata.dtype));
+        std::format("dtype must be 'float32' or 'float64', got '{}'", embedding.dtype));
   }
 
   // Validate cluster centers
@@ -596,19 +497,17 @@ void NordlysCheckpoint::validate() const {
         using Scalar = typename std::decay_t<decltype(centers)>::Scalar;
         bool is_double = std::is_same_v<Scalar, double>;
 
-        if (is_double && metadata.dtype != "float64") {
-          throw std::invalid_argument(
-              "Cluster centers are float64 but metadata.dtype is not 'float64'");
+        if (is_double && embedding.dtype != "float64") {
+          throw std::invalid_argument("Cluster centers are float64 but dtype is not 'float64'");
         }
-        if (!is_double && metadata.dtype != "float32") {
-          throw std::invalid_argument(
-              "Cluster centers are float32 but metadata.dtype is not 'float32'");
+        if (!is_double && embedding.dtype != "float32") {
+          throw std::invalid_argument("Cluster centers are float32 but dtype is not 'float32'");
         }
 
-        if (centers.rows() != metadata.n_clusters) {
+        if (centers.rows() != clustering.n_clusters) {
           throw std::invalid_argument(
               std::format("Cluster centers rows ({}) does not match n_clusters ({})",
-                          centers.rows(), metadata.n_clusters));
+                          centers.rows(), clustering.n_clusters));
         }
 
         if (centers.cols() <= 0) {
@@ -626,10 +525,10 @@ void NordlysCheckpoint::validate() const {
   for (size_t i = 0; i < models.size(); ++i) {
     const auto& model = models[i];
 
-    if (model.error_rates.size() != static_cast<size_t>(metadata.n_clusters)) {
+    if (model.error_rates.size() != static_cast<size_t>(clustering.n_clusters)) {
       throw std::invalid_argument(
           std::format("Model {} error_rates size ({}) does not match n_clusters ({})", i,
-                      model.error_rates.size(), metadata.n_clusters));
+                      model.error_rates.size(), clustering.n_clusters));
     }
 
     for (size_t j = 0; j < model.error_rates.size(); ++j) {
