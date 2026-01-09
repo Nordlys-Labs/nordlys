@@ -10,8 +10,6 @@ class NordlysCoreConan(ConanFile):
     generators = "CMakeToolchain", "CMakeDeps"
 
     def requirements(self):
-        # Latest versions
-        self.requires("eigen/5.0.0")
         self.requires("nlohmann_json/3.12.0")
         self.requires("msgpack-cxx/7.0.0")
         self.requires("tsl-robin-map/1.4.0")

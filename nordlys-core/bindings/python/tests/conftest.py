@@ -8,45 +8,48 @@ import numpy as np
 import pytest
 
 
-# Sample checkpoint for testing
+# Sample checkpoint for testing (v2.0 format)
 SAMPLE_CHECKPOINT = {
-    "metadata": {
-        "n_clusters": 3,
-        "embedding_model": "test-model",
-        "silhouette_score": 0.85,
-        "clustering": {"n_init": 10, "algorithm": "lloyd"},
-        "routing": {
-            "lambda_min": 0.0,
-            "lambda_max": 2.0,
-            "max_alternatives": 2,
-            "default_cost_preference": 0.5,
-        },
-    },
-    "cluster_centers": {
-        "n_clusters": 3,
-        "feature_dim": 4,
-        "cluster_centers": [
-            [1.0, 0.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0, 0.0],
-            [0.0, 0.0, 1.0, 0.0],
-        ],
-    },
+    "version": "2.0",
+    "cluster_centers": [
+        [1.0, 0.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0, 0.0],
+        [0.0, 0.0, 1.0, 0.0],
+    ],
     "models": [
         {
-            "provider": "openai",
-            "model_name": "gpt-4",
+            "model_id": "openai/gpt-4",
             "cost_per_1m_input_tokens": 30.0,
             "cost_per_1m_output_tokens": 60.0,
             "error_rates": [0.01, 0.02, 0.015],
         },
         {
-            "provider": "anthropic",
-            "model_name": "claude-3",
+            "model_id": "anthropic/claude-3",
             "cost_per_1m_input_tokens": 15.0,
             "cost_per_1m_output_tokens": 75.0,
             "error_rates": [0.02, 0.01, 0.025],
         },
     ],
+    "embedding": {
+        "model": "test-model",
+        "dtype": "float32",
+        "trust_remote_code": False,
+    },
+    "clustering": {
+        "n_clusters": 3,
+        "random_state": 42,
+        "max_iter": 300,
+        "n_init": 10,
+        "algorithm": "lloyd",
+        "normalization": "l2",
+    },
+    "routing": {
+        "cost_bias_min": 0.0,
+        "cost_bias_max": 1.0,
+    },
+    "metrics": {
+        "silhouette_score": 0.85,
+    },
 }
 
 
@@ -74,7 +77,7 @@ def sample_embedding() -> np.ndarray:
 def sample_checkpoint_json_float64() -> str:
     """Return sample checkpoint with float64 dtype as JSON string."""
     checkpoint = copy.deepcopy(SAMPLE_CHECKPOINT)
-    checkpoint["metadata"]["dtype"] = "float64"
+    checkpoint["embedding"]["dtype"] = "float64"
     return json.dumps(checkpoint)
 
 

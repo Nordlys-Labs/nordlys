@@ -1,5 +1,6 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
+#include <nanobind/stl/optional.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
 
@@ -50,10 +51,7 @@ NB_MODULE(nordlys_core_ext, m) {
   // RoutingConfig type
   nb::class_<RoutingConfig>(m, "RoutingConfig", "Routing configuration parameters")
       .def_ro("cost_bias_min", &RoutingConfig::cost_bias_min, "Minimum cost bias")
-      .def_ro("cost_bias_max", &RoutingConfig::cost_bias_max, "Maximum cost bias")
-      .def_ro("default_cost_bias", &RoutingConfig::default_cost_bias, "Default cost bias")
-      .def_ro("max_alternatives", &RoutingConfig::max_alternatives,
-              "Maximum alternatives to return");
+      .def_ro("cost_bias_max", &RoutingConfig::cost_bias_max, "Maximum cost bias");
 
   // ModelFeatures type
   nb::class_<ModelFeatures>(m, "ModelFeatures", "Model configuration with error rates")
@@ -154,8 +152,9 @@ NB_MODULE(nordlys_core_ext, m) {
       .def_prop_ro("random_state", &NordlysCheckpoint::random_state, "Random state")
       .def_prop_ro("allow_trust_remote_code", &NordlysCheckpoint::allow_trust_remote_code,
                    "Trust remote code flag")
-      .def_prop_ro("silhouette_score", &NordlysCheckpoint::silhouette_score,
-                   "Silhouette score (None if not available)");
+      .def_prop_ro(
+          "silhouette_score", &NordlysCheckpoint::silhouette_score,
+          "Silhouette score (-1.0 if not available)");
 
   // Nordlys32 (float32)
   nb::class_<Nordlys<float>>(

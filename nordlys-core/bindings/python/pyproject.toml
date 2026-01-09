@@ -7,6 +7,10 @@ name = "nordlys-core"
 dynamic = ["version"]
 description = "C++ inference core for Nordlys"
 requires-python = ">=3.11,<4.0"
+dependencies = [
+    "numpy>=2.3.5",
+    "pytest>=9.0.2",
+]
 
 [tool.scikit-build.metadata.version]
 provider = "scikit_build_core.metadata.regex"
@@ -18,6 +22,9 @@ readme = "../../README.md"
 dependencies = []
 
 [dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]
 test = ["pytest>=8.0", "numpy>=1.24"]
 
 [tool.scikit-build]

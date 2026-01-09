@@ -48,7 +48,7 @@ static RouterVariant* get_router(NordlysRouter* router) {
 
 // Factory: creates correct router type based on profile dtype
 static std::optional<RouterVariant> create_router_variant(NordlysCheckpoint profile) {
-  if (profile.is_float64()) {
+  if (profile.dtype() == "float64") {
     auto result = Nordlys<double>::from_checkpoint(std::move(profile));
     if (!result) return std::nullopt;
     return RouterVariant{std::in_place_type<Nordlys<double>>, std::move(result.value())};

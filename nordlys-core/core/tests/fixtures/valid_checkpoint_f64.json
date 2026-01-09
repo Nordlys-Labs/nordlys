@@ -1,55 +1,48 @@
 {
-  "metadata": {
-    "n_clusters": 3,
-    "embedding_model": "integration-test-model",
-    "dtype": "float64",
-    "silhouette_score": 0.85,
-    "allow_trust_remote_code": false,
-    "clustering": {
-      "max_iter": 300,
-      "random_state": 42,
-      "n_init": 10,
-      "algorithm": "lloyd",
-      "normalization_strategy": "l2"
-    },
-    "routing": {
-      "lambda_min": 0.0,
-      "lambda_max": 2.0,
-      "default_cost_preference": 0.5,
-      "max_alternatives": 2
-    }
-  },
-  "cluster_centers": {
-    "n_clusters": 3,
-    "feature_dim": 4,
-    "dtype": "float64",
-    "cluster_centers": [
-      [1.0, 0.0, 0.0, 0.0],
-      [0.0, 1.0, 0.0, 0.0],
-      [0.0, 0.0, 1.0, 0.0]
-    ]
-  },
+  "version": "2.0",
+  "cluster_centers": [
+    [1.0, 0.0, 0.0, 0.0],
+    [0.0, 1.0, 0.0, 0.0],
+    [0.0, 0.0, 1.0, 0.0]
+  ],
   "models": [
     {
-      "provider": "openai",
-      "model_name": "gpt-4",
+      "model_id": "openai/gpt-4",
       "cost_per_1m_input_tokens": 30.0,
       "cost_per_1m_output_tokens": 60.0,
       "error_rates": [0.01, 0.02, 0.015]
     },
     {
-      "provider": "anthropic",
-      "model_name": "claude-3-opus",
+      "model_id": "anthropic/claude-3-opus",
       "cost_per_1m_input_tokens": 15.0,
       "cost_per_1m_output_tokens": 75.0,
       "error_rates": [0.02, 0.01, 0.025]
     },
     {
-      "provider": "meta",
-      "model_name": "llama-3-70b",
+      "model_id": "meta/llama-3-70b",
       "cost_per_1m_input_tokens": 0.6,
       "cost_per_1m_output_tokens": 0.8,
       "error_rates": [0.05, 0.06, 0.055]
     }
-  ]
+  ],
+  "embedding": {
+    "model": "integration-test-model",
+    "dtype": "float64",
+    "trust_remote_code": false
+  },
+  "clustering": {
+    "n_clusters": 3,
+    "random_state": 42,
+    "max_iter": 300,
+    "n_init": 10,
+    "algorithm": "lloyd",
+    "normalization": "l2"
+  },
+  "routing": {
+    "cost_bias_min": 0.0,
+    "cost_bias_max": 1.0
+  },
+  "metrics": {
+    "silhouette_score": 0.85
+  }
 }

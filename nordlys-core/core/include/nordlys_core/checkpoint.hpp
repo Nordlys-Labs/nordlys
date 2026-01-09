@@ -4,7 +4,7 @@
 #include <variant>
 #include <vector>
 
-#include "cluster.hpp"
+#include "matrix.hpp"
 #include "scorer.hpp"
 
 // Version for format evolution
@@ -39,8 +39,6 @@ struct ClusteringConfig {
 struct RoutingConfig {
   float cost_bias_min;
   float cost_bias_max;
-  float default_cost_bias;
-  int max_alternatives;
 };
 
 // Cluster centers (zero-copy variant)
@@ -91,5 +89,7 @@ struct NordlysCheckpoint {
   [[nodiscard]] const std::string& embedding_model() const { return embedding.model; }
   [[nodiscard]] int random_state() const { return clustering.random_state; }
   [[nodiscard]] bool allow_trust_remote_code() const { return embedding.trust_remote_code; }
-  [[nodiscard]] std::optional<float> silhouette_score() const { return metrics.silhouette_score; }
+  [[nodiscard]] float silhouette_score() const {
+    return metrics.silhouette_score.value_or(-1.0f);
+  }
 };

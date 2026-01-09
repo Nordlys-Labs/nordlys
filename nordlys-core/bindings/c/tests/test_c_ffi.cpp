@@ -5,90 +5,91 @@
 
 #include "nordlys.h"
 
-// Test profile JSON for creating valid routers
+// Test profile JSON for creating valid routers (v2.0 format)
 static const char* kTestProfileJson = R"({
-  "metadata": {
-    "n_clusters": 3,
-    "embedding_model": "test-model",
-    "silhouette_score": 0.85,
-    "clustering": {
-      "n_init": 10,
-      "algorithm": "lloyd"
-    },
-    "routing": {
-      "lambda_min": 0.0,
-      "lambda_max": 2.0,
-      "max_alternatives": 2
-    }
-  },
-  "cluster_centers": {
-    "n_clusters": 3,
-    "feature_dim": 4,
-    "cluster_centers": [
-      [1.0, 0.0, 0.0, 0.0],
-      [0.0, 1.0, 0.0, 0.0],
-      [0.0, 0.0, 1.0, 0.0]
-    ]
-  },
+  "version": "2.0",
+  "cluster_centers": [
+    [1.0, 0.0, 0.0, 0.0],
+    [0.0, 1.0, 0.0, 0.0],
+    [0.0, 0.0, 1.0, 0.0]
+  ],
   "models": [
     {
-      "provider": "provider1",
-      "model_name": "gpt-4",
+      "model_id": "provider1/gpt-4",
       "cost_per_1m_input_tokens": 30.0,
       "cost_per_1m_output_tokens": 60.0,
       "error_rates": [0.01, 0.02, 0.015]
     },
     {
-      "provider": "provider2",
-      "model_name": "llama",
+      "model_id": "provider2/llama",
       "cost_per_1m_input_tokens": 0.3,
       "cost_per_1m_output_tokens": 0.6,
       "error_rates": [0.05, 0.06, 0.055]
     }
-  ]
+  ],
+  "embedding": {
+    "model": "test-model",
+    "dtype": "float32",
+    "trust_remote_code": false
+  },
+  "clustering": {
+    "n_clusters": 3,
+    "random_state": 42,
+    "max_iter": 300,
+    "n_init": 10,
+    "algorithm": "lloyd",
+    "normalization": "l2"
+  },
+  "routing": {
+    "cost_bias_min": 0.0,
+    "cost_bias_max": 1.0
+  },
+  "metrics": {
+    "silhouette_score": 0.85
+  }
 })";
 
 static const char* kTestProfileJsonFloat64 = R"({
-  "metadata": {
-    "n_clusters": 3,
-    "embedding_model": "test-model",
-    "dtype": "float64",
-    "silhouette_score": 0.85,
-    "clustering": {
-      "n_init": 10,
-      "algorithm": "lloyd"
-    },
-    "routing": {
-      "lambda_min": 0.0,
-      "lambda_max": 2.0,
-      "max_alternatives": 2
-    }
-  },
-  "cluster_centers": {
-    "n_clusters": 3,
-    "feature_dim": 4,
-    "cluster_centers": [
-      [1.0, 0.0, 0.0, 0.0],
-      [0.0, 1.0, 0.0, 0.0],
-      [0.0, 0.0, 1.0, 0.0]
-    ]
-  },
+  "version": "2.0",
+  "cluster_centers": [
+    [1.0, 0.0, 0.0, 0.0],
+    [0.0, 1.0, 0.0, 0.0],
+    [0.0, 0.0, 1.0, 0.0]
+  ],
   "models": [
     {
-      "provider": "provider1",
-      "model_name": "gpt-4",
+      "model_id": "provider1/gpt-4",
       "cost_per_1m_input_tokens": 30.0,
       "cost_per_1m_output_tokens": 60.0,
       "error_rates": [0.01, 0.02, 0.015]
     },
     {
-      "provider": "provider2",
-      "model_name": "llama",
+      "model_id": "provider2/llama",
       "cost_per_1m_input_tokens": 0.3,
       "cost_per_1m_output_tokens": 0.6,
       "error_rates": [0.05, 0.06, 0.055]
     }
-  ]
+  ],
+  "embedding": {
+    "model": "test-model",
+    "dtype": "float64",
+    "trust_remote_code": false
+  },
+  "clustering": {
+    "n_clusters": 3,
+    "random_state": 42,
+    "max_iter": 300,
+    "n_init": 10,
+    "algorithm": "lloyd",
+    "normalization": "l2"
+  },
+  "routing": {
+    "cost_bias_min": 0.0,
+    "cost_bias_max": 1.0
+  },
+  "metrics": {
+    "silhouette_score": 0.85
+  }
 })";
 
 class CFFITest : public ::testing::Test {

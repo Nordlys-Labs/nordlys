@@ -77,17 +77,12 @@ void from_json(const json& j, ClusteringConfig& c) {
 // ============================================================================
 
 void to_json(json& j, const RoutingConfig& c) {
-  j = {{"cost_bias_min", c.cost_bias_min},
-       {"cost_bias_max", c.cost_bias_max},
-       {"default_cost_bias", c.default_cost_bias},
-       {"max_alternatives", c.max_alternatives}};
+  j = {{"cost_bias_min", c.cost_bias_min}, {"cost_bias_max", c.cost_bias_max}};
 }
 
 void from_json(const json& j, RoutingConfig& c) {
   c.cost_bias_min = j.value("cost_bias_min", 0.0f);
   c.cost_bias_max = j.value("cost_bias_max", 1.0f);
-  c.default_cost_bias = j.value("default_cost_bias", 0.5f);
-  c.max_alternatives = j.value("max_alternatives", 5);
 }
 
 // ============================================================================
@@ -187,18 +182,18 @@ NordlysCheckpoint NordlysCheckpoint::from_json_string(const std::string& json_st
   }
 
   if (checkpoint.embedding.dtype == "float64") {
-    EmbeddingMatrixT<double> centers(static_cast<int>(n_clusters), static_cast<int>(feature_dim));
+    EmbeddingMatrixT<double> centers(n_clusters, feature_dim);
     for (size_t i = 0; i < n_clusters; ++i) {
       for (size_t col = 0; col < feature_dim; ++col) {
-        centers(static_cast<int>(i), static_cast<int>(col)) = centers_json[i][col].get<double>();
+        centers(i, col) = centers_json[i][col].get<double>();
       }
     }
     checkpoint.cluster_centers = std::move(centers);
   } else {
-    EmbeddingMatrixT<float> centers(static_cast<int>(n_clusters), static_cast<int>(feature_dim));
+    EmbeddingMatrixT<float> centers(n_clusters, feature_dim);
     for (size_t i = 0; i < n_clusters; ++i) {
       for (size_t col = 0; col < feature_dim; ++col) {
-        centers(static_cast<int>(i), static_cast<int>(col)) = centers_json[i][col].get<float>();
+        centers(i, col) = centers_json[i][col].get<float>();
       }
     }
     checkpoint.cluster_centers = std::move(centers);
@@ -229,9 +224,9 @@ std::string NordlysCheckpoint::to_json_string() const {
   std::visit(
       [&](const auto& centers) {
         json centers_array = json::array();
-        for (Eigen::Index i = 0; i < centers.rows(); ++i) {
+        for (size_t i = 0; i < centers.rows(); ++i) {
           json row = json::array();
-          for (Eigen::Index col = 0; col < centers.cols(); ++col) {
+          for (size_t col = 0; col < centers.cols(); ++col) {
             row.push_back(centers(i, col));
           }
           centers_array.push_back(row);
@@ -330,10 +325,6 @@ NordlysCheckpoint NordlysCheckpoint::from_msgpack_string(const std::string& data
       = rout.contains("cost_bias_min") ? rout.at("cost_bias_min").as<float>() : 0.0f;
   checkpoint.routing.cost_bias_max
       = rout.contains("cost_bias_max") ? rout.at("cost_bias_max").as<float>() : 1.0f;
-  checkpoint.routing.default_cost_bias
-      = rout.contains("default_cost_bias") ? rout.at("default_cost_bias").as<float>() : 0.5f;
-  checkpoint.routing.max_alternatives
-      = rout.contains("max_alternatives") ? rout.at("max_alternatives").as<int>() : 5;
 
   // Models
   auto models_arr = map.at("models").as<std::vector<msgpack::object>>();
@@ -370,21 +361,25 @@ NordlysCheckpoint NordlysCheckpoint::from_msgpack_string(const std::string& data
     throw std::invalid_argument("cluster_centers must contain rows, cols, and data fields");
   }
 
-  int n_clusters = centers_map.at("rows").as<int>();
-  int feature_dim = centers_map.at("cols").as<int>();
+  int n_clusters_int = centers_map.at("rows").as<int>();
+  int feature_dim_int = centers_map.at("cols").as<int>();
 
   // Validate dimensions are positive
-  if (n_clusters <= 0 || feature_dim <= 0) {
-    throw std::invalid_argument(std::format(
-        "cluster_centers dimensions must be positive: rows={}, cols={}", n_clusters, feature_dim));
+  if (n_clusters_int <= 0 || feature_dim_int <= 0) {
+    throw std::invalid_argument(
+        std::format("cluster_centers dimensions must be positive: rows={}, cols={}", n_clusters_int,
+                    feature_dim_int));
   }
 
   // Validate n_clusters matches clustering config
-  if (n_clusters != checkpoint.clustering.n_clusters) {
+  if (n_clusters_int != checkpoint.clustering.n_clusters) {
     throw std::invalid_argument(
-        std::format("cluster_centers rows ({}) does not match n_clusters ({})", n_clusters,
+        std::format("cluster_centers rows ({}) does not match n_clusters ({})", n_clusters_int,
                     checkpoint.clustering.n_clusters));
   }
+
+  size_t n_clusters = static_cast<size_t>(n_clusters_int);
+  size_t feature_dim = static_cast<size_t>(feature_dim_int);
 
   // Extract binary data (BIN type only)
   const auto& data_obj = centers_map.at("data");
@@ -469,15 +464,11 @@ std::string NordlysCheckpoint::to_msgpack_string() const {
 
   // Routing config
   pk.pack("routing");
-  pk.pack_map(4);
+  pk.pack_map(2);
   pk.pack("cost_bias_min");
   pk.pack(routing.cost_bias_min);
   pk.pack("cost_bias_max");
   pk.pack(routing.cost_bias_max);
-  pk.pack("default_cost_bias");
-  pk.pack(routing.default_cost_bias);
-  pk.pack("max_alternatives");
-  pk.pack(routing.max_alternatives);
 
   // Models
   pk.pack("models");
@@ -581,13 +572,13 @@ void NordlysCheckpoint::validate() const {
           throw std::invalid_argument("Cluster centers are float32 but dtype is not 'float32'");
         }
 
-        if (centers.rows() != clustering.n_clusters) {
+        if (static_cast<int>(centers.rows()) != clustering.n_clusters) {
           throw std::invalid_argument(
               std::format("Cluster centers rows ({}) does not match n_clusters ({})",
                           centers.rows(), clustering.n_clusters));
         }
 
-        if (centers.cols() <= 0) {
+        if (centers.cols() == 0) {
           throw std::invalid_argument(
               std::format("feature_dim must be positive, got {}", centers.cols()));
         }

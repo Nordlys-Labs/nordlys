@@ -17,8 +17,6 @@ class TestNordlysCheckpointCreation:
         assert checkpoint.n_clusters == 3
         assert checkpoint.embedding_model == "test-model"
         assert checkpoint.dtype == "float32"
-        assert checkpoint.is_float32 is True
-        assert checkpoint.is_float64 is False
 
     def test_from_json_file(self, sample_checkpoint_path: Path):
         """Test creating checkpoint from JSON file."""
@@ -26,7 +24,7 @@ class TestNordlysCheckpointCreation:
 
         checkpoint = NordlysCheckpoint.from_json_file(str(sample_checkpoint_path))
         assert checkpoint.n_clusters == 3
-        assert checkpoint.is_float32 is True
+        assert checkpoint.dtype == "float32"
 
     def test_from_msgpack_string(self, sample_checkpoint_json: str):
         """Test creating checkpoint from MessagePack string."""
@@ -39,7 +37,7 @@ class TestNordlysCheckpointCreation:
         # Now deserialize from msgpack
         loaded = NordlysCheckpoint.from_msgpack_bytes(msgpack_data)
         assert loaded.n_clusters == 3
-        assert loaded.is_float32 is True
+        assert loaded.dtype == "float32"
 
     def test_from_msgpack_file(self, tmp_path: Path, sample_checkpoint_json: str):
         """Test creating checkpoint from MessagePack file."""
@@ -53,7 +51,7 @@ class TestNordlysCheckpointCreation:
         # Load from msgpack file
         loaded = NordlysCheckpoint.from_msgpack_file(str(msgpack_path))
         assert loaded.n_clusters == 3
-        assert loaded.is_float32 is True
+        assert loaded.dtype == "float32"
 
     def test_invalid_json_raises(self):
         """Test that invalid JSON raises an error."""
@@ -68,8 +66,6 @@ class TestNordlysCheckpointCreation:
 
         checkpoint = NordlysCheckpoint.from_json_string(sample_checkpoint_json_float64)
         assert checkpoint.dtype == "float64"
-        assert checkpoint.is_float64 is True
-        assert checkpoint.is_float32 is False
 
 
 class TestNordlysCheckpointSerialization:
@@ -92,7 +88,6 @@ class TestNordlysCheckpointSerialization:
         assert loaded.n_clusters == original.n_clusters
         assert loaded.embedding_model == original.embedding_model
         assert loaded.dtype == original.dtype
-        assert loaded.is_float32 == original.is_float32
 
     def test_msgpack_round_trip(self, sample_checkpoint_json: str):
         """Test MessagePack serialization round-trip."""
@@ -111,7 +106,6 @@ class TestNordlysCheckpointSerialization:
         assert loaded.n_clusters == original.n_clusters
         assert loaded.embedding_model == original.embedding_model
         assert loaded.dtype == original.dtype
-        assert loaded.is_float32 == original.is_float32
 
     def test_file_operations_json(self, tmp_path: Path, sample_checkpoint_json: str):
         """Test JSON file operations."""
@@ -128,7 +122,7 @@ class TestNordlysCheckpointSerialization:
         loaded = NordlysCheckpoint.from_json_file(str(json_path))
 
         assert loaded.n_clusters == original.n_clusters
-        assert loaded.is_float32 == original.is_float32
+        assert loaded.dtype == original.dtype
 
     def test_file_operations_msgpack(self, tmp_path: Path, sample_checkpoint_json: str):
         """Test MessagePack file operations."""
@@ -145,7 +139,7 @@ class TestNordlysCheckpointSerialization:
         loaded = NordlysCheckpoint.from_msgpack_file(str(msgpack_path))
 
         assert loaded.n_clusters == original.n_clusters
-        assert loaded.is_float32 == original.is_float32
+        assert loaded.dtype == original.dtype
 
 
 class TestNordlysCheckpointValidation:
@@ -163,14 +157,12 @@ class TestNordlysCheckpointValidation:
         """Test that invalid checkpoints fail validation."""
         from nordlys_core_ext import NordlysCheckpoint
 
-        # Create a checkpoint with invalid data (e.g., negative n_clusters)
+        # Create a checkpoint with invalid data (empty cluster_centers)
         invalid_json = json.loads(sample_checkpoint_json)
-        invalid_json["metadata"]["n_clusters"] = -1
+        invalid_json["cluster_centers"] = []
 
-        checkpoint = NordlysCheckpoint.from_json_string(json.dumps(invalid_json))
-
-        with pytest.raises(ValueError):
-            checkpoint.validate()
+        with pytest.raises((RuntimeError, ValueError)):
+            NordlysCheckpoint.from_json_string(json.dumps(invalid_json))
 
 
 class TestNordlysCheckpointProperties:
@@ -186,14 +178,11 @@ class TestNordlysCheckpointProperties:
         assert isinstance(checkpoint.n_clusters, int)
         assert isinstance(checkpoint.embedding_model, str)
         assert isinstance(checkpoint.dtype, str)
-        assert isinstance(checkpoint.silhouette_score, float)
-        assert isinstance(checkpoint.is_float32, bool)
-        assert isinstance(checkpoint.is_float64, bool)
 
-        # Test consistency
-        if checkpoint.dtype == "float32":
-            assert checkpoint.is_float32 is True
-            assert checkpoint.is_float64 is False
-        elif checkpoint.dtype == "float64":
-            assert checkpoint.is_float64 is True
-            assert checkpoint.is_float32 is False
+        # Test silhouette_score (-1.0 if not available)
+        score = checkpoint.silhouette_score
+        assert isinstance(score, float)
+        assert score == 0.85
+
+        # Test dtype consistency
+        assert checkpoint.dtype in ("float32", "float64")

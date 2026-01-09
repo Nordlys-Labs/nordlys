@@ -1,25 +1,23 @@
 {
-  "metadata": {
-    "n_clusters": -1,
-    "embedding_model": "invalid-test",
+  "version": "2.0",
+  "cluster_centers": [],
+  "models": [],
+  "embedding": {
+    "model": "invalid-test",
     "dtype": "float32",
-    "silhouette_score": 0.0,
-    "clustering": {
-      "max_iter": 300,
-      "random_state": 42,
-      "n_init": 10,
-      "algorithm": "lloyd"
-    },
-    "routing": {
-      "lambda_min": 0.0,
-      "lambda_max": 2.0,
-      "max_alternatives": 2
-    }
+    "trust_remote_code": false
   },
-  "cluster_centers": {
+  "clustering": {
     "n_clusters": -1,
-    "feature_dim": 4,
-    "cluster_centers": []
+    "random_state": 42,
+    "max_iter": 300,
+    "n_init": 10,
+    "algorithm": "lloyd",
+    "normalization": "l2"
   },
-  "models": []
+  "routing": {
+    "cost_bias_min": 0.0,
+    "cost_bias_max": 1.0
+  },
+  "metrics": {}
 }

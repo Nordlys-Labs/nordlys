@@ -1,17 +1,10 @@
 #pragma once
-#include <Eigen/Dense>
 #include <memory>
 #include <utility>
 
 #include "nordlys_core/cluster_backend.hpp"
+#include "nordlys_core/matrix.hpp"
 #include "nordlys_core/tracy.hpp"
-
-// Templated types for multi-precision support
-template <typename Scalar> using EmbeddingVectorT = Eigen::Matrix<Scalar, Eigen::Dynamic, 1>;
-
-// Row-major storage to match serialized binary format
-template <typename Scalar> using EmbeddingMatrixT
-    = Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
 
 template <typename Scalar = float> class ClusterEngineT {
 public:
@@ -31,14 +24,12 @@ public:
     NORDLYS_ZONE;
     dim_ = static_cast<int>(centers.cols());
     int n_clusters = static_cast<int>(centers.rows());
-
-    Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> row_major = centers;
-    backend_->load_centroids(row_major.data(), n_clusters, dim_);
+    backend_->load_centroids(centers.data(), n_clusters, dim_);
   }
 
-  [[nodiscard]] std::pair<int, Scalar> assign(const EmbeddingVectorT<Scalar>& embedding) {
+  [[nodiscard]] std::pair<int, Scalar> assign(const Scalar* embedding, size_t size) {
     NORDLYS_ZONE;
-    return backend_->assign(embedding.data(), static_cast<int>(embedding.size()));
+    return backend_->assign(embedding, static_cast<int>(size));
   }
 
   [[nodiscard]] int get_n_clusters() const noexcept { return backend_->get_n_clusters(); }

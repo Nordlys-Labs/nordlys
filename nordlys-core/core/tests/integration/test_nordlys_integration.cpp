@@ -2,10 +2,9 @@
 
 #include <algorithm>
 #include <filesystem>
-#include <vector>
-
-#include <nordlys_core/nordlys.hpp>
 #include <nordlys_core/checkpoint.hpp>
+#include <nordlys_core/nordlys.hpp>
+#include <vector>
 
 namespace fs = std::filesystem;
 
@@ -26,13 +25,13 @@ TEST_F(NordlysIntegrationTest, LoadCheckpointAndRouteFloat32) {
 
   auto checkpoint = NordlysCheckpoint::from_json(checkpoint_path.string());
   auto result = Nordlys32::from_checkpoint(std::move(checkpoint));
-  
+
   ASSERT_TRUE(result) << "Failed to create Nordlys32: " << result.error();
-  
+
   auto engine = std::move(result.value());
   EXPECT_EQ(engine.get_n_clusters(), 3);
   EXPECT_EQ(engine.get_embedding_dim(), 4);
-  
+
   auto models = engine.get_supported_models();
   EXPECT_EQ(models.size(), 3);
   EXPECT_TRUE(std::find(models.begin(), models.end(), "openai/gpt-4") != models.end());
@@ -41,7 +40,7 @@ TEST_F(NordlysIntegrationTest, LoadCheckpointAndRouteFloat32) {
 
   std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
   auto response = engine.route(embedding.data(), embedding.size(), 0.5f);
-  
+
   EXPECT_FALSE(response.selected_model.empty());
   EXPECT_EQ(response.cluster_id, 0);
   EXPECT_GE(response.cluster_distance, 0.0f);
@@ -54,16 +53,16 @@ TEST_F(NordlysIntegrationTest, LoadCheckpointAndRouteFloat64) {
 
   auto checkpoint = NordlysCheckpoint::from_json(checkpoint_path.string());
   auto result = Nordlys64::from_checkpoint(std::move(checkpoint));
-  
+
   ASSERT_TRUE(result) << "Failed to create Nordlys64: " << result.error();
-  
+
   auto engine = std::move(result.value());
   EXPECT_EQ(engine.get_n_clusters(), 3);
   EXPECT_EQ(engine.get_embedding_dim(), 4);
 
   std::vector<double> embedding = {0.0, 0.95, 0.05, 0.0};
   auto response = engine.route(embedding.data(), embedding.size(), 0.5f);
-  
+
   EXPECT_FALSE(response.selected_model.empty());
   EXPECT_EQ(response.cluster_id, 1);
   EXPECT_GE(response.cluster_distance, 0.0);
@@ -74,7 +73,7 @@ TEST_F(NordlysIntegrationTest, CostBiasAffectsModelSelection) {
   auto checkpoint = NordlysCheckpoint::from_json(checkpoint_path.string());
   auto result = Nordlys32::from_checkpoint(std::move(checkpoint));
   ASSERT_TRUE(result);
-  
+
   auto engine = std::move(result.value());
   std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
 
@@ -83,13 +82,13 @@ TEST_F(NordlysIntegrationTest, CostBiasAffectsModelSelection) {
 
   EXPECT_FALSE(response_cheap.selected_model.empty());
   EXPECT_FALSE(response_quality.selected_model.empty());
-  
+
   EXPECT_EQ(response_cheap.cluster_id, response_quality.cluster_id);
-  
+
   EXPECT_EQ(response_cheap.selected_model, "meta/llama-3-70b");
-  
-  EXPECT_TRUE(response_quality.selected_model == "openai/gpt-4" || 
-              response_quality.selected_model == "anthropic/claude-3-opus");
+
+  EXPECT_TRUE(response_quality.selected_model == "openai/gpt-4"
+              || response_quality.selected_model == "anthropic/claude-3-opus");
 }
 
 TEST_F(NordlysIntegrationTest, ModelFilteringWorks) {
@@ -97,7 +96,7 @@ TEST_F(NordlysIntegrationTest, ModelFilteringWorks) {
   auto checkpoint = NordlysCheckpoint::from_json(checkpoint_path.string());
   auto result = Nordlys32::from_checkpoint(std::move(checkpoint));
   ASSERT_TRUE(result);
-  
+
   auto engine = std::move(result.value());
   std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
 
@@ -113,14 +112,14 @@ TEST_F(NordlysIntegrationTest, AlternativesReturned) {
   auto checkpoint = NordlysCheckpoint::from_json(checkpoint_path.string());
   auto result = Nordlys32::from_checkpoint(std::move(checkpoint));
   ASSERT_TRUE(result);
-  
+
   auto engine = std::move(result.value());
   std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
   auto response = engine.route(embedding.data(), embedding.size(), 0.5f);
 
   EXPECT_FALSE(response.selected_model.empty());
   EXPECT_LE(response.alternatives.size(), 2);
-  
+
   for (const auto& alt : response.alternatives) {
     EXPECT_NE(alt, response.selected_model);
   }
@@ -129,9 +128,9 @@ TEST_F(NordlysIntegrationTest, AlternativesReturned) {
 TEST_F(NordlysIntegrationTest, DtypeMismatchFails) {
   auto checkpoint_path = get_checkpoint_path("valid_checkpoint_f64.json");
   auto checkpoint = NordlysCheckpoint::from_json(checkpoint_path.string());
-  
+
   auto result = Nordlys32::from_checkpoint(std::move(checkpoint));
-  
+
   EXPECT_FALSE(result);
   EXPECT_TRUE(result.error().find("float32") != std::string::npos);
 }
@@ -141,9 +140,9 @@ TEST_F(NordlysIntegrationTest, DimensionMismatchThrows) {
   auto checkpoint = NordlysCheckpoint::from_json(checkpoint_path.string());
   auto result = Nordlys32::from_checkpoint(std::move(checkpoint));
   ASSERT_TRUE(result);
-  
+
   auto engine = std::move(result.value());
-  
+
   std::vector<float> wrong_dim = {1.0f, 0.0f};
   EXPECT_THROW(engine.route(wrong_dim.data(), wrong_dim.size(), 0.5f), std::invalid_argument);
 }
@@ -153,7 +152,7 @@ TEST_F(NordlysIntegrationTest, DifferentEmbeddingsAssignToDifferentClusters) {
   auto checkpoint = NordlysCheckpoint::from_json(checkpoint_path.string());
   auto result = Nordlys32::from_checkpoint(std::move(checkpoint));
   ASSERT_TRUE(result);
-  
+
   auto engine = std::move(result.value());
 
   std::vector<float> emb0 = {0.95f, 0.05f, 0.0f, 0.0f};
@@ -170,8 +169,6 @@ TEST_F(NordlysIntegrationTest, DifferentEmbeddingsAssignToDifferentClusters) {
 }
 
 TEST_F(NordlysIntegrationTest, NonexistentCheckpointFileThrows) {
-  EXPECT_THROW(
-    NordlysCheckpoint::from_json("/nonexistent/path/checkpoint.json"),
-    std::runtime_error
-  );
+  EXPECT_THROW(NordlysCheckpoint::from_json("/nonexistent/path/checkpoint.json"),
+               std::runtime_error);
 }

@@ -1,8 +1,7 @@
 #include <gtest/gtest.h>
 
-#include <vector>
-
 #include <nordlys_core/nordlys.hpp>
+#include <vector>
 
 // Suppress nodiscard warnings in tests since EXPECT_THROW requires ignoring return values
 #pragma GCC diagnostic ignored "-Wunused-result"
@@ -11,95 +10,96 @@
 // Test Fixture for Nordlys32 Tests
 // ============================================================================
 
-// Test checkpoint JSON for creating valid routers
+// Test checkpoint JSON for creating valid routers (v2.0 format)
 static const char* kTestCheckpointJson = R"({
-  "metadata": {
-    "n_clusters": 3,
-    "embedding_model": "test-model",
-    "silhouette_score": 0.85,
-    "clustering": {
-      "n_init": 10,
-      "algorithm": "lloyd"
-    },
-    "routing": {
-      "lambda_min": 0.0,
-      "lambda_max": 2.0,
-      "max_alternatives": 2
-    }
-  },
-  "cluster_centers": {
-    "n_clusters": 3,
-    "feature_dim": 4,
-    "cluster_centers": [
-      [1.0, 0.0, 0.0, 0.0],
-      [0.0, 1.0, 0.0, 0.0],
-      [0.0, 0.0, 1.0, 0.0]
-    ]
-  },
+  "version": "2.0",
+  "cluster_centers": [
+    [1.0, 0.0, 0.0, 0.0],
+    [0.0, 1.0, 0.0, 0.0],
+    [0.0, 0.0, 1.0, 0.0]
+  ],
   "models": [
     {
-      "provider": "provider1",
-      "model_name": "gpt-4",
+      "model_id": "provider1/gpt-4",
       "cost_per_1m_input_tokens": 30.0,
       "cost_per_1m_output_tokens": 60.0,
       "error_rates": [0.01, 0.02, 0.015]
     },
     {
-      "provider": "provider2",
-      "model_name": "llama",
+      "model_id": "provider2/llama",
       "cost_per_1m_input_tokens": 0.3,
       "cost_per_1m_output_tokens": 0.6,
       "error_rates": [0.05, 0.06, 0.055]
     }
-  ]
+  ],
+  "embedding": {
+    "model": "test-model",
+    "dtype": "float32",
+    "trust_remote_code": false
+  },
+  "clustering": {
+    "n_clusters": 3,
+    "random_state": 42,
+    "max_iter": 300,
+    "n_init": 10,
+    "algorithm": "lloyd",
+    "normalization": "l2"
+  },
+  "routing": {
+    "cost_bias_min": 0.0,
+    "cost_bias_max": 1.0
+  },
+  "metrics": {
+    "silhouette_score": 0.85
+  }
 })";
 
-// Test checkpoint JSON for creating double-precision routers
+// Test checkpoint JSON for creating double-precision routers (v2.0 format)
 static const char* kTestCheckpointJsonFloat64 = R"({
-  "metadata": {
-    "n_clusters": 3,
-    "embedding_model": "test-model",
-    "dtype": "float64",
-    "silhouette_score": 0.85,
-    "clustering": {
-      "n_init": 10,
-      "algorithm": "lloyd"
-    },
-    "routing": {
-      "lambda_min": 0.0,
-      "lambda_max": 2.0,
-      "max_alternatives": 2
-    }
-  },
-  "cluster_centers": {
-    "n_clusters": 3,
-    "feature_dim": 4,
-    "cluster_centers": [
-      [1.0, 0.0, 0.0, 0.0],
-      [0.0, 1.0, 0.0, 0.0],
-      [0.0, 0.0, 1.0, 0.0]
-    ]
-  },
+  "version": "2.0",
+  "cluster_centers": [
+    [1.0, 0.0, 0.0, 0.0],
+    [0.0, 1.0, 0.0, 0.0],
+    [0.0, 0.0, 1.0, 0.0]
+  ],
   "models": [
     {
-      "provider": "provider1",
-      "model_name": "gpt-4",
+      "model_id": "provider1/gpt-4",
       "cost_per_1m_input_tokens": 30.0,
       "cost_per_1m_output_tokens": 60.0,
       "error_rates": [0.01, 0.02, 0.015]
     },
     {
-      "provider": "provider2",
-      "model_name": "llama",
+      "model_id": "provider2/llama",
       "cost_per_1m_input_tokens": 0.3,
       "cost_per_1m_output_tokens": 0.6,
       "error_rates": [0.05, 0.06, 0.055]
     }
-  ]
+  ],
+  "embedding": {
+    "model": "test-model",
+    "dtype": "float64",
+    "trust_remote_code": false
+  },
+  "clustering": {
+    "n_clusters": 3,
+    "random_state": 42,
+    "max_iter": 300,
+    "n_init": 10,
+    "algorithm": "lloyd",
+    "normalization": "l2"
+  },
+  "routing": {
+    "cost_bias_min": 0.0,
+    "cost_bias_max": 1.0
+  },
+  "metrics": {
+    "silhouette_score": 0.85
+  }
 })";
 
 class Nordlysest : public ::testing::Test {
- protected:
+protected:
   // Helper to create a test router from JSON string
   Nordlys32 CreateTestRouter() {
     auto checkpoint = NordlysCheckpoint::from_json_string(kTestCheckpointJson);
@@ -242,7 +242,8 @@ TEST_F(Nordlysest, FloatAndDoublePrecisionConsistency) {
   std::vector<double> embedding_double = {0.0, 0.95, 0.05, 0.0};
 
   auto response_float = router_float.route(embedding_float.data(), embedding_float.size(), 0.5f);
-  auto response_double = router_double.route(embedding_double.data(), embedding_double.size(), 0.5f);
+  auto response_double
+      = router_double.route(embedding_double.data(), embedding_double.size(), 0.5f);
 
   // Both should assign to same cluster
   EXPECT_EQ(response_float.cluster_id, response_double.cluster_id);
@@ -259,9 +260,8 @@ TEST_F(Nordlysest, DimensionMismatchThrows) {
   // Create wrong-sized embedding (3D instead of 4D)
   std::vector<float> wrong_embedding = {0.5f, 0.5f, 0.0f};
 
-  EXPECT_THROW(
-      router.route(wrong_embedding.data(), wrong_embedding.size(), 0.5f),
-      std::invalid_argument);
+  EXPECT_THROW(router.route(wrong_embedding.data(), wrong_embedding.size(), 0.5f),
+               std::invalid_argument);
 }
 
 TEST_F(Nordlysest, DimensionMismatchErrorMessage) {
@@ -276,8 +276,8 @@ TEST_F(Nordlysest, DimensionMismatchErrorMessage) {
   } catch (const std::invalid_argument& e) {
     std::string msg = e.what();
     // Error message should mention dimension mismatch
-    EXPECT_TRUE(msg.find("Embedding dimension mismatch") != std::string::npos ||
-                msg.find("dimension") != std::string::npos);
+    EXPECT_TRUE(msg.find("Embedding dimension mismatch") != std::string::npos
+                || msg.find("dimension") != std::string::npos);
   }
 }
 
@@ -311,17 +311,16 @@ TEST_F(Nordlysest, RoutingWithSingleModelFilter) {
   EXPECT_EQ(response.selected_model, "provider2/llama");
 }
 
-TEST_F(Nordlysest, AlternativesRespectMaxAlternatives) {
-  // Verify that alternatives count doesn't exceed max_alternatives
+TEST_F(Nordlysest, AlternativesReturned) {
+  // Verify that alternatives are returned (all models except selected)
   auto router = CreateTestRouter();
 
   std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
 
   auto response = router.route(embedding.data(), embedding.size(), 0.5f);
 
-  // max_alternatives is 2 in test checkpoint, and we have 2 models total
-  // So alternatives should be at most 1 (total - selected = 2 - 1)
-  EXPECT_LE(response.alternatives.size(), 2);
+  // With 2 models, alternatives should have at most 1 (all except selected)
+  EXPECT_LE(response.alternatives.size(), 1);
 }
 
 // ============================================================================
@@ -421,12 +420,10 @@ TEST_F(Nordlysest, ResponseContainsAllRequiredFields) {
   EXPECT_GE(response.cluster_id, 0);
   EXPECT_LT(response.cluster_id, 3);
   EXPECT_GE(response.cluster_distance, 0.0f);
-  // alternatives can be empty, but should not exceed min(max_alternatives, model_count - 1)
+  // alternatives can be empty, contains all models except selected
   const auto models = router.get_supported_models();
   const auto model_count = static_cast<unsigned int>(models.size());
-  const auto max_alternatives = 2u;  // from test checkpoint routing.max_alternatives
-  const auto max_possible_alternatives = std::min(max_alternatives, model_count - 1u);
-  EXPECT_LE(response.alternatives.size(), max_possible_alternatives);
+  EXPECT_LE(response.alternatives.size(), model_count - 1u);
 }
 
 TEST_F(Nordlysest, AlternativeModelsAreDifferentFromSelected) {
@@ -449,27 +446,20 @@ TEST_F(Nordlysest, AlternativeModelsAreDifferentFromSelected) {
 TEST_F(Nordlysest, CreateFromJsonString) {
   // Test creating router from JSON string
   std::string json_profile = R"({
-    "metadata": {
-      "n_clusters": 2,
-      "embedding_model": "test",
-      "silhouette_score": 0.8,
-      "clustering": {"n_init": 10, "algorithm": "lloyd"},
-      "routing": {"lambda_min": 0.0, "lambda_max": 2.0, "max_alternatives": 1}
-    },
-    "cluster_centers": {
-      "n_clusters": 2,
-      "feature_dim": 2,
-      "cluster_centers": [[1.0, 0.0], [0.0, 1.0]]
-    },
+    "version": "2.0",
+    "cluster_centers": [[1.0, 0.0], [0.0, 1.0]],
     "models": [
       {
-        "provider": "test",
-        "model_name": "model1",
+        "model_id": "test/model1",
         "cost_per_1m_input_tokens": 1.0,
         "cost_per_1m_output_tokens": 2.0,
         "error_rates": [0.01, 0.02]
       }
-    ]
+    ],
+    "embedding": {"model": "test", "dtype": "float32", "trust_remote_code": false},
+    "clustering": {"n_clusters": 2, "random_state": 42, "max_iter": 300, "n_init": 10, "algorithm": "lloyd", "normalization": "l2"},
+    "routing": {"cost_bias_min": 0.0, "cost_bias_max": 1.0},
+    "metrics": {"silhouette_score": 0.8}
   })";
 
   auto checkpoint = NordlysCheckpoint::from_json_string(json_profile);
@@ -527,4 +517,3 @@ TEST_F(Nordlysest, DtypeMismatchValidation) {
   EXPECT_FALSE(result_double.has_value());
   EXPECT_TRUE(result_double.error().find("requires float64 checkpoint") != std::string::npos);
 }
-

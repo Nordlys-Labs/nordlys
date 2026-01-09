@@ -1,6 +1,7 @@
 #pragma once
 #include <format>
 #include <ranges>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -24,14 +25,14 @@ public:
   static Result<Nordlys, std::string> from_checkpoint(NordlysCheckpoint checkpoint) noexcept {
     NORDLYS_ZONE_N("Nordlys::from_checkpoint");
     if constexpr (std::is_same_v<Scalar, float>) {
-      if (!checkpoint.is_float32()) {
+      if (checkpoint.dtype() != "float32") {
         return Unexpected("Nordlys<float> requires float32 checkpoint, but checkpoint dtype is "
-                          + checkpoint.metadata.dtype);
+                          + checkpoint.dtype());
       }
     } else if constexpr (std::is_same_v<Scalar, double>) {
-      if (!checkpoint.is_float64()) {
+      if (checkpoint.dtype() != "float64") {
         return Unexpected("Nordlys<double> requires float64 checkpoint, but checkpoint dtype is "
-                          + checkpoint.metadata.dtype);
+                          + checkpoint.dtype());
       }
     }
 
@@ -50,15 +51,14 @@ public:
   Nordlys(const Nordlys&) = delete;
   Nordlys& operator=(const Nordlys&) = delete;
 
-  RouteResult<Scalar> route(const Scalar* data, size_t size, float cost_bias = 0.5f,
+  RouteResult<Scalar> route(const Scalar* data, size_t size, float cost_bias = 0.0f,
                             const std::vector<std::string>& models = {}) {
     NORDLYS_ZONE_N("Nordlys::route");
     if (size != static_cast<size_t>(dim_)) {
       throw std::invalid_argument(std::format("dimension mismatch: {} vs {}", dim_, size));
     }
 
-    auto emb = Eigen::Map<const EmbeddingVectorT<Scalar>>(data, dim_);
-    auto [cid, dist] = engine_.assign(emb);
+    auto [cid, dist] = engine_.assign(data, size);
 
     if (cid < 0) throw std::runtime_error("no valid cluster");
 
@@ -70,10 +70,7 @@ public:
                              .cluster_distance = dist};
 
     if (scores.size() > 1) {
-      size_t n = std::min(scores.size() - 1,
-                          static_cast<size_t>(checkpoint_.metadata.routing.max_alternatives));
-      auto alts = scores | std::views::drop(1) | std::views::take(n)
-                  | std::views::transform(&ModelScore::model_id);
+      auto alts = scores | std::views::drop(1) | std::views::transform(&ModelScore::model_id);
       resp.alternatives.assign(alts.begin(), alts.end());
     }
     return resp;
@@ -92,13 +89,12 @@ private:
     NORDLYS_ZONE_N("Nordlys::init");
     checkpoint_ = std::move(checkpoint);
 
-    const auto& centers = checkpoint_.centers<Scalar>();
+    const auto& centers = std::get<EmbeddingMatrixT<Scalar>>(checkpoint_.cluster_centers);
     dim_ = static_cast<int>(centers.cols());
     engine_.load_centroids(centers);
 
     scorer_.load_models(checkpoint_.models);
-    scorer_.set_lambda_params(checkpoint_.metadata.routing.lambda_min,
-                              checkpoint_.metadata.routing.lambda_max);
+    scorer_.set_lambda_params(checkpoint_.routing.cost_bias_min, checkpoint_.routing.cost_bias_max);
   }
 
   ClusterEngineT<Scalar> engine_;
