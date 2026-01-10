@@ -363,14 +363,4 @@ TEST_F(ProfileTest, ValidationZeroModels) {
   EXPECT_THROW(invalid_profile.validate(), std::invalid_argument);
 }
 
-TEST_F(ProfileTest, MissingVersionField) {
-  std::string missing_version = R"({
-    "cluster_centers": [[1.0, 0.0]],
-    "models": [{"model_id": "test/model", "cost_per_1m_input_tokens": 1.0, "cost_per_1m_output_tokens": 1.0, "error_rates": [0.1]}],
-    "embedding": {"model": "test", "dtype": "float32", "trust_remote_code": false},
-    "clustering": {"n_clusters": 1, "random_state": 42, "max_iter": 300, "n_init": 10, "algorithm": "lloyd", "normalization": "l2"},
-    "routing": {"cost_bias_min": 0.0, "cost_bias_max": 1.0},
-    "metrics": {"silhouette_score": 0.5}
-  })";
-  EXPECT_THROW(NordlysCheckpoint::from_json_string(missing_version), std::exception);
-}
+

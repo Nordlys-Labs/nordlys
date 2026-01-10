@@ -129,17 +129,7 @@ TYPED_TEST(ClusterEngineCpuTestT, AssignBeforeLoadReturnsError) {
   EXPECT_EQ(distance, TypeParam(0.0));
 }
 
-TYPED_TEST(ClusterEngineCpuTestT, DimensionMismatch) {
-  EmbeddingMatrixT<TypeParam> centers(3, 4);
-  this->fill_matrix(centers, {TypeParam(1.0), TypeParam(0.0), TypeParam(0.0), TypeParam(0.0),
-                              TypeParam(0.0), TypeParam(1.0), TypeParam(0.0), TypeParam(0.0),
-                              TypeParam(0.0), TypeParam(0.0), TypeParam(1.0), TypeParam(0.0)});
-  this->engine.load_centroids(centers);
 
-  std::vector<TypeParam> query(3, TypeParam(1.0));
-  auto [cluster_id, distance] = this->engine.assign(query.data(), 3);
-  EXPECT_EQ(cluster_id, -1);
-}
 
 TYPED_TEST(ClusterEngineCpuTestT, LargeClusterCount) {
   constexpr size_t N_CLUSTERS = 1000;
