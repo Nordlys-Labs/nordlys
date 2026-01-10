@@ -132,12 +132,17 @@ void CudaClusterBackend<float>::load_centroids(const float* data, int n_clusters
     throw std::invalid_argument("n_clusters and dim must be positive");
   }
 
+  auto nc = static_cast<size_t>(n_clusters);
+  auto d = static_cast<size_t>(dim);
+
+  if (nc > SIZE_MAX / d) {
+    throw std::invalid_argument("n_clusters * dim would overflow");
+  }
+
   free_memory();
 
   n_clusters_ = n_clusters;
   dim_ = dim;
-  auto nc = static_cast<size_t>(n_clusters);
-  auto d = static_cast<size_t>(dim);
 
   // Device memory
   CUDA_CHECK(cudaMalloc(&d_centroids_, nc * d * sizeof(float)));
@@ -267,12 +272,17 @@ void CudaClusterBackend<double>::load_centroids(const double* data, int n_cluste
     throw std::invalid_argument("n_clusters and dim must be positive");
   }
 
+  auto nc = static_cast<size_t>(n_clusters);
+  auto d = static_cast<size_t>(dim);
+
+  if (nc > SIZE_MAX / d) {
+    throw std::invalid_argument("n_clusters * dim would overflow");
+  }
+
   free_memory();
 
   n_clusters_ = n_clusters;
   dim_ = dim;
-  auto nc = static_cast<size_t>(n_clusters);
-  auto d = static_cast<size_t>(dim);
 
   CUDA_CHECK(cudaMalloc(&d_centroids_, nc * d * sizeof(double)));
   CUDA_CHECK(cudaMalloc(&d_centroid_norms_, nc * sizeof(double)));

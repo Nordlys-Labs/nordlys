@@ -4,6 +4,7 @@
 #include <cstring>
 #include <limits>
 #include <memory>
+#include <stdexcept>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -33,6 +34,9 @@ public:
 
   [[nodiscard]] virtual std::vector<std::pair<int, Scalar>> assign_batch(const Scalar* embeddings,
                                                                           int count, int dim) {
+    if (count < 0 || dim <= 0) {
+      throw std::invalid_argument("count must be non-negative and dim must be positive");
+    }
     std::vector<std::pair<int, Scalar>> results;
     results.reserve(static_cast<size_t>(count));
     for (int i = 0; i < count; ++i) {
@@ -64,14 +68,30 @@ public:
   void load_centroids(const Scalar* data, int n_clusters, int dim) override {
     NORDLYS_ZONE_N("CpuClusterBackend::load_centroids");
 
+    if (n_clusters <= 0 || dim <= 0) {
+      throw std::invalid_argument("n_clusters and dim must be positive");
+    }
+
+    auto nc = static_cast<size_t>(n_clusters);
+    auto d = static_cast<size_t>(dim);
+    
+    if (nc > SIZE_MAX / d) {
+      throw std::invalid_argument("n_clusters * dim would overflow");
+    }
+    
+    size_t total_size = nc * d;
+    if (total_size > SIZE_MAX / sizeof(Scalar)) {
+      throw std::invalid_argument("allocation size would overflow");
+    }
+
     n_clusters_ = n_clusters;
     dim_ = dim;
 
     using namespace unum::usearch;
     auto scalar_kind = std::is_same_v<Scalar, float> ? scalar_kind_t::f32_k : scalar_kind_t::f64_k;
-    metric_ = metric_punned_t(static_cast<size_t>(dim), metric_kind_t::l2sq_k, scalar_kind);
+    metric_ = metric_punned_t(d, metric_kind_t::l2sq_k, scalar_kind);
 
-    centroids_.resize(static_cast<size_t>(n_clusters) * static_cast<size_t>(dim));
+    centroids_.resize(total_size);
     std::memcpy(centroids_.data(), data, centroids_.size() * sizeof(Scalar));
   }
 
@@ -130,6 +150,10 @@ public:
   [[nodiscard]] std::vector<std::pair<int, Scalar>> assign_batch(
       const Scalar* embeddings, int count, int /*dim*/) override {
     NORDLYS_ZONE_N("CpuClusterBackend::assign_batch");
+
+    if (count < 0) {
+      throw std::invalid_argument("count must be non-negative");
+    }
 
     std::vector<std::pair<int, Scalar>> results(static_cast<size_t>(count));
 
@@ -273,23 +297,42 @@ template <typename Scalar>
 template <typename Scalar = float>
 class ClusterEngine {
 public:
-  ClusterEngine() : backend_(create_cluster_backend<Scalar>(ClusterBackendType::Auto)) {}
+  ClusterEngine() : backend_(create_cluster_backend<Scalar>(ClusterBackendType::Auto)) {
+    if (!backend_) {
+      throw std::runtime_error("failed to create cluster backend");
+    }
+  }
 
-  explicit ClusterEngine(ClusterBackendType type) : backend_(create_cluster_backend<Scalar>(type)) {}
+  explicit ClusterEngine(ClusterBackendType type) : backend_(create_cluster_backend<Scalar>(type)) {
+    if (!backend_) {
+      throw std::runtime_error("failed to create cluster backend");
+    }
+  }
 
   void load_centroids(const EmbeddingMatrix<Scalar>& centers) {
     NORDLYS_ZONE;
+    if (centers.rows() > static_cast<size_t>(std::numeric_limits<int>::max()) ||
+        centers.cols() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+      throw std::invalid_argument("matrix dimensions exceed int range");
+    }
     backend_->load_centroids(centers.data(), static_cast<int>(centers.rows()),
                              static_cast<int>(centers.cols()));
   }
 
   [[nodiscard]] auto assign(const Scalar* embedding, size_t dim) {
     NORDLYS_ZONE;
+    if (dim > static_cast<size_t>(std::numeric_limits<int>::max())) {
+      throw std::invalid_argument("dim exceeds int range");
+    }
     return backend_->assign(embedding, static_cast<int>(dim));
   }
 
   [[nodiscard]] auto assign_batch(const Scalar* embeddings, size_t count, size_t dim) {
     NORDLYS_ZONE;
+    if (count > static_cast<size_t>(std::numeric_limits<int>::max()) ||
+        dim > static_cast<size_t>(std::numeric_limits<int>::max())) {
+      throw std::invalid_argument("count or dim exceeds int range");
+    }
     return backend_->assign_batch(embeddings, static_cast<int>(count), static_cast<int>(dim));
   }
 

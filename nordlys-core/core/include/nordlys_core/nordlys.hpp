@@ -119,12 +119,13 @@ public:
     auto assignments = engine_.assign_batch(data, count, dim);
     std::vector<RouteResult<Scalar>> results(count);
     bool has_invalid = false;
+    auto n = static_cast<ptrdiff_t>(count);
 
 #ifdef _OPENMP
     #pragma omp parallel for schedule(static) reduction(||:has_invalid)
 #endif
-    for (size_t i = 0; i < count; ++i) {
-      const auto& [cid, dist] = assignments[i];
+    for (ptrdiff_t i = 0; i < n; ++i) {
+      const auto& [cid, dist] = assignments[static_cast<size_t>(i)];
       if (cid < 0) {
         has_invalid = true;
         continue;
@@ -132,7 +133,7 @@ public:
 
       auto scores = scorer_.score_models(cid, cost_bias, models);
 
-      results[i] = RouteResult<Scalar>{
+      results[static_cast<size_t>(i)] = RouteResult<Scalar>{
         .selected_model = scores.empty() ? std::string{} : scores[0].model_id,
         .alternatives = [&]() -> std::vector<std::string> {
           if (scores.size() <= 1) return {};
