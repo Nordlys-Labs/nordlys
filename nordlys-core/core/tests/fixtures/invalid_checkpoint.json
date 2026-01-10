@@ -1,0 +1,23 @@
+{
+  "version": "2.0",
+  "cluster_centers": [[1.0, 0.0], [0.0, 1.0]],
+  "models": [],
+  "embedding": {
+    "model": "invalid-test",
+    "dtype": "float32",
+    "trust_remote_code": false
+  },
+  "clustering": {
+    "n_clusters": -1,
+    "random_state": 42,
+    "max_iter": 300,
+    "n_init": 10,
+    "algorithm": "lloyd",
+    "normalization": "l2"
+  },
+  "routing": {
+    "cost_bias_min": 0.0,
+    "cost_bias_max": 1.0
+  },
+  "metrics": {}
+}

@@ -8,7 +8,7 @@ set -euo pipefail
 #       Constants
 # ========================
 SCRIPT_NAME="OpenCode Nordlys Installer"
-SCRIPT_VERSION="1.0.1"
+SCRIPT_VERSION="1.1.0"
 
 NODE_MIN_VERSION=18
 NODE_INSTALL_VERSION=22
@@ -17,13 +17,14 @@ NVM_VERSION="v0.40.3"
 # ✅ Correct package for OpenCode:
 OPENCODE_PACKAGE="opencode-ai"
 
+CONFIG_DIR="$HOME/.config/opencode"
 CONFIG_FILE="opencode.json"
-API_BASE_URL="https://api.llmadaptive.uk/v1"
-API_KEY_URL="https://www.llmadaptive.uk/dashboard"
+API_BASE_URL="https://api.nordlyslabs.com/v1"
+API_KEY_URL="https://nordlyslabs.com/api-platform/orgs"
 
 # Model override defaults:
-# - use nordlys/nordlys-code for Nordlys model
-DEFAULT_MODEL="nordlys/nordlys-code"
+# - use nordlys/hypernova for Nordlys model
+DEFAULT_MODEL="nordlys/hypernova"
 
 # ========================
 #       Logging
@@ -31,24 +32,6 @@ DEFAULT_MODEL="nordlys/nordlys-code"
 log_info()    { echo "🔹 $*"; }
 log_success() { echo "✅ $*"; }
 log_error()   { echo "❌ $*" >&2; }
-
-create_config_backup() {
-  local config_file="$1"
-
-  if [ -f "$config_file" ]; then
-    local timestamp=$(date +"%Y%m%d_%H%M%S")
-    local timestamped_backup="${config_file}.${timestamp}.bak"
-
-    # Create timestamped backup
-    cp "$config_file" "$timestamped_backup" || {
-      log_error "Failed to create timestamped backup: $timestamped_backup"
-      exit 1
-    }
-
-    log_success "Config backed up to: $timestamped_backup"
-    log_info "To revert: cp \"$timestamped_backup\" \"$config_file\""
-  fi
-}
 
 # ========================
 #     Node.js helpers
@@ -173,20 +156,110 @@ validate_api_key() {
 
 validate_model_override() {
   local model="$1"
-  # Empty => falls back to nordlys/nordlys-code
+  # Empty => falls back to nordlys/hypernova
   if [ -z "$model" ]; then return 0; fi
   [[ "$model" =~ ^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$ ]]
+}
+
+# ========================
+#     API Key Configuration
+# ========================
+get_api_key() {
+  local api_key="${NORDLYS_API_KEY:-}"
+
+  # If API key is already set in env, validate and return it
+  if [ -n "$api_key" ]; then
+    if validate_api_key "$api_key"; then
+      log_success "Using API key from NORDLYS_API_KEY environment variable" >&2
+      echo "$api_key"
+      return 0
+    else
+      log_error "NORDLYS_API_KEY format looks invalid. Re-check your key."
+      exit 1
+    fi
+  fi
+
+  # Check if running in non-interactive mode (e.g., piped from curl)
+  if [ ! -t 0 ]; then
+    echo "" >&2
+    log_info "🎯 Interactive setup required for API key configuration" >&2
+    echo "" >&2
+    echo "📥 Option 1: Download and run interactively (Recommended)" >&2
+    echo "   curl -o opencode.sh https://raw.githubusercontent.com/Nordlys-Labs/nordlys/main/scripts/installers/unix/opencode.sh" >&2
+    echo "   chmod +x opencode.sh" >&2
+    echo "   ./opencode.sh" >&2
+    echo "" >&2
+    echo "🔑 Option 2: Set API key via environment variable" >&2
+    echo "   export NORDLYS_API_KEY='your-api-key-here'" >&2
+    echo "   curl -fsSL https://raw.githubusercontent.com/Nordlys-Labs/nordlys/main/scripts/installers/unix/opencode.sh | bash" >&2
+    echo "" >&2
+    echo "🔗 Get your API key: $API_KEY_URL" >&2
+    exit 1
+  fi
+
+  # Interactive mode - prompt for API key
+  echo "" >&2
+  log_info "You can get your API key from: $API_KEY_URL" >&2
+  local attempts=0
+  local max_attempts=3
+
+  while [ $attempts -lt $max_attempts ]; do
+    echo -n "🔑 Please enter your Nordlys API key: " >&2
+    read -s api_key
+    echo >&2
+
+    if [ -z "$api_key" ]; then
+      log_error "API key cannot be empty."
+      ((attempts++))
+      continue
+    fi
+
+    if validate_api_key "$api_key"; then
+      echo "$api_key"
+      return 0
+    fi
+
+    log_error "API key format appears invalid."
+    ((attempts++))
+    if [ $attempts -lt $max_attempts ]; then
+      log_info "Please try again ($((max_attempts - attempts)) attempts remaining)..." >&2
+    fi
+  done
+
+  log_error "Maximum attempts reached. Please run the script again."
+  exit 1
 }
 
 # ========================
 #     Config generator
 # ========================
 create_opencode_config() {
-  local config_file="$1"
-  local model="$2"
+  local model="$1"
+  local api_key="$2"
 
   log_info "Creating OpenCode configuration..."
-  create_config_backup "$config_file"
+
+  # Ensure config directory exists
+  mkdir -p "$CONFIG_DIR"
+
+  # Check for existing config (json or jsonc)
+  local config_path=""
+  if [ -f "$CONFIG_DIR/opencode.jsonc" ]; then
+    config_path="$CONFIG_DIR/opencode.jsonc"
+  else
+    config_path="$CONFIG_DIR/opencode.json"
+  fi
+
+  # Backup existing config if present
+  if [ -f "$config_path" ]; then
+    local timestamp=$(date +"%Y%m%d_%H%M%S")
+    local backup_path="${config_path}.${timestamp}.bak"
+    cp "$config_path" "$backup_path" || {
+      log_error "Failed to create backup: $backup_path"
+      exit 1
+    }
+    log_success "Config backed up to: $backup_path"
+  fi
 
   # If user gave NORDLYS_MODEL, use it; else default to the Nordlys model id.
   local effective_model="$model"
@@ -194,7 +267,7 @@ create_opencode_config() {
     effective_model="$DEFAULT_MODEL"
   fi
 
-  cat > "$config_file" <<EOF
+  cat > "$config_path" <<EOF
 {
   "\$schema": "https://opencode.ai/config.json",
   "provider": {
@@ -203,9 +276,18 @@ create_opencode_config() {
       "name": "Nordlys",
       "options": {
         "baseURL": "$API_BASE_URL",
+        "apiKey": "$api_key",
         "headers": { "User-Agent": "opencode-nordlys-integration" }
       },
-      "models": {}
+      "models": {
+        "${effective_model}": {
+          "name": "Hypernova",
+          "limit": {
+            "context": 200000,
+            "output": 65536
+          }
+        }
+      }
     }
   },
   "model": "${effective_model}"
@@ -214,28 +296,13 @@ EOF
 
   # quick JSON sanity check (jq optional)
   if command -v jq >/dev/null 2>&1; then
-    if ! jq . "$config_file" >/dev/null 2>&1; then
-      log_error "Generated $config_file is not valid JSON."
+    if ! jq . "$config_path" >/dev/null 2>&1; then
+      log_error "Generated $config_path is not valid JSON."
       exit 1
     fi
   fi
 
-  log_success "OpenCode configuration written: $config_file"
-}
-
-# ========================
-#     Auth guidance
-# ========================
-print_auth_instructions() {
-  echo ""
-  echo "⚠️  Authentication is interactive in OpenCode."
-  echo "   Run the following to finish setup:"
-  echo ""
-  echo "   opencode auth login"
-  echo "     → Select: Other"
-  echo "     → Provider ID: nordlys"
-  echo "     → Paste your API key (get it from $API_KEY_URL)"
-  echo ""
+  log_success "OpenCode configuration written: $config_path"
 }
 
 # ========================
@@ -249,8 +316,9 @@ verify_installation() {
     return 1
   fi
 
-  if [ ! -f "$PWD/$CONFIG_FILE" ]; then
-    log_error "Missing $CONFIG_FILE in current directory."
+  # Check for config in either json or jsonc format
+  if [ ! -f "$CONFIG_DIR/opencode.json" ] && [ ! -f "$CONFIG_DIR/opencode.jsonc" ]; then
+    log_error "Missing config in $CONFIG_DIR/"
     return 1
   fi
 
@@ -266,7 +334,7 @@ show_banner() {
   echo "  $SCRIPT_NAME v$SCRIPT_VERSION"
   echo "=========================================="
   echo "Configure OpenCode to use Nordlys's"
-  echo "Mixture of Models (save 60–80% costs)"
+  echo "Mixture of Models for intelligent model selection"
   echo ""
 }
 
@@ -279,42 +347,29 @@ main() {
   # 2) OpenCode CLI
   install_opencode
 
-  # 3) Read env overrides (optional)
-  local api_key="${NORDLYS_API_KEY:-}"
+  # 3) Get API key (from env or prompt)
+  local api_key
+  api_key=$(get_api_key)
+
+  # 4) Read model override (optional)
   local model_override="${NORDLYS_MODEL:-}"
   local model="$DEFAULT_MODEL"
 
   if [ -n "$model_override" ]; then
     if ! validate_model_override "$model_override"; then
-      log_error "Invalid NORDLYS_MODEL: '$model_override'. Use format: author/model_id (e.g., nordlys/nordlys-code)."
+      log_error "Invalid NORDLYS_MODEL: '$model_override'. Use format: author/model_id (e.g., nordlys/hypernova)."
       exit 1
     fi
     log_info "Using custom model override: $model_override"
     model="$model_override"
   else
-    log_info "Using nordlys/nordlys-code Nordlys model (no explicit model override)."
+    log_info "Using nordlys/hypernova Mixture of Models."
   fi
 
-  # 4) If API key is present, quick format check (we cannot inject it non-interactively)
-  if [ -n "$api_key" ]; then
-    if validate_api_key "$api_key"; then
-      log_success "NORDLYS_API_KEY detected (format looks OK)."
-      log_info "Note: OpenCode still requires an interactive 'auth login' to store the key."
-    else
-      log_error "NORDLYS_API_KEY format looks invalid. Re-check your key or omit the variable."
-      exit 1
-    fi
-  else
-    log_info "No NORDLYS_API_KEY in env. You can still complete auth interactively."
-  fi
+  # 5) Create config in ~/.config/opencode/
+  create_opencode_config "$model" "$api_key"
 
-  # 5) Create per-project config
-  create_opencode_config "$PWD/$CONFIG_FILE" "$model"
-
-  # 6) Final instructions for auth
-  print_auth_instructions
-
-  # 7) Verify
+  # 6) Verify
   if verify_installation; then
     echo ""
     echo "╭──────────────────────────────────────────────╮"
@@ -322,24 +377,23 @@ main() {
     echo "╰──────────────────────────────────────────────╯"
     echo ""
     echo "🚀 Quick Start"
-    echo "   1) opencode auth login         # add 'nordlys' integration with your API key"
-    echo "   2) opencode                    # open the TUI"
-    echo "   3) /models                     # pick 'Nordlys / 🧠 Nordlys Model'"
+    echo "   opencode                    # open the TUI"
+    echo "   /models                     # select 'nordlys/hypernova'"
     echo ""
     echo "🔍 Verify"
-    echo "   opencode auth list             # should list 'nordlys'"
-    echo "   cat $CONFIG_FILE               # see 'model': 'nordlys/nordlys-code'"
+    echo "   cat $CONFIG_DIR/$CONFIG_FILE"
     echo ""
     echo "📊 Monitor"
     echo "   Dashboard: $API_KEY_URL"
-    echo "   Config:    $PWD/$CONFIG_FILE"
+    echo ""
+    echo "📖 Documentation: https://docs.nordlyslabs.com/developer-tools/opencode"
   else
     echo ""
     log_error "Installation verification failed."
     echo ""
     echo "🔧 Manual fallback:"
-    echo "   curl -o $CONFIG_FILE https://raw.githubusercontent.com/Egham-7/nordlys/main/examples/opencode.json"
-    echo "   opencode auth login   # Other → integration id 'nordlys' → paste API key"
+    echo "   mkdir -p $CONFIG_DIR"
+    echo "   # Create $CONFIG_DIR/opencode.json with your config"
     exit 1
   fi
 }

@@ -9,14 +9,10 @@ $ScriptName = "Grok CLI Nordlys Installer"
 $NodeMinVersion = 18
 $NodeInstallVersion = "22"
 $PackageName = "@vibe-kit/grok-cli@0.0.16"
-$ApiBaseUrl = "https://api.llmadaptive.uk/v1"
-$DefaultModel = "nordlys/nordlys-code"
+$ApiBaseUrl = "https://api.nordlyslabs.com/v1"
+$DefaultModel = "nordlys/hypernova"
 $DefaultModels = @(
-    "anthropic/claude-sonnet-4-5",
-    "anthropic/claude-4-5-haiku",
-    "anthropic/claude-opus-4-1-20250805",
-    "openai/gpt-5-codex",
-    "google/gemini-2-5-pro"
+    "nordlys/hypernova"
 )
 
 function Write-Info {
@@ -145,8 +141,12 @@ Write-Settings -SettingsPath $settingsPath -Settings $settings
 
 $env:NORDLYS_API_KEY = $ApiKey
 $env:NORDLYS_BASE_URL = $ApiBaseUrl
+$env:GROK_MODEL = $DefaultModel
+$env:GROK_BASE_URL = $ApiBaseUrl
 [Environment]::SetEnvironmentVariable("NORDLYS_API_KEY", $ApiKey, "User")
 [Environment]::SetEnvironmentVariable("NORDLYS_BASE_URL", $ApiBaseUrl, "User")
+[Environment]::SetEnvironmentVariable("GROK_MODEL", $DefaultModel, "User")
+[Environment]::SetEnvironmentVariable("GROK_BASE_URL", $ApiBaseUrl, "User")
 
 Write-Success "Grok CLI configured for Nordlys."
 Write-Host "Config: $settingsPath"

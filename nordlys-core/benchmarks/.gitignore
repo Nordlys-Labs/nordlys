@@ -1,0 +1,14 @@
+# Build artifacts
+build/
+*.o
+
+# Benchmark results (but not fixtures)
+benchmark_results*.json
+results_*.json
+*.csv
+
+# Tracy profiler captures
+*.tracy
+
+# Keep fixtures directory
+!fixtures/

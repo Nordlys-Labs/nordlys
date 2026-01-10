@@ -1,0 +1,136 @@
+name: Nordlys Core Test
+
+on:
+  workflow_call:
+
+jobs:
+  # ============================================
+  # Build & Test (CPU-only for speed)
+  # ============================================
+  build-and-test:
+    name: Build & Test (${{ matrix.os }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { os: linux, runner: ubuntu-24.04 }
+          - { os: macos, runner: macos-15 }
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Cache Conan packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.conan2
+          key: conan-${{ runner.os }}-${{ hashFiles('nordlys-core/conanfile.py') }}
+          restore-keys: |
+            conan-${{ runner.os }}-
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install build tools
+        run: uv pip install conan --system
+
+      - name: Setup Conan profile
+        run: conan profile detect --force
+
+      - name: Install dependencies
+        working-directory: nordlys-core
+        run: conan install . --build=missing -s compiler.cppstd=20
+
+      - name: Configure
+        working-directory: nordlys-core
+        shell: bash
+        run: |
+          cmake --preset conan-release \
+            -DNORDLYS_BUILD_TESTS=ON \
+            -DNORDLYS_BUILD_PYTHON=ON \
+            -DNORDLYS_BUILD_C=ON \
+            -DNORDLYS_BUILD_BENCHMARKS=OFF \
+            -DNORDLYS_ENABLE_CUDA=OFF \
+            -DNORDLYS_ENABLE_TRACY=OFF
+
+      - name: Build
+        working-directory: nordlys-core
+        run: cmake --build --preset conan-release --parallel
+
+      - name: Test (C++ only)
+        working-directory: nordlys-core
+        run: ctest --preset conan-release --output-on-failure -E python_bindings
+
+  # ============================================
+  # Python Bindings Tests
+  # ============================================
+  python-bindings-test:
+    name: Python Bindings (${{ matrix.os }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { os: linux, runner: ubuntu-24.04 }
+          - { os: macos, runner: macos-15 }
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Cache Conan packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.conan2
+          key: conan-${{ runner.os }}-${{ hashFiles('nordlys-core/conanfile.py') }}
+          restore-keys: |
+            conan-${{ runner.os }}-
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install build tools
+        run: uv pip install conan --system
+
+      - name: Install Python test dependencies
+        working-directory: nordlys-core/bindings/python
+        run: uv sync --group test --no-install-project
+
+      - name: Setup Conan profile
+        run: conan profile detect --force
+
+      - name: Install dependencies
+        working-directory: nordlys-core
+        run: conan install . --build=missing -s compiler.cppstd=20
+
+      - name: Configure
+        working-directory: nordlys-core
+        shell: bash
+        run: |
+          cmake --preset conan-release \
+            -DNORDLYS_BUILD_TESTS=OFF \
+            -DNORDLYS_BUILD_PYTHON=ON \
+            -DNORDLYS_BUILD_C=OFF \
+            -DNORDLYS_BUILD_BENCHMARKS=OFF \
+            -DNORDLYS_ENABLE_CUDA=OFF \
+            -DNORDLYS_ENABLE_TRACY=OFF
+
+      - name: Build Python bindings
+        working-directory: nordlys-core
+        run: cmake --build --preset conan-release --parallel --target nordlys_core_ext
+
+      - name: Run Python tests
+        working-directory: nordlys-core/bindings/python
+        env:
+          PYTHONPATH: ${{ github.workspace }}/nordlys-core/build/Release
+        run: |
+          uv run pytest tests/ -v --tb=short

@@ -1,5 +1,3 @@
-$ErrorActionPreference = "Stop"
-
 param(
     [string]$ApiKey,
     [string]$PrimaryModel,
@@ -10,18 +8,20 @@ param(
     [string]$SubagentModel
 )
 
+$ErrorActionPreference = "Stop"
+
 $ScriptName = "Claude Code Nordlys Installer"
 $NodeMinVersion = 18
 $NodeInstallVersion = "22"
 $PackageName = "@anthropic-ai/claude-code"
-$ApiBaseUrl = "https://api.llmadaptive.uk"
+$ApiBaseUrl = "https://api.nordlyslabs.com"
 $ApiTimeoutMs = 3000000
-$DefaultPrimaryModel = "nordlys/nordlys-code"
-$DefaultFastModel = "nordlys/nordlys-code"
-$DefaultOpusModel = "nordlys/nordlys-code"
-$DefaultSonnetModel = "nordlys/nordlys-code"
-$DefaultHaikuModel = "nordlys/nordlys-code"
-$DefaultSubagentModel = "nordlys/nordlys-code"
+$DefaultPrimaryModel = "nordlys/hypernova"
+$DefaultFastModel = "nordlys/hypernova"
+$DefaultOpusModel = "nordlys/hypernova"
+$DefaultSonnetModel = "nordlys/hypernova"
+$DefaultHaikuModel = "nordlys/hypernova"
+$DefaultSubagentModel = "nordlys/hypernova"
 
 function Write-Info {
     param([string]$Message)

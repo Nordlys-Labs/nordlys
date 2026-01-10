@@ -1,11 +1,11 @@
 [run]
-source = adaptive_ai
+source = nordlys
 relative_files = true
 
 [paths]
-source = 
-    adaptive_ai/
-    */adaptive_ai/
+source =
+    nordlys/
+    */nordlys/
 
 [report]
 exclude_lines =

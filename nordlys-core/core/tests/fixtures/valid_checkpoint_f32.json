@@ -1,0 +1,75 @@
+{
+  "version": "2.0",
+  "cluster_centers": [
+    [
+      1.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      1.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      1.0,
+      0.0
+    ]
+  ],
+  "models": [
+    {
+      "model_id": "openai/gpt-4",
+      "cost_per_1m_input_tokens": 30.0,
+      "cost_per_1m_output_tokens": 60.0,
+      "error_rates": [
+        0.01,
+        0.02,
+        0.015
+      ]
+    },
+    {
+      "model_id": "anthropic/claude-3-opus",
+      "cost_per_1m_input_tokens": 15.0,
+      "cost_per_1m_output_tokens": 75.0,
+      "error_rates": [
+        0.02,
+        0.01,
+        0.025
+      ]
+    },
+    {
+      "model_id": "meta/llama-3-70b",
+      "cost_per_1m_input_tokens": 0.6,
+      "cost_per_1m_output_tokens": 0.8,
+      "error_rates": [
+        0.05,
+        0.06,
+        0.055
+      ]
+    }
+  ],
+  "embedding": {
+    "model": "integration-test-model",
+    "dtype": "float32",
+    "trust_remote_code": false
+  },
+  "clustering": {
+    "n_clusters": 3,
+    "random_state": 42,
+    "max_iter": 300,
+    "n_init": 10,
+    "algorithm": "lloyd",
+    "normalization": "l2"
+  },
+  "routing": {
+    "cost_bias_min": 0.0,
+    "cost_bias_max": 1.0
+  },
+  "metrics": {
+    "silhouette_score": 0.85
+  }
+}

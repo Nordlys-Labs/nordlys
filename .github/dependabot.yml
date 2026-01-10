@@ -1,4 +1,4 @@
-# Dependabot configuration for adaptive_router project
+# Dependabot configuration for nordlys project
 # https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
 
 version: 2
@@ -11,7 +11,7 @@ updates:
       day: "monday"
       time: "09:00"
     open-pull-requests-limit: 5
-    target-branch: "dev"
+    target-branch: "main"
     labels:
       - "dependencies"
       - "python"
@@ -27,7 +27,7 @@ updates:
       day: "monday"
       time: "09:00"
     open-pull-requests-limit: 3
-    target-branch: "dev"
+    target-branch: "main"
     labels:
       - "dependencies"
       - "github-actions"

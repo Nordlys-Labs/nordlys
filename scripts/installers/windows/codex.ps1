@@ -10,8 +10,8 @@ $ScriptName = "OpenAI Codex Nordlys Installer"
 $NodeMinVersion = 18
 $NodeInstallVersion = "22"
 $PackageName = "@openai/codex"
-$ApiBaseUrl = "https://api.llmadaptive.uk/v1"
-$DefaultModel = "nordlys/nordlys-code"
+$ApiBaseUrl = "https://api.nordlyslabs.com/v1"
+$DefaultModel = "nordlys/hypernova"
 $DefaultModelProvider = "nordlys"
 
 function Write-Info {
@@ -117,7 +117,7 @@ approval_policy = "untrusted"
 name = "Nordlys"
 base_url = "$ApiBaseUrl"
 env_key = "NORDLYS_API_KEY"
-wire_api = "chat"
+wire_api = "responses"
 "@
 
     $config | Set-Content -Path $ConfigPath -Encoding ASCII

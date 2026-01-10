@@ -22,8 +22,11 @@ target_link_libraries(nordlys_cuda
   PUBLIC
     CUDA::cublas
     CUDA::cudart
-  PRIVATE
-    Eigen3::Eigen
+)
+
+target_compile_definitions(nordlys_cuda 
+  PRIVATE 
+    NORDLYS_HAS_CUDA=1
 )
 
 set_target_properties(nordlys_cuda PROPERTIES
@@ -33,12 +36,9 @@ set_target_properties(nordlys_cuda PROPERTIES
   CUDA_ARCHITECTURES ${CMAKE_CUDA_ARCHITECTURES}
 )
 
-# Fix Eigen compatibility warnings with CUDA
 target_compile_options(nordlys_cuda PRIVATE
   $<$<COMPILE_LANGUAGE:CUDA>:
     --expt-relaxed-constexpr
     -Xcudafe --diag_suppress=20015
   >
 )
-
-target_compile_definitions(nordlys_cuda PRIVATE NORDLYS_HAS_CUDA=1)

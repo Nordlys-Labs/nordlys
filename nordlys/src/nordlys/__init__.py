@@ -3,127 +3,71 @@
 This package provides intelligent model routing using cluster-based selection
 with per-cluster error rates, cost optimization, and model capability matching.
 
-Basic Usage:
-    >>> from nordlys import ModelRouter, ModelSelectionRequest
+Usage:
+    >>> from nordlys import Nordlys, ModelConfig
+    >>> import pandas as pd
     >>>
-    >>> # Load from profile (auto-detects JSON or MessagePack)
-    >>> router = ModelRouter.from_file("router_profile.json")
-    >>> request = ModelSelectionRequest(prompt="Write a Python function", cost_bias=0.5)
-    >>> response = router.select_model(request)
-    >>> print(f"Selected: {response.model_id}")
-    >>> print(f"Available models: {[m.unique_id() for m in router.profile.models]}")
-
-Advanced Usage:
-    >>> from nordlys import Trainer, RouterProfile
+    >>> # Define models
+    >>> models = [
+    ...     ModelConfig(id="openai/gpt-4", cost_input=30.0, cost_output=60.0),
+    ...     ModelConfig(id="anthropic/claude-3-sonnet", cost_input=15.0, cost_output=75.0),
+    ... ]
     >>>
-    >>> # Train a new profile
-    >>> trainer = Trainer()
-    >>> trainer.train_from_polars(df, models)
-    >>> trainer.save_profile("my_profile.json")
+    >>> # Training data
+    >>> df = pd.DataFrame({
+    ...     "questions": ["What is ML?", "Write code", ...],
+    ...     "openai/gpt-4": [0.92, 0.85, ...],
+    ...     "anthropic/claude-3-sonnet": [0.88, 0.91, ...],
+    ... })
+    >>>
+    >>> # Fit and route
+    >>> model = Nordlys(models=models)
+    >>> model.fit(df)
+    >>> result = model.route("Explain quantum computing", cost_bias=0.5)
+    >>> print(f"Selected: {result.model_id}")
 """
 
 # ============================================================================
-# TIER 1: Essential API (90% of users)
+# Main API
 # ============================================================================
 
-# Core services
-from .core.router import ModelRouter
-from .core.trainer import Trainer
+from nordlys.nordlys import Nordlys, ModelConfig, RouteResult
 
-# Request/Response models
-from .models.api import (
-    Alternative,
-    ModelSelectionRequest,
-    ModelSelectionResponse,
-)
+# Reduction components
+from nordlys import reduction
 
-# Training models
-from .models.train import ProviderConfig, TrainingResult
+# Clustering components
+from nordlys import clustering
 
-# Storage configuration (needed for initialization)
-
-# ============================================================================
-# TIER 2: Configuration & Integration
-# ============================================================================
-
-# Model types for routing
-from .models.api import Model
-
-# Storage types (profile structure)
-from .models.storage import (
-    ClusterCentersData,
-    ProfileMetadata,
-    RouterProfile,
-)
-
-# Configuration types (YAML and routing config)
-from .models.config import (
-    ModelConfig,
-)
-
-# ============================================================================
-# TIER 3: Advanced API (Scripts, testing, custom implementations)
-# ============================================================================
-
-# Core ML components
-from .core import (
-    ClusterEngine,
-)
-
-# Routing internals and public types
-from .models.routing import (
-    ModelFeatureVector,
+# C++ Core types
+from nordlys_core_ext import (
+    NordlysCheckpoint,
+    TrainingMetrics,
+    EmbeddingConfig,
+    ClusteringConfig,
+    RoutingConfig,
     ModelFeatures,
-    ModelInfo,
-    ModelPricing,
-    RoutingDecision,
 )
-
-# Health check
-from .models.health import HealthResponse
 
 # ============================================================================
 # Package metadata
 # ============================================================================
 
-__version__ = "0.1.0"
+__version__ = "0.1.5"
 
 __all__ = [
-    # ========================================================================
-    # Tier 1: Essential API
-    # ========================================================================
-    "ModelRouter",
-    "Trainer",
-    "ModelSelectionRequest",
-    "ModelSelectionResponse",
-    "Alternative",
-    "ProviderConfig",
-    "TrainingResult",
-    # ========================================================================
-    # Tier 2: Configuration & Integration
-    # ========================================================================
-    # Model types
-    "Model",
-    # Storage types
-    "RouterProfile",
-    "ProfileMetadata",
-    "ClusterCentersData",
-    # Configuration
+    # Main API
+    "Nordlys",
     "ModelConfig",
-    # ========================================================================
-    # Tier 2.5: Public Routing Types (clean API)
-    # ========================================================================
-    "ModelInfo",
-    "ModelPricing",
-    # ========================================================================
-    # Tier 3: Advanced API
-    # ========================================================================
-    # Core components
-    "ClusterEngine",
-    # Routing internals
-    "ModelFeatureVector",
+    "RouteResult",
+    # C++ Core types
+    "NordlysCheckpoint",
+    "TrainingMetrics",
+    "EmbeddingConfig",
+    "ClusteringConfig",
+    "RoutingConfig",
     "ModelFeatures",
-    "RoutingDecision",
-    # Health
-    "HealthResponse",
+    # Modules
+    "reduction",
+    "clustering",
 ]

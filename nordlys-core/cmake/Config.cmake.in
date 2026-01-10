@@ -7,6 +7,6 @@ find_dependency(Eigen3)
 find_dependency(nlohmann_json)
 find_dependency(msgpack-cxx)
 
-include("${CMAKE_CURRENT_LIST_DIR}/adaptive_router_coreTargets.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/nordlys_coreTargets.cmake")
 
-check_required_components(adaptive_router_core)
+check_required_components(nordlys_core)

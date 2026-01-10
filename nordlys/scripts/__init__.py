@@ -1,3 +1,3 @@
-# Adaptive Router Scripts
+# Nordlys Scripts
 
-# This package contains utility scripts for working with adaptive_router profiles and data.
+# This package contains utility scripts for working with nordlys checkpoints and data.

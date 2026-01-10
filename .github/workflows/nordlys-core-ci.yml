@@ -1,4 +1,4 @@
-name: Nordlys Core Prod
+name: Nordlys Core CI
 
 on:
   push:
@@ -6,11 +6,13 @@ on:
     paths:
       - 'nordlys-core/**'
       - '.github/workflows/nordlys-core-ci.yml'
+      - '.github/workflows/nordlys-core-test.yml'
   pull_request:
     branches: [main]
     paths:
       - 'nordlys-core/**'
       - '.github/workflows/nordlys-core-ci.yml'
+      - '.github/workflows/nordlys-core-test.yml'
   workflow_dispatch:
 
 concurrency:
@@ -18,12 +20,23 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  build-and-test:
-    name: Build & Test (${{ matrix.os }})
+  # ============================================
+  # Run Tests
+  # ============================================
+  test:
+    name: Run Tests
+    uses: ./.github/workflows/nordlys-core-test.yml
+
+  # ============================================
+  # Run Benchmarks (CI only, not in publish)
+  # ============================================
+  benchmarks:
+    name: Benchmarks (${{ matrix.os }})
+    needs: [test]
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 45
+    timeout-minutes: 30
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         include:
           - { os: linux, runner: ubuntu-24.04 }
@@ -50,31 +63,73 @@ jobs:
       - name: Install build tools
         run: uv pip install conan --system
 
-      - name: Install Python test dependencies
-        working-directory: nordlys-core/bindings/python
-        run: uv sync --group test --no-install-project
-
       - name: Setup Conan profile
         run: conan profile detect --force
 
       - name: Install dependencies
         working-directory: nordlys-core
-        run: conan install . --build=missing -of=build -s compiler.cppstd=20
+        run: conan install . --build=missing -s compiler.cppstd=20
 
       - name: Configure
         working-directory: nordlys-core
         shell: bash
         run: |
           cmake --preset conan-release \
-            -DADAPTIVE_BUILD_TESTS=ON \
-            -DADAPTIVE_BUILD_PYTHON=ON \
-            -DADAPTIVE_BUILD_C=ON \
-            -DADAPTIVE_ENABLE_CUDA=OFF
+            -DNORDLYS_BUILD_TESTS=OFF \
+            -DNORDLYS_BUILD_PYTHON=OFF \
+            -DNORDLYS_BUILD_C=OFF \
+            -DNORDLYS_BUILD_BENCHMARKS=ON \
+            -DNORDLYS_ENABLE_CUDA=OFF \
+            -DNORDLYS_ENABLE_TRACY=OFF
 
       - name: Build
         working-directory: nordlys-core
         run: cmake --build --preset conan-release --parallel
 
-      - name: Test
+      - name: Run Benchmarks
         working-directory: nordlys-core
-        run: ctest --preset conan-release --output-on-failure
+        run: |
+          ./build/Release/benchmarks/bench_nordlys_core \
+            --benchmark_format=json \
+            --benchmark_out=benchmark_results.json
+
+      - name: Download previous benchmark data
+        uses: actions/cache@v5
+        with:
+          path: ./cache
+          key: ${{ runner.os }}-benchmark-nordlys-core
+
+      - name: Store and Compare Benchmark Results
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: Nordlys Core Benchmarks (${{ matrix.os }})
+          tool: 'googlecpp'
+          output-file-path: nordlys-core/benchmark_results.json
+          external-data-json-path: ./cache/benchmark-data.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          alert-threshold: '150%'
+          comment-on-alert: true
+          fail-on-alert: false
+
+      - name: Upload Benchmark Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: benchmark-results-${{ matrix.os }}
+          path: nordlys-core/benchmark_results.json
+          retention-days: 90
+
+  # ============================================
+  # Build Wheels (validates they can be built)
+  # ============================================
+  build_wheels_cpu:
+    needs: [test]
+    uses: ./.github/workflows/_build-wheels-cpu.yml
+    with:
+      validate-version: false
+
+  build_wheels_cuda:
+    needs: [test]
+    uses: ./.github/workflows/_build-wheels-cuda.yml
+    with:
+      validate-version: false

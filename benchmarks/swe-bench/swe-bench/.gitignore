@@ -1,0 +1,12 @@
+# Benchmark outputs
+output/*.json
+output/*.jsonl
+sb-cli-reports/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment
+.env
