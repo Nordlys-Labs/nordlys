@@ -76,6 +76,38 @@ public:
     return resp;
   }
 
+  std::vector<RouteResult<Scalar>> route_batch(const Scalar* data, size_t count, size_t dim,
+                                                float cost_bias = 0.0f,
+                                                const std::vector<std::string>& models = {}) {
+    NORDLYS_ZONE_N("Nordlys::route_batch");
+    if (dim != static_cast<size_t>(dim_)) {
+      throw std::invalid_argument(std::format("dimension mismatch: {} vs {}", dim_, dim));
+    }
+
+    auto assignments = engine_.assign_batch(data, static_cast<int>(count), static_cast<int>(dim));
+
+    std::vector<RouteResult<Scalar>> results;
+    results.reserve(count);
+
+    for (const auto& [cid, dist] : assignments) {
+      if (cid < 0) throw std::runtime_error("no valid cluster");
+
+      auto scores = scorer_.score_models(cid, cost_bias, models);
+
+      RouteResult<Scalar> resp{.selected_model = scores.empty() ? "" : scores[0].model_id,
+                               .alternatives = {},
+                               .cluster_id = cid,
+                               .cluster_distance = dist};
+
+      if (scores.size() > 1) {
+        auto alts = scores | std::views::drop(1) | std::views::transform(&ModelScore::model_id);
+        resp.alternatives.assign(alts.begin(), alts.end());
+      }
+      results.push_back(std::move(resp));
+    }
+    return results;
+  }
+
   std::vector<std::string> get_supported_models() const {
     auto ids = checkpoint_.models | std::views::transform(&ModelFeatures::model_id);
     return {ids.begin(), ids.end()};
@@ -89,7 +121,7 @@ private:
     NORDLYS_ZONE_N("Nordlys::init");
     checkpoint_ = std::move(checkpoint);
 
-    const auto& centers = std::get<EmbeddingMatrixT<Scalar>>(checkpoint_.cluster_centers);
+    const auto& centers = std::get<EmbeddingMatrix<Scalar>>(checkpoint_.cluster_centers);
     dim_ = static_cast<int>(centers.cols());
     engine_.load_centroids(centers);
 
@@ -97,7 +129,7 @@ private:
     scorer_.set_lambda_params(checkpoint_.routing.cost_bias_min, checkpoint_.routing.cost_bias_max);
   }
 
-  ClusterEngineT<Scalar> engine_;
+  ClusterEngine<Scalar> engine_;
   ModelScorer scorer_;
   NordlysCheckpoint checkpoint_;
   int dim_ = 0;

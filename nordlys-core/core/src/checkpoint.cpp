@@ -17,13 +17,23 @@
 #include <limits>
 #include <msgpack.hpp>
 #include <nlohmann/json.hpp>
+#include <nordlys_core/cache.hpp>
 #include <nordlys_core/checkpoint.hpp>
 #include <nordlys_core/tracy.hpp>
 #include <ranges>
+#include <simdjson.h>
 #include <sstream>
 #include <stdexcept>
 
 using json = nlohmann::json;
+namespace sj = simdjson;
+
+namespace {
+nordlys::LruCache<NordlysCheckpoint>& checkpoint_cache() {
+  static nordlys::LruCache<NordlysCheckpoint> cache;
+  return cache;
+}
+}  // namespace
 
 // ============================================================================
 // JSON Serialization - TrainingMetrics
@@ -115,6 +125,11 @@ void from_json(const json& j, ModelFeatures& f) {
 
 NordlysCheckpoint NordlysCheckpoint::from_json(const std::string& path) {
   NORDLYS_ZONE;
+
+  if (auto cached = checkpoint_cache().get(path)) {
+    return *cached;
+  }
+
   std::ifstream file(path);
   if (!file.is_open()) {
     throw std::runtime_error(std::format("Failed to open checkpoint file: {}", path));
@@ -122,84 +137,132 @@ NordlysCheckpoint NordlysCheckpoint::from_json(const std::string& path) {
 
   std::stringstream buffer;
   buffer << file.rdbuf();
-  return from_json_string(buffer.str());
+  auto checkpoint = std::make_shared<NordlysCheckpoint>(from_json_string(buffer.str()));
+  checkpoint_cache().put(path, checkpoint);
+  return *checkpoint;
 }
 
 NordlysCheckpoint NordlysCheckpoint::from_json_string(const std::string& json_str) {
   NORDLYS_ZONE;
-  json j = json::parse(json_str);
+
+  sj::ondemand::parser parser;
+  sj::padded_string padded(json_str);
+  auto doc = parser.iterate(padded);
 
   NordlysCheckpoint checkpoint;
 
   // Version
-  checkpoint.version = j.value("version", "2.0");
+  auto version_result = doc["version"].get_string();
+  checkpoint.version = version_result.error() ? "2.0" : std::string(version_result.value());
 
-  // Configuration
-  checkpoint.embedding = j.at("embedding").get<EmbeddingConfig>();
-  checkpoint.clustering = j.at("clustering").get<ClusteringConfig>();
-  checkpoint.routing = j.at("routing").get<RoutingConfig>();
+  // Embedding config
+  auto emb = doc["embedding"].get_object().value();
+  checkpoint.embedding.model = std::string(emb["model"].get_string().value());
+  auto dtype_result = emb["dtype"].get_string();
+  checkpoint.embedding.dtype = dtype_result.error() ? "float32" : std::string(dtype_result.value());
+  auto trust_result = emb["trust_remote_code"].get_bool();
+  checkpoint.embedding.trust_remote_code = trust_result.error() ? false : trust_result.value();
+
+  // Clustering config
+  auto clust = doc["clustering"].get_object().value();
+  checkpoint.clustering.n_clusters = static_cast<int>(clust["n_clusters"].get_int64().value());
+  auto rs_result = clust["random_state"].get_int64();
+  checkpoint.clustering.random_state = rs_result.error() ? 42 : static_cast<int>(rs_result.value());
+  auto mi_result = clust["max_iter"].get_int64();
+  checkpoint.clustering.max_iter = mi_result.error() ? 300 : static_cast<int>(mi_result.value());
+  auto ni_result = clust["n_init"].get_int64();
+  checkpoint.clustering.n_init = ni_result.error() ? 10 : static_cast<int>(ni_result.value());
+  auto alg_result = clust["algorithm"].get_string();
+  checkpoint.clustering.algorithm = alg_result.error() ? "lloyd" : std::string(alg_result.value());
+  auto norm_result = clust["normalization"].get_string();
+  checkpoint.clustering.normalization = norm_result.error() ? "l2" : std::string(norm_result.value());
+
+  // Routing config
+  auto rout = doc["routing"].get_object().value();
+  auto cbmin_result = rout["cost_bias_min"].get_double();
+  checkpoint.routing.cost_bias_min = cbmin_result.error() ? 0.0f : static_cast<float>(cbmin_result.value());
+  auto cbmax_result = rout["cost_bias_max"].get_double();
+  checkpoint.routing.cost_bias_max = cbmax_result.error() ? 1.0f : static_cast<float>(cbmax_result.value());
 
   // Models
-  checkpoint.models = j.at("models").get<std::vector<ModelFeatures>>();
+  for (auto model_obj : doc["models"].get_array().value()) {
+    auto m = model_obj.get_object().value();
+    ModelFeatures model;
+    model.model_id = std::string(m["model_id"].get_string().value());
+    model.cost_per_1m_input_tokens = static_cast<float>(m["cost_per_1m_input_tokens"].get_double().value());
+    model.cost_per_1m_output_tokens = static_cast<float>(m["cost_per_1m_output_tokens"].get_double().value());
+    for (auto err : m["error_rates"].get_array().value()) {
+      model.error_rates.push_back(static_cast<float>(err.get_double().value()));
+    }
+    checkpoint.models.push_back(std::move(model));
+  }
 
   // Training metrics (optional)
-  if (j.contains("metrics")) {
-    checkpoint.metrics = j.at("metrics").get<TrainingMetrics>();
+  auto metrics_result = doc["metrics"].get_object();
+  if (!metrics_result.error()) {
+    auto met = metrics_result.value();
+    auto ns_result = met["n_samples"].get_int64();
+    if (!ns_result.error()) checkpoint.metrics.n_samples = static_cast<int>(ns_result.value());
+    auto cs_result = met["cluster_sizes"].get_array();
+    if (!cs_result.error()) {
+      std::vector<int> sizes;
+      for (auto s : cs_result.value()) {
+        sizes.push_back(static_cast<int>(s.get_int64().value()));
+      }
+      checkpoint.metrics.cluster_sizes = std::move(sizes);
+    }
+    auto ss_result = met["silhouette_score"].get_double();
+    if (!ss_result.error()) checkpoint.metrics.silhouette_score = static_cast<float>(ss_result.value());
+    auto in_result = met["inertia"].get_double();
+    if (!in_result.error()) checkpoint.metrics.inertia = static_cast<float>(in_result.value());
   }
 
-  // Cluster centers - validate structure before accessing
-  if (!j.contains("cluster_centers")) {
-    throw std::invalid_argument("Missing required field: cluster_centers");
-  }
-
-  const auto& centers_json = j.at("cluster_centers");
-  if (!centers_json.is_array() || centers_json.empty()) {
-    throw std::invalid_argument("cluster_centers must be a non-empty array");
-  }
-
-  // Validate n_clusters is positive before casting
+  // Cluster centers - the main bottleneck, optimized streaming
   if (checkpoint.clustering.n_clusters <= 0) {
     throw std::invalid_argument(
         std::format("n_clusters must be positive, got {}", checkpoint.clustering.n_clusters));
   }
 
   auto n_clusters = static_cast<size_t>(checkpoint.clustering.n_clusters);
-  if (centers_json.size() != n_clusters) {
+  auto centers_arr = doc["cluster_centers"].get_array().value();
+
+  // First pass: collect first row to determine feature_dim, and buffer all values
+  std::vector<double> all_values;
+  all_values.reserve(n_clusters * 768);  // Pre-allocate for common embedding dim
+
+  size_t feature_dim = 0;
+  size_t row_count = 0;
+  for (auto row : centers_arr) {
+    size_t col_count = 0;
+    for (auto val : row.get_array().value()) {
+      all_values.push_back(val.get_double().value());
+      ++col_count;
+    }
+    if (row_count == 0) {
+      feature_dim = col_count;
+    }
+    ++row_count;
+  }
+
+  if (row_count != n_clusters) {
     throw std::invalid_argument(std::format("cluster_centers has {} rows but n_clusters is {}",
-                                            centers_json.size(), n_clusters));
+                                            row_count, n_clusters));
   }
 
-  // Validate first row exists and is valid array
-  if (!centers_json[0].is_array() || centers_json[0].empty()) {
-    throw std::invalid_argument("cluster_centers[0] must be a non-empty array");
-  }
-
-  size_t feature_dim = centers_json[0].size();
-
-  // Validate all rows have same dimension
-  for (size_t i = 0; i < n_clusters; ++i) {
-    if (!centers_json[i].is_array()) {
-      throw std::invalid_argument(std::format("cluster_centers[{}] is not an array", i));
-    }
-    if (centers_json[i].size() != feature_dim) {
-      throw std::invalid_argument(std::format("cluster_centers[{}] has {} columns but expected {}",
-                                              i, centers_json[i].size(), feature_dim));
-    }
-  }
-
+  // Copy buffered values into matrix
   if (checkpoint.embedding.dtype == "float64") {
-    EmbeddingMatrixT<double> centers(n_clusters, feature_dim);
+    EmbeddingMatrix<double> centers(n_clusters, feature_dim);
     for (size_t i = 0; i < n_clusters; ++i) {
-      for (size_t col = 0; col < feature_dim; ++col) {
-        centers(i, col) = centers_json[i][col].get<double>();
+      for (size_t j = 0; j < feature_dim; ++j) {
+        centers(i, j) = all_values[i * feature_dim + j];
       }
     }
     checkpoint.cluster_centers = std::move(centers);
   } else {
-    EmbeddingMatrixT<float> centers(n_clusters, feature_dim);
+    EmbeddingMatrix<float> centers(n_clusters, feature_dim);
     for (size_t i = 0; i < n_clusters; ++i) {
-      for (size_t col = 0; col < feature_dim; ++col) {
-        centers(i, col) = centers_json[i][col].get<float>();
+      for (size_t j = 0; j < feature_dim; ++j) {
+        centers(i, j) = static_cast<float>(all_values[i * feature_dim + j]);
       }
     }
     checkpoint.cluster_centers = std::move(centers);
@@ -259,6 +322,10 @@ void NordlysCheckpoint::to_json(const std::string& path) const {
 NordlysCheckpoint NordlysCheckpoint::from_msgpack(const std::string& path) {
   NORDLYS_ZONE;
 
+  if (auto cached = checkpoint_cache().get(path)) {
+    return *cached;
+  }
+
 #ifdef _WIN32
   // Windows: use standard file I/O
   std::ifstream file(path, std::ios::binary | std::ios::ate);
@@ -274,7 +341,7 @@ NordlysCheckpoint NordlysCheckpoint::from_msgpack(const std::string& path) {
     throw std::runtime_error(std::format("Failed to read msgpack file: {}", path));
   }
 
-  return from_msgpack_string(data);
+  auto checkpoint = std::make_shared<NordlysCheckpoint>(from_msgpack_string(data));
 #else
   // Unix: use mmap for better performance
   int fd = open(path.c_str(), O_RDONLY);
@@ -295,17 +362,21 @@ NordlysCheckpoint NordlysCheckpoint::from_msgpack(const std::string& path) {
     throw std::runtime_error(std::format("Failed to mmap msgpack file: {}", path));
   }
 
+  std::shared_ptr<NordlysCheckpoint> checkpoint;
   try {
-    auto result = from_msgpack_string(std::string(static_cast<const char*>(mapped), file_size));
+    checkpoint = std::make_shared<NordlysCheckpoint>(
+        from_msgpack_string(std::string(static_cast<const char*>(mapped), file_size)));
     munmap(mapped, file_size);
     close(fd);
-    return result;
   } catch (...) {
     munmap(mapped, file_size);
     close(fd);
     throw;
   }
 #endif
+
+  checkpoint_cache().put(path, checkpoint);
+  return *checkpoint;
 }
 
 NordlysCheckpoint NordlysCheckpoint::from_msgpack_string(const std::string& data) {
@@ -423,7 +494,7 @@ NordlysCheckpoint NordlysCheckpoint::from_msgpack_string(const std::string& data
           std::format("cluster_centers data size mismatch: expected {} bytes, got {}",
                       expected_size, centers_bytes.size()));
     }
-    EmbeddingMatrixT<double> centers(n_clusters, feature_dim);
+    EmbeddingMatrix<double> centers(n_clusters, feature_dim);
     std::memcpy(centers.data(), centers_bytes.data(), expected_size);
     checkpoint.cluster_centers = std::move(centers);
   } else {
@@ -438,7 +509,7 @@ NordlysCheckpoint NordlysCheckpoint::from_msgpack_string(const std::string& data
           std::format("cluster_centers data size mismatch: expected {} bytes, got {}",
                       expected_size, centers_bytes.size()));
     }
-    EmbeddingMatrixT<float> centers(n_clusters, feature_dim);
+    EmbeddingMatrix<float> centers(n_clusters, feature_dim);
     std::memcpy(centers.data(), centers_bytes.data(), expected_size);
     checkpoint.cluster_centers = std::move(centers);
   }

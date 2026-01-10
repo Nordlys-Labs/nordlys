@@ -49,6 +49,7 @@ include(cmake/NordlysCompileOptions.cmake)
 # =============================================================================
 find_package(nlohmann_json REQUIRED)
 find_package(msgpack-cxx REQUIRED)
+find_package(simdjson REQUIRED)
 
 # Tracy profiler (optional)
 # NOTE: Do NOT use add_compile_definitions(TRACY_ENABLE) here - it would affect

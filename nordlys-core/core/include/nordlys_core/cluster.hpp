@@ -1,42 +1,234 @@
 #pragma once
+
+#include <cmath>
+#include <cstring>
+#include <limits>
 #include <memory>
+#include <type_traits>
 #include <utility>
+#include <vector>
 
-#include "nordlys_core/cluster_backend.hpp"
-#include "nordlys_core/matrix.hpp"
-#include "nordlys_core/tracy.hpp"
+#include "matrix.hpp"
+#include "tracy.hpp"
 
-template <typename Scalar = float> class ClusterEngineT {
+enum class ClusterBackendType { Cpu, CUDA, Auto };
+
+template <typename Scalar>
+class IClusterBackend {
 public:
-  ClusterEngineT() : backend_(create_cluster_backend<Scalar>(ClusterBackendType::Auto)) {}
+  virtual ~IClusterBackend() = default;
 
-  explicit ClusterEngineT(ClusterBackendType backend_type)
-      : backend_(create_cluster_backend<Scalar>(backend_type)) {}
+  IClusterBackend(const IClusterBackend&) = delete;
+  IClusterBackend& operator=(const IClusterBackend&) = delete;
+  IClusterBackend(IClusterBackend&&) = delete;
+  IClusterBackend& operator=(IClusterBackend&&) = delete;
 
-  ~ClusterEngineT() = default;
+  virtual void load_centroids(const Scalar* data, int n_clusters, int dim) = 0;
 
-  ClusterEngineT(ClusterEngineT&&) noexcept = default;
-  ClusterEngineT& operator=(ClusterEngineT&&) noexcept = default;
-  ClusterEngineT(const ClusterEngineT&) = delete;
-  ClusterEngineT& operator=(const ClusterEngineT&) = delete;
+  [[nodiscard]] virtual std::pair<int, Scalar> assign(const Scalar* embedding, int dim) = 0;
 
-  void load_centroids(const EmbeddingMatrixT<Scalar>& centers) {
-    NORDLYS_ZONE;
-    dim_ = static_cast<int>(centers.cols());
-    int n_clusters = static_cast<int>(centers.rows());
-    backend_->load_centroids(centers.data(), n_clusters, dim_);
+  [[nodiscard]] virtual std::vector<std::pair<int, Scalar>> assign_batch(const Scalar* embeddings,
+                                                                          int count, int dim) {
+    std::vector<std::pair<int, Scalar>> results;
+    results.reserve(static_cast<size_t>(count));
+    for (int i = 0; i < count; ++i) {
+      results.push_back(assign(embeddings + i * dim, dim));
+    }
+    return results;
   }
 
-  [[nodiscard]] std::pair<int, Scalar> assign(const Scalar* embedding, size_t size) {
+  [[nodiscard]] virtual int get_n_clusters() const noexcept = 0;
+  [[nodiscard]] virtual int get_dim() const noexcept = 0;
+  [[nodiscard]] virtual bool is_gpu_accelerated() const noexcept = 0;
+
+protected:
+  IClusterBackend() = default;
+};
+
+// =============================================================================
+// CPU Backend (excluded from CUDA compilation - usearch not compatible with nvcc)
+// =============================================================================
+
+#ifndef __CUDACC__
+
+#  include <usearch/index.hpp>
+#  include <usearch/index_dense.hpp>
+
+template <typename Scalar>
+class CpuClusterBackend : public IClusterBackend<Scalar> {
+public:
+  void load_centroids(const Scalar* data, int n_clusters, int dim) override {
+    NORDLYS_ZONE_N("CpuClusterBackend::load_centroids");
+
+    n_clusters_ = n_clusters;
+    dim_ = dim;
+
+    using namespace unum::usearch;
+    auto scalar_kind = std::is_same_v<Scalar, float> ? scalar_kind_t::f32_k : scalar_kind_t::f64_k;
+    metric_ = metric_punned_t(static_cast<size_t>(dim), metric_kind_t::l2sq_k, scalar_kind);
+
+    centroids_.resize(static_cast<size_t>(n_clusters) * static_cast<size_t>(dim));
+    std::memcpy(centroids_.data(), data, centroids_.size() * sizeof(Scalar));
+  }
+
+  [[nodiscard]] std::pair<int, Scalar> assign(const Scalar* embedding, int /*dim*/) override {
+    NORDLYS_ZONE_N("CpuClusterBackend::assign");
+
+    if (n_clusters_ == 0) return {-1, Scalar{0}};
+
+    int best_cluster = -1;
+    auto best_dist_sq = std::numeric_limits<Scalar>::max();
+    const auto* emb_bytes = reinterpret_cast<const unum::usearch::byte_t*>(embedding);
+
+    for (int i = 0; i < n_clusters_; ++i) {
+      const auto* centroid = centroids_.data() + i * dim_;
+      const auto* centroid_bytes = reinterpret_cast<const unum::usearch::byte_t*>(centroid);
+      auto dist_sq = static_cast<Scalar>(metric_(emb_bytes, centroid_bytes));
+
+      if (dist_sq < best_dist_sq) {
+        best_dist_sq = dist_sq;
+        best_cluster = i;
+      }
+    }
+
+    return {best_cluster, std::sqrt(best_dist_sq)};
+  }
+
+  [[nodiscard]] int get_n_clusters() const noexcept override { return n_clusters_; }
+  [[nodiscard]] int get_dim() const noexcept override { return dim_; }
+  [[nodiscard]] bool is_gpu_accelerated() const noexcept override { return false; }
+
+private:
+  std::vector<Scalar> centroids_;
+  unum::usearch::metric_punned_t metric_;
+  int n_clusters_ = 0;
+  int dim_ = 0;
+};
+
+#endif  // __CUDACC__
+
+// =============================================================================
+// CUDA Backend (only available when CUDA is enabled)
+// =============================================================================
+
+#ifdef NORDLYS_HAS_CUDA
+
+#  include <cublas_v2.h>
+#  include <cuda_runtime.h>
+
+template <typename Scalar>
+class CudaClusterBackend : public IClusterBackend<Scalar> {
+public:
+  CudaClusterBackend();
+  ~CudaClusterBackend() override;
+
+  CudaClusterBackend(const CudaClusterBackend&) = delete;
+  CudaClusterBackend& operator=(const CudaClusterBackend&) = delete;
+  CudaClusterBackend(CudaClusterBackend&&) = delete;
+  CudaClusterBackend& operator=(CudaClusterBackend&&) = delete;
+
+  void load_centroids(const Scalar* data, int n_clusters, int dim) override;
+
+  [[nodiscard]] std::pair<int, Scalar> assign(const Scalar* embedding, int dim) override;
+
+  [[nodiscard]] int get_n_clusters() const noexcept override { return n_clusters_; }
+  [[nodiscard]] int get_dim() const noexcept override { return dim_; }
+  [[nodiscard]] bool is_gpu_accelerated() const noexcept override { return true; }
+
+private:
+  void free_memory();
+  void capture_graph();
+
+  cublasHandle_t cublas_ = nullptr;
+  cudaStream_t stream_ = nullptr;
+  cudaGraph_t graph_ = nullptr;
+  cudaGraphExec_t graph_exec_ = nullptr;
+  bool graph_valid_ = false;
+
+  Scalar* d_centroids_ = nullptr;
+  Scalar* d_centroid_norms_ = nullptr;
+  Scalar* d_embedding_ = nullptr;
+  Scalar* d_embed_norm_ = nullptr;
+  Scalar* d_dots_ = nullptr;
+  int* d_best_idx_ = nullptr;
+  Scalar* d_best_dist_ = nullptr;
+
+  Scalar* h_embedding_ = nullptr;
+  int* h_best_idx_ = nullptr;
+  Scalar* h_best_dist_ = nullptr;
+
+  int n_clusters_ = 0;
+  int dim_ = 0;
+};
+
+#endif  // NORDLYS_HAS_CUDA
+
+// =============================================================================
+// Factory & Engine
+// =============================================================================
+
+[[nodiscard]] inline bool cuda_available() noexcept {
+#ifdef NORDLYS_HAS_CUDA
+  int device_count = 0;
+  cudaError_t err = cudaGetDeviceCount(&device_count);
+  return err == cudaSuccess && device_count > 0;
+#else
+  return false;
+#endif
+}
+
+template <typename Scalar>
+[[nodiscard]] std::unique_ptr<IClusterBackend<Scalar>> create_cluster_backend(
+    ClusterBackendType type = ClusterBackendType::Auto) {
+  switch (type) {
+    case ClusterBackendType::Cpu:
+#ifndef __CUDACC__
+      return std::make_unique<CpuClusterBackend<Scalar>>();
+#endif
+    case ClusterBackendType::CUDA:
+#ifdef NORDLYS_HAS_CUDA
+      if (cuda_available()) return std::make_unique<CudaClusterBackend<Scalar>>();
+#endif
+#ifndef __CUDACC__
+      return std::make_unique<CpuClusterBackend<Scalar>>();
+#endif
+    case ClusterBackendType::Auto:
+    default:
+#ifdef NORDLYS_HAS_CUDA
+      if (cuda_available()) return std::make_unique<CudaClusterBackend<Scalar>>();
+#endif
+#ifndef __CUDACC__
+      return std::make_unique<CpuClusterBackend<Scalar>>();
+#endif
+  }
+}
+
+template <typename Scalar = float>
+class ClusterEngine {
+public:
+  ClusterEngine() : backend_(create_cluster_backend<Scalar>(ClusterBackendType::Auto)) {}
+
+  explicit ClusterEngine(ClusterBackendType type) : backend_(create_cluster_backend<Scalar>(type)) {}
+
+  void load_centroids(const EmbeddingMatrix<Scalar>& centers) {
     NORDLYS_ZONE;
-    return backend_->assign(embedding, static_cast<int>(size));
+    backend_->load_centroids(centers.data(), static_cast<int>(centers.rows()),
+                             static_cast<int>(centers.cols()));
+  }
+
+  [[nodiscard]] auto assign(const Scalar* embedding, size_t dim) {
+    NORDLYS_ZONE;
+    return backend_->assign(embedding, static_cast<int>(dim));
+  }
+
+  [[nodiscard]] auto assign_batch(const Scalar* embeddings, size_t count, size_t dim) {
+    NORDLYS_ZONE;
+    return backend_->assign_batch(embeddings, static_cast<int>(count), static_cast<int>(dim));
   }
 
   [[nodiscard]] int get_n_clusters() const noexcept { return backend_->get_n_clusters(); }
-
   [[nodiscard]] bool is_gpu_accelerated() const noexcept { return backend_->is_gpu_accelerated(); }
 
 private:
-  std::unique_ptr<IClusterBackendT<Scalar>> backend_;
-  int dim_ = 0;
+  std::unique_ptr<IClusterBackend<Scalar>> backend_;
 };

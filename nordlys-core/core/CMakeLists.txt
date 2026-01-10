@@ -34,7 +34,6 @@ FetchContent_MakeAvailable(usearch)
 
 # Core library
 add_library(nordlys_core STATIC
-  src/cluster_backend.cpp
   src/scorer.cpp
   src/checkpoint.cpp
 )
@@ -54,6 +53,7 @@ target_link_libraries(nordlys_core
   PUBLIC
     nlohmann_json::nlohmann_json
     msgpack-cxx
+    simdjson::simdjson
     # USearch is in public API (CpuClusterBackendT uses it)
     # This is conditional via #ifndef __CUDACC__ so CUDA files won't see it
     usearch
@@ -77,12 +77,11 @@ if(MSVC)
 endif()
 
 # CUDA acceleration (optional)
-# The CUDA backend is decoupled - it doesn't compile with usearch headers
-# due to #ifndef __CUDACC__ guards in cluster_backend.hpp
 if(NORDLYS_ENABLE_CUDA)
-  add_subdirectory(src/cuda)
-  target_link_libraries(nordlys_core PUBLIC nordlys::cuda)
+  enable_language(CUDA)
+  target_sources(nordlys_core PRIVATE src/cluster_cuda.cu)
   target_compile_definitions(nordlys_core PUBLIC NORDLYS_HAS_CUDA=1)
+  set_source_files_properties(src/cluster_cuda.cu PROPERTIES LANGUAGE CUDA)
 endif()
 
 # Tests
