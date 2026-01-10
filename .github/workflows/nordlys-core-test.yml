@@ -1,29 +1,18 @@
-name: Nordlys Core Dev
+name: Nordlys Core Test
 
 on:
-  push:
-    branches: [dev]
-    paths:
-      - 'nordlys-core/**'
-      - '.github/workflows/nordlys-core-ci-dev.yml'
-  pull_request:
-    branches: [dev]
-    paths:
-      - 'nordlys-core/**'
-      - '.github/workflows/nordlys-core-ci-dev.yml'
-  workflow_dispatch:
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  workflow_call:
 
 jobs:
+  # ============================================
+  # Build & Test (CPU-only for speed)
+  # ============================================
   build-and-test:
     name: Build & Test (${{ matrix.os }})
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         include:
           - { os: linux, runner: ubuntu-24.04 }
@@ -65,7 +54,7 @@ jobs:
             -DNORDLYS_BUILD_TESTS=ON \
             -DNORDLYS_BUILD_PYTHON=ON \
             -DNORDLYS_BUILD_C=ON \
-            -DNORDLYS_BUILD_BENCHMARKS=ON \
+            -DNORDLYS_BUILD_BENCHMARKS=OFF \
             -DNORDLYS_ENABLE_CUDA=OFF \
             -DNORDLYS_ENABLE_TRACY=OFF
 
@@ -77,39 +66,6 @@ jobs:
         working-directory: nordlys-core
         run: ctest --preset conan-release --output-on-failure -E python_bindings
 
-      - name: Run Benchmarks
-        working-directory: nordlys-core
-        run: |
-          ./build/Release/benchmarks/bench_nordlys_core \
-            --benchmark_format=json \
-            --benchmark_out=benchmark_results.json
-
-      - name: Download previous benchmark data
-        uses: actions/cache@v5
-        with:
-          path: ./cache
-          key: ${{ runner.os }}-benchmark-nordlys-core
-
-      - name: Store and Compare Benchmark Results
-        uses: benchmark-action/github-action-benchmark@v1
-        with:
-          name: Nordlys Core Benchmarks (${{ matrix.os }})
-          tool: 'googlecpp'
-          output-file-path: nordlys-core/benchmark_results.json
-          external-data-json-path: ./cache/benchmark-data.json
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          alert-threshold: '150%'
-          comment-on-alert: true
-          fail-on-alert: false
-
-      - name: Upload Benchmark Results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: benchmark-results-${{ matrix.os }}
-          path: nordlys-core/benchmark_results.json
-          retention-days: 90
-
   # ============================================
   # Python Bindings Tests
   # ============================================
@@ -118,7 +74,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         include:
           - { os: linux, runner: ubuntu-24.04 }
@@ -178,16 +134,3 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}/nordlys-core/build/Release
         run: |
           uv run pytest tests/ -v --tb=short
-
-  # ============================================
-  # Build Wheels (CPU and CUDA in parallel)
-  # ============================================
-  build_wheels_cpu:
-    uses: ./.github/workflows/_build-wheels-cpu.yml
-    with:
-      validate-version: false
-
-  build_wheels_cuda:
-    uses: ./.github/workflows/_build-wheels-cuda.yml
-    with:
-      validate-version: false

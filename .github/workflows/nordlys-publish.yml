@@ -1,0 +1,72 @@
+name: Nordlys Publish
+
+on:
+  push:
+    tags:
+      - "nordlys-v*"
+
+jobs:
+  # ============================================
+  # Step 1: Run All CI Tests
+  # ============================================
+  test:
+    name: Run Tests
+    uses: ./.github/workflows/nordlys-test.yml
+
+  # ============================================
+  # Step 2: Validate Version
+  # ============================================
+  validate:
+    name: Validate Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Extract and validate version
+        id: version
+        run: |
+          TAG_VERSION=${GITHUB_REF#refs/tags/nordlys-v}
+          PROJECT_VERSION=$(grep '^version = ' nordlys/pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+          
+          echo "Tag version: $TAG_VERSION"
+          echo "Project version: $PROJECT_VERSION"
+          
+          if [ "$TAG_VERSION" != "$PROJECT_VERSION" ]; then
+            echo "::error::Version mismatch! Tag: $TAG_VERSION, pyproject.toml: $PROJECT_VERSION"
+            exit 1
+          fi
+          
+          echo "version=$TAG_VERSION" >> $GITHUB_OUTPUT
+          echo "✅ Version validated: $TAG_VERSION"
+
+  # ============================================
+  # Step 3: Publish (only if test and validate pass)
+  # ============================================
+  publish:
+    name: Publish to PyPI
+    needs: [test, validate]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    defaults:
+      run:
+        working-directory: nordlys
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          python-version: "3.12"
+          cache-dependency-glob: "nordlys/**/uv.lock"
+
+      - name: Build package
+        run: uv build --no-sources
+
+      - name: Publish to PyPI
+        run: uv publish dist/*

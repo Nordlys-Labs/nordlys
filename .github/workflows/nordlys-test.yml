@@ -1,29 +1,15 @@
-name: Nordlys Library Dev
+name: Nordlys Test
 
 on:
-  push:
-    branches: [dev]
-    paths:
-      - "nordlys/**"
-      - ".github/workflows/nordlys-ci-dev.yml"
-  pull_request:
-    branches: [dev]
-    paths:
-      - "nordlys/**"
-      - ".github/workflows/nordlys-ci-dev.yml"
-  workflow_dispatch:
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  workflow_call:
 
 jobs:
-  build-test:
+  test:
     name: Test (py${{ matrix.python }}, ${{ matrix.os }})
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         include:
           - { os: linux, runner: ubuntu-latest, python: "3.11" }
@@ -50,8 +36,8 @@ jobs:
         run: uv sync --group dev --extra cpu
 
       - name: Lint
-        working-directory: nordlys
         if: matrix.lint
+        working-directory: nordlys
         run: |
           uv run ruff check --output-format=github .
           uv run ruff format --check .
