@@ -67,4 +67,6 @@ jobs:
 
       - name: Test
         working-directory: nordlys
+        env:
+          CUDA_VISIBLE_DEVICES: ""
         run: uv run pytest tests -v --tb=short
