@@ -9,6 +9,17 @@
 
 namespace nordlys::cuda {
 
+namespace detail {
+template <typename T>
+__device__ __forceinline__ constexpr T max_value();
+
+template <>
+__device__ __forceinline__ constexpr float max_value<float>() { return __FLT_MAX__; }
+
+template <>
+__device__ __forceinline__ constexpr double max_value<double>() { return __DBL_MAX__; }
+}  // namespace detail
+
 template <typename T>
 inline std::vector<T> to_col_major(const T* row_major, size_t rows, size_t cols) {
   std::vector<T> col_major(rows * cols);
@@ -91,7 +102,7 @@ __global__ void fused_l2_argmin(
   const int lane = tid & 31;
   const int warp_id = tid >> 5;
 
-  T local_min = std::numeric_limits<T>::max();
+  T local_min = detail::max_value<T>();
   int local_idx = -1;
 
   // ILP: process 4 distances per iteration
@@ -139,7 +150,7 @@ __global__ void fused_l2_argmin(
   // Final reduction across warps
   if (warp_id == 0) {
     const int num_warps = (blockDim.x + 31) >> 5;
-    local_min = (lane < num_warps) ? s_min_dist[lane] : std::numeric_limits<T>::max();
+    local_min = (lane < num_warps) ? s_min_dist[lane] : detail::max_value<T>();
     local_idx = (lane < num_warps) ? s_min_idx[lane] : -1;
 
     #pragma unroll
