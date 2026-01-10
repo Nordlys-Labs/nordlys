@@ -18,25 +18,37 @@ public:
   std::shared_ptr<T> get(const std::string& path) {
     std::unique_lock lock(mutex_);
 
-    auto canonical = std::filesystem::canonical(path).string();
-    auto current_mtime = std::filesystem::last_write_time(path);
+    try {
+      auto canonical = std::filesystem::canonical(path).string();
+      auto current_mtime = std::filesystem::last_write_time(canonical);
 
-    auto it = map_.find(canonical);
-    if (it != map_.end()) {
-      if (it->second->second.mtime == current_mtime) {
-        move_to_front(it->second);
-        return it->second->second.value;
+      auto it = map_.find(canonical);
+      if (it != map_.end()) {
+        if (it->second->second.mtime == current_mtime) {
+          move_to_front(it->second);
+          return it->second->second.value;
+        }
+        erase(it);
       }
-      erase(it);
+    } catch (const std::filesystem::filesystem_error&) {
+      return nullptr;
     }
     return nullptr;
   }
 
   void put(const std::string& path, std::shared_ptr<T> value) {
+    if (max_size_ == 0) return;
+
     std::unique_lock lock(mutex_);
 
-    auto canonical = std::filesystem::canonical(path).string();
-    auto current_mtime = std::filesystem::last_write_time(path);
+    std::string canonical;
+    std::filesystem::file_time_type current_mtime;
+    try {
+      canonical = std::filesystem::canonical(path).string();
+      current_mtime = std::filesystem::last_write_time(canonical);
+    } catch (const std::filesystem::filesystem_error&) {
+      return;
+    }
 
     auto it = map_.find(canonical);
     if (it != map_.end()) {
@@ -45,7 +57,7 @@ public:
       return;
     }
 
-    if (list_.size() >= max_size_) {
+    if (!list_.empty() && list_.size() >= max_size_) {
       auto& back = list_.back();
       map_.erase(back.first);
       list_.pop_back();

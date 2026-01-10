@@ -147,7 +147,12 @@ NordlysCheckpoint NordlysCheckpoint::from_json_string(const std::string& json_st
 
   sj::ondemand::parser parser;
   sj::padded_string padded(json_str);
-  auto doc = parser.iterate(padded);
+  auto doc_result = parser.iterate(padded);
+  if (doc_result.error()) {
+    throw std::invalid_argument(
+        std::format("Failed to parse JSON: {}", sj::error_message(doc_result.error())));
+  }
+  auto doc = std::move(doc_result.value());
 
   NordlysCheckpoint checkpoint;
 

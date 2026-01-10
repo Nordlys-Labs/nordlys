@@ -225,23 +225,41 @@ template <typename Scalar>
     case ClusterBackendType::Cpu:
 #ifndef __CUDACC__
       return std::make_unique<CpuClusterBackend<Scalar>>();
+#else
+      break;
 #endif
+
     case ClusterBackendType::CUDA:
 #ifdef NORDLYS_HAS_CUDA
-      if (cuda_available()) return std::make_unique<CudaClusterBackend<Scalar>>();
+      if (cuda_available()) {
+        return std::make_unique<CudaClusterBackend<Scalar>>();
+      }
 #endif
 #ifndef __CUDACC__
       return std::make_unique<CpuClusterBackend<Scalar>>();
+#else
+      break;
 #endif
+
     case ClusterBackendType::Auto:
     default:
 #ifdef NORDLYS_HAS_CUDA
-      if (cuda_available()) return std::make_unique<CudaClusterBackend<Scalar>>();
+      if (cuda_available()) {
+        return std::make_unique<CudaClusterBackend<Scalar>>();
+      }
 #endif
 #ifndef __CUDACC__
       return std::make_unique<CpuClusterBackend<Scalar>>();
+#else
+      break;
 #endif
   }
+
+#ifndef __CUDACC__
+  return std::make_unique<CpuClusterBackend<Scalar>>();
+#else
+  return nullptr;
+#endif
 }
 
 template <typename Scalar = float>

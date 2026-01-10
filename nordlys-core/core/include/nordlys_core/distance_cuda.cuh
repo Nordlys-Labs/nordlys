@@ -3,6 +3,7 @@
 #ifdef NORDLYS_HAS_CUDA
 
 #include <cuda_runtime.h>
+#include <limits>
 
 namespace nordlys::cuda {
 
@@ -77,7 +78,7 @@ __global__ void fused_l2_argmin(
   const int lane = tid & 31;
   const int warp_id = tid >> 5;
 
-  T local_min = INFINITY;
+  T local_min = cuda::std::numeric_limits<T>::infinity();
   int local_idx = -1;
 
   // ILP: process 4 distances per iteration
@@ -125,7 +126,7 @@ __global__ void fused_l2_argmin(
   // Final reduction across warps
   if (warp_id == 0) {
     const int num_warps = (blockDim.x + 31) >> 5;
-    local_min = (lane < num_warps) ? s_min_dist[lane] : INFINITY;
+    local_min = (lane < num_warps) ? s_min_dist[lane] : cuda::std::numeric_limits<T>::infinity();
     local_idx = (lane < num_warps) ? s_min_idx[lane] : -1;
 
     #pragma unroll
@@ -140,7 +141,7 @@ __global__ void fused_l2_argmin(
 
     if (lane == 0) {
       *best_idx = local_idx;
-      *best_dist = sqrt(max(local_min, T{0}));
+      *best_dist = sqrt(local_min < T{0} ? T{0} : local_min);
     }
   }
 }
