@@ -185,13 +185,15 @@ NordlysCheckpoint NordlysCheckpoint::from_json_string(const std::string& json_st
   checkpoint.routing.cost_bias_max = cbmax_result.error() ? 1.0f : static_cast<float>(cbmax_result.value());
 
   // Models
-  for (auto model_obj : doc["models"].get_array().value()) {
+  auto models_array = doc["models"].get_array().value();
+  for (auto model_obj : models_array) {
     auto m = model_obj.get_object().value();
     ModelFeatures model;
     model.model_id = std::string(m["model_id"].get_string().value());
     model.cost_per_1m_input_tokens = static_cast<float>(m["cost_per_1m_input_tokens"].get_double().value());
     model.cost_per_1m_output_tokens = static_cast<float>(m["cost_per_1m_output_tokens"].get_double().value());
-    for (auto err : m["error_rates"].get_array().value()) {
+    auto error_rates_array = m["error_rates"].get_array().value();
+    for (auto err : error_rates_array) {
       model.error_rates.push_back(static_cast<float>(err.get_double().value()));
     }
     checkpoint.models.push_back(std::move(model));
@@ -234,7 +236,8 @@ NordlysCheckpoint NordlysCheckpoint::from_json_string(const std::string& json_st
   size_t row_count = 0;
   for (auto row : centers_arr) {
     size_t col_count = 0;
-    for (auto val : row.get_array().value()) {
+    auto row_array = row.get_array().value();
+    for (auto val : row_array) {
       all_values.push_back(val.get_double().value());
       ++col_count;
     }
