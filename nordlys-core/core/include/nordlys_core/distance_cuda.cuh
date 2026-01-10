@@ -3,9 +3,22 @@
 #ifdef NORDLYS_HAS_CUDA
 
 #include <cuda_runtime.h>
+#include <cmath>
 #include <limits>
+#include <vector>
 
 namespace nordlys::cuda {
+
+template <typename T>
+inline std::vector<T> to_col_major(const T* row_major, size_t rows, size_t cols) {
+  std::vector<T> col_major(rows * cols);
+  for (size_t r = 0; r < rows; ++r) {
+    for (size_t c = 0; c < cols; ++c) {
+      col_major[c * rows + r] = row_major[r * cols + c];
+    }
+  }
+  return col_major;
+}
 
 // Warp-level sum reduction
 template <typename T>
@@ -78,7 +91,7 @@ __global__ void fused_l2_argmin(
   const int lane = tid & 31;
   const int warp_id = tid >> 5;
 
-  T local_min = cuda::std::numeric_limits<T>::infinity();
+  T local_min = std::numeric_limits<T>::max();
   int local_idx = -1;
 
   // ILP: process 4 distances per iteration
@@ -126,7 +139,7 @@ __global__ void fused_l2_argmin(
   // Final reduction across warps
   if (warp_id == 0) {
     const int num_warps = (blockDim.x + 31) >> 5;
-    local_min = (lane < num_warps) ? s_min_dist[lane] : cuda::std::numeric_limits<T>::infinity();
+    local_min = (lane < num_warps) ? s_min_dist[lane] : std::numeric_limits<T>::max();
     local_idx = (lane < num_warps) ? s_min_idx[lane] : -1;
 
     #pragma unroll
