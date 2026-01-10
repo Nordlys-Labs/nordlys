@@ -14,6 +14,7 @@ class NordlysCoreConan(ConanFile):
         self.requires("msgpack-cxx/7.0.0")
         self.requires("tsl-robin-map/1.4.0")
         self.requires("nanobind/2.9.2")
+        self.requires("simdjson/4.2.2")
 
     def build_requirements(self):
         self.test_requires("gtest/1.17.0")

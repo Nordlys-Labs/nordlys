@@ -52,4 +52,4 @@ private:
   std::vector<T> data_;
 };
 
-template <typename Scalar> using EmbeddingMatrixT = Matrix<Scalar>;
+template <typename Scalar> using EmbeddingMatrix = Matrix<Scalar>;

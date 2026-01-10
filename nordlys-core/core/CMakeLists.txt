@@ -34,7 +34,6 @@ FetchContent_MakeAvailable(usearch)
 
 # Core library
 add_library(nordlys_core STATIC
-  src/cluster_backend.cpp
   src/scorer.cpp
   src/checkpoint.cpp
 )
@@ -54,6 +53,7 @@ target_link_libraries(nordlys_core
   PUBLIC
     nlohmann_json::nlohmann_json
     msgpack-cxx
+    simdjson::simdjson
     # USearch is in public API (CpuClusterBackendT uses it)
     # This is conditional via #ifndef __CUDACC__ so CUDA files won't see it
     usearch
@@ -77,12 +77,37 @@ if(MSVC)
 endif()
 
 # CUDA acceleration (optional)
-# The CUDA backend is decoupled - it doesn't compile with usearch headers
-# due to #ifndef __CUDACC__ guards in cluster_backend.hpp
 if(NORDLYS_ENABLE_CUDA)
-  add_subdirectory(src/cuda)
-  target_link_libraries(nordlys_core PUBLIC nordlys::cuda)
+  enable_language(CUDA)
+  find_package(CUDAToolkit REQUIRED)
+  target_sources(nordlys_core PRIVATE src/cluster_cuda.cu)
   target_compile_definitions(nordlys_core PUBLIC NORDLYS_HAS_CUDA=1)
+  target_link_libraries(nordlys_core PUBLIC CUDA::cublas CUDA::cudart)
+  set_source_files_properties(src/cluster_cuda.cu PROPERTIES LANGUAGE CUDA)
+endif()
+
+# OpenMP parallelization (optional)
+if(APPLE)
+  execute_process(
+    COMMAND brew --prefix libomp
+    OUTPUT_VARIABLE LIBOMP_PREFIX
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    RESULT_VARIABLE BREW_RESULT
+  )
+  if(BREW_RESULT EQUAL 0 AND EXISTS "${LIBOMP_PREFIX}")
+    target_compile_options(nordlys_core PUBLIC -Xpreprocessor -fopenmp)
+    target_include_directories(nordlys_core SYSTEM PUBLIC "${LIBOMP_PREFIX}/include")
+    target_link_libraries(nordlys_core PUBLIC "${LIBOMP_PREFIX}/lib/libomp.dylib")
+    message(STATUS "OpenMP found via Homebrew: ${LIBOMP_PREFIX}")
+  else()
+    message(STATUS "OpenMP not found (install with: brew install libomp)")
+  endif()
+else()
+  find_package(OpenMP)
+  if(OpenMP_CXX_FOUND)
+    target_link_libraries(nordlys_core PUBLIC OpenMP::OpenMP_CXX)
+    message(STATUS "OpenMP found: ${OpenMP_CXX_VERSION}")
+  endif()
 endif()
 
 # Tests

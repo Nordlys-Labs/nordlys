@@ -209,14 +209,8 @@ NB_MODULE(nordlys_core_ext, m) {
           "route_batch",
           [](Nordlys<float>& self, nb::ndarray<float, nb::ndim<2>, nb::c_contig> embeddings,
              float cost_bias, const std::vector<std::string>& models) {
-            size_t n = embeddings.shape(0), d = embeddings.shape(1);
-            std::vector<RouteResult<float>> results;
-            results.reserve(n);
-            const float* ptr = embeddings.data();
-            for (size_t i = 0; i < n; ++i) {
-              results.push_back(self.route(ptr + i * d, d, cost_bias, models));
-            }
-            return results;
+            return self.route_batch(embeddings.data(), embeddings.shape(0), embeddings.shape(1),
+                                    cost_bias, models);
           },
           "embeddings"_a, "cost_bias"_a = 0.5f, "models"_a = std::vector<std::string>{},
           "Batch route multiple embeddings\n\n"
@@ -275,14 +269,8 @@ NB_MODULE(nordlys_core_ext, m) {
           "route_batch",
           [](Nordlys<double>& self, nb::ndarray<double, nb::ndim<2>, nb::c_contig> embeddings,
              float cost_bias, const std::vector<std::string>& models) {
-            size_t n = embeddings.shape(0), d = embeddings.shape(1);
-            std::vector<RouteResult<double>> results;
-            results.reserve(n);
-            const double* ptr = embeddings.data();
-            for (size_t i = 0; i < n; ++i) {
-              results.push_back(self.route(ptr + i * d, d, cost_bias, models));
-            }
-            return results;
+            return self.route_batch(embeddings.data(), embeddings.shape(0), embeddings.shape(1),
+                                    cost_bias, models);
           },
           "embeddings"_a, "cost_bias"_a = 0.5f, "models"_a = std::vector<std::string>{},
           "Batch route multiple embeddings\n\n"

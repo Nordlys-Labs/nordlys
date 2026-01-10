@@ -14,9 +14,9 @@
 
 template <typename Scalar> class ClusterEngineCpuTestT : public ::testing::Test {
 protected:
-  ClusterEngineT<Scalar> engine{ClusterBackendType::Cpu};
+  ClusterEngine<Scalar> engine{ClusterBackendType::Cpu};
 
-  static void fill_matrix(EmbeddingMatrixT<Scalar>& m, std::initializer_list<Scalar> values) {
+  static void fill_matrix(EmbeddingMatrix<Scalar>& m, std::initializer_list<Scalar> values) {
     auto it = values.begin();
     for (size_t i = 0; i < m.rows(); ++i) {
       for (size_t j = 0; j < m.cols(); ++j) {
@@ -25,7 +25,7 @@ protected:
     }
   }
 
-  static void random_matrix(EmbeddingMatrixT<Scalar>& m, std::mt19937& gen) {
+  static void random_matrix(EmbeddingMatrix<Scalar>& m, std::mt19937& gen) {
     std::uniform_real_distribution<Scalar> dist(-1.0, 1.0);
     for (size_t i = 0; i < m.rows(); ++i) {
       for (size_t j = 0; j < m.cols(); ++j) {
@@ -44,7 +44,7 @@ TYPED_TEST(ClusterEngineCpuTestT, EmptyEngine) {
 }
 
 TYPED_TEST(ClusterEngineCpuTestT, LoadCentroids) {
-  EmbeddingMatrixT<TypeParam> centers(3, 4);
+  EmbeddingMatrix<TypeParam> centers(3, 4);
   this->fill_matrix(centers, {TypeParam(1.0), TypeParam(0.0), TypeParam(0.0), TypeParam(0.0),
                               TypeParam(0.0), TypeParam(1.0), TypeParam(0.0), TypeParam(0.0),
                               TypeParam(0.0), TypeParam(0.0), TypeParam(1.0), TypeParam(0.0)});
@@ -54,7 +54,7 @@ TYPED_TEST(ClusterEngineCpuTestT, LoadCentroids) {
 }
 
 TYPED_TEST(ClusterEngineCpuTestT, AssignToNearestCluster) {
-  EmbeddingMatrixT<TypeParam> centers(3, 4);
+  EmbeddingMatrix<TypeParam> centers(3, 4);
   this->fill_matrix(centers, {TypeParam(1.0), TypeParam(0.0), TypeParam(0.0), TypeParam(0.0),
                               TypeParam(0.0), TypeParam(1.0), TypeParam(0.0), TypeParam(0.0),
                               TypeParam(0.0), TypeParam(0.0), TypeParam(1.0), TypeParam(0.0)});
@@ -68,7 +68,7 @@ TYPED_TEST(ClusterEngineCpuTestT, AssignToNearestCluster) {
 }
 
 TYPED_TEST(ClusterEngineCpuTestT, AssignToSecondCluster) {
-  EmbeddingMatrixT<TypeParam> centers(3, 4);
+  EmbeddingMatrix<TypeParam> centers(3, 4);
   this->fill_matrix(centers, {TypeParam(1.0), TypeParam(0.0), TypeParam(0.0), TypeParam(0.0),
                               TypeParam(0.0), TypeParam(1.0), TypeParam(0.0), TypeParam(0.0),
                               TypeParam(0.0), TypeParam(0.0), TypeParam(1.0), TypeParam(0.0)});
@@ -82,7 +82,7 @@ TYPED_TEST(ClusterEngineCpuTestT, AssignToSecondCluster) {
 }
 
 TYPED_TEST(ClusterEngineCpuTestT, AssignToThirdCluster) {
-  EmbeddingMatrixT<TypeParam> centers(3, 4);
+  EmbeddingMatrix<TypeParam> centers(3, 4);
   this->fill_matrix(centers, {TypeParam(1.0), TypeParam(0.0), TypeParam(0.0), TypeParam(0.0),
                               TypeParam(0.0), TypeParam(1.0), TypeParam(0.0), TypeParam(0.0),
                               TypeParam(0.0), TypeParam(0.0), TypeParam(1.0), TypeParam(0.0)});
@@ -101,7 +101,7 @@ TYPED_TEST(ClusterEngineCpuTestT, ManyClusterAssignment) {
   constexpr int N_QUERIES = 50;
 
   std::mt19937 gen(42);
-  EmbeddingMatrixT<TypeParam> centers(N_CLUSTERS, DIM);
+  EmbeddingMatrix<TypeParam> centers(N_CLUSTERS, DIM);
   this->random_matrix(centers, gen);
 
   this->engine.load_centroids(centers);
@@ -136,7 +136,7 @@ TYPED_TEST(ClusterEngineCpuTestT, LargeClusterCount) {
   constexpr size_t DIM = 64;
 
   std::mt19937 gen(42);
-  EmbeddingMatrixT<TypeParam> centers(N_CLUSTERS, DIM);
+  EmbeddingMatrix<TypeParam> centers(N_CLUSTERS, DIM);
   this->random_matrix(centers, gen);
 
   this->engine.load_centroids(centers);
@@ -153,7 +153,7 @@ TYPED_TEST(ClusterEngineCpuTestT, HighDimensionalEmbeddings) {
   constexpr size_t DIM = 2048;
 
   std::mt19937 gen(42);
-  EmbeddingMatrixT<TypeParam> centers(N_CLUSTERS, DIM);
+  EmbeddingMatrix<TypeParam> centers(N_CLUSTERS, DIM);
   this->random_matrix(centers, gen);
 
   this->engine.load_centroids(centers);
@@ -184,7 +184,7 @@ protected:
     std::mt19937 gen(42);
     std::uniform_real_distribution<Scalar> dist(-1.0, 1.0);
 
-    EmbeddingMatrixT<Scalar> centers(N_CLUSTERS, DIM);
+    EmbeddingMatrix<Scalar> centers(N_CLUSTERS, DIM);
     for (size_t i = 0; i < N_CLUSTERS; ++i) {
       for (size_t j = 0; j < DIM; ++j) {
         centers(i, j) = dist(gen);
@@ -194,7 +194,7 @@ protected:
     engine_.load_centroids(centers);
   }
 
-  ClusterEngineT<Scalar> engine_{ClusterBackendType::Cpu};
+  ClusterEngine<Scalar> engine_{ClusterBackendType::Cpu};
 };
 
 TYPED_TEST_SUITE(ClusterCpuThreadSafetyTestT, ScalarTypes);
@@ -275,6 +275,122 @@ TYPED_TEST(ClusterCpuThreadSafetyTestT, StressTest) {
 }
 
 // =============================================================================
+// SECTION 2.5: CPU Backend - Batch Operations
+// =============================================================================
+
+template <typename Scalar> class ClusterBatchTestT : public ::testing::Test {
+protected:
+  static constexpr size_t N_CLUSTERS = 10;
+  static constexpr size_t DIM = 64;
+
+  void SetUp() override {
+    std::mt19937 gen(42);
+    std::uniform_real_distribution<Scalar> dist(-1.0, 1.0);
+
+    EmbeddingMatrix<Scalar> centers(N_CLUSTERS, DIM);
+    for (size_t i = 0; i < N_CLUSTERS; ++i) {
+      for (size_t j = 0; j < DIM; ++j) {
+        centers(i, j) = dist(gen);
+      }
+    }
+
+    engine.load_centroids(centers);
+  }
+
+  ClusterEngine<Scalar> engine{ClusterBackendType::Cpu};
+};
+
+TYPED_TEST_SUITE(ClusterBatchTestT, ScalarTypes);
+
+TYPED_TEST(ClusterBatchTestT, AssignBatchBasic) {
+  constexpr size_t BATCH_SIZE = 100;
+
+  std::mt19937 gen(123);
+  std::uniform_real_distribution<TypeParam> dist(-1.0, 1.0);
+
+  std::vector<TypeParam> embeddings(BATCH_SIZE * this->DIM);
+  for (size_t i = 0; i < embeddings.size(); ++i) {
+    embeddings[i] = dist(gen);
+  }
+
+  auto results = this->engine.assign_batch(embeddings.data(), BATCH_SIZE, this->DIM);
+
+  ASSERT_EQ(results.size(), BATCH_SIZE);
+  for (const auto& [cluster_id, distance] : results) {
+    EXPECT_GE(cluster_id, 0);
+    EXPECT_LT(cluster_id, static_cast<int>(this->N_CLUSTERS));
+    EXPECT_GE(distance, TypeParam(0));
+  }
+}
+
+TYPED_TEST(ClusterBatchTestT, AssignBatchMatchesSingleAssign) {
+  constexpr size_t BATCH_SIZE = 50;
+
+  std::mt19937 gen(456);
+  std::uniform_real_distribution<TypeParam> dist(-1.0, 1.0);
+
+  std::vector<TypeParam> embeddings(BATCH_SIZE * this->DIM);
+  for (size_t i = 0; i < embeddings.size(); ++i) {
+    embeddings[i] = dist(gen);
+  }
+
+  auto batch_results = this->engine.assign_batch(embeddings.data(), BATCH_SIZE, this->DIM);
+
+  ASSERT_EQ(batch_results.size(), BATCH_SIZE);
+  for (size_t i = 0; i < BATCH_SIZE; ++i) {
+    auto single_result = this->engine.assign(embeddings.data() + i * this->DIM, this->DIM);
+    EXPECT_EQ(batch_results[i].first, single_result.first);
+    EXPECT_NEAR(batch_results[i].second, single_result.second, TypeParam(1e-5));
+  }
+}
+
+TYPED_TEST(ClusterBatchTestT, AssignBatchLargeBatch) {
+  constexpr size_t BATCH_SIZE = 10000;
+
+  std::mt19937 gen(789);
+  std::uniform_real_distribution<TypeParam> dist(-1.0, 1.0);
+
+  std::vector<TypeParam> embeddings(BATCH_SIZE * this->DIM);
+  for (size_t i = 0; i < embeddings.size(); ++i) {
+    embeddings[i] = dist(gen);
+  }
+
+  auto results = this->engine.assign_batch(embeddings.data(), BATCH_SIZE, this->DIM);
+
+  ASSERT_EQ(results.size(), BATCH_SIZE);
+  for (const auto& [cluster_id, distance] : results) {
+    EXPECT_GE(cluster_id, 0);
+    EXPECT_LT(cluster_id, static_cast<int>(this->N_CLUSTERS));
+  }
+}
+
+TYPED_TEST(ClusterBatchTestT, AssignBatchSingleItem) {
+  std::vector<TypeParam> embedding(this->DIM, TypeParam(0.5));
+  
+  auto results = this->engine.assign_batch(embedding.data(), 1, this->DIM);
+  
+  ASSERT_EQ(results.size(), 1);
+  auto single_result = this->engine.assign(embedding.data(), this->DIM);
+  EXPECT_EQ(results[0].first, single_result.first);
+  EXPECT_NEAR(results[0].second, single_result.second, TypeParam(1e-5));
+}
+
+TYPED_TEST(ClusterBatchTestT, AssignBatchDeterministic) {
+  constexpr size_t BATCH_SIZE = 100;
+
+  std::vector<TypeParam> embeddings(BATCH_SIZE * this->DIM, TypeParam(0.1));
+
+  auto results1 = this->engine.assign_batch(embeddings.data(), BATCH_SIZE, this->DIM);
+  auto results2 = this->engine.assign_batch(embeddings.data(), BATCH_SIZE, this->DIM);
+
+  ASSERT_EQ(results1.size(), results2.size());
+  for (size_t i = 0; i < results1.size(); ++i) {
+    EXPECT_EQ(results1[i].first, results2[i].first);
+    EXPECT_EQ(results1[i].second, results2[i].second);
+  }
+}
+
+// =============================================================================
 // SECTION 3: CUDA Backend - Basic Functionality
 // =============================================================================
 
@@ -284,12 +400,12 @@ protected:
     if (!cuda_available()) {
       GTEST_SKIP() << "CUDA not available, skipping GPU tests";
     }
-    engine = ClusterEngineT<Scalar>(ClusterBackendType::CUDA);
+    engine = ClusterEngine<Scalar>(ClusterBackendType::CUDA);
   }
 
-  ClusterEngineT<Scalar> engine{ClusterBackendType::Cpu};
+  ClusterEngine<Scalar> engine{ClusterBackendType::Cpu};
 
-  static void fill_matrix(EmbeddingMatrixT<Scalar>& m, std::initializer_list<Scalar> values) {
+  static void fill_matrix(EmbeddingMatrix<Scalar>& m, std::initializer_list<Scalar> values) {
     auto it = values.begin();
     for (size_t i = 0; i < m.rows(); ++i) {
       for (size_t j = 0; j < m.cols(); ++j) {
@@ -298,7 +414,7 @@ protected:
     }
   }
 
-  static void random_matrix(EmbeddingMatrixT<Scalar>& m, std::mt19937& gen) {
+  static void random_matrix(EmbeddingMatrix<Scalar>& m, std::mt19937& gen) {
     std::uniform_real_distribution<Scalar> dist(-1.0, 1.0);
     for (size_t i = 0; i < m.rows(); ++i) {
       for (size_t j = 0; j < m.cols(); ++j) {
@@ -316,7 +432,7 @@ TYPED_TEST(ClusterEngineCudaTestT, EmptyEngine) {
 }
 
 TYPED_TEST(ClusterEngineCudaTestT, LoadCentroids) {
-  EmbeddingMatrixT<TypeParam> centers(3, 4);
+  EmbeddingMatrix<TypeParam> centers(3, 4);
   this->fill_matrix(centers, {TypeParam(1.0), TypeParam(0.0), TypeParam(0.0), TypeParam(0.0),
                               TypeParam(0.0), TypeParam(1.0), TypeParam(0.0), TypeParam(0.0),
                               TypeParam(0.0), TypeParam(0.0), TypeParam(1.0), TypeParam(0.0)});
@@ -326,7 +442,7 @@ TYPED_TEST(ClusterEngineCudaTestT, LoadCentroids) {
 }
 
 TYPED_TEST(ClusterEngineCudaTestT, AssignToNearestCluster) {
-  EmbeddingMatrixT<TypeParam> centers(3, 4);
+  EmbeddingMatrix<TypeParam> centers(3, 4);
   this->fill_matrix(centers, {TypeParam(1.0), TypeParam(0.0), TypeParam(0.0), TypeParam(0.0),
                               TypeParam(0.0), TypeParam(1.0), TypeParam(0.0), TypeParam(0.0),
                               TypeParam(0.0), TypeParam(0.0), TypeParam(1.0), TypeParam(0.0)});
@@ -340,7 +456,7 @@ TYPED_TEST(ClusterEngineCudaTestT, AssignToNearestCluster) {
 }
 
 TYPED_TEST(ClusterEngineCudaTestT, AssignToSecondCluster) {
-  EmbeddingMatrixT<TypeParam> centers(3, 4);
+  EmbeddingMatrix<TypeParam> centers(3, 4);
   this->fill_matrix(centers, {TypeParam(1.0), TypeParam(0.0), TypeParam(0.0), TypeParam(0.0),
                               TypeParam(0.0), TypeParam(1.0), TypeParam(0.0), TypeParam(0.0),
                               TypeParam(0.0), TypeParam(0.0), TypeParam(1.0), TypeParam(0.0)});
@@ -354,7 +470,7 @@ TYPED_TEST(ClusterEngineCudaTestT, AssignToSecondCluster) {
 }
 
 TYPED_TEST(ClusterEngineCudaTestT, AssignToThirdCluster) {
-  EmbeddingMatrixT<TypeParam> centers(3, 4);
+  EmbeddingMatrix<TypeParam> centers(3, 4);
   this->fill_matrix(centers, {TypeParam(1.0), TypeParam(0.0), TypeParam(0.0), TypeParam(0.0),
                               TypeParam(0.0), TypeParam(1.0), TypeParam(0.0), TypeParam(0.0),
                               TypeParam(0.0), TypeParam(0.0), TypeParam(1.0), TypeParam(0.0)});
@@ -373,7 +489,7 @@ TYPED_TEST(ClusterEngineCudaTestT, ManyClusterAssignment) {
   constexpr int N_QUERIES = 50;
 
   std::mt19937 gen(42);
-  EmbeddingMatrixT<TypeParam> centers(N_CLUSTERS, DIM);
+  EmbeddingMatrix<TypeParam> centers(N_CLUSTERS, DIM);
   this->random_matrix(centers, gen);
 
   this->engine.load_centroids(centers);
@@ -399,7 +515,7 @@ TYPED_TEST(ClusterEngineCudaTestT, SmallDimensionOptimization) {
   constexpr size_t DIM = 256;
 
   std::mt19937 gen(42);
-  EmbeddingMatrixT<TypeParam> centers(N_CLUSTERS, DIM);
+  EmbeddingMatrix<TypeParam> centers(N_CLUSTERS, DIM);
   this->random_matrix(centers, gen);
 
   this->engine.load_centroids(centers);
@@ -415,7 +531,7 @@ TYPED_TEST(ClusterEngineCudaTestT, LargeDimensionOptimization) {
   constexpr size_t DIM = 1024;
 
   std::mt19937 gen(42);
-  EmbeddingMatrixT<TypeParam> centers(N_CLUSTERS, DIM);
+  EmbeddingMatrix<TypeParam> centers(N_CLUSTERS, DIM);
   this->random_matrix(centers, gen);
 
   this->engine.load_centroids(centers);
@@ -431,7 +547,7 @@ TYPED_TEST(ClusterEngineCudaTestT, SmallClusterCountOptimization) {
   constexpr size_t DIM = 128;
 
   std::mt19937 gen(42);
-  EmbeddingMatrixT<TypeParam> centers(N_CLUSTERS, DIM);
+  EmbeddingMatrix<TypeParam> centers(N_CLUSTERS, DIM);
   this->random_matrix(centers, gen);
 
   this->engine.load_centroids(centers);
@@ -447,7 +563,7 @@ TYPED_TEST(ClusterEngineCudaTestT, LargeClusterCountOptimization) {
   constexpr size_t DIM = 128;
 
   std::mt19937 gen(42);
-  EmbeddingMatrixT<TypeParam> centers(N_CLUSTERS, DIM);
+  EmbeddingMatrix<TypeParam> centers(N_CLUSTERS, DIM);
   this->random_matrix(centers, gen);
 
   this->engine.load_centroids(centers);
@@ -459,7 +575,7 @@ TYPED_TEST(ClusterEngineCudaTestT, LargeClusterCountOptimization) {
 }
 
 TYPED_TEST(ClusterEngineCudaTestT, ReloadCentroidsRecapturesGraph) {
-  EmbeddingMatrixT<TypeParam> centers1(3, 4);
+  EmbeddingMatrix<TypeParam> centers1(3, 4);
   this->fill_matrix(centers1, {TypeParam(1.0), TypeParam(0.0), TypeParam(0.0), TypeParam(0.0),
                                TypeParam(0.0), TypeParam(1.0), TypeParam(0.0), TypeParam(0.0),
                                TypeParam(0.0), TypeParam(0.0), TypeParam(1.0), TypeParam(0.0)});
@@ -470,7 +586,7 @@ TYPED_TEST(ClusterEngineCudaTestT, ReloadCentroidsRecapturesGraph) {
   auto [id1, dist1] = this->engine.assign(vec1, 4);
   EXPECT_EQ(id1, 0);
 
-  EmbeddingMatrixT<TypeParam> centers2(3, 4);
+  EmbeddingMatrix<TypeParam> centers2(3, 4);
   this->fill_matrix(centers2, {TypeParam(0.0), TypeParam(1.0), TypeParam(0.0), TypeParam(0.0),
                                TypeParam(1.0), TypeParam(0.0), TypeParam(0.0), TypeParam(0.0),
                                TypeParam(0.0), TypeParam(0.0), TypeParam(1.0), TypeParam(0.0)});
@@ -482,7 +598,7 @@ TYPED_TEST(ClusterEngineCudaTestT, ReloadCentroidsRecapturesGraph) {
 }
 
 TYPED_TEST(ClusterEngineCudaTestT, DimensionMismatch) {
-  EmbeddingMatrixT<TypeParam> centers(3, 4);
+  EmbeddingMatrix<TypeParam> centers(3, 4);
   this->fill_matrix(centers, {TypeParam(1.0), TypeParam(0.0), TypeParam(0.0), TypeParam(0.0),
                               TypeParam(0.0), TypeParam(1.0), TypeParam(0.0), TypeParam(0.0),
                               TypeParam(0.0), TypeParam(0.0), TypeParam(1.0), TypeParam(0.0)});
@@ -503,12 +619,12 @@ TEST(CudaAdvancedTest, VeryLargeClusterCount) {
   constexpr size_t N_CLUSTERS = 5000;
   constexpr size_t DIM = 128;
 
-  ClusterEngineT<float> engine(ClusterBackendType::CUDA);
+  ClusterEngine<float> engine(ClusterBackendType::CUDA);
 
   std::mt19937 gen(42);
   std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
 
-  EmbeddingMatrixT<float> centers(N_CLUSTERS, DIM);
+  EmbeddingMatrix<float> centers(N_CLUSTERS, DIM);
   for (size_t i = 0; i < N_CLUSTERS; ++i) {
     for (size_t j = 0; j < DIM; ++j) {
       centers(i, j) = dist(gen);
@@ -534,12 +650,12 @@ TEST(CudaAdvancedTest, VeryHighDimensionality) {
   constexpr size_t N_CLUSTERS = 10;
   constexpr size_t DIM = 4096;
 
-  ClusterEngineT<float> engine(ClusterBackendType::CUDA);
+  ClusterEngine<float> engine(ClusterBackendType::CUDA);
 
   std::mt19937 gen(42);
   std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
 
-  EmbeddingMatrixT<float> centers(N_CLUSTERS, DIM);
+  EmbeddingMatrix<float> centers(N_CLUSTERS, DIM);
   for (size_t i = 0; i < N_CLUSTERS; ++i) {
     for (size_t j = 0; j < DIM; ++j) {
       centers(i, j) = dist(gen);
@@ -564,12 +680,12 @@ TEST(CudaAdvancedTest, ArgminWithNonMultipleOfFourClusters) {
   constexpr size_t N_CLUSTERS = 37;
   constexpr size_t DIM = 64;
 
-  ClusterEngineT<float> engine(ClusterBackendType::CUDA);
+  ClusterEngine<float> engine(ClusterBackendType::CUDA);
 
   std::mt19937 gen(42);
   std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
 
-  EmbeddingMatrixT<float> centers(N_CLUSTERS, DIM);
+  EmbeddingMatrix<float> centers(N_CLUSTERS, DIM);
   for (size_t i = 0; i < N_CLUSTERS; ++i) {
     for (size_t j = 0; j < DIM; ++j) {
       centers(i, j) = dist(gen);
@@ -594,12 +710,12 @@ TEST(CudaAdvancedTest, NormCalculationAccuracy) {
   constexpr size_t N_CLUSTERS = 10;
   constexpr size_t DIM = 128;
 
-  ClusterEngineT<double> engine(ClusterBackendType::CUDA);
+  ClusterEngine<double> engine(ClusterBackendType::CUDA);
 
   std::mt19937 gen(42);
   std::uniform_real_distribution<double> dist(-1.0, 1.0);
 
-  EmbeddingMatrixT<double> centers(N_CLUSTERS, DIM);
+  EmbeddingMatrix<double> centers(N_CLUSTERS, DIM);
   for (size_t i = 0; i < N_CLUSTERS; ++i) {
     for (size_t j = 0; j < DIM; ++j) {
       centers(i, j) = dist(gen);
@@ -626,14 +742,14 @@ TEST(CudaAdvancedTest, MultipleEngineInstances) {
   constexpr size_t N_CLUSTERS = 20;
   constexpr size_t DIM = 64;
 
-  ClusterEngineT<float> engine1(ClusterBackendType::CUDA);
-  ClusterEngineT<float> engine2(ClusterBackendType::CUDA);
+  ClusterEngine<float> engine1(ClusterBackendType::CUDA);
+  ClusterEngine<float> engine2(ClusterBackendType::CUDA);
 
   std::mt19937 gen(42);
   std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
 
-  EmbeddingMatrixT<float> centers1(N_CLUSTERS, DIM);
-  EmbeddingMatrixT<float> centers2(N_CLUSTERS, DIM);
+  EmbeddingMatrix<float> centers1(N_CLUSTERS, DIM);
+  EmbeddingMatrix<float> centers2(N_CLUSTERS, DIM);
   for (size_t i = 0; i < N_CLUSTERS; ++i) {
     for (size_t j = 0; j < DIM; ++j) {
       centers1(i, j) = dist(gen);
@@ -664,12 +780,12 @@ TEST(CudaAdvancedTest, NonMultipleOfFourDimensions) {
   constexpr size_t N_CLUSTERS = 10;
   constexpr size_t DIM = 127;
 
-  ClusterEngineT<float> engine(ClusterBackendType::CUDA);
+  ClusterEngine<float> engine(ClusterBackendType::CUDA);
 
   std::mt19937 gen(42);
   std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
 
-  EmbeddingMatrixT<float> centers(N_CLUSTERS, DIM);
+  EmbeddingMatrix<float> centers(N_CLUSTERS, DIM);
   for (size_t i = 0; i < N_CLUSTERS; ++i) {
     for (size_t j = 0; j < DIM; ++j) {
       centers(i, j) = dist(gen);
@@ -695,12 +811,12 @@ TEST(CudaAdvancedTest, RepeatedAssignCalls) {
   constexpr size_t DIM = 128;
   constexpr int N_ITERATIONS = 1000;
 
-  ClusterEngineT<float> engine(ClusterBackendType::CUDA);
+  ClusterEngine<float> engine(ClusterBackendType::CUDA);
 
   std::mt19937 gen(42);
   std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
 
-  EmbeddingMatrixT<float> centers(N_CLUSTERS, DIM);
+  EmbeddingMatrix<float> centers(N_CLUSTERS, DIM);
   for (size_t i = 0; i < N_CLUSTERS; ++i) {
     for (size_t j = 0; j < DIM; ++j) {
       centers(i, j) = dist(gen);
@@ -741,18 +857,18 @@ protected:
     std::mt19937 gen(42);
     std::uniform_real_distribution<Scalar> dist(-1.0, 1.0);
 
-    EmbeddingMatrixT<Scalar> centers(N_CLUSTERS, DIM);
+    EmbeddingMatrix<Scalar> centers(N_CLUSTERS, DIM);
     for (size_t i = 0; i < N_CLUSTERS; ++i) {
       for (size_t j = 0; j < DIM; ++j) {
         centers(i, j) = dist(gen);
       }
     }
 
-    engine_ = ClusterEngineT<Scalar>(ClusterBackendType::CUDA);
+    engine_ = ClusterEngine<Scalar>(ClusterBackendType::CUDA);
     engine_.load_centroids(centers);
   }
 
-  ClusterEngineT<Scalar> engine_{ClusterBackendType::Cpu};
+  ClusterEngine<Scalar> engine_{ClusterBackendType::Cpu};
 };
 
 TYPED_TEST_SUITE(ClusterCudaThreadSafetyTestT, ScalarTypes);
@@ -843,13 +959,13 @@ TEST(BackendComparisonTest, CPUvsCUDAConsistencyFloat) {
   constexpr size_t DIM = 128;
   constexpr int N_QUERIES = 100;
 
-  ClusterEngineT<float> cpu_engine(ClusterBackendType::Cpu);
-  ClusterEngineT<float> cuda_engine(ClusterBackendType::CUDA);
+  ClusterEngine<float> cpu_engine(ClusterBackendType::Cpu);
+  ClusterEngine<float> cuda_engine(ClusterBackendType::CUDA);
 
   std::mt19937 gen(42);
   std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
 
-  EmbeddingMatrixT<float> centers(N_CLUSTERS, DIM);
+  EmbeddingMatrix<float> centers(N_CLUSTERS, DIM);
   for (size_t i = 0; i < N_CLUSTERS; ++i) {
     for (size_t j = 0; j < DIM; ++j) {
       centers(i, j) = dist(gen);
@@ -885,13 +1001,13 @@ TEST(BackendComparisonTest, CPUvsCUDAConsistencyDouble) {
   constexpr size_t DIM = 128;
   constexpr int N_QUERIES = 100;
 
-  ClusterEngineT<double> cpu_engine(ClusterBackendType::Cpu);
-  ClusterEngineT<double> cuda_engine(ClusterBackendType::CUDA);
+  ClusterEngine<double> cpu_engine(ClusterBackendType::Cpu);
+  ClusterEngine<double> cuda_engine(ClusterBackendType::CUDA);
 
   std::mt19937 gen(42);
   std::uniform_real_distribution<double> dist(-1.0, 1.0);
 
-  EmbeddingMatrixT<double> centers(N_CLUSTERS, DIM);
+  EmbeddingMatrix<double> centers(N_CLUSTERS, DIM);
   for (size_t i = 0; i < N_CLUSTERS; ++i) {
     for (size_t j = 0; j < DIM; ++j) {
       centers(i, j) = dist(gen);
@@ -926,13 +1042,13 @@ TEST(BackendComparisonTest, EdgeCaseConsistency) {
   constexpr size_t N_CLUSTERS = 10;
   constexpr size_t DIM = 64;
 
-  ClusterEngineT<float> cpu_engine(ClusterBackendType::Cpu);
-  ClusterEngineT<float> cuda_engine(ClusterBackendType::CUDA);
+  ClusterEngine<float> cpu_engine(ClusterBackendType::Cpu);
+  ClusterEngine<float> cuda_engine(ClusterBackendType::CUDA);
 
   std::mt19937 gen(42);
   std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
 
-  EmbeddingMatrixT<float> centers(N_CLUSTERS, DIM);
+  EmbeddingMatrix<float> centers(N_CLUSTERS, DIM);
   for (size_t i = 0; i < N_CLUSTERS; ++i) {
     for (size_t j = 0; j < DIM; ++j) {
       centers(i, j) = dist(gen);
@@ -965,7 +1081,7 @@ TEST(BackendComparisonTest, EdgeCaseConsistency) {
 // =============================================================================
 
 TEST(ClusterBackendFactoryTest, AutoSelectsCUDAWhenAvailable) {
-  auto engine = ClusterEngineT<float>(ClusterBackendType::Auto);
+  auto engine = ClusterEngine<float>(ClusterBackendType::Auto);
 
   if (cuda_available()) {
     EXPECT_TRUE(engine.is_gpu_accelerated());
@@ -975,12 +1091,12 @@ TEST(ClusterBackendFactoryTest, AutoSelectsCUDAWhenAvailable) {
 }
 
 TEST(ClusterBackendFactoryTest, ExplicitCPUBackend) {
-  auto engine = ClusterEngineT<float>(ClusterBackendType::Cpu);
+  auto engine = ClusterEngine<float>(ClusterBackendType::Cpu);
   EXPECT_FALSE(engine.is_gpu_accelerated());
 }
 
 TEST(ClusterBackendFactoryTest, ExplicitCUDABackendFallback) {
-  auto engine = ClusterEngineT<float>(ClusterBackendType::CUDA);
+  auto engine = ClusterEngine<float>(ClusterBackendType::CUDA);
 
   if (!cuda_available()) {
     EXPECT_FALSE(engine.is_gpu_accelerated());
@@ -995,11 +1111,11 @@ TEST(ClusterBackendFactoryTest, CudaAvailableFunction) {
 }
 
 TEST(ClusterBackendFactoryTest, DoubleSupport) {
-  ClusterEngineT<double> cpu_engine(ClusterBackendType::Cpu);
+  ClusterEngine<double> cpu_engine(ClusterBackendType::Cpu);
   EXPECT_FALSE(cpu_engine.is_gpu_accelerated());
 
   if (cuda_available()) {
-    ClusterEngineT<double> cuda_engine(ClusterBackendType::CUDA);
+    ClusterEngine<double> cuda_engine(ClusterBackendType::CUDA);
     EXPECT_TRUE(cuda_engine.is_gpu_accelerated());
   }
 }
@@ -1009,16 +1125,16 @@ TEST(ClusterBackendFactoryTest, DoubleSupport) {
 // =============================================================================
 
 TEST(ClusterEdgeCasesTest, ZeroClusters) {
-  ClusterEngineT<float> engine(ClusterBackendType::Cpu);
+  ClusterEngine<float> engine(ClusterBackendType::Cpu);
   std::vector<float> query(128, 1.0f);
   auto [id, dist] = engine.assign(query.data(), 128);
   EXPECT_EQ(id, -1);
 }
 
 TEST(ClusterEdgeCasesTest, SingleCluster) {
-  ClusterEngineT<float> engine(ClusterBackendType::Cpu);
+  ClusterEngine<float> engine(ClusterBackendType::Cpu);
 
-  EmbeddingMatrixT<float> centers(1, 4);
+  EmbeddingMatrix<float> centers(1, 4);
   centers(0, 0) = 1.0f;
   centers(0, 1) = 0.0f;
   centers(0, 2) = 0.0f;
@@ -1036,9 +1152,9 @@ TEST(ClusterEdgeCasesTest, SingleCluster) {
 }
 
 TEST(ClusterEdgeCasesTest, TwoClusters) {
-  ClusterEngineT<float> engine(ClusterBackendType::Cpu);
+  ClusterEngine<float> engine(ClusterBackendType::Cpu);
 
-  EmbeddingMatrixT<float> centers(2, 2);
+  EmbeddingMatrix<float> centers(2, 2);
   centers(0, 0) = 1.0f;
   centers(0, 1) = 0.0f;
   centers(1, 0) = 0.0f;
@@ -1056,9 +1172,9 @@ TEST(ClusterEdgeCasesTest, TwoClusters) {
 }
 
 TEST(ClusterEdgeCasesTest, EmbeddingAllZeros) {
-  ClusterEngineT<float> engine(ClusterBackendType::Cpu);
+  ClusterEngine<float> engine(ClusterBackendType::Cpu);
 
-  EmbeddingMatrixT<float> centers(3, 4);
+  EmbeddingMatrix<float> centers(3, 4);
   centers(0, 0) = 1.0f;
   centers(0, 1) = 0.0f;
   centers(0, 2) = 0.0f;
@@ -1082,9 +1198,9 @@ TEST(ClusterEdgeCasesTest, EmbeddingAllZeros) {
 }
 
 TEST(ClusterEdgeCasesTest, VerySmallValues) {
-  ClusterEngineT<float> engine(ClusterBackendType::Cpu);
+  ClusterEngine<float> engine(ClusterBackendType::Cpu);
 
-  EmbeddingMatrixT<float> centers(2, 4);
+  EmbeddingMatrix<float> centers(2, 4);
   for (size_t i = 0; i < 2; ++i) {
     for (size_t j = 0; j < 4; ++j) {
       centers(i, j) = 1e-7f * static_cast<float>(i + j);
@@ -1100,9 +1216,9 @@ TEST(ClusterEdgeCasesTest, VerySmallValues) {
 }
 
 TEST(ClusterEdgeCasesTest, VeryLargeValues) {
-  ClusterEngineT<float> engine(ClusterBackendType::Cpu);
+  ClusterEngine<float> engine(ClusterBackendType::Cpu);
 
-  EmbeddingMatrixT<float> centers(2, 4);
+  EmbeddingMatrix<float> centers(2, 4);
   for (size_t i = 0; i < 2; ++i) {
     for (size_t j = 0; j < 4; ++j) {
       centers(i, j) = 1e6f * static_cast<float>(i + j + 1);
@@ -1118,9 +1234,9 @@ TEST(ClusterEdgeCasesTest, VeryLargeValues) {
 }
 
 TEST(ClusterEdgeCasesTest, MixedScaleValues) {
-  ClusterEngineT<float> engine(ClusterBackendType::Cpu);
+  ClusterEngine<float> engine(ClusterBackendType::Cpu);
 
-  EmbeddingMatrixT<float> centers(2, 4);
+  EmbeddingMatrix<float> centers(2, 4);
   centers(0, 0) = 1e-7f;
   centers(0, 1) = 1e7f;
   centers(0, 2) = 1e-3f;
@@ -1139,9 +1255,9 @@ TEST(ClusterEdgeCasesTest, MixedScaleValues) {
 }
 
 TEST(ClusterEdgeCasesTest, IdenticalCentroids) {
-  ClusterEngineT<float> engine(ClusterBackendType::Cpu);
+  ClusterEngine<float> engine(ClusterBackendType::Cpu);
 
-  EmbeddingMatrixT<float> centers(3, 4);
+  EmbeddingMatrix<float> centers(3, 4);
   for (size_t i = 0; i < 3; ++i) {
     for (size_t j = 0; j < 4; ++j) {
       centers(i, j) = 1.0f;
@@ -1160,7 +1276,7 @@ TEST(ClusterEdgeCasesTest, IdenticalCentroids) {
 TEST(ClusterEdgeCasesTest, CUDAZeroClusters) {
   if (!cuda_available()) GTEST_SKIP();
 
-  ClusterEngineT<float> engine(ClusterBackendType::CUDA);
+  ClusterEngine<float> engine(ClusterBackendType::CUDA);
   std::vector<float> query(128, 1.0f);
   auto [id, dist] = engine.assign(query.data(), 128);
   EXPECT_EQ(id, -1);
@@ -1169,9 +1285,9 @@ TEST(ClusterEdgeCasesTest, CUDAZeroClusters) {
 TEST(ClusterEdgeCasesTest, CUDASingleCluster) {
   if (!cuda_available()) GTEST_SKIP();
 
-  ClusterEngineT<float> engine(ClusterBackendType::CUDA);
+  ClusterEngine<float> engine(ClusterBackendType::CUDA);
 
-  EmbeddingMatrixT<float> centers(1, 4);
+  EmbeddingMatrix<float> centers(1, 4);
   centers(0, 0) = 1.0f;
   centers(0, 1) = 0.0f;
   centers(0, 2) = 0.0f;

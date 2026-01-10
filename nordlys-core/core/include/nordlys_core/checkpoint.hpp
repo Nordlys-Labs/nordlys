@@ -42,7 +42,7 @@ struct RoutingConfig {
 };
 
 // Cluster centers (zero-copy variant)
-using ClusterCenters = std::variant<EmbeddingMatrixT<float>, EmbeddingMatrixT<double>>;
+using ClusterCenters = std::variant<EmbeddingMatrix<float>, EmbeddingMatrix<double>>;
 
 // Optimized checkpoint structure
 struct NordlysCheckpoint {

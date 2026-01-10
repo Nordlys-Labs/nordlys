@@ -9,8 +9,8 @@ template <typename Scalar> static void BM_ClusterAssign(benchmark::State& state)
   const int n_clusters = state.range(0);
   const int dim = state.range(1);
 
-  ClusterEngineT<Scalar> engine{ClusterBackendType::Cpu};
-  EmbeddingMatrixT<Scalar> centers(n_clusters, dim);
+  ClusterEngine<Scalar> engine{ClusterBackendType::Cpu};
+  EmbeddingMatrix<Scalar> centers(n_clusters, dim);
   std::mt19937 rng(42);
   std::uniform_real_distribution<Scalar> dist(-1.0, 1.0);
   for (size_t i = 0; i < centers.rows(); ++i) {
@@ -54,7 +54,7 @@ template <typename Scalar> static void BM_ClusterLoadCentroids(benchmark::State&
   const int n_clusters = state.range(0);
   const int dim = state.range(1);
 
-  EmbeddingMatrixT<Scalar> centers(n_clusters, dim);
+  EmbeddingMatrix<Scalar> centers(n_clusters, dim);
   std::mt19937 rng(42);
   std::uniform_real_distribution<Scalar> dist(-1.0, 1.0);
   for (size_t i = 0; i < centers.rows(); ++i) {
@@ -64,7 +64,7 @@ template <typename Scalar> static void BM_ClusterLoadCentroids(benchmark::State&
   }
 
   for (auto _ : state) {
-    ClusterEngineT<Scalar> engine{ClusterBackendType::Cpu};
+    ClusterEngine<Scalar> engine{ClusterBackendType::Cpu};
     engine.load_centroids(centers);
     benchmark::DoNotOptimize(engine);
   }
@@ -80,8 +80,8 @@ template <typename Scalar> static void BM_ClusterBatchAssign(benchmark::State& s
   const int dim = state.range(1);
   const int batch_size = 100;
 
-  ClusterEngineT<Scalar> engine{ClusterBackendType::Cpu};
-  EmbeddingMatrixT<Scalar> centers(n_clusters, dim);
+  ClusterEngine<Scalar> engine{ClusterBackendType::Cpu};
+  EmbeddingMatrix<Scalar> centers(n_clusters, dim);
   std::mt19937 rng(42);
   std::uniform_real_distribution<Scalar> dist(-1.0, 1.0);
   for (size_t i = 0; i < centers.rows(); ++i) {
