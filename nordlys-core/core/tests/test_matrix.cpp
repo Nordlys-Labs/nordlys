@@ -93,3 +93,47 @@ TEST_F(MatrixTest, DefaultConstruction) {
   EXPECT_EQ(m.cols(), 0);
   EXPECT_EQ(m.size(), 0);
 }
+
+TEST_F(MatrixTest, CopyConstructor) {
+  Matrix<float> m1(2, 3);
+  m1(0, 0) = 1.0f;
+  m1(1, 2) = 5.0f;
+
+  Matrix<float> m2(m1);
+  EXPECT_EQ(m2.rows(), 2);
+  EXPECT_EQ(m2.cols(), 3);
+  EXPECT_EQ(m2(0, 0), 1.0f);
+  EXPECT_EQ(m2(1, 2), 5.0f);
+}
+
+TEST_F(MatrixTest, MoveConstructor) {
+  Matrix<float> m1(2, 3);
+  m1(0, 0) = 42.0f;
+
+  Matrix<float> m2(std::move(m1));
+  EXPECT_EQ(m2.rows(), 2);
+  EXPECT_EQ(m2.cols(), 3);
+  EXPECT_EQ(m2(0, 0), 42.0f);
+}
+
+TEST_F(MatrixTest, CopyAssignment) {
+  Matrix<float> m1(2, 3);
+  m1(0, 0) = 10.0f;
+
+  Matrix<float> m2;
+  m2 = m1;
+  EXPECT_EQ(m2.rows(), 2);
+  EXPECT_EQ(m2.cols(), 3);
+  EXPECT_EQ(m2(0, 0), 10.0f);
+}
+
+TEST_F(MatrixTest, MoveAssignment) {
+  Matrix<float> m1(2, 3);
+  m1(1, 1) = 99.0f;
+
+  Matrix<float> m2;
+  m2 = std::move(m1);
+  EXPECT_EQ(m2.rows(), 2);
+  EXPECT_EQ(m2.cols(), 3);
+  EXPECT_EQ(m2(1, 1), 99.0f);
+}

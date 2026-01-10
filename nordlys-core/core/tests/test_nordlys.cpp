@@ -517,3 +517,259 @@ TEST_F(Nordlysest, DtypeMismatchValidation) {
   EXPECT_FALSE(result_double.has_value());
   EXPECT_TRUE(result_double.error().find("requires float64 checkpoint") != std::string::npos);
 }
+
+// ============================================================================
+// Tests for Move Semantics
+// ============================================================================
+
+TEST_F(Nordlysest, MoveConstructor) {
+  auto router1 = CreateTestRouter();
+  EXPECT_EQ(router1.get_embedding_dim(), 4);
+  EXPECT_EQ(router1.get_n_clusters(), 3);
+
+  // Move construct
+  Nordlys32 router2(std::move(router1));
+  EXPECT_EQ(router2.get_embedding_dim(), 4);
+  EXPECT_EQ(router2.get_n_clusters(), 3);
+
+  std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
+  auto response = router2.route(embedding.data(), embedding.size(), 0.5f);
+  EXPECT_EQ(response.cluster_id, 0);
+}
+
+TEST_F(Nordlysest, MoveAssignment) {
+  auto router1 = CreateTestRouter();
+  auto router2 = CreateTestRouter();
+
+  EXPECT_EQ(router1.get_embedding_dim(), 4);
+  EXPECT_EQ(router2.get_embedding_dim(), 4);
+
+  // Move assign
+  router2 = std::move(router1);
+  EXPECT_EQ(router2.get_embedding_dim(), 4);
+
+  std::vector<float> embedding = {0.0f, 0.95f, 0.05f, 0.0f};
+  auto response = router2.route(embedding.data(), embedding.size(), 0.5f);
+  EXPECT_EQ(response.cluster_id, 1);
+}
+
+TEST_F(Nordlysest, RouteAfterMoveFrom) {
+  auto router1 = CreateTestRouter();
+  Nordlys32 router2(std::move(router1));
+
+  std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
+  
+  // Routing on moved-from object should throw or fail gracefully
+  // Implementation-defined behavior - we test that it either throws or returns error
+  EXPECT_THROW(router1.route(embedding.data(), embedding.size(), 0.5f), std::exception);
+}
+
+// ============================================================================
+// Tests for Edge Cases
+// ============================================================================
+
+TEST_F(Nordlysest, EmptyModelsArray) {
+  std::string json_empty_models = R"({
+    "version": "2.0",
+    "cluster_centers": [[1.0, 0.0], [0.0, 1.0]],
+    "models": [],
+    "embedding": {"model": "test", "dtype": "float32", "trust_remote_code": false},
+    "clustering": {"n_clusters": 2, "random_state": 42, "max_iter": 300, "n_init": 10, "algorithm": "lloyd", "normalization": "l2"},
+    "routing": {"cost_bias_min": 0.0, "cost_bias_max": 1.0},
+    "metrics": {"silhouette_score": 0.8}
+  })";
+
+  auto checkpoint = NordlysCheckpoint::from_json_string(json_empty_models);
+  auto result = Nordlys32::from_checkpoint(std::move(checkpoint));
+
+  EXPECT_FALSE(result.has_value());
+}
+
+TEST_F(Nordlysest, EmptyClusters) {
+  std::string json_empty_clusters = R"({
+    "version": "2.0",
+    "cluster_centers": [],
+    "models": [
+      {"model_id": "test/model", "cost_per_1m_input_tokens": 1.0, "cost_per_1m_output_tokens": 2.0, "error_rates": []}
+    ],
+    "embedding": {"model": "test", "dtype": "float32", "trust_remote_code": false},
+    "clustering": {"n_clusters": 0, "random_state": 42, "max_iter": 300, "n_init": 10, "algorithm": "lloyd", "normalization": "l2"},
+    "routing": {"cost_bias_min": 0.0, "cost_bias_max": 1.0},
+    "metrics": {"silhouette_score": 0.0}
+  })";
+
+  auto checkpoint = NordlysCheckpoint::from_json_string(json_empty_clusters);
+  auto result = Nordlys32::from_checkpoint(std::move(checkpoint));
+
+  EXPECT_FALSE(result.has_value());
+}
+
+TEST_F(Nordlysest, SingleCluster) {
+  std::string json_single_cluster = R"({
+    "version": "2.0",
+    "cluster_centers": [[1.0, 0.0, 0.0]],
+    "models": [
+      {"model_id": "test/model", "cost_per_1m_input_tokens": 1.0, "cost_per_1m_output_tokens": 2.0, "error_rates": [0.01]}
+    ],
+    "embedding": {"model": "test", "dtype": "float32", "trust_remote_code": false},
+    "clustering": {"n_clusters": 1, "random_state": 42, "max_iter": 300, "n_init": 10, "algorithm": "lloyd", "normalization": "l2"},
+    "routing": {"cost_bias_min": 0.0, "cost_bias_max": 1.0},
+    "metrics": {"silhouette_score": 0.0}
+  })";
+
+  auto checkpoint = NordlysCheckpoint::from_json_string(json_single_cluster);
+  auto result = Nordlys32::from_checkpoint(std::move(checkpoint));
+
+  ASSERT_TRUE(result.has_value());
+  auto& router = result.value();
+
+  EXPECT_EQ(router.get_n_clusters(), 1);
+  EXPECT_EQ(router.get_embedding_dim(), 3);
+
+  std::vector<float> embedding = {0.5f, 0.5f, 0.5f};
+  auto response = router.route(embedding.data(), embedding.size(), 0.5f);
+
+  EXPECT_EQ(response.cluster_id, 0);
+}
+
+TEST_F(Nordlysest, LargeDimensions) {
+  // Generate 4096-dimensional cluster centers
+  std::vector<std::vector<float>> centers(2, std::vector<float>(4096));
+  for (int i = 0; i < 4096; ++i) {
+    centers[0][i] = (i % 2 == 0) ? 1.0f : 0.0f;
+    centers[1][i] = (i % 2 == 1) ? 1.0f : 0.0f;
+  }
+
+  // Build JSON manually
+  std::stringstream ss;
+  ss << R"({"version": "2.0", "cluster_centers": [)";
+  for (size_t c = 0; c < centers.size(); ++c) {
+    ss << "[";
+    for (size_t d = 0; d < centers[c].size(); ++d) {
+      ss << centers[c][d];
+      if (d < centers[c].size() - 1) ss << ",";
+    }
+    ss << "]";
+    if (c < centers.size() - 1) ss << ",";
+  }
+  ss << R"(], "models": [
+      {"model_id": "test/model", "cost_per_1m_input_tokens": 1.0, "cost_per_1m_output_tokens": 2.0, "error_rates": [0.01, 0.02]}
+    ],
+    "embedding": {"model": "test", "dtype": "float32", "trust_remote_code": false},
+    "clustering": {"n_clusters": 2, "random_state": 42, "max_iter": 300, "n_init": 10, "algorithm": "lloyd", "normalization": "l2"},
+    "routing": {"cost_bias_min": 0.0, "cost_bias_max": 1.0},
+    "metrics": {"silhouette_score": 0.5}
+  })";
+
+  auto checkpoint = NordlysCheckpoint::from_json_string(ss.str());
+  auto result = Nordlys32::from_checkpoint(std::move(checkpoint));
+
+  ASSERT_TRUE(result.has_value());
+  auto& router = result.value();
+
+  EXPECT_EQ(router.get_embedding_dim(), 4096);
+  EXPECT_EQ(router.get_n_clusters(), 2);
+
+  std::vector<float> embedding(4096);
+  for (int i = 0; i < 4096; ++i) {
+    embedding[i] = (i % 2 == 0) ? 0.9f : 0.1f;
+  }
+
+  auto response = router.route(embedding.data(), embedding.size(), 0.5f);
+  EXPECT_EQ(response.cluster_id, 0);
+}
+
+TEST_F(Nordlysest, RouteWithAllModelsFiltered) {
+  auto router = CreateTestRouter();
+
+  std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
+  std::vector<std::string> nonexistent_models = {"nonexistent/model1", "nonexistent/model2"};
+
+  EXPECT_THROW(
+      router.route(embedding.data(), embedding.size(), 0.5f, nonexistent_models),
+      std::exception);
+}
+
+// ============================================================================
+// Tests for Backend Selection
+// ============================================================================
+
+TEST_F(Nordlysest, BackendAutoSelection) {
+  // Auto backend selection should work without explicit configuration
+  auto router = CreateTestRouter();
+
+  std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
+  auto response = router.route(embedding.data(), embedding.size(), 0.5f);
+
+  EXPECT_EQ(response.cluster_id, 0);
+  EXPECT_FALSE(response.selected_model.empty());
+}
+
+TEST_F(Nordlysest, InitializationExceptionPropagation) {
+  std::string malformed_json = R"({
+    "version": "2.0",
+    "cluster_centers": [[1.0, 0.0], [0.0]],
+    "models": [
+      {"model_id": "test/model", "cost_per_1m_input_tokens": 1.0, "cost_per_1m_output_tokens": 2.0, "error_rates": [0.01, 0.02]}
+    ],
+    "embedding": {"model": "test", "dtype": "float32", "trust_remote_code": false},
+    "clustering": {"n_clusters": 2, "random_state": 42, "max_iter": 300, "n_init": 10, "algorithm": "lloyd", "normalization": "l2"},
+    "routing": {"cost_bias_min": 0.0, "cost_bias_max": 1.0},
+    "metrics": {"silhouette_score": 0.5}
+  })";
+
+  auto checkpoint = NordlysCheckpoint::from_json_string(malformed_json);
+  auto result = Nordlys32::from_checkpoint(std::move(checkpoint));
+
+  EXPECT_FALSE(result.has_value());
+}
+
+TEST_F(Nordlysest, CostBiasExtreme) {
+  auto router = CreateTestRouter();
+
+  std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
+
+  // Test with extremely negative cost bias
+  auto response_negative = router.route(embedding.data(), embedding.size(), -1000.0f);
+  EXPECT_FALSE(response_negative.selected_model.empty());
+
+  // Test with extremely positive cost bias
+  auto response_positive = router.route(embedding.data(), embedding.size(), 1000.0f);
+  EXPECT_FALSE(response_positive.selected_model.empty());
+}
+
+TEST_F(Nordlysest, SupportedModelsAfterInit) {
+  auto router = CreateTestRouter();
+  auto models = router.get_supported_models();
+
+  EXPECT_EQ(models.size(), 2);
+  EXPECT_EQ(models[0], "provider1/gpt-4");
+  EXPECT_EQ(models[1], "provider2/llama");
+
+  // Call again to verify consistency
+  auto models2 = router.get_supported_models();
+  EXPECT_EQ(models, models2);
+}
+
+TEST_F(Nordlysest, DimensionValidationComprehensive) {
+  auto router = CreateTestRouter();
+
+  // Test zero dimensions
+  std::vector<float> empty_embedding;
+  EXPECT_THROW(router.route(empty_embedding.data(), empty_embedding.size(), 0.5f),
+               std::invalid_argument);
+
+  // Test undersized
+  std::vector<float> undersized = {1.0f, 0.0f};
+  EXPECT_THROW(router.route(undersized.data(), undersized.size(), 0.5f),
+               std::invalid_argument);
+
+  // Test oversized
+  std::vector<float> oversized = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+  EXPECT_THROW(router.route(oversized.data(), oversized.size(), 0.5f),
+               std::invalid_argument);
+
+  // Test correct size
+  std::vector<float> correct = {1.0f, 0.0f, 0.0f, 0.0f};
+  EXPECT_NO_THROW(router.route(correct.data(), correct.size(), 0.5f));
+}

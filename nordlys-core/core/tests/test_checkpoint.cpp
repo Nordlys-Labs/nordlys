@@ -302,3 +302,75 @@ TEST_F(ProfileTest, ConvenienceAccessors) {
   EXPECT_EQ(test_profile.feature_dim(), 4);
   EXPECT_FLOAT_EQ(test_profile.silhouette_score(), 0.85f);
 }
+
+TEST_F(ProfileTest, CopyConstructor) {
+  NordlysCheckpoint copy(test_profile);
+  EXPECT_EQ(copy.clustering.n_clusters, test_profile.clustering.n_clusters);
+  EXPECT_EQ(copy.embedding.model, test_profile.embedding.model);
+  EXPECT_EQ(copy.models.size(), test_profile.models.size());
+}
+
+TEST_F(ProfileTest, CopyAssignment) {
+  NordlysCheckpoint copy = NordlysCheckpoint::from_json_string(kTestCheckpointJsonFloat64);
+  copy = test_profile;
+  EXPECT_EQ(copy.embedding.dtype, "float32");
+  EXPECT_EQ(copy.clustering.n_clusters, test_profile.clustering.n_clusters);
+}
+
+TEST_F(ProfileTest, MoveConstructor) {
+  NordlysCheckpoint original = test_profile;
+  NordlysCheckpoint moved(std::move(original));
+  EXPECT_EQ(moved.clustering.n_clusters, 3);
+  EXPECT_EQ(moved.models.size(), 3);
+}
+
+TEST_F(ProfileTest, MoveAssignment) {
+  NordlysCheckpoint original = test_profile;
+  NordlysCheckpoint moved = NordlysCheckpoint::from_json_string(kTestCheckpointJsonFloat64);
+  moved = std::move(original);
+  EXPECT_EQ(moved.clustering.n_clusters, 3);
+  EXPECT_EQ(moved.models.size(), 3);
+}
+
+TEST_F(ProfileTest, LargeNumberOfModels) {
+  std::stringstream ss;
+  ss << R"({"version": "2.0", "cluster_centers": [[1.0, 0.0]], "models": [)";
+  for (int i = 0; i < 100; ++i) {
+    if (i > 0) ss << ",";
+    ss << R"({"model_id": "provider/model)" << i << R"(", "cost_per_1m_input_tokens": )" << i
+       << R"(, "cost_per_1m_output_tokens": )" << (i * 2)
+       << R"(, "error_rates": [0.01]})";
+  }
+  ss << R"(], "embedding": {"model": "test", "dtype": "float32", "trust_remote_code": false}, )"
+     << R"("clustering": {"n_clusters": 1, "random_state": 42, "max_iter": 300, "n_init": 10, "algorithm": "lloyd", "normalization": "l2"}, )"
+     << R"("routing": {"cost_bias_min": 0.0, "cost_bias_max": 1.0}, )"
+     << R"("metrics": {"silhouette_score": 0.5}})";
+
+  NordlysCheckpoint profile = NordlysCheckpoint::from_json_string(ss.str());
+  EXPECT_EQ(profile.models.size(), 100);
+  EXPECT_EQ(profile.models[99].model_id, "provider/model99");
+}
+
+TEST_F(ProfileTest, ValidationErrorRateOutOfRange) {
+  NordlysCheckpoint invalid_profile = test_profile;
+  invalid_profile.models[0].error_rates[0] = -0.1f;
+  EXPECT_THROW(invalid_profile.validate(), std::invalid_argument);
+}
+
+TEST_F(ProfileTest, ValidationZeroModels) {
+  NordlysCheckpoint invalid_profile = test_profile;
+  invalid_profile.models.clear();
+  EXPECT_THROW(invalid_profile.validate(), std::invalid_argument);
+}
+
+TEST_F(ProfileTest, MissingVersionField) {
+  std::string missing_version = R"({
+    "cluster_centers": [[1.0, 0.0]],
+    "models": [{"model_id": "test/model", "cost_per_1m_input_tokens": 1.0, "cost_per_1m_output_tokens": 1.0, "error_rates": [0.1]}],
+    "embedding": {"model": "test", "dtype": "float32", "trust_remote_code": false},
+    "clustering": {"n_clusters": 1, "random_state": 42, "max_iter": 300, "n_init": 10, "algorithm": "lloyd", "normalization": "l2"},
+    "routing": {"cost_bias_min": 0.0, "cost_bias_max": 1.0},
+    "metrics": {"silhouette_score": 0.5}
+  })";
+  EXPECT_THROW(NordlysCheckpoint::from_json_string(missing_version), std::exception);
+}

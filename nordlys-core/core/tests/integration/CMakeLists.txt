@@ -7,6 +7,7 @@ find_package(GTest REQUIRED)
 add_executable(test_nordlys_integration
   test_nordlys_integration.cpp
   test_checkpoint_integration.cpp
+  test_end_to_end_integration.cpp
 )
 
 target_link_libraries(test_nordlys_integration
