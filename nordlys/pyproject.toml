@@ -26,7 +26,6 @@ classifiers = [
 dependencies = [
   # Data Validation
   "pydantic>=2.11.5,<3",
-  "sentence-transformers>=5.2.0,<6",
   # Data Processing
   "pandas>=2.0.0",
   # ML
@@ -46,8 +45,16 @@ Documentation = "https://docs.nordlyslabs.com"
 
 
 [project.optional-dependencies]
-cpu = ["nordlys-core>=0.1.5,<1", "torch>=2.2.0"]
-cu12 = ["nordlys-core-cu12>=0.1.4,<1 ; sys_platform == 'linux'", "torch>=2.2.0"]
+cpu = [
+  "nordlys-core>=0.1.5,<1",
+  "torch>=2.2.0",
+  "sentence-transformers>=5.2.0,<6",
+]
+cu12 = [
+  "nordlys-core-cu12>=0.1.4,<1 ; sys_platform == 'linux'",
+  "torch>=2.2.0",
+  "sentence-transformers>=5.2.0,<6",
+]
 
 [tool.uv]
 conflicts = [[{ extra = "cpu" }, { extra = "cu12" }]]
