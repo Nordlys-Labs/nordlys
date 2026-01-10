@@ -698,3 +698,71 @@ TEST_F(Nordlysest, DimensionValidationComprehensive) {
   std::vector<float> correct = {1.0f, 0.0f, 0.0f, 0.0f};
   EXPECT_NO_THROW(router.route(correct.data(), correct.size(), 0.5f));
 }
+
+// ============================================================================
+// OpenMP Threading API Tests
+// ============================================================================
+
+TEST(ThreadingAPITest, GetNumThreads) {
+  int num_threads = get_num_threads();
+  EXPECT_GT(num_threads, 0);
+#ifdef _OPENMP
+  EXPECT_GE(num_threads, 1);
+#else
+  EXPECT_EQ(num_threads, 1);
+#endif
+}
+
+TEST(ThreadingAPITest, SetNumThreads) {
+  int original = get_num_threads();
+  
+  set_num_threads(2);
+  int after_set = get_num_threads();
+#ifdef _OPENMP
+  EXPECT_EQ(after_set, 2);
+#else
+  EXPECT_EQ(after_set, 1);
+#endif
+  
+  set_num_threads(original);
+}
+
+TEST(ThreadingAPITest, InitThreadingIdempotent) {
+  init_threading();
+  int threads1 = get_num_threads();
+  
+  init_threading();
+  int threads2 = get_num_threads();
+  
+  EXPECT_EQ(threads1, threads2);
+}
+
+TEST(ThreadingAPITest, BatchRoutingWithDifferentThreadCounts) {
+  auto checkpoint = NordlysCheckpoint::from_json_string(kTestCheckpointJson);
+  
+  auto router_result = Nordlys32::from_checkpoint(std::move(checkpoint));
+  ASSERT_TRUE(router_result.has_value());
+  auto& router = router_result.value();
+  
+  std::vector<float> embeddings = {
+    1.0f, 0.0f, 0.0f, 0.0f,
+    0.0f, 1.0f, 0.0f, 0.0f,
+    0.0f, 0.0f, 1.0f, 0.0f,
+    0.5f, 0.5f, 0.0f, 0.0f
+  };
+  
+  set_num_threads(1);
+  auto results_1thread = router.route_batch(embeddings.data(), 4, 4, 0.5f);
+  
+  set_num_threads(4);
+  auto results_4threads = router.route_batch(embeddings.data(), 4, 4, 0.5f);
+  
+  ASSERT_EQ(results_1thread.size(), 4);
+  ASSERT_EQ(results_4threads.size(), 4);
+  
+  for (size_t i = 0; i < 4; ++i) {
+    EXPECT_EQ(results_1thread[i].selected_model, results_4threads[i].selected_model);
+    EXPECT_EQ(results_1thread[i].cluster_id, results_4threads[i].cluster_id);
+    EXPECT_NEAR(results_1thread[i].cluster_distance, results_4threads[i].cluster_distance, 1e-5f);
+  }
+}

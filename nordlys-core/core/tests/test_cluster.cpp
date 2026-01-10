@@ -275,6 +275,122 @@ TYPED_TEST(ClusterCpuThreadSafetyTestT, StressTest) {
 }
 
 // =============================================================================
+// SECTION 2.5: CPU Backend - Batch Operations
+// =============================================================================
+
+template <typename Scalar> class ClusterBatchTestT : public ::testing::Test {
+protected:
+  static constexpr size_t N_CLUSTERS = 10;
+  static constexpr size_t DIM = 64;
+
+  void SetUp() override {
+    std::mt19937 gen(42);
+    std::uniform_real_distribution<Scalar> dist(-1.0, 1.0);
+
+    EmbeddingMatrix<Scalar> centers(N_CLUSTERS, DIM);
+    for (size_t i = 0; i < N_CLUSTERS; ++i) {
+      for (size_t j = 0; j < DIM; ++j) {
+        centers(i, j) = dist(gen);
+      }
+    }
+
+    engine.load_centroids(centers);
+  }
+
+  ClusterEngine<Scalar> engine{ClusterBackendType::Cpu};
+};
+
+TYPED_TEST_SUITE(ClusterBatchTestT, ScalarTypes);
+
+TYPED_TEST(ClusterBatchTestT, AssignBatchBasic) {
+  constexpr size_t BATCH_SIZE = 100;
+
+  std::mt19937 gen(123);
+  std::uniform_real_distribution<TypeParam> dist(-1.0, 1.0);
+
+  std::vector<TypeParam> embeddings(BATCH_SIZE * this->DIM);
+  for (size_t i = 0; i < embeddings.size(); ++i) {
+    embeddings[i] = dist(gen);
+  }
+
+  auto results = this->engine.assign_batch(embeddings.data(), BATCH_SIZE, this->DIM);
+
+  ASSERT_EQ(results.size(), BATCH_SIZE);
+  for (const auto& [cluster_id, distance] : results) {
+    EXPECT_GE(cluster_id, 0);
+    EXPECT_LT(cluster_id, static_cast<int>(this->N_CLUSTERS));
+    EXPECT_GE(distance, TypeParam(0));
+  }
+}
+
+TYPED_TEST(ClusterBatchTestT, AssignBatchMatchesSingleAssign) {
+  constexpr size_t BATCH_SIZE = 50;
+
+  std::mt19937 gen(456);
+  std::uniform_real_distribution<TypeParam> dist(-1.0, 1.0);
+
+  std::vector<TypeParam> embeddings(BATCH_SIZE * this->DIM);
+  for (size_t i = 0; i < embeddings.size(); ++i) {
+    embeddings[i] = dist(gen);
+  }
+
+  auto batch_results = this->engine.assign_batch(embeddings.data(), BATCH_SIZE, this->DIM);
+
+  ASSERT_EQ(batch_results.size(), BATCH_SIZE);
+  for (size_t i = 0; i < BATCH_SIZE; ++i) {
+    auto single_result = this->engine.assign(embeddings.data() + i * this->DIM, this->DIM);
+    EXPECT_EQ(batch_results[i].first, single_result.first);
+    EXPECT_NEAR(batch_results[i].second, single_result.second, TypeParam(1e-5));
+  }
+}
+
+TYPED_TEST(ClusterBatchTestT, AssignBatchLargeBatch) {
+  constexpr size_t BATCH_SIZE = 10000;
+
+  std::mt19937 gen(789);
+  std::uniform_real_distribution<TypeParam> dist(-1.0, 1.0);
+
+  std::vector<TypeParam> embeddings(BATCH_SIZE * this->DIM);
+  for (size_t i = 0; i < embeddings.size(); ++i) {
+    embeddings[i] = dist(gen);
+  }
+
+  auto results = this->engine.assign_batch(embeddings.data(), BATCH_SIZE, this->DIM);
+
+  ASSERT_EQ(results.size(), BATCH_SIZE);
+  for (const auto& [cluster_id, distance] : results) {
+    EXPECT_GE(cluster_id, 0);
+    EXPECT_LT(cluster_id, static_cast<int>(this->N_CLUSTERS));
+  }
+}
+
+TYPED_TEST(ClusterBatchTestT, AssignBatchSingleItem) {
+  std::vector<TypeParam> embedding(this->DIM, TypeParam(0.5));
+  
+  auto results = this->engine.assign_batch(embedding.data(), 1, this->DIM);
+  
+  ASSERT_EQ(results.size(), 1);
+  auto single_result = this->engine.assign(embedding.data(), this->DIM);
+  EXPECT_EQ(results[0].first, single_result.first);
+  EXPECT_NEAR(results[0].second, single_result.second, TypeParam(1e-5));
+}
+
+TYPED_TEST(ClusterBatchTestT, AssignBatchDeterministic) {
+  constexpr size_t BATCH_SIZE = 100;
+
+  std::vector<TypeParam> embeddings(BATCH_SIZE * this->DIM, TypeParam(0.1));
+
+  auto results1 = this->engine.assign_batch(embeddings.data(), BATCH_SIZE, this->DIM);
+  auto results2 = this->engine.assign_batch(embeddings.data(), BATCH_SIZE, this->DIM);
+
+  ASSERT_EQ(results1.size(), results2.size());
+  for (size_t i = 0; i < results1.size(); ++i) {
+    EXPECT_EQ(results1[i].first, results2[i].first);
+    EXPECT_EQ(results1[i].second, results2[i].second);
+  }
+}
+
+// =============================================================================
 // SECTION 3: CUDA Backend - Basic Functionality
 // =============================================================================
 

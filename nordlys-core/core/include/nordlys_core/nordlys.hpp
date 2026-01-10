@@ -1,15 +1,45 @@
 #pragma once
 #include <format>
+#include <mutex>
 #include <ranges>
 #include <stdexcept>
 #include <string>
 #include <vector>
+
+#ifdef _OPENMP
+#  include <omp.h>
+#endif
 
 #include "checkpoint.hpp"
 #include "cluster.hpp"
 #include "result.hpp"
 #include "scorer.hpp"
 #include "tracy.hpp"
+
+inline void init_threading() {
+#ifdef _OPENMP
+  static std::once_flag flag;
+  std::call_once(flag, [] {
+    omp_set_dynamic(0);
+  });
+#endif
+}
+
+inline void set_num_threads(int n) {
+#ifdef _OPENMP
+  omp_set_num_threads(n);
+#else
+  (void)n;
+#endif
+}
+
+[[nodiscard]] inline int get_num_threads() {
+#ifdef _OPENMP
+  return omp_get_max_threads();
+#else
+  return 1;
+#endif
+}
 
 template <typename Scalar = float> struct RouteResult {
   std::string selected_model;
@@ -24,6 +54,8 @@ public:
 
   static Result<Nordlys, std::string> from_checkpoint(NordlysCheckpoint checkpoint) noexcept {
     NORDLYS_ZONE_N("Nordlys::from_checkpoint");
+    init_threading();
+
     if constexpr (std::is_same_v<Scalar, float>) {
       if (checkpoint.dtype() != "float32") {
         return Unexpected("Nordlys<float> requires float32 checkpoint, but checkpoint dtype is "
@@ -84,27 +116,38 @@ public:
       throw std::invalid_argument(std::format("dimension mismatch: {} vs {}", dim_, dim));
     }
 
-    auto assignments = engine_.assign_batch(data, static_cast<int>(count), static_cast<int>(dim));
+    auto assignments = engine_.assign_batch(data, count, dim);
+    std::vector<RouteResult<Scalar>> results(count);
+    bool has_invalid = false;
 
-    std::vector<RouteResult<Scalar>> results;
-    results.reserve(count);
-
-    for (const auto& [cid, dist] : assignments) {
-      if (cid < 0) throw std::runtime_error("no valid cluster");
+#ifdef _OPENMP
+    #pragma omp parallel for schedule(static) reduction(||:has_invalid)
+#endif
+    for (size_t i = 0; i < count; ++i) {
+      const auto& [cid, dist] = assignments[i];
+      if (cid < 0) {
+        has_invalid = true;
+        continue;
+      }
 
       auto scores = scorer_.score_models(cid, cost_bias, models);
 
-      RouteResult<Scalar> resp{.selected_model = scores.empty() ? "" : scores[0].model_id,
-                               .alternatives = {},
-                               .cluster_id = cid,
-                               .cluster_distance = dist};
-
-      if (scores.size() > 1) {
-        auto alts = scores | std::views::drop(1) | std::views::transform(&ModelScore::model_id);
-        resp.alternatives.assign(alts.begin(), alts.end());
-      }
-      results.push_back(std::move(resp));
+      results[i] = RouteResult<Scalar>{
+        .selected_model = scores.empty() ? std::string{} : scores[0].model_id,
+        .alternatives = [&]() -> std::vector<std::string> {
+          if (scores.size() <= 1) return {};
+          auto alts = scores | std::views::drop(1) | std::views::transform(&ModelScore::model_id);
+          return {alts.begin(), alts.end()};
+        }(),
+        .cluster_id = cid,
+        .cluster_distance = dist
+      };
     }
+
+    if (has_invalid) {
+      throw std::runtime_error("no valid cluster");
+    }
+
     return results;
   }
 

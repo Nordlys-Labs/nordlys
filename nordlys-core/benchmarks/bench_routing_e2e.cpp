@@ -2,6 +2,7 @@
 
 #include <mutex>
 #include <nordlys_core/nordlys.hpp>
+#include <random>
 #include <thread>
 
 #include "bench_utils.hpp"
@@ -98,30 +99,7 @@ static void BM_RoutingSingle_XL(benchmark::State& state) {
 }
 BENCHMARK(BM_RoutingSingle_XL)->Unit(benchmark::kMicrosecond);
 
-static void BM_RoutingBatch(benchmark::State& state) {
-  NORDLYS_ZONE;
-  auto checkpoint = LoadCheckpoint("checkpoint_medium.json");
-  auto router_result = Nordlys32::from_checkpoint(std::move(checkpoint));
 
-  if (!router_result.has_value()) {
-    state.SkipWithError(("Failed to create router: " + router_result.error()).c_str());
-    return;
-  }
-
-  auto router = std::move(router_result.value());
-  const int batch_size = state.range(0);
-  auto embeddings = bench_utils::GenerateBatchEmbeddings(batch_size, router.get_embedding_dim());
-
-  for (auto _ : state) {
-    for (const auto& emb : embeddings) {
-      auto result = router.route(emb.data(), emb.size(), 0.5f);
-      benchmark::DoNotOptimize(result);
-    }
-  }
-
-  state.SetItemsProcessed(state.iterations() * batch_size);
-}
-BENCHMARK(BM_RoutingBatch)->Arg(10)->Arg(100)->Arg(1000)->Unit(benchmark::kMillisecond);
 
 static void BM_RoutingCostBias(benchmark::State& state) {
   NORDLYS_ZONE;
@@ -239,3 +217,75 @@ BENCHMARK(BM_RoutingConcurrent)
     ->Arg(8)
     ->Unit(benchmark::kMicrosecond)
     ->UseRealTime();
+
+// =============================================================================
+// Batch Routing Benchmarks
+// =============================================================================
+
+static void BM_RouteBatch(benchmark::State& state) {
+  auto checkpoint = LoadCheckpoint("checkpoint_medium.json");
+  auto router_result = Nordlys32::from_checkpoint(std::move(checkpoint));
+
+  if (!router_result.has_value()) {
+    state.SkipWithError(("Failed to create router: " + router_result.error()).c_str());
+    return;
+  }
+
+  auto router = std::move(router_result.value());
+  const int batch_size = state.range(0);
+  const int dim = router.get_embedding_dim();
+
+  std::vector<float> flat_embeddings(batch_size * dim);
+  std::mt19937 gen(42);
+  std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
+  for (auto& v : flat_embeddings) {
+    v = dist(gen);
+  }
+
+  for (auto _ : state) {
+    auto results = router.route_batch(flat_embeddings.data(), batch_size, dim, 0.5f);
+    benchmark::DoNotOptimize(results);
+  }
+
+  state.SetItemsProcessed(state.iterations() * batch_size);
+}
+BENCHMARK(BM_RouteBatch)
+    ->Arg(10)
+    ->Arg(100)
+    ->Arg(1000)
+    ->Arg(10000)
+    ->Unit(benchmark::kMillisecond);
+
+static void BM_ClusterAssign(benchmark::State& state) {
+  const int n_clusters = state.range(0);
+  const int dim = 1024;
+  
+  ClusterEngine<float> engine;
+  EmbeddingMatrix<float> centers(n_clusters, dim);
+  std::mt19937 gen(42);
+  std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
+  for (size_t i = 0; i < centers.rows(); ++i) {
+    for (size_t j = 0; j < centers.cols(); ++j) {
+      centers(i, j) = dist(gen);
+    }
+  }
+  engine.load_centroids(centers);
+
+  std::vector<float> embedding(dim);
+  for (auto& v : embedding) {
+    v = dist(gen);
+  }
+
+  for (auto _ : state) {
+    auto [cluster_id, distance] = engine.assign(embedding.data(), dim);
+    benchmark::DoNotOptimize(cluster_id);
+    benchmark::DoNotOptimize(distance);
+  }
+
+  state.SetLabel(std::to_string(n_clusters) + " clusters");
+}
+BENCHMARK(BM_ClusterAssign)
+    ->Arg(100)
+    ->Arg(500)
+    ->Arg(1000)
+    ->Unit(benchmark::kMicrosecond);

@@ -84,6 +84,30 @@ if(NORDLYS_ENABLE_CUDA)
   set_source_files_properties(src/cluster_cuda.cu PROPERTIES LANGUAGE CUDA)
 endif()
 
+# OpenMP parallelization (optional)
+if(APPLE)
+  execute_process(
+    COMMAND brew --prefix libomp
+    OUTPUT_VARIABLE LIBOMP_PREFIX
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    RESULT_VARIABLE BREW_RESULT
+  )
+  if(BREW_RESULT EQUAL 0 AND EXISTS "${LIBOMP_PREFIX}")
+    target_compile_options(nordlys_core PUBLIC -Xpreprocessor -fopenmp)
+    target_include_directories(nordlys_core SYSTEM PUBLIC "${LIBOMP_PREFIX}/include")
+    target_link_libraries(nordlys_core PUBLIC "${LIBOMP_PREFIX}/lib/libomp.dylib")
+    message(STATUS "OpenMP found via Homebrew: ${LIBOMP_PREFIX}")
+  else()
+    message(STATUS "OpenMP not found (install with: brew install libomp)")
+  endif()
+else()
+  find_package(OpenMP)
+  if(OpenMP_CXX_FOUND)
+    target_link_libraries(nordlys_core PUBLIC OpenMP::OpenMP_CXX)
+    message(STATUS "OpenMP found: ${OpenMP_CXX_VERSION}")
+  endif()
+endif()
+
 # Tests
 if(NORDLYS_BUILD_TESTS)
   add_subdirectory(tests)

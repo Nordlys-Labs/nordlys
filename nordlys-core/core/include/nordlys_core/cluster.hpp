@@ -8,6 +8,10 @@
 #include <utility>
 #include <vector>
 
+#ifdef _OPENMP
+#  include <omp.h>
+#endif
+
 #include "matrix.hpp"
 #include "tracy.hpp"
 
@@ -76,22 +80,59 @@ public:
 
     if (n_clusters_ == 0) return {-1, Scalar{0}};
 
-    int best_cluster = -1;
-    auto best_dist_sq = std::numeric_limits<Scalar>::max();
     const auto* emb_bytes = reinterpret_cast<const unum::usearch::byte_t*>(embedding);
 
+    struct MinResult {
+      int idx = -1;
+      Scalar dist_sq = std::numeric_limits<Scalar>::max();
+    };
+
+    MinResult best;
+
+#ifdef _OPENMP
+    #pragma omp declare reduction(min_result : MinResult : \
+        omp_out = omp_in.dist_sq < omp_out.dist_sq ? omp_in : omp_out) \
+        initializer(omp_priv = {-1, std::numeric_limits<Scalar>::max()})
+
+    #pragma omp parallel for reduction(min_result : best)
     for (int i = 0; i < n_clusters_; ++i) {
-      const auto* centroid = centroids_.data() + i * dim_;
-      const auto* centroid_bytes = reinterpret_cast<const unum::usearch::byte_t*>(centroid);
+      const auto* centroid_bytes = reinterpret_cast<const unum::usearch::byte_t*>(
+          centroids_.data() + i * dim_);
       auto dist_sq = static_cast<Scalar>(metric_(emb_bytes, centroid_bytes));
 
-      if (dist_sq < best_dist_sq) {
-        best_dist_sq = dist_sq;
-        best_cluster = i;
+      if (dist_sq < best.dist_sq) {
+        best = {i, dist_sq};
       }
     }
+#else
+    for (int i = 0; i < n_clusters_; ++i) {
+      const auto* centroid_bytes = reinterpret_cast<const unum::usearch::byte_t*>(
+          centroids_.data() + i * dim_);
+      auto dist_sq = static_cast<Scalar>(metric_(emb_bytes, centroid_bytes));
 
-    return {best_cluster, std::sqrt(best_dist_sq)};
+      if (dist_sq < best.dist_sq) {
+        best = {i, dist_sq};
+      }
+    }
+#endif
+
+    return {best.idx, std::sqrt(best.dist_sq)};
+  }
+
+  [[nodiscard]] std::vector<std::pair<int, Scalar>> assign_batch(
+      const Scalar* embeddings, int count, int /*dim*/) override {
+    NORDLYS_ZONE_N("CpuClusterBackend::assign_batch");
+
+    std::vector<std::pair<int, Scalar>> results(static_cast<size_t>(count));
+
+#ifdef _OPENMP
+    #pragma omp parallel for schedule(static)
+#endif
+    for (int i = 0; i < count; ++i) {
+      results[static_cast<size_t>(i)] = assign(embeddings + i * dim_, dim_);
+    }
+
+    return results;
   }
 
   [[nodiscard]] int get_n_clusters() const noexcept override { return n_clusters_; }
