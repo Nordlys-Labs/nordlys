@@ -30,5 +30,6 @@ CMAKE_CXX_STANDARD = "20"
 NORDLYS_ENABLE_CUDA = "ON"
 
 [tool.scikit-build-core-conan]
+path = "../nordlys-core"
 build = "missing"
 settings = ["compiler.cppstd=20"]
