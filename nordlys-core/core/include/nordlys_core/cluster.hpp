@@ -82,26 +82,33 @@ public:
 
     const auto* emb_bytes = reinterpret_cast<const unum::usearch::byte_t*>(embedding);
 
-    struct MinResult {
-      int idx = -1;
-      Scalar dist_sq = std::numeric_limits<Scalar>::max();
-    };
-
-    MinResult best;
+    int best_idx = -1;
+    Scalar best_dist_sq = std::numeric_limits<Scalar>::max();
 
 #ifdef _OPENMP
-    #pragma omp declare reduction(min_result : MinResult : \
-        omp_out = omp_in.dist_sq < omp_out.dist_sq ? omp_in : omp_out) \
-        initializer(omp_priv = {-1, std::numeric_limits<Scalar>::max()})
+    #pragma omp parallel
+    {
+      int local_idx = -1;
+      Scalar local_dist_sq = std::numeric_limits<Scalar>::max();
 
-    #pragma omp parallel for reduction(min_result : best)
-    for (int i = 0; i < n_clusters_; ++i) {
-      const auto* centroid_bytes = reinterpret_cast<const unum::usearch::byte_t*>(
-          centroids_.data() + i * dim_);
-      auto dist_sq = static_cast<Scalar>(metric_(emb_bytes, centroid_bytes));
+      #pragma omp for nowait
+      for (int i = 0; i < n_clusters_; ++i) {
+        const auto* centroid_bytes = reinterpret_cast<const unum::usearch::byte_t*>(
+            centroids_.data() + i * dim_);
+        auto dist_sq = static_cast<Scalar>(metric_(emb_bytes, centroid_bytes));
 
-      if (dist_sq < best.dist_sq) {
-        best = {i, dist_sq};
+        if (dist_sq < local_dist_sq) {
+          local_dist_sq = dist_sq;
+          local_idx = i;
+        }
+      }
+
+      #pragma omp critical
+      {
+        if (local_dist_sq < best_dist_sq) {
+          best_dist_sq = local_dist_sq;
+          best_idx = local_idx;
+        }
       }
     }
 #else
@@ -110,13 +117,14 @@ public:
           centroids_.data() + i * dim_);
       auto dist_sq = static_cast<Scalar>(metric_(emb_bytes, centroid_bytes));
 
-      if (dist_sq < best.dist_sq) {
-        best = {i, dist_sq};
+      if (dist_sq < best_dist_sq) {
+        best_dist_sq = dist_sq;
+        best_idx = i;
       }
     }
 #endif
 
-    return {best.idx, std::sqrt(best.dist_sq)};
+    return {best_idx, std::sqrt(best_dist_sq)};
   }
 
   [[nodiscard]] std::vector<std::pair<int, Scalar>> assign_batch(

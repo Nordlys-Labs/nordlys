@@ -248,6 +248,10 @@ NordlysCheckpoint NordlysCheckpoint::from_json_string(const std::string& json_st
     }
     if (row_count == 0) {
       feature_dim = col_count;
+    } else if (col_count != feature_dim) {
+      throw std::invalid_argument(
+          std::format("cluster_centers row {} has {} columns but expected {} (from first row)",
+                      row_count, col_count, feature_dim));
     }
     ++row_count;
   }
