@@ -99,10 +99,10 @@ public:
   [[nodiscard]] std::pair<int, Scalar> assign(const Scalar* embedding, int dim) override {
     NORDLYS_ZONE_N("CpuClusterBackend::assign");
 
+    if (n_clusters_ == 0) return {-1, Scalar{0}};
     if (dim != dim_) {
       throw std::invalid_argument("dimension mismatch in assign");
     }
-    if (n_clusters_ == 0) return {-1, Scalar{0}};
 
     const auto* emb_bytes = reinterpret_cast<const unum::usearch::byte_t*>(embedding);
 
@@ -155,11 +155,11 @@ public:
       const Scalar* embeddings, int count, int dim) override {
     NORDLYS_ZONE_N("CpuClusterBackend::assign_batch");
 
-    if (dim != dim_) {
-      throw std::invalid_argument("dimension mismatch in assign_batch");
-    }
     if (count < 0) {
       throw std::invalid_argument("count must be non-negative");
+    }
+    if (n_clusters_ > 0 && dim != dim_) {
+      throw std::invalid_argument("dimension mismatch in assign_batch");
     }
 
     std::vector<std::pair<int, Scalar>> results(static_cast<size_t>(count));
@@ -331,8 +331,9 @@ public:
     if (dim > static_cast<size_t>(std::numeric_limits<int>::max())) {
       throw std::invalid_argument("dim exceeds int range");
     }
-    if (static_cast<int>(dim) != backend_->get_dim()) {
-      throw std::invalid_argument("dimension mismatch: expected " + std::to_string(backend_->get_dim()) + 
+    int backend_dim = backend_->get_dim();
+    if (backend_dim > 0 && static_cast<int>(dim) != backend_dim) {
+      throw std::invalid_argument("dimension mismatch: expected " + std::to_string(backend_dim) + 
                                   ", got " + std::to_string(dim));
     }
     return backend_->assign(embedding, static_cast<int>(dim));
@@ -344,8 +345,9 @@ public:
         dim > static_cast<size_t>(std::numeric_limits<int>::max())) {
       throw std::invalid_argument("count or dim exceeds int range");
     }
-    if (static_cast<int>(dim) != backend_->get_dim()) {
-      throw std::invalid_argument("dimension mismatch: expected " + std::to_string(backend_->get_dim()) + 
+    int backend_dim = backend_->get_dim();
+    if (backend_dim > 0 && static_cast<int>(dim) != backend_dim) {
+      throw std::invalid_argument("dimension mismatch: expected " + std::to_string(backend_dim) + 
                                   ", got " + std::to_string(dim));
     }
     return backend_->assign_batch(embeddings, static_cast<int>(count), static_cast<int>(dim));
