@@ -85,7 +85,8 @@ create_config_backup() {
   local config_file="$1"
 
   if [ -f "$config_file" ]; then
-    local timestamp=$(date +"%Y%m%d_%H%M%S")
+    local timestamp
+    timestamp=$(date +"%Y%m%d_%H%M%S")
     local timestamped_backup="${config_file}.${timestamp}.bak"
 
     # Create timestamped backup
@@ -104,7 +105,8 @@ create_config_backup() {
 # ========================
 
 install_nodejs() {
-  local platform=$(uname -s)
+  local platform
+  platform=$(uname -s)
 
   case "$platform" in
   Linux | Darwin)
@@ -316,7 +318,7 @@ configure_claude() {
 
     while [ $attempts -lt $max_attempts ]; do
       echo -n "🔑 Please enter your Nordlys API key: "
-      read -s api_key
+      read -rs api_key
       echo
 
       if [ -z "$api_key" ]; then
@@ -404,22 +406,46 @@ show_banner() {
 }
 
 verify_installation() {
-  log_info "Verifying installation..."
+   log_info "Verifying installation..."
 
-  # Check if Claude Code can be found
-  if ! command -v claude &>/dev/null; then
-    log_error "Claude Code installation verification failed"
-    return 1
-  fi
+   # Check if Claude Code can be found
+   if ! command -v claude &>/dev/null; then
+     log_error "Claude Code installation verification failed"
+     return 1
+   fi
 
-  # Check if configuration file exists
-  if [ ! -f "$CONFIG_DIR/settings.json" ]; then
-    log_error "Configuration file not found"
-    return 1
-  fi
+   # Check if configuration file exists
+   if [ ! -f "$CONFIG_DIR/settings.json" ]; then
+     log_error "Configuration file not found"
+     return 1
+   fi
 
-  log_success "Installation verification passed"
-  return 0
+   log_success "Installation verification passed"
+   return 0
+}
+
+launch_tool() {
+   log_info "Launching Claude Code..."
+   
+   # Try to launch Claude Code
+   if command -v claude &>/dev/null; then
+     # Run in foreground for best UX
+     claude || {
+       log_error "Failed to launch Claude Code"
+       echo ""
+       echo "🔧 To launch manually, run:"
+       echo "   claude"
+       echo ""
+       return 1
+     }
+   else
+     log_error "Claude Code command not found"
+     echo ""
+     echo "🔧 To launch manually after PATH refresh, run:"
+     echo "   claude"
+     echo ""
+     return 1
+   fi
 }
 
 main() {
@@ -451,42 +477,51 @@ main() {
   configure_claude_json
   configure_claude
 
-  if verify_installation; then
-    echo ""
-    echo "╭────────────────────────────────────────────╮"
-    echo "│  🎉 Claude Code + Nordlys Setup Complete  │"
-    echo "╰────────────────────────────────────────────╯"
-    echo ""
-    echo "🚀 Quick Start:"
-    echo "   claude                    # Start Claude Code with Nordlys model"
-    echo ""
-    echo "🔍 Verify Setup:"
-    echo "   /status                   # Check Nordlys integration in Claude Code"
-    echo "   /help                     # View available commands"
-    echo ""
-    echo "📊 Monitor Usage:"
-    echo "   Dashboard: $API_KEY_URL"
-    echo "   API Logs: ~/.claude/logs/"
-    echo ""
-    echo "💡 Pro Tips:"
-    echo "   • Nordlys model enabled by default"
-    echo "   • Override models: NORDLYS_PRIMARY_MODEL, NORDLYS_FAST_MODEL env vars"
-    echo "   • Use author/model_id format (e.g., nordlys/hypernova)"
-    echo ""
-    echo "📖 Full Documentation: https://docs.nordlyslabs.com/developer-tools/claude-code"
-    echo "🐛 Report Issues: https://github.com/Egham-7/nordlys/issues"
-  else
-    echo ""
-    log_error "❌ Installation verification failed"
-    echo ""
-    echo "🔧 Manual Setup (if needed):"
-    echo "   Configuration: ~/.claude/settings.json"
-    echo "   Expected format:"
-    echo '   {"env":{"ANTHROPIC_AUTH_TOKEN":"your_key","ANTHROPIC_BASE_URL":"https://api.nordlyslabs.com"}}'
-    echo ""
-    echo "🆘 Get help: https://docs.nordlyslabs.com/troubleshooting"
-    exit 1
-  fi
+   if verify_installation; then
+     echo ""
+     echo "╭────────────────────────────────────────────╮"
+     echo "│  🎉 Claude Code + Nordlys Setup Complete  │"
+     echo "╰────────────────────────────────────────────╯"
+     echo ""
+     echo "🚀 Quick Start:"
+     echo "   claude                    # Start Claude Code with Nordlys model"
+     echo ""
+     echo "🔍 Verify Setup:"
+     echo "   /status                   # Check Nordlys integration in Claude Code"
+     echo "   /help                     # View available commands"
+     echo ""
+     echo "📊 Monitor Usage:"
+     echo "   Dashboard: $API_KEY_URL"
+     echo "   API Logs: ~/.claude/logs/"
+     echo ""
+     echo "💡 Pro Tips:"
+     echo "   • Nordlys model enabled by default"
+     echo "   • Override models: NORDLYS_PRIMARY_MODEL, NORDLYS_FAST_MODEL env vars"
+     echo "   • Use author/model_id format (e.g., nordlys/hypernova)"
+     echo ""
+     echo "📖 Full Documentation: https://docs.nordlyslabs.com/developer-tools/claude-code"
+     echo "🐛 Report Issues: https://github.com/Egham-7/nordlys/issues"
+     echo ""
+     echo "🚀 Launching Claude Code..."
+     echo ""
+     
+     # Launch the tool
+     launch_tool || {
+       log_info "Installation complete. Run 'claude' when ready to start."
+       exit 0
+     }
+   else
+     echo ""
+     log_error "❌ Installation verification failed"
+     echo ""
+     echo "🔧 Manual Setup (if needed):"
+     echo "   Configuration: ~/.claude/settings.json"
+     echo "   Expected format:"
+     echo '   {"env":{"ANTHROPIC_AUTH_TOKEN":"your_key","ANTHROPIC_BASE_URL":"https://api.nordlyslabs.com"}}'
+     echo ""
+     echo "🆘 Get help: https://docs.nordlyslabs.com/troubleshooting"
+     exit 1
+   fi
 }
 
 main "$@"

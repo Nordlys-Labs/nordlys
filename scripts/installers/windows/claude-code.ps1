@@ -144,6 +144,29 @@ function Write-Settings {
     $json | Set-Content -Path $SettingsPath -Encoding ASCII
 }
 
+function Launch-Tool {
+    Write-Info "Launching Claude Code..."
+    
+    $toolCmd = Get-Command claude -ErrorAction SilentlyContinue
+    if ($toolCmd) {
+        try {
+            & claude
+        }
+        catch {
+            Write-Host ""
+            Write-Host "To launch manually, run:"
+            Write-Host "   claude"
+            Write-Host ""
+        }
+    }
+    else {
+        Write-Host ""
+        Write-Host "To launch manually, run:"
+        Write-Host "   claude"
+        Write-Host ""
+    }
+}
+
 Write-Host "=========================================="
 Write-Host "  $ScriptName"
 Write-Host "=========================================="
@@ -187,3 +210,6 @@ Write-Settings -SettingsPath $settingsPath -EnvValues $envValues
 Write-Success "Claude Code configured for Nordlys."
 Write-Host "Config: $settingsPath"
 Write-Host "Run: claude"
+Write-Host ""
+
+Launch-Tool

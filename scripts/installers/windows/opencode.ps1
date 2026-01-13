@@ -196,6 +196,29 @@ function Write-Config {
     Write-Success "OpenCode configuration written: $configPath"
 }
 
+function Launch-Tool {
+    Write-Info "Launching OpenCode..."
+    
+    $toolCmd = Get-Command opencode -ErrorAction SilentlyContinue
+    if ($toolCmd) {
+        try {
+            & opencode
+        }
+        catch {
+            Write-Host ""
+            Write-Host "To launch manually, run:"
+            Write-Host "   opencode"
+            Write-Host ""
+        }
+    }
+    else {
+        Write-Host ""
+        Write-Host "To launch manually, run:"
+        Write-Host "   opencode"
+        Write-Host ""
+    }
+}
+
 # Main script
 Write-Host "=========================================="
 Write-Host "  $ScriptName"
@@ -234,3 +257,6 @@ Write-Host "Monitor:"
 Write-Host "   Dashboard: $ApiKeyUrl"
 Write-Host ""
 Write-Host "Documentation: https://docs.nordlyslabs.com/developer-tools/opencode"
+Write-Host ""
+
+Launch-Tool

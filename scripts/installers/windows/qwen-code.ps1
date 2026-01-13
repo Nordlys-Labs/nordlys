@@ -98,6 +98,29 @@ function Ensure-ApiKey {
     return $ApiKey
 }
 
+function Launch-Tool {
+    Write-Info "Launching Qwen Code..."
+    
+    $toolCmd = Get-Command qwen -ErrorAction SilentlyContinue
+    if ($toolCmd) {
+        try {
+            & qwen
+        }
+        catch {
+            Write-Host ""
+            Write-Host "To launch manually, run:"
+            Write-Host "   qwen"
+            Write-Host ""
+        }
+    }
+    else {
+        Write-Host ""
+        Write-Host "To launch manually, run:"
+        Write-Host "   qwen"
+        Write-Host ""
+    }
+}
+
 Write-Host "=========================================="
 Write-Host "  $ScriptName"
 Write-Host "=========================================="
@@ -120,3 +143,6 @@ $env:OPENAI_MODEL = $Model
 
 Write-Success "Qwen Code configured for Nordlys."
 Write-Host "Run: qwen --version"
+Write-Host ""
+
+Launch-Tool

@@ -639,6 +639,30 @@ verify_installation() {
 	return 0
 }
 
+launch_tool() {
+	log_info "Launching Gemini CLI..."
+	
+	# Try to launch Gemini CLI
+	if command -v gemini &>/dev/null; then
+		# Run in foreground for best UX
+		gemini || {
+			log_error "Failed to launch Gemini CLI"
+			echo ""
+			echo "🔧 To launch manually, run:"
+			echo "   gemini"
+			echo ""
+			return 1
+		}
+	else
+		log_error "Gemini CLI command not found"
+		echo ""
+		echo "🔧 To launch manually after PATH refresh, run:"
+		echo "   gemini"
+		echo ""
+		return 1
+	fi
+}
+
 main() {
 	# Parse command line arguments
 	CLI_API_KEY=""
@@ -700,9 +724,18 @@ main() {
 		echo ""
 		echo "📖 Full Documentation: https://docs.nordlyslabs.com/developer-tools/gemini-cli"
 		echo "🐛 Report Issues: https://github.com/Egham-7/nordlys/issues"
+		echo ""
+		echo "🚀 Launching Gemini CLI..."
+		echo ""
+		
+		# Launch the tool
+		launch_tool || {
+			log_info "Installation complete. Run 'gemini' when ready to start."
+			exit 0
+		}
 	else
 		echo ""
-		log_error "❌ Installation verification failed"
+		log_error "Installation verification failed."
 		echo ""
 		echo "🔧 Manual Setup (if needed):"
 		echo "   Configuration: Set environment variables and create settings file"

@@ -245,7 +245,7 @@ get_api_key() {
 
   while [ $attempts -lt $max_attempts ]; do
     echo -n "🔑 Please enter your Nordlys API key: " >&2
-    read -s api_key
+    read -rs api_key
     echo >&2
 
     if [ -z "$api_key" ]; then
@@ -292,7 +292,8 @@ create_opencode_config() {
 
   # Backup existing config if present
   if [ -f "$config_path" ]; then
-    local timestamp=$(date +"%Y%m%d_%H%M%S")
+    local timestamp
+    timestamp=$(date +"%Y%m%d_%H%M%S")
     local backup_path="${config_path}.${timestamp}.bak"
     cp "$config_path" "$backup_path" || {
       log_error "Failed to create backup: $backup_path"
@@ -362,8 +363,30 @@ verify_installation() {
     return 1
   fi
 
-  log_success "Installation verification passed."
-  return 0
+   log_success "Installation verification passed."
+   return 0
+}
+
+launch_tool() {
+   log_info "Launching opencode..."
+   
+   if command -v opencode &>/dev/null; then
+     opencode || {
+       log_error "Failed to launch opencode"
+       echo ""
+       echo "🔧 To launch manually, run:"
+       echo "   opencode"
+       echo ""
+       return 1
+     }
+   else
+     log_error "opencode command not found"
+     echo ""
+     echo "🔧 To launch manually after PATH refresh, run:"
+     echo "   opencode"
+     echo ""
+     return 1
+   fi
 }
 
 # ========================
@@ -447,8 +470,17 @@ main() {
     echo "📊 Monitor"
     echo "   Dashboard: $API_KEY_URL"
     echo ""
-    echo "📖 Documentation: https://docs.nordlyslabs.com/developer-tools/opencode"
-  else
+     echo "📖 Documentation: https://docs.nordlyslabs.com/developer-tools/opencode"
+     echo ""
+     echo "🚀 Launching opencode..."
+     echo ""
+     
+     # Launch the tool
+     launch_tool || {
+       log_info "Installation complete. Run 'opencode' when ready to start."
+       exit 0
+     }
+   else
     echo ""
     log_error "Installation verification failed."
     echo ""

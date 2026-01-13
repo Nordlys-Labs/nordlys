@@ -115,6 +115,29 @@ function Write-Settings {
     $json | Set-Content -Path $SettingsPath -Encoding ASCII
 }
 
+function Launch-Tool {
+    Write-Info "Launching Grok CLI..."
+    
+    $toolCmd = Get-Command grok -ErrorAction SilentlyContinue
+    if ($toolCmd) {
+        try {
+            & grok
+        }
+        catch {
+            Write-Host ""
+            Write-Host "To launch manually, run:"
+            Write-Host "   grok"
+            Write-Host ""
+        }
+    }
+    else {
+        Write-Host ""
+        Write-Host "To launch manually, run:"
+        Write-Host "   grok"
+        Write-Host ""
+    }
+}
+
 Write-Host "=========================================="
 Write-Host "  $ScriptName"
 Write-Host "=========================================="
@@ -151,3 +174,6 @@ $env:GROK_BASE_URL = $ApiBaseUrl
 Write-Success "Grok CLI configured for Nordlys."
 Write-Host "Config: $settingsPath"
 Write-Host "Run: grok --version"
+Write-Host ""
+
+Launch-Tool

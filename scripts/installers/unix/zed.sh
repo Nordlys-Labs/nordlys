@@ -69,7 +69,8 @@ create_config_backup() {
 	local config_file="$1"
 
 	if [ -f "$config_file" ]; then
-		local timestamp=$(date +"%Y%m%d_%H%M%S")
+		local timestamp
+		timestamp=$(date +"%Y%m%d_%H%M%S")
 		local timestamped_backup="${config_file}.${timestamp}.bak"
 
 		# Create timestamped backup
@@ -147,7 +148,7 @@ update_zed_config() {
 	create_config_backup "$CONFIG_FILE"
 
 	# Use Python to safely update JSON config
-	python3 <<PYTHON_EOF
+	if python3 <<PYTHON_EOF
 import json
 import sys
 from pathlib import Path
@@ -163,8 +164,8 @@ if config_file.exists():
     with open(config_file, 'r') as f:
         content = f.read().strip()
         # Remove comments for JSON parsing
-        lines = [line for line in content.split('\\n') if not line.strip().startswith('//')]
-        clean_content = '\\n'.join(lines)
+        lines = [line for line in content.split('\n') if not line.strip().startswith('//')]
+        clean_content = '\n'.join(lines)
         if clean_content:
             try:
                 config = json.loads(clean_content)
@@ -216,12 +217,11 @@ if 'default_model' not in config['agent']:
 # Write updated config
 with open(config_file, 'w') as f:
     json.dump(config, f, indent=2)
-    f.write('\\n')
+    f.write('\n')
 
 print(f"Configuration updated successfully")
 PYTHON_EOF
-
-	if [ $? -eq 0 ]; then
+	then
 		log_success "Zed configuration updated"
 	else
 		log_error "Failed to update configuration"
@@ -261,6 +261,30 @@ setup_environment() {
 
 	log_success "Added NORDLYS_API_KEY to $shell_rc"
 	log_info "Run 'source $shell_rc' or restart your terminal to apply changes"
+}
+
+launch_tool() {
+	log_info "Launching Zed..."
+	
+	# Try to launch Zed
+	if command -v zed &>/dev/null; then
+		# Run in foreground for best UX
+		zed || {
+			log_error "Failed to launch Zed"
+			echo ""
+			echo "🔧 To launch manually, run:"
+			echo "   zed"
+			echo ""
+			return 1
+		}
+	else
+		log_error "Zed command not found"
+		echo ""
+		echo "🔧 To launch manually after PATH refresh, run:"
+		echo "   zed"
+		echo ""
+		return 1
+	fi
 }
 
 # ========================
@@ -319,6 +343,14 @@ main() {
 	echo ""
 	log_info "Documentation: https://docs.nordlyslabs.com/developer-tools/zed"
 	echo ""
+	echo "🚀 Launching Zed..."
+	echo ""
+	
+	# Launch the tool
+	launch_tool || {
+		log_info "Installation complete. Run 'zed' when ready to start."
+		exit 0
+	}
 }
 
 main "$@"

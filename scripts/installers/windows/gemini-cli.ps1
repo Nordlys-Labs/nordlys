@@ -98,6 +98,29 @@ function Ensure-ApiKey {
     return $ApiKey
 }
 
+function Launch-Tool {
+    Write-Info "Launching Gemini CLI..."
+    
+    $toolCmd = Get-Command gemini -ErrorAction SilentlyContinue
+    if ($toolCmd) {
+        try {
+            & gemini
+        }
+        catch {
+            Write-Host ""
+            Write-Host "To launch manually, run:"
+            Write-Host "   gemini"
+            Write-Host ""
+        }
+    }
+    else {
+        Write-Host ""
+        Write-Host "To launch manually, run:"
+        Write-Host "   gemini"
+        Write-Host ""
+    }
+}
+
 Write-Host "=========================================="
 Write-Host "  $ScriptName"
 Write-Host "=========================================="
@@ -120,3 +143,6 @@ $env:GEMINI_MODEL = $Model
 
 Write-Success "Gemini CLI configured for Nordlys."
 Write-Host "Run: gemini --version"
+Write-Host ""
+
+Launch-Tool

@@ -168,6 +168,29 @@ function Set-EnvironmentVariable {
     Write-Info "Restart your terminal or Zed editor to apply changes"
 }
 
+function Launch-Tool {
+    Write-Info "Launching Zed..."
+    
+    $toolCmd = Get-Command zed -ErrorAction SilentlyContinue
+    if ($toolCmd) {
+        try {
+            & zed
+        }
+        catch {
+            Write-Host ""
+            Write-Host "To launch manually, run:"
+            Write-Host "   zed"
+            Write-Host ""
+        }
+    }
+    else {
+        Write-Host ""
+        Write-Host "To launch manually, run:"
+        Write-Host "   zed"
+        Write-Host ""
+    }
+}
+
 function Main {
     Write-Host ""
     Write-Host "===============================================" -ForegroundColor Yellow
@@ -197,9 +220,11 @@ function Main {
     Write-Host "  2. Open Agent Panel (Ctrl + Shift + A)"
     Write-Host "  3. Select 'Hypernova' from model dropdown"
     Write-Host "  4. Start using Nordlys Mixture of Models!"
-    Write-Host ""
-    Write-Info "Documentation: https://docs.nordlyslabs.com/developer-tools/zed"
-    Write-Host ""
-}
+     Write-Host ""
+     Write-Info "Documentation: https://docs.nordlyslabs.com/developer-tools/zed"
+     Write-Host ""
+     
+     Launch-Tool
+ }
 
-Main
+ Main

@@ -74,7 +74,8 @@ create_config_backup() {
 	local config_file="$1"
 
 	if [ -f "$config_file" ]; then
-		local timestamp=$(date +"%Y%m%d_%H%M%S")
+		local timestamp
+		timestamp=$(date +"%Y%m%d_%H%M%S")
 		local timestamped_backup="${config_file}.${timestamp}.bak"
 
 		# Create timestamped backup
@@ -343,19 +344,21 @@ add_env_to_shell_config() {
 		fi
 	else
 		# Add new environment variables based on shell type
-		echo "" >>"$config_file"
-		echo "# Nordlys Model API Configuration (added by grok-cli installer)" >>"$config_file"
-		if [ "$shell_type" = "fish" ]; then
-			echo "set -x NORDLYS_API_KEY \"$api_key\"" >>"$config_file"
-			echo "set -x NORDLYS_BASE_URL \"$API_BASE_URL\"" >>"$config_file"
-			echo "set -x GROK_MODEL \"$DEFAULT_MODEL\"" >>"$config_file"
-			echo "set -x GROK_BASE_URL \"$API_BASE_URL\"" >>"$config_file"
-		else
-			echo "export NORDLYS_API_KEY=\"$api_key\"" >>"$config_file"
-			echo "export NORDLYS_BASE_URL=\"$API_BASE_URL\"" >>"$config_file"
-			echo "export GROK_MODEL=\"$DEFAULT_MODEL\"" >>"$config_file"
-			echo "export GROK_BASE_URL=\"$API_BASE_URL\"" >>"$config_file"
-		fi
+		{
+			echo ""
+			echo "# Nordlys Model API Configuration (added by grok-cli installer)"
+			if [ "$shell_type" = "fish" ]; then
+				echo "set -x NORDLYS_API_KEY \"$api_key\""
+				echo "set -x NORDLYS_BASE_URL \"$API_BASE_URL\""
+				echo "set -x GROK_MODEL \"$DEFAULT_MODEL\""
+				echo "set -x GROK_BASE_URL \"$API_BASE_URL\""
+			else
+				echo "export NORDLYS_API_KEY=\"$api_key\""
+				echo "export NORDLYS_BASE_URL=\"$API_BASE_URL\""
+				echo "export GROK_MODEL=\"$DEFAULT_MODEL\""
+				echo "export GROK_BASE_URL=\"$API_BASE_URL\""
+			fi
+		} >>"$config_file"
 	fi
 
 	log_success "Environment variables added to $config_file"
@@ -550,6 +553,30 @@ verify_installation() {
 	return 0
 }
 
+launch_tool() {
+	log_info "Launching Grok CLI..."
+	
+	# Try to launch Grok CLI
+	if command -v grok &>/dev/null; then
+		# Run in foreground for best UX
+		grok || {
+			log_error "Failed to launch Grok CLI"
+			echo ""
+			echo "🔧 To launch manually, run:"
+			echo "   grok"
+			echo ""
+			return 1
+		}
+	else
+		log_error "Grok CLI command not found"
+		echo ""
+		echo "🔧 To launch manually after PATH refresh, run:"
+		echo "   grok"
+		echo ""
+		return 1
+	fi
+}
+
 main() {
 	# Parse command line arguments
 	CLI_API_KEY=""
@@ -611,6 +638,15 @@ main() {
 		echo ""
 		echo "📖 Full Documentation: https://docs.nordlyslabs.com/developer-tools/grok-cli"
 		echo "🐛 Report Issues: https://github.com/Egham-7/nordlys/issues"
+		echo ""
+		echo "🚀 Launching Grok CLI..."
+		echo ""
+		
+		# Launch the tool
+		launch_tool || {
+			log_info "Installation complete. Run 'grok' when ready to start."
+			exit 0
+		}
 	else
 		echo ""
 		log_error "❌ Installation verification failed"

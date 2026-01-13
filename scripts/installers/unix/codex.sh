@@ -72,7 +72,8 @@ create_config_backup() {
 	local config_file="$1"
 
 	if [ -f "$config_file" ]; then
-		local timestamp=$(date +"%Y%m%d_%H%M%S")
+		local timestamp
+		timestamp=$(date +"%Y%m%d_%H%M%S")
 		local timestamped_backup="${config_file}.${timestamp}.bak"
 
 		# Create timestamped backup
@@ -594,6 +595,30 @@ verify_installation() {
 	return 0
 }
 
+launch_tool() {
+	log_info "Launching Codex..."
+	
+	# Try to launch Codex
+	if command -v codex &>/dev/null; then
+		# Run in foreground for best UX
+		codex || {
+			log_error "Failed to launch Codex"
+			echo ""
+			echo "🔧 To launch manually, run:"
+			echo "   codex"
+			echo ""
+			return 1
+		}
+	else
+		log_error "Codex command not found"
+		echo ""
+		echo "🔧 To launch manually after PATH refresh, run:"
+		echo "   codex"
+		echo ""
+		return 1
+	fi
+}
+
 main() {
 	# Parse command line arguments
 	CLI_API_KEY=""
@@ -673,6 +698,15 @@ main() {
 			echo "⚠️  Important: Restart your terminal or run 'source ~/.profile' to load environment variables"
 			;;
 		esac
+		echo ""
+		echo "🚀 Launching Codex..."
+		echo ""
+		
+		# Launch the tool
+		launch_tool || {
+			log_info "Installation complete. Run 'codex' when ready to start."
+			exit 0
+		}
 	else
 		echo ""
 		log_error "❌ Installation verification failed"

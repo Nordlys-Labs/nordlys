@@ -478,6 +478,30 @@ verify_installation() {
 	return 0
 }
 
+launch_tool() {
+	log_info "Launching Qwen Code..."
+	
+	# Try to launch Qwen Code
+	if command -v qwen &>/dev/null; then
+		# Run in foreground for best UX
+		qwen || {
+			log_error "Failed to launch Qwen Code"
+			echo ""
+			echo "🔧 To launch manually, run:"
+			echo "   qwen"
+			echo ""
+			return 1
+		}
+	else
+		log_error "Qwen Code command not found"
+		echo ""
+		echo "🔧 To launch manually after PATH refresh, run:"
+		echo "   qwen"
+		echo ""
+		return 1
+	fi
+}
+
 main() {
 	# Parse command line arguments
 	CLI_API_KEY=""
@@ -536,6 +560,15 @@ main() {
 		echo ""
 		echo "📖 Full Documentation: https://docs.nordlyslabs.com/developer-tools/qwen-code"
 		echo "🐛 Report Issues: https://github.com/Egham-7/nordlys/issues"
+		echo ""
+		echo "🚀 Launching Qwen Code..."
+		echo ""
+		
+		# Launch the tool
+		launch_tool || {
+			log_info "Installation complete. Run 'qwen' when ready to start."
+			exit 0
+		}
 	else
 		echo ""
 		log_error "❌ Installation verification failed"

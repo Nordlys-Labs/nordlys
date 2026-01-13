@@ -123,6 +123,29 @@ wire_api = "responses"
     $config | Set-Content -Path $ConfigPath -Encoding ASCII
 }
 
+function Launch-Tool {
+    Write-Info "Launching Codex..."
+    
+    $toolCmd = Get-Command codex -ErrorAction SilentlyContinue
+    if ($toolCmd) {
+        try {
+            & codex
+        }
+        catch {
+            Write-Host ""
+            Write-Host "To launch manually, run:"
+            Write-Host "   codex"
+            Write-Host ""
+        }
+    }
+    else {
+        Write-Host ""
+        Write-Host "To launch manually, run:"
+        Write-Host "   codex"
+        Write-Host ""
+    }
+}
+
 Write-Host "=========================================="
 Write-Host "  $ScriptName"
 Write-Host "=========================================="
@@ -148,3 +171,6 @@ Write-Config -ConfigPath $configPath -ModelValue $Model -ProviderValue $ModelPro
 Write-Success "Codex configured for Nordlys."
 Write-Host "Config: $configPath"
 Write-Host "Run: codex --version"
+Write-Host ""
+
+Launch-Tool
