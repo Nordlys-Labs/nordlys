@@ -246,21 +246,23 @@ class Nordlys:
         Thread-safe method that caches embeddings to avoid recomputation
         for repeated prompts. Uses a lock to ensure thread-safety.
 
+        Note: LRUCache.__contains__ mutates internal state, so all cache
+        access must be synchronized with the lock.
+
         Args:
             text: The text to compute embedding for.
 
         Returns:
             The embedding vector as a numpy array.
         """
-        # Fast path: check cache without lock for read
-        if self._embedding_cache_size > 0 and text in self._embedding_cache:
+        # Check cache with lock (LRUCache.__contains__ mutates LRU order)
+        if self._embedding_cache_size > 0:
             with self._embedding_cache_lock:
-                # Double-check inside lock
                 if text in self._embedding_cache:
                     self._embedding_cache_hits += 1
                     return self._embedding_cache[text]
 
-        # Cache miss: compute embedding
+        # Cache miss: compute embedding (outside lock to avoid blocking)
         model = self._load_embedding_model()
         embedding: np.ndarray = model.encode([text], convert_to_numpy=True)[0]
 
