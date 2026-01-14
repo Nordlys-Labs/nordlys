@@ -176,8 +176,6 @@ class Nordlys:
         self._embedding_cache: LRUCache[str, np.ndarray] = LRUCache(
             maxsize=max(1, embedding_cache_size)
         )
-        self._embedding_cache_hits = 0
-        self._embedding_cache_misses = 0
 
         # Reducer (optional)
         self._reducer = umap_model
@@ -254,7 +252,6 @@ class Nordlys:
         """
         # Check cache
         if self._embedding_cache_size > 0 and text in self._embedding_cache:
-            self._embedding_cache_hits += 1
             return self._embedding_cache[text]
 
         # Cache miss: compute embedding
@@ -263,7 +260,6 @@ class Nordlys:
 
         # Store in cache if caching is enabled
         if self._embedding_cache_size > 0:
-            self._embedding_cache_misses += 1
             self._embedding_cache[text] = embedding
 
         return embedding
@@ -509,30 +505,18 @@ class Nordlys:
     # =========================================================================
 
     def clear_embedding_cache(self) -> None:
-        """Clear the embedding cache and reset statistics."""
+        """Clear the embedding cache."""
         self._embedding_cache.clear()
-        self._embedding_cache_hits = 0
-        self._embedding_cache_misses = 0
 
-    def embedding_cache_info(self) -> dict[str, int | float]:
-        """Get embedding cache statistics.
+    def embedding_cache_info(self) -> dict[str, int]:
+        """Get embedding cache info.
 
         Returns:
-            Dictionary with cache statistics:
-                - size: Current number of cached embeddings
-                - maxsize: Maximum cache capacity
-                - hits: Number of cache hits
-                - misses: Number of cache misses
-                - hit_rate: Ratio of hits to total lookups (0.0-1.0)
+            Dictionary with size and maxsize.
         """
-        total = self._embedding_cache_hits + self._embedding_cache_misses
-        hit_rate = self._embedding_cache_hits / total if total > 0 else 0.0
         return {
             "size": len(self._embedding_cache),
             "maxsize": self._embedding_cache_size,
-            "hits": self._embedding_cache_hits,
-            "misses": self._embedding_cache_misses,
-            "hit_rate": hit_rate,
         }
 
     # =========================================================================

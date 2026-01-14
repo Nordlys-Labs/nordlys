@@ -41,11 +41,9 @@ class TestEmbeddingCacheInitialization:
         # Cache is created with max(1, size) to avoid errors
         assert nordlys._embedding_cache.maxsize == 1
 
-    def test_initial_cache_stats(self, sample_models: list[ModelConfig]) -> None:
-        """Test that cache stats are zero initially."""
+    def test_initial_cache_empty(self, sample_models: list[ModelConfig]) -> None:
+        """Test that cache is empty initially."""
         nordlys = Nordlys(models=sample_models)
-        assert nordlys._embedding_cache_hits == 0
-        assert nordlys._embedding_cache_misses == 0
         assert len(nordlys._embedding_cache) == 0
 
 
@@ -59,27 +57,18 @@ class TestEmbeddingCacheInfo:
 
         assert info["size"] == 0
         assert info["maxsize"] == 100
-        assert info["hits"] == 0
-        assert info["misses"] == 0
-        assert info["hit_rate"] == 0.0
 
-    def test_cache_info_after_operations(
+    def test_cache_info_after_adding_entries(
         self, sample_models: list[ModelConfig]
     ) -> None:
-        """Test cache info reflects operations correctly."""
+        """Test cache info reflects size correctly."""
         nordlys = Nordlys(models=sample_models, embedding_cache_size=100)
 
-        # Simulate cache operations
         nordlys._embedding_cache["test_prompt"] = np.zeros(384)
-        nordlys._embedding_cache_hits = 5
-        nordlys._embedding_cache_misses = 10
-
         info = nordlys.embedding_cache_info()
 
         assert info["size"] == 1
-        assert info["hits"] == 5
-        assert info["misses"] == 10
-        assert info["hit_rate"] == pytest.approx(5 / 15)
+        assert info["maxsize"] == 100
 
 
 class TestClearEmbeddingCache:
@@ -97,19 +86,6 @@ class TestClearEmbeddingCache:
         nordlys.clear_embedding_cache()
 
         assert len(nordlys._embedding_cache) == 0
-
-    def test_clear_resets_stats(self, sample_models: list[ModelConfig]) -> None:
-        """Test that clear resets hit/miss statistics."""
-        nordlys = Nordlys(models=sample_models)
-
-        # Simulate some cache activity
-        nordlys._embedding_cache_hits = 50
-        nordlys._embedding_cache_misses = 25
-
-        nordlys.clear_embedding_cache()
-
-        assert nordlys._embedding_cache_hits == 0
-        assert nordlys._embedding_cache_misses == 0
 
 
 class TestComputeEmbeddingCached:
@@ -132,7 +108,6 @@ class TestComputeEmbeddingCached:
             ["test prompt"], convert_to_numpy=True
         )
         np.testing.assert_array_equal(result, mock_embedding)
-        assert nordlys._embedding_cache_misses == 1
         assert "test prompt" in nordlys._embedding_cache
 
     def test_cache_hit_returns_cached(self, sample_models: list[ModelConfig]) -> None:
@@ -150,7 +125,6 @@ class TestComputeEmbeddingCached:
         # Model should not be called on cache hit
         mock_model.encode.assert_not_called()
         np.testing.assert_array_equal(result, cached_embedding)
-        assert nordlys._embedding_cache_hits == 1
 
     def test_cache_disabled_always_computes(
         self, sample_models: list[ModelConfig]
