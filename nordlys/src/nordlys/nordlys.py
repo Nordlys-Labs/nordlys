@@ -155,13 +155,16 @@ class Nordlys:
             nr_clusters: Number of clusters (used if cluster_model is None)
             random_state: Random seed for reproducibility
             allow_trust_remote_code: Allow remote code execution for embedding model
-            embedding_cache_size: Maximum number of embeddings to cache (0 to disable)
+            embedding_cache_size: Maximum number of embeddings to cache (must be > 0)
         """
         # C++ core (initialized on load or after fit) - set early to avoid __del__ errors
         self._core_engine: Nordlys32 | Nordlys64 | None = None
 
         if not models:
             raise ValueError("At least one model configuration is required")
+
+        if embedding_cache_size <= 0:
+            raise ValueError("embedding_cache_size must be greater than 0")
 
         self._models = models
         self._model_ids = [m.id for m in models]
@@ -171,10 +174,10 @@ class Nordlys:
         self._embedding_model: SentenceTransformer | None = None
         self._allow_trust_remote_code = allow_trust_remote_code
 
-        # Embedding cache - thread-safe LRU cache for computed embeddings
+        # Embedding cache - LRU cache for computed embeddings
         self._embedding_cache_size = embedding_cache_size
         self._embedding_cache: LRUCache[str, np.ndarray] = LRUCache(
-            maxsize=max(1, embedding_cache_size)
+            maxsize=embedding_cache_size
         )
 
         # Reducer (optional)
@@ -250,17 +253,14 @@ class Nordlys:
         Returns:
             The embedding vector as a numpy array.
         """
-        # Check cache
-        if self._embedding_cache_size > 0 and text in self._embedding_cache:
+        if text in self._embedding_cache:
             return self._embedding_cache[text]
 
         # Cache miss: compute embedding
         model = self._load_embedding_model()
         embedding: np.ndarray = model.encode([text], convert_to_numpy=True)[0]
 
-        # Store in cache if caching is enabled
-        if self._embedding_cache_size > 0:
-            self._embedding_cache[text] = embedding
+        self._embedding_cache[text] = embedding
 
         return embedding
 

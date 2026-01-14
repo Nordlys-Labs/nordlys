@@ -32,14 +32,19 @@ class TestEmbeddingCacheInitialization:
         assert nordlys._embedding_cache_size == 500
         assert nordlys._embedding_cache.maxsize == 500
 
-    def test_cache_size_zero_uses_minimum(
+    def test_cache_size_zero_raises_error(
         self, sample_models: list[ModelConfig]
     ) -> None:
-        """Test that cache size 0 still creates cache with maxsize 1."""
-        nordlys = Nordlys(models=sample_models, embedding_cache_size=0)
-        assert nordlys._embedding_cache_size == 0
-        # Cache is created with max(1, size) to avoid errors
-        assert nordlys._embedding_cache.maxsize == 1
+        """Test that cache size 0 raises ValueError."""
+        with pytest.raises(ValueError, match="embedding_cache_size must be greater than 0"):
+            Nordlys(models=sample_models, embedding_cache_size=0)
+
+    def test_cache_size_negative_raises_error(
+        self, sample_models: list[ModelConfig]
+    ) -> None:
+        """Test that negative cache size raises ValueError."""
+        with pytest.raises(ValueError, match="embedding_cache_size must be greater than 0"):
+            Nordlys(models=sample_models, embedding_cache_size=-1)
 
     def test_initial_cache_empty(self, sample_models: list[ModelConfig]) -> None:
         """Test that cache is empty initially."""
@@ -125,24 +130,6 @@ class TestComputeEmbeddingCached:
         # Model should not be called on cache hit
         mock_model.encode.assert_not_called()
         np.testing.assert_array_equal(result, cached_embedding)
-
-    def test_cache_disabled_always_computes(
-        self, sample_models: list[ModelConfig]
-    ) -> None:
-        """Test that with cache_size=0, embeddings are always computed."""
-        nordlys = Nordlys(models=sample_models, embedding_cache_size=0)
-
-        mock_embedding = np.random.randn(384).astype(np.float32)
-        mock_model = MagicMock()
-        mock_model.encode.return_value = np.array([mock_embedding])
-
-        with patch.object(nordlys, "_load_embedding_model", return_value=mock_model):
-            # Call twice with same prompt
-            nordlys._compute_embedding_cached("test prompt")
-            nordlys._compute_embedding_cached("test prompt")
-
-        # Should compute both times since caching is disabled
-        assert mock_model.encode.call_count == 2
 
 
 class TestCacheLRUEviction:
