@@ -8,14 +8,29 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
+from cachetools import LRUCache
 from pydantic import BaseModel, Field
 from sentence_transformers import SentenceTransformer
+
+if TYPE_CHECKING:
+    from typing import TypedDict
+
+    class EmbeddingCacheInfo(TypedDict):
+        """Type definition for embedding cache statistics."""
+
+        size: int
+        maxsize: int
+        hits: int
+        misses: int
+        hit_rate: float
 
 from nordlys.clustering import (
     ClusterInfo,
@@ -142,6 +157,7 @@ class Nordlys:
         nr_clusters: int = 20,
         random_state: int = 42,
         allow_trust_remote_code: bool = False,
+        embedding_cache_size: int = 1000,
     ) -> None:
         """Initialize Nordlys router.
 
@@ -153,6 +169,7 @@ class Nordlys:
             nr_clusters: Number of clusters (used if cluster_model is None)
             random_state: Random seed for reproducibility
             allow_trust_remote_code: Allow remote code execution for embedding model
+            embedding_cache_size: Maximum number of embeddings to cache (0 to disable)
         """
         # C++ core (initialized on load or after fit) - set early to avoid __del__ errors
         self._core_engine: Nordlys32 | Nordlys64 | None = None
@@ -167,6 +184,15 @@ class Nordlys:
         self._embedding_model_name = embedding_model
         self._embedding_model: SentenceTransformer | None = None
         self._allow_trust_remote_code = allow_trust_remote_code
+
+        # Embedding cache - thread-safe LRU cache for computed embeddings
+        self._embedding_cache_size = embedding_cache_size
+        self._embedding_cache: LRUCache[str, np.ndarray] = LRUCache(
+            maxsize=max(1, embedding_cache_size)
+        )
+        self._embedding_cache_hits = 0
+        self._embedding_cache_misses = 0
+        self._embedding_cache_lock = threading.Lock()
 
         # Reducer (optional)
         self._reducer = umap_model
@@ -226,6 +252,38 @@ class Nordlys:
             show_progress_bar=len(texts) > 100,
         )
         return embeddings
+
+    def _compute_embedding_cached(self, text: str) -> np.ndarray:
+        """Compute embedding for a single text with LRU caching.
+
+        Thread-safe method that caches embeddings to avoid recomputation
+        for repeated prompts. Uses a lock to ensure thread-safety.
+
+        Args:
+            text: The text to compute embedding for.
+
+        Returns:
+            The embedding vector as a numpy array.
+        """
+        # Fast path: check cache without lock for read
+        if self._embedding_cache_size > 0 and text in self._embedding_cache:
+            with self._embedding_cache_lock:
+                # Double-check inside lock
+                if text in self._embedding_cache:
+                    self._embedding_cache_hits += 1
+                    return self._embedding_cache[text]
+
+        # Cache miss: compute embedding
+        model = self._load_embedding_model()
+        embedding: np.ndarray = model.encode([text], convert_to_numpy=True)[0]
+
+        # Store in cache if caching is enabled
+        if self._embedding_cache_size > 0:
+            with self._embedding_cache_lock:
+                self._embedding_cache_misses += 1
+                self._embedding_cache[text] = embedding
+
+        return embedding
 
     def fit(self, df: pd.DataFrame, questions_col: str = "questions") -> "Nordlys":
         """Fit the router on training data.
@@ -369,8 +427,8 @@ class Nordlys:
         self._check_is_fitted()
         assert self._core_engine is not None
 
-        # Compute embedding
-        embedding = self._compute_embeddings([prompt])[0]
+        # Compute embedding (with caching for repeated prompts)
+        embedding = self._compute_embedding_cached(prompt)
 
         # Ensure correct dtype and C-contiguous
         target_dtype = np.float64 if self._dtype == "float64" else np.float32
@@ -462,6 +520,43 @@ class Nordlys:
         self._check_is_fitted()
         assert self._metrics is not None
         return self._metrics
+
+    # =========================================================================
+    # Embedding cache management
+    # =========================================================================
+
+    def clear_embedding_cache(self) -> None:
+        """Clear the embedding cache and reset statistics.
+
+        This method is thread-safe and can be called while other threads
+        are actively using the cache.
+        """
+        with self._embedding_cache_lock:
+            self._embedding_cache.clear()
+            self._embedding_cache_hits = 0
+            self._embedding_cache_misses = 0
+
+    def embedding_cache_info(self) -> "EmbeddingCacheInfo":
+        """Get embedding cache statistics.
+
+        Returns:
+            Dictionary with cache statistics:
+                - size: Current number of cached embeddings
+                - maxsize: Maximum cache capacity
+                - hits: Number of cache hits
+                - misses: Number of cache misses
+                - hit_rate: Ratio of hits to total lookups (0.0-1.0)
+        """
+        with self._embedding_cache_lock:
+            total = self._embedding_cache_hits + self._embedding_cache_misses
+            hit_rate = self._embedding_cache_hits / total if total > 0 else 0.0
+            return {
+                "size": len(self._embedding_cache),
+                "maxsize": self._embedding_cache_size,
+                "hits": self._embedding_cache_hits,
+                "misses": self._embedding_cache_misses,
+                "hit_rate": hit_rate,
+            }
 
     # =========================================================================
     # Fitted attributes (sklearn convention: trailing underscore)
