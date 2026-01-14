@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import logging
-import threading
 import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -179,7 +178,6 @@ class Nordlys:
         )
         self._embedding_cache_hits = 0
         self._embedding_cache_misses = 0
-        self._embedding_cache_lock = threading.Lock()
 
         # Reducer (optional)
         self._reducer = umap_model
@@ -243,11 +241,10 @@ class Nordlys:
     def _compute_embedding_cached(self, text: str) -> np.ndarray:
         """Compute embedding for a single text with LRU caching.
 
-        Thread-safe method that caches embeddings to avoid recomputation
-        for repeated prompts. Uses a lock to ensure thread-safety.
+        Caches embeddings to avoid recomputation for repeated prompts.
 
-        Note: LRUCache.__contains__ mutates internal state, so all cache
-        access must be synchronized with the lock.
+        Note: This method is NOT thread-safe. For multi-threaded use,
+        add external synchronization.
 
         Args:
             text: The text to compute embedding for.
@@ -255,22 +252,19 @@ class Nordlys:
         Returns:
             The embedding vector as a numpy array.
         """
-        # Check cache with lock (LRUCache.__contains__ mutates LRU order)
-        if self._embedding_cache_size > 0:
-            with self._embedding_cache_lock:
-                if text in self._embedding_cache:
-                    self._embedding_cache_hits += 1
-                    return self._embedding_cache[text]
+        # Check cache
+        if self._embedding_cache_size > 0 and text in self._embedding_cache:
+            self._embedding_cache_hits += 1
+            return self._embedding_cache[text]
 
-        # Cache miss: compute embedding (outside lock to avoid blocking)
+        # Cache miss: compute embedding
         model = self._load_embedding_model()
         embedding: np.ndarray = model.encode([text], convert_to_numpy=True)[0]
 
         # Store in cache if caching is enabled
         if self._embedding_cache_size > 0:
-            with self._embedding_cache_lock:
-                self._embedding_cache_misses += 1
-                self._embedding_cache[text] = embedding
+            self._embedding_cache_misses += 1
+            self._embedding_cache[text] = embedding
 
         return embedding
 
@@ -515,15 +509,10 @@ class Nordlys:
     # =========================================================================
 
     def clear_embedding_cache(self) -> None:
-        """Clear the embedding cache and reset statistics.
-
-        This method is thread-safe and can be called while other threads
-        are actively using the cache.
-        """
-        with self._embedding_cache_lock:
-            self._embedding_cache.clear()
-            self._embedding_cache_hits = 0
-            self._embedding_cache_misses = 0
+        """Clear the embedding cache and reset statistics."""
+        self._embedding_cache.clear()
+        self._embedding_cache_hits = 0
+        self._embedding_cache_misses = 0
 
     def embedding_cache_info(self) -> dict[str, int | float]:
         """Get embedding cache statistics.
@@ -536,16 +525,15 @@ class Nordlys:
                 - misses: Number of cache misses
                 - hit_rate: Ratio of hits to total lookups (0.0-1.0)
         """
-        with self._embedding_cache_lock:
-            total = self._embedding_cache_hits + self._embedding_cache_misses
-            hit_rate = self._embedding_cache_hits / total if total > 0 else 0.0
-            return {
-                "size": len(self._embedding_cache),
-                "maxsize": self._embedding_cache_size,
-                "hits": self._embedding_cache_hits,
-                "misses": self._embedding_cache_misses,
-                "hit_rate": hit_rate,
-            }
+        total = self._embedding_cache_hits + self._embedding_cache_misses
+        hit_rate = self._embedding_cache_hits / total if total > 0 else 0.0
+        return {
+            "size": len(self._embedding_cache),
+            "maxsize": self._embedding_cache_size,
+            "hits": self._embedding_cache_hits,
+            "misses": self._embedding_cache_misses,
+            "hit_rate": hit_rate,
+        }
 
     # =========================================================================
     # Fitted attributes (sklearn convention: trailing underscore)

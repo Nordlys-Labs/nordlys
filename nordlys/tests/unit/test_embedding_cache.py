@@ -1,6 +1,5 @@
 """Unit tests for Nordlys embedding cache functionality."""
 
-import threading
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -170,65 +169,6 @@ class TestComputeEmbeddingCached:
 
         # Should compute both times since caching is disabled
         assert mock_model.encode.call_count == 2
-
-
-class TestCacheThreadSafety:
-    """Test thread safety of embedding cache."""
-
-    def test_concurrent_cache_access(self, sample_models: list[ModelConfig]) -> None:
-        """Test that concurrent access doesn't corrupt cache state."""
-        nordlys = Nordlys(models=sample_models, embedding_cache_size=100)
-        errors: list[Exception] = []
-
-        def cache_operation(prompt_id: int) -> None:
-            try:
-                prompt = f"test prompt {prompt_id}"
-                # Simulate cache operations
-                nordlys._embedding_cache[prompt] = np.zeros(384)
-                _ = nordlys.embedding_cache_info()
-                if prompt_id % 2 == 0:
-                    nordlys.clear_embedding_cache()
-            except Exception as e:
-                errors.append(e)
-
-        threads = [
-            threading.Thread(target=cache_operation, args=(i,)) for i in range(20)
-        ]
-
-        for t in threads:
-            t.start()
-        for t in threads:
-            t.join()
-
-        # No exceptions should occur
-        assert len(errors) == 0
-
-    def test_concurrent_cache_info_reads(
-        self, sample_models: list[ModelConfig]
-    ) -> None:
-        """Test that concurrent reads of cache_info are safe."""
-        nordlys = Nordlys(models=sample_models, embedding_cache_size=100)
-        results: list[dict] = []
-
-        def read_cache_info() -> None:
-            for _ in range(100):
-                info = nordlys.embedding_cache_info()
-                results.append(info)
-
-        threads = [threading.Thread(target=read_cache_info) for _ in range(5)]
-
-        for t in threads:
-            t.start()
-        for t in threads:
-            t.join()
-
-        # All reads should complete without error
-        assert len(results) == 500
-        # All should have valid structure
-        for info in results:
-            assert "size" in info
-            assert "maxsize" in info
-            assert "hit_rate" in info
 
 
 class TestCacheLRUEviction:
