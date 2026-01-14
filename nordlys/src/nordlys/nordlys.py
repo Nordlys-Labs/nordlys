@@ -239,7 +239,7 @@ class Nordlys:
         )
         return embeddings
 
-    def _compute_embedding_cached(self, text: str) -> np.ndarray:
+    def compute_embedding(self, text: str) -> np.ndarray:
         """Compute embedding for a single text with LRU caching.
 
         Caches embeddings to avoid recomputation for repeated prompts.
@@ -407,7 +407,7 @@ class Nordlys:
         assert self._core_engine is not None
 
         # Compute embedding (with caching for repeated prompts)
-        embedding = self._compute_embedding_cached(prompt)
+        embedding = self.compute_embedding(prompt)
 
         # Ensure correct dtype and C-contiguous
         target_dtype = np.float64 if self._dtype == "float64" else np.float32

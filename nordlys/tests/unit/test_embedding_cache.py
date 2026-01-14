@@ -93,8 +93,8 @@ class TestClearEmbeddingCache:
         assert len(nordlys._embedding_cache) == 0
 
 
-class TestComputeEmbeddingCached:
-    """Test _compute_embedding_cached() method."""
+class TestComputeEmbedding:
+    """Test compute_embedding() method."""
 
     def test_cache_miss_computes_embedding(
         self, sample_models: list[ModelConfig]
@@ -107,7 +107,7 @@ class TestComputeEmbeddingCached:
         mock_model.encode.return_value = np.array([mock_embedding])
 
         with patch.object(nordlys, "_load_embedding_model", return_value=mock_model):
-            result = nordlys._compute_embedding_cached("test prompt")
+            result = nordlys.compute_embedding("test prompt")
 
         mock_model.encode.assert_called_once_with(
             ["test prompt"], convert_to_numpy=True
@@ -125,7 +125,7 @@ class TestComputeEmbeddingCached:
 
         mock_model = MagicMock()
         with patch.object(nordlys, "_load_embedding_model", return_value=mock_model):
-            result = nordlys._compute_embedding_cached("test prompt")
+            result = nordlys.compute_embedding("test prompt")
 
         # Model should not be called on cache hit
         mock_model.encode.assert_not_called()
