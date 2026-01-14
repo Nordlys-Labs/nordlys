@@ -33,7 +33,9 @@ class TestEmbeddingCacheInitialization:
         assert nordlys._embedding_cache_size == 500
         assert nordlys._embedding_cache.maxsize == 500
 
-    def test_cache_size_zero_uses_minimum(self, sample_models: list[ModelConfig]) -> None:
+    def test_cache_size_zero_uses_minimum(
+        self, sample_models: list[ModelConfig]
+    ) -> None:
         """Test that cache size 0 still creates cache with maxsize 1."""
         nordlys = Nordlys(models=sample_models, embedding_cache_size=0)
         assert nordlys._embedding_cache_size == 0
@@ -62,7 +64,9 @@ class TestEmbeddingCacheInfo:
         assert info["misses"] == 0
         assert info["hit_rate"] == 0.0
 
-    def test_cache_info_after_operations(self, sample_models: list[ModelConfig]) -> None:
+    def test_cache_info_after_operations(
+        self, sample_models: list[ModelConfig]
+    ) -> None:
         """Test cache info reflects operations correctly."""
         nordlys = Nordlys(models=sample_models, embedding_cache_size=100)
 
@@ -112,7 +116,9 @@ class TestClearEmbeddingCache:
 class TestComputeEmbeddingCached:
     """Test _compute_embedding_cached() method."""
 
-    def test_cache_miss_computes_embedding(self, sample_models: list[ModelConfig]) -> None:
+    def test_cache_miss_computes_embedding(
+        self, sample_models: list[ModelConfig]
+    ) -> None:
         """Test that cache miss triggers embedding computation."""
         nordlys = Nordlys(models=sample_models, embedding_cache_size=100)
 
@@ -123,7 +129,9 @@ class TestComputeEmbeddingCached:
         with patch.object(nordlys, "_load_embedding_model", return_value=mock_model):
             result = nordlys._compute_embedding_cached("test prompt")
 
-        mock_model.encode.assert_called_once_with(["test prompt"], convert_to_numpy=True)
+        mock_model.encode.assert_called_once_with(
+            ["test prompt"], convert_to_numpy=True
+        )
         np.testing.assert_array_equal(result, mock_embedding)
         assert nordlys._embedding_cache_misses == 1
         assert "test prompt" in nordlys._embedding_cache
@@ -145,7 +153,9 @@ class TestComputeEmbeddingCached:
         np.testing.assert_array_equal(result, cached_embedding)
         assert nordlys._embedding_cache_hits == 1
 
-    def test_cache_disabled_always_computes(self, sample_models: list[ModelConfig]) -> None:
+    def test_cache_disabled_always_computes(
+        self, sample_models: list[ModelConfig]
+    ) -> None:
         """Test that with cache_size=0, embeddings are always computed."""
         nordlys = Nordlys(models=sample_models, embedding_cache_size=0)
 
@@ -182,8 +192,7 @@ class TestCacheThreadSafety:
                 errors.append(e)
 
         threads = [
-            threading.Thread(target=cache_operation, args=(i,))
-            for i in range(20)
+            threading.Thread(target=cache_operation, args=(i,)) for i in range(20)
         ]
 
         for t in threads:
@@ -194,7 +203,9 @@ class TestCacheThreadSafety:
         # No exceptions should occur
         assert len(errors) == 0
 
-    def test_concurrent_cache_info_reads(self, sample_models: list[ModelConfig]) -> None:
+    def test_concurrent_cache_info_reads(
+        self, sample_models: list[ModelConfig]
+    ) -> None:
         """Test that concurrent reads of cache_info are safe."""
         nordlys = Nordlys(models=sample_models, embedding_cache_size=100)
         results: list[dict] = []
