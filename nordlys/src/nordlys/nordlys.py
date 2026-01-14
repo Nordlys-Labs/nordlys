@@ -12,25 +12,12 @@ import threading
 import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
 from cachetools import LRUCache
 from pydantic import BaseModel, Field
 from sentence_transformers import SentenceTransformer
-
-if TYPE_CHECKING:
-    from typing import TypedDict
-
-    class EmbeddingCacheInfo(TypedDict):
-        """Type definition for embedding cache statistics."""
-
-        size: int
-        maxsize: int
-        hits: int
-        misses: int
-        hit_rate: float
 
 from nordlys.clustering import (
     ClusterInfo,
@@ -536,7 +523,7 @@ class Nordlys:
             self._embedding_cache_hits = 0
             self._embedding_cache_misses = 0
 
-    def embedding_cache_info(self) -> "EmbeddingCacheInfo":
+    def embedding_cache_info(self) -> dict[str, int | float]:
         """Get embedding cache statistics.
 
         Returns:
