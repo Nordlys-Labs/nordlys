@@ -36,14 +36,18 @@ class TestEmbeddingCacheInitialization:
         self, sample_models: list[ModelConfig]
     ) -> None:
         """Test that cache size 0 raises ValueError."""
-        with pytest.raises(ValueError, match="embedding_cache_size must be greater than 0"):
+        with pytest.raises(
+            ValueError, match="embedding_cache_size must be greater than 0"
+        ):
             Nordlys(models=sample_models, embedding_cache_size=0)
 
     def test_cache_size_negative_raises_error(
         self, sample_models: list[ModelConfig]
     ) -> None:
         """Test that negative cache size raises ValueError."""
-        with pytest.raises(ValueError, match="embedding_cache_size must be greater than 0"):
+        with pytest.raises(
+            ValueError, match="embedding_cache_size must be greater than 0"
+        ):
             Nordlys(models=sample_models, embedding_cache_size=-1)
 
     def test_initial_cache_empty(self, sample_models: list[ModelConfig]) -> None:
