@@ -169,10 +169,24 @@ class Nordlys:
         self._models = models
         self._model_ids = [m.id for m in models]
 
-        # Embedding model - lazy loaded on first use
+        # Embedding model - loaded at initialization
         self._embedding_model_name = embedding_model
-        self._embedding_model: SentenceTransformer | None = None
         self._allow_trust_remote_code = allow_trust_remote_code
+        self._embedding_model: SentenceTransformer
+        device = _get_device()
+        logger.info(f"Loading embedding model '{embedding_model}' on device: {device}")
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message=".*clean_up_tokenization_spaces.*",
+                category=FutureWarning,
+            )
+            self._embedding_model = SentenceTransformer(
+                embedding_model,
+                device=device,
+                trust_remote_code=allow_trust_remote_code,
+            )
+        self._embedding_model.tokenizer.clean_up_tokenization_spaces = False
 
         # Embedding cache - LRU cache for computed embeddings
         self._embedding_cache_size = embedding_cache_size
@@ -204,40 +218,49 @@ class Nordlys:
         self._is_fitted = False
         self._dtype = "float32"
 
-    def _load_embedding_model(self) -> SentenceTransformer:
-        """Load the embedding model lazily."""
-        if self._embedding_model is not None:
-            return self._embedding_model
-
-        device = _get_device()
-        logger.info(
-            f"Loading embedding model '{self._embedding_model_name}' on device: {device}"
-        )
-
-        with warnings.catch_warnings():
-            warnings.filterwarnings(
-                "ignore",
-                message=".*clean_up_tokenization_spaces.*",
-                category=FutureWarning,
-            )
-            self._embedding_model = SentenceTransformer(
-                self._embedding_model_name,
-                device=device,
-                trust_remote_code=self._allow_trust_remote_code,
-            )
-        self._embedding_model.tokenizer.clean_up_tokenization_spaces = False
-
-        return self._embedding_model
-
     def _compute_embeddings(self, texts: list[str]) -> np.ndarray:
-        """Compute embeddings for texts."""
-        model = self._load_embedding_model()
-        embeddings = model.encode(
-            texts,
-            convert_to_numpy=True,
-            show_progress_bar=len(texts) > 100,
-        )
-        return embeddings
+        """Compute embeddings for texts in batch with caching support.
+
+        Checks cache first for each text, then computes only cache misses in batch.
+        This combines the efficiency of batch processing with cache benefits.
+        """
+        if not texts:
+            return np.array([])
+
+        # Separate texts into cache hits and misses using comprehensions
+        cached_embeddings = {
+            i: self._embedding_cache[text]
+            for i, text in enumerate(texts)
+            if text in self._embedding_cache
+        }
+        texts_to_compute = [
+            text for i, text in enumerate(texts) if i not in cached_embeddings
+        ]
+
+        # Compute embeddings for cache misses in batch
+        if texts_to_compute:
+            new_embeddings = self._embedding_model.encode(
+                texts_to_compute,
+                convert_to_numpy=True,
+                show_progress_bar=len(texts_to_compute) > 100,
+            )
+
+            # Store newly computed embeddings in cache
+            for text, embedding in zip(texts_to_compute, new_embeddings):
+                self._embedding_cache[text] = embedding
+
+            # Create mapping from text to embedding for easy lookup
+            new_embeddings_map = dict(zip(texts_to_compute, new_embeddings))
+        else:
+            new_embeddings_map = {}
+
+        # Combine cached and newly computed embeddings in correct order using comprehension
+        all_embeddings = [
+            cached_embeddings[i] if i in cached_embeddings else new_embeddings_map[text]
+            for i, text in enumerate(texts)
+        ]
+
+        return np.stack(all_embeddings)
 
     def compute_embedding(self, text: str) -> np.ndarray:
         """Compute embedding for a single text with LRU caching.
@@ -257,8 +280,9 @@ class Nordlys:
             return self._embedding_cache[text]
 
         # Cache miss: compute embedding
-        model = self._load_embedding_model()
-        embedding: np.ndarray = model.encode([text], convert_to_numpy=True)[0]
+        embedding: np.ndarray = self._embedding_model.encode(
+            [text], convert_to_numpy=True
+        )[0]
 
         self._embedding_cache[text] = embedding
 
@@ -393,6 +417,7 @@ class Nordlys:
         self,
         prompt: str,
         cost_bias: float = 0.5,
+        models: list[str] | None = None,
     ) -> RouteResult:
         """Route a prompt to the best model using C++ core engine.
 
@@ -415,7 +440,9 @@ class Nordlys:
             embedding = np.ascontiguousarray(embedding, dtype=target_dtype)
 
         # Route using C++ core
-        response = self._core_engine.route(embedding, cost_bias, [])
+        if models is None:
+            models = []
+        response = self._core_engine.route(embedding, cost_bias, models)
 
         return RouteResult(
             model_id=response.selected_model,
@@ -428,17 +455,50 @@ class Nordlys:
         self,
         prompts: list[str],
         cost_bias: float = 0.5,
+        models: list[str] | None = None,
     ) -> list[RouteResult]:
-        """Route multiple prompts in batch.
+        """Route multiple prompts in batch using core engine's route_batch.
 
         Args:
             prompts: List of text prompts
             cost_bias: Cost preference (0.0=cheapest, 1.0=highest quality)
+            models: Optional list of model IDs to filter
 
         Returns:
             List of RouteResults
         """
-        return [self.route(p, cost_bias) for p in prompts]
+        self._check_is_fitted()
+        assert self._core_engine is not None
+
+        if not prompts:
+            return []
+
+        if models is None:
+            models = []
+
+        # Compute embeddings in batch (more efficient for unique texts)
+        embeddings = self._compute_embeddings(prompts)
+
+        # Ensure correct dtype and C-contiguous
+        target_dtype = np.float64 if self._dtype == "float64" else np.float32
+        if embeddings.dtype != target_dtype or not embeddings.flags["C_CONTIGUOUS"]:
+            embeddings = np.ascontiguousarray(embeddings, dtype=target_dtype)
+
+        embeddings_array = embeddings
+
+        # Route using C++ core engine's route_batch
+        responses = self._core_engine.route_batch(embeddings_array, cost_bias, models)
+
+        # Convert responses to RouteResult objects
+        return [
+            RouteResult(
+                model_id=response.selected_model,
+                cluster_id=response.cluster_id,
+                cluster_distance=float(response.cluster_distance),
+                alternatives=list(response.alternatives),
+            )
+            for response in responses
+        ]
 
     def _check_is_fitted(self) -> None:
         """Check if model is fitted."""
@@ -644,8 +704,6 @@ class Nordlys:
             "routing": {
                 "cost_bias_min": 0.0,
                 "cost_bias_max": 1.0,
-                "default_cost_bias": 0.5,
-                "max_alternatives": 5,
             },
             "metrics": {
                 "n_samples": self._metrics.n_samples,

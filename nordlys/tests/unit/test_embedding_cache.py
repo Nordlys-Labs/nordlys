@@ -1,6 +1,6 @@
 """Unit tests for Nordlys embedding cache functionality."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
@@ -110,8 +110,10 @@ class TestComputeEmbedding:
         mock_model = MagicMock()
         mock_model.encode.return_value = np.array([mock_embedding])
 
-        with patch.object(nordlys, "_load_embedding_model", return_value=mock_model):
-            result = nordlys.compute_embedding("test prompt")
+        # Replace the embedding model with mock
+        nordlys._embedding_model = mock_model
+
+        result = nordlys.compute_embedding("test prompt")
 
         mock_model.encode.assert_called_once_with(
             ["test prompt"], convert_to_numpy=True
@@ -128,8 +130,10 @@ class TestComputeEmbedding:
         nordlys._embedding_cache["test prompt"] = cached_embedding
 
         mock_model = MagicMock()
-        with patch.object(nordlys, "_load_embedding_model", return_value=mock_model):
-            result = nordlys.compute_embedding("test prompt")
+        # Replace the embedding model with mock
+        nordlys._embedding_model = mock_model
+
+        result = nordlys.compute_embedding("test prompt")
 
         # Model should not be called on cache hit
         mock_model.encode.assert_not_called()
@@ -157,3 +161,105 @@ class TestCacheLRUEviction:
         assert len(nordlys._embedding_cache) == 3
         assert "prompt1" not in nordlys._embedding_cache
         assert "prompt4" in nordlys._embedding_cache
+
+
+class TestComputeEmbeddingsBatch:
+    """Test _compute_embeddings() batch method with caching."""
+
+    def test_compute_embeddings_all_cache_hits(
+        self, sample_models: list[ModelConfig]
+    ) -> None:
+        """Test that _compute_embeddings uses cache for all texts."""
+        nordlys = Nordlys(models=sample_models, embedding_cache_size=100)
+
+        # Pre-populate cache
+        texts = ["text1", "text2", "text3"]
+        cached_embeddings = {
+            "text1": np.random.randn(384).astype(np.float32),
+            "text2": np.random.randn(384).astype(np.float32),
+            "text3": np.random.randn(384).astype(np.float32),
+        }
+        for text, emb in cached_embeddings.items():
+            nordlys._embedding_cache[text] = emb
+
+        mock_model = MagicMock()
+        nordlys._embedding_model = mock_model
+
+        result = nordlys._compute_embeddings(texts)
+
+        # Model should not be called if all are cache hits
+        mock_model.encode.assert_not_called()
+        assert result.shape == (3, 384)
+        np.testing.assert_array_equal(result[0], cached_embeddings["text1"])
+        np.testing.assert_array_equal(result[1], cached_embeddings["text2"])
+        np.testing.assert_array_equal(result[2], cached_embeddings["text3"])
+
+    def test_compute_embeddings_all_cache_misses(
+        self, sample_models: list[ModelConfig]
+    ) -> None:
+        """Test that _compute_embeddings computes all texts in batch on cache miss."""
+        nordlys = Nordlys(models=sample_models, embedding_cache_size=100)
+
+        texts = ["text1", "text2", "text3"]
+        mock_embeddings = np.random.randn(3, 384).astype(np.float32)
+        mock_model = MagicMock()
+        mock_model.encode.return_value = mock_embeddings
+        nordlys._embedding_model = mock_model
+
+        result = nordlys._compute_embeddings(texts)
+
+        # Model should be called once with all texts
+        mock_model.encode.assert_called_once_with(
+            texts, convert_to_numpy=True, show_progress_bar=False
+        )
+        assert result.shape == (3, 384)
+        np.testing.assert_array_equal(result, mock_embeddings)
+
+        # All texts should be in cache now
+        for text in texts:
+            assert text in nordlys._embedding_cache
+
+    def test_compute_embeddings_mixed_cache_hits_misses(
+        self, sample_models: list[ModelConfig]
+    ) -> None:
+        """Test that _compute_embeddings handles mixed cache hits and misses."""
+        nordlys = Nordlys(models=sample_models, embedding_cache_size=100)
+
+        # Pre-populate cache for some texts
+        cached_emb = np.random.randn(384).astype(np.float32)
+        nordlys._embedding_cache["text1"] = cached_emb.copy()
+        nordlys._embedding_cache["text3"] = cached_emb.copy()
+
+        texts = ["text1", "text2", "text3", "text4"]
+        # text1 and text3 are cached, text2 and text4 need computation
+        new_embeddings = np.random.randn(2, 384).astype(np.float32)
+        mock_model = MagicMock()
+        mock_model.encode.return_value = new_embeddings
+        nordlys._embedding_model = mock_model
+
+        result = nordlys._compute_embeddings(texts)
+
+        # Model should be called once with only cache misses
+        mock_model.encode.assert_called_once_with(
+            ["text2", "text4"], convert_to_numpy=True, show_progress_bar=False
+        )
+        assert result.shape == (4, 384)
+
+        # Verify order is preserved: text1 (cached), text2 (new), text3 (cached), text4 (new)
+        np.testing.assert_array_equal(result[0], cached_emb)
+        np.testing.assert_array_equal(result[1], new_embeddings[0])
+        np.testing.assert_array_equal(result[2], cached_emb)
+        np.testing.assert_array_equal(result[3], new_embeddings[1])
+
+        # New texts should be in cache
+        assert "text2" in nordlys._embedding_cache
+        assert "text4" in nordlys._embedding_cache
+
+    def test_compute_embeddings_empty_list(
+        self, sample_models: list[ModelConfig]
+    ) -> None:
+        """Test that _compute_embeddings handles empty list."""
+        nordlys = Nordlys(models=sample_models, embedding_cache_size=100)
+        result = nordlys._compute_embeddings([])
+        assert result.shape == (0,)
+        assert len(result) == 0
