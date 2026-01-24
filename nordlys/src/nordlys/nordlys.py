@@ -78,8 +78,9 @@ class ModelConfig(BaseModel):
     @property
     def provider(self) -> str:
         """Extract provider from model ID."""
-        provider, _, _ = self.id.partition("/")
-        return provider
+        provider, separator, _ = self.id.partition("/")
+        # If no slash found, separator is empty, so return empty string
+        return provider if separator else ""
 
     @property
     def model_name(self) -> str:
