@@ -63,8 +63,8 @@ conflicts = [[{ extra = "cpu" }, { extra = "cu12" }]]
 
 [tool.uv.sources]
 torch = [
-  { index = "pytorch-cpu", extra = "cpu" },
-  { index = "pytorch-cu128", extra = "cu12" },
+  { index = "pytorch-cpu", extra = "cpu", marker = "sys_platform != 'darwin'" },
+  { index = "pytorch-cu128", extra = "cu12", marker = "sys_platform != 'darwin'" },
 ]
 
 [[tool.uv.index]]
@@ -79,7 +79,6 @@ explicit = true
 
 
 [dependency-groups]
-
 dev = [
   "ty>=0.0.3,<1",
   "ruff>=0.11.11,<0.14",
@@ -88,6 +87,7 @@ dev = [
   "pytest>=9.0.2",
   "pytest-cov>=6.2.1",
   "pytest-asyncio>=0.26.0",
+  "pytest-benchmark>=5.2.3",
 ]
 test = ["pytest>=9.0.2", "pytest-cov>=6.2.1,<8", "pytest-asyncio>=0.26.0"]
 
@@ -107,6 +107,7 @@ unresolved-import = "ignore"
 
 [tool.pytest.ini_options]
 addopts = "-v"
+python_functions = ["test_*", "bench_*"]
 filterwarnings = [
   "ignore::sklearn.exceptions.ConvergenceWarning",
   "ignore:Graph is not fully connected:UserWarning",

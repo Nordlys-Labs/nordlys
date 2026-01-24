@@ -59,6 +59,16 @@ class TestNordlysAttributes:
         )
         assert "paraphrase" in nordlys._embedding_model_name
 
+    def test_nordlys_embedding_model_loaded_at_init(self, sample_models):
+        """Test that embedding model is loaded at initialization."""
+        nordlys = Nordlys(models=sample_models)
+        # Embedding model should be loaded (not None)
+        assert nordlys._embedding_model is not None
+        # Should be a SentenceTransformer instance
+        from sentence_transformers import SentenceTransformer
+
+        assert isinstance(nordlys._embedding_model, SentenceTransformer)
+
 
 class TestNordlysState:
     """Test Nordlys fitted state."""

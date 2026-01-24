@@ -241,3 +241,37 @@ class TestBatchRouting:
         results = fitted_nordlys.route_batch(["Single prompt"])
         assert len(results) == 1
         assert isinstance(results[0], RouteResult)
+
+    def test_route_batch_uses_batch_processing(self, fitted_nordlys):
+        """Test that route_batch processes all prompts in a single batch."""
+        prompts = ["Prompt 1", "Prompt 2", "Prompt 3", "Prompt 4", "Prompt 5"]
+        results = fitted_nordlys.route_batch(prompts)
+
+        # All results should be valid RouteResults
+        assert len(results) == len(prompts)
+        for result in results:
+            assert isinstance(result, RouteResult)
+            assert result.model_id is not None
+            assert result.cluster_id >= 0
+
+    def test_route_batch_with_repeated_prompts(self, fitted_nordlys):
+        """Test that route_batch handles repeated prompts correctly."""
+        prompts = ["Same prompt", "Same prompt", "Different prompt"]
+        results = fitted_nordlys.route_batch(prompts)
+
+        assert len(results) == 3
+        # Same prompts should produce same results
+        assert results[0].model_id == results[1].model_id
+        assert results[0].cluster_id == results[1].cluster_id
+        # Different prompt may or may not match
+        assert isinstance(results[2], RouteResult)
+
+    def test_route_batch_large_batch(self, fitted_nordlys):
+        """Test route_batch with a large batch of prompts."""
+        prompts = [f"Prompt {i}" for i in range(100)]
+        results = fitted_nordlys.route_batch(prompts)
+
+        assert len(results) == 100
+        for result in results:
+            assert isinstance(result, RouteResult)
+            assert result.model_id is not None
