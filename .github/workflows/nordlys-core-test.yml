@@ -122,7 +122,7 @@ jobs:
 
       - name: Build Python bindings
         working-directory: nordlys-core
-        run: cmake --build --preset conan-release --parallel --target nordlys_core_ext
+        run: cmake --build --preset conan-release --parallel --target _core
 
       - name: Install Python test dependencies
         working-directory: nordlys-core/bindings/python
