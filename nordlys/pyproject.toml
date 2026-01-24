@@ -49,7 +49,7 @@ Documentation = "https://docs.nordlyslabs.com"
 [project.optional-dependencies]
 cpu = [
   "nordlys-core>=0.2.1,<1",
-  "torch>=2.2.0,<2.9.0",
+  "torch>=2.2.0,<2.8.0",
   "sentence-transformers>=5.2.0,<6",
 ]
 cu12 = [
