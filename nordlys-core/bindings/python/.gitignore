@@ -1,0 +1,32 @@
+# Build artifacts
+build/
+.venv/
+.pytest_cache/
+CMakeFiles/
+cmake_install.cmake
+CMakeCache.txt
+
+# Compiled extensions
+*.a
+*.so
+*.dylib
+*.dll
+*.pyd
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

@@ -11,7 +11,7 @@ class TestNordlysCheckpointCreation:
 
     def test_from_json_string(self, sample_checkpoint_json: str):
         """Test creating checkpoint from JSON string."""
-        from nordlys_core_ext import NordlysCheckpoint
+        from nordlys_core import NordlysCheckpoint
 
         checkpoint = NordlysCheckpoint.from_json_string(sample_checkpoint_json)
         assert checkpoint.n_clusters == 3
@@ -20,7 +20,7 @@ class TestNordlysCheckpointCreation:
 
     def test_from_json_file(self, sample_checkpoint_path: Path):
         """Test creating checkpoint from JSON file."""
-        from nordlys_core_ext import NordlysCheckpoint
+        from nordlys_core import NordlysCheckpoint
 
         checkpoint = NordlysCheckpoint.from_json_file(str(sample_checkpoint_path))
         assert checkpoint.n_clusters == 3
@@ -28,7 +28,7 @@ class TestNordlysCheckpointCreation:
 
     def test_from_msgpack_string(self, sample_checkpoint_json: str):
         """Test creating checkpoint from MessagePack string."""
-        from nordlys_core_ext import NordlysCheckpoint
+        from nordlys_core import NordlysCheckpoint
 
         # First create a checkpoint and serialize to msgpack
         checkpoint = NordlysCheckpoint.from_json_string(sample_checkpoint_json)
@@ -41,7 +41,7 @@ class TestNordlysCheckpointCreation:
 
     def test_from_msgpack_file(self, tmp_path: Path, sample_checkpoint_json: str):
         """Test creating checkpoint from MessagePack file."""
-        from nordlys_core_ext import NordlysCheckpoint
+        from nordlys_core import NordlysCheckpoint
 
         # Create checkpoint and write to msgpack file
         checkpoint = NordlysCheckpoint.from_json_string(sample_checkpoint_json)
@@ -55,14 +55,14 @@ class TestNordlysCheckpointCreation:
 
     def test_invalid_json_raises(self):
         """Test that invalid JSON raises an error."""
-        from nordlys_core_ext import NordlysCheckpoint
+        from nordlys_core import NordlysCheckpoint
 
         with pytest.raises(RuntimeError):
             NordlysCheckpoint.from_json_string("not valid json")
 
     def test_float64_support(self, sample_checkpoint_json_float64: str):
         """Test float64 checkpoint creation."""
-        from nordlys_core_ext import NordlysCheckpoint
+        from nordlys_core import NordlysCheckpoint
 
         checkpoint = NordlysCheckpoint.from_json_string(sample_checkpoint_json_float64)
         assert checkpoint.dtype == "float64"
@@ -73,7 +73,7 @@ class TestNordlysCheckpointSerialization:
 
     def test_json_round_trip(self, sample_checkpoint_json: str):
         """Test JSON serialization round-trip."""
-        from nordlys_core_ext import NordlysCheckpoint
+        from nordlys_core import NordlysCheckpoint
 
         # Load from JSON
         original = NordlysCheckpoint.from_json_string(sample_checkpoint_json)
@@ -91,7 +91,7 @@ class TestNordlysCheckpointSerialization:
 
     def test_msgpack_round_trip(self, sample_checkpoint_json: str):
         """Test MessagePack serialization round-trip."""
-        from nordlys_core_ext import NordlysCheckpoint
+        from nordlys_core import NordlysCheckpoint
 
         # Load from JSON
         original = NordlysCheckpoint.from_json_string(sample_checkpoint_json)
@@ -109,7 +109,7 @@ class TestNordlysCheckpointSerialization:
 
     def test_file_operations_json(self, tmp_path: Path, sample_checkpoint_json: str):
         """Test JSON file operations."""
-        from nordlys_core_ext import NordlysCheckpoint
+        from nordlys_core import NordlysCheckpoint
 
         # Create checkpoint
         original = NordlysCheckpoint.from_json_string(sample_checkpoint_json)
@@ -126,7 +126,7 @@ class TestNordlysCheckpointSerialization:
 
     def test_file_operations_msgpack(self, tmp_path: Path, sample_checkpoint_json: str):
         """Test MessagePack file operations."""
-        from nordlys_core_ext import NordlysCheckpoint
+        from nordlys_core import NordlysCheckpoint
 
         # Create checkpoint
         original = NordlysCheckpoint.from_json_string(sample_checkpoint_json)
@@ -147,7 +147,7 @@ class TestNordlysCheckpointValidation:
 
     def test_valid_checkpoint_passes_validation(self, sample_checkpoint_json: str):
         """Test that valid checkpoints pass validation."""
-        from nordlys_core_ext import NordlysCheckpoint
+        from nordlys_core import NordlysCheckpoint
 
         checkpoint = NordlysCheckpoint.from_json_string(sample_checkpoint_json)
         # Should not raise
@@ -155,7 +155,7 @@ class TestNordlysCheckpointValidation:
 
     def test_invalid_checkpoint_fails_validation(self, sample_checkpoint_json: str):
         """Test that invalid checkpoints fail validation during parsing."""
-        from nordlys_core_ext import NordlysCheckpoint
+        from nordlys_core import NordlysCheckpoint
 
         # Create a checkpoint with invalid n_clusters - validation happens during parsing
         invalid_json = json.loads(sample_checkpoint_json)
@@ -170,7 +170,7 @@ class TestNordlysCheckpointProperties:
 
     def test_properties_accessible(self, sample_checkpoint_json: str):
         """Test that all properties are accessible."""
-        from nordlys_core_ext import NordlysCheckpoint
+        from nordlys_core import NordlysCheckpoint
 
         checkpoint = NordlysCheckpoint.from_json_string(sample_checkpoint_json)
 

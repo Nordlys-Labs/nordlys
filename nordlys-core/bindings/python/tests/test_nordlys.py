@@ -9,7 +9,7 @@ class TestNordlys32Creation:
 
     def test_from_checkpoint(self, sample_checkpoint_json: str):
         """Test creating nordlys32 from checkpoint."""
-        from nordlys_core_ext import Nordlys32, NordlysCheckpoint
+        from nordlys_core import Nordlys32, NordlysCheckpoint
 
         checkpoint = NordlysCheckpoint.from_json_string(sample_checkpoint_json)
         nordlys32 = Nordlys32.from_checkpoint(checkpoint)
@@ -18,7 +18,7 @@ class TestNordlys32Creation:
 
     def test_from_checkpoint_file(self, sample_checkpoint_path):
         """Test creating nordlys32 from checkpoint loaded from file."""
-        from nordlys_core_ext import Nordlys32, NordlysCheckpoint
+        from nordlys_core import Nordlys32, NordlysCheckpoint
 
         checkpoint = NordlysCheckpoint.from_json_file(str(sample_checkpoint_path))
         nordlys32 = Nordlys32.from_checkpoint(checkpoint)
@@ -26,7 +26,7 @@ class TestNordlys32Creation:
 
     def test_dtype_mismatch_raises(self, sample_checkpoint_json_float64: str):
         """Test that loading float64 checkpoint into Nordlys32 raises error."""
-        from nordlys_core_ext import Nordlys32, NordlysCheckpoint
+        from nordlys_core import Nordlys32, NordlysCheckpoint
 
         checkpoint = NordlysCheckpoint.from_json_string(sample_checkpoint_json_float64)
         with pytest.raises(ValueError):
@@ -45,7 +45,7 @@ class TestRouting:
 
     def test_route_float32(self, nordlys32, sample_embedding):
         """Test routing with float32 embedding."""
-        from nordlys_core_ext import RouteResult32
+        from nordlys_core import RouteResult32
 
         response = nordlys32.route(sample_embedding, cost_bias=0.5)
 
@@ -57,7 +57,7 @@ class TestRouting:
 
     def test_route_float64(self, nordlys64):
         """Test routing with float64 embedding."""
-        from nordlys_core_ext import RouteResult64
+        from nordlys_core import RouteResult64
 
         embedding = np.array([0.0, 0.9, 0.1, 0.0], dtype=np.float64)
         response = nordlys64.route(embedding, cost_bias=0.5)

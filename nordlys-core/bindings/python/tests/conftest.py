@@ -84,7 +84,7 @@ def sample_checkpoint_json_float64() -> str:
 @pytest.fixture
 def nordlys32(sample_checkpoint_json: str):
     """Create a Nordlys32 instance from sample checkpoint."""
-    from nordlys_core_ext import Nordlys32, NordlysCheckpoint
+    from nordlys_core import Nordlys32, NordlysCheckpoint
 
     checkpoint = NordlysCheckpoint.from_json_string(sample_checkpoint_json)
     return Nordlys32.from_checkpoint(checkpoint)
@@ -93,7 +93,7 @@ def nordlys32(sample_checkpoint_json: str):
 @pytest.fixture
 def nordlys64(sample_checkpoint_json_float64: str):
     """Create a Nordlys64 instance from sample checkpoint."""
-    from nordlys_core_ext import Nordlys64, NordlysCheckpoint
+    from nordlys_core import Nordlys64, NordlysCheckpoint
 
     checkpoint = NordlysCheckpoint.from_json_string(sample_checkpoint_json_float64)
     return Nordlys64.from_checkpoint(checkpoint)
