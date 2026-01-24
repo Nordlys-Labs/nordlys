@@ -40,7 +40,7 @@ TYPED_TEST_SUITE(ClusterEngineCpuTestT, ScalarTypes);
 
 TYPED_TEST(ClusterEngineCpuTestT, EmptyEngine) {
   EXPECT_EQ(this->engine.get_n_clusters(), 0);
-  EXPECT_FALSE(this->engine.is_gpu_accelerated());
+  EXPECT_EQ(this->engine.get_device(), ClusterBackendType::Cpu);
 }
 
 TYPED_TEST(ClusterEngineCpuTestT, LoadCentroids) {
@@ -426,7 +426,7 @@ TYPED_TEST_SUITE(ClusterEngineCudaTestT, ScalarTypes);
 
 TYPED_TEST(ClusterEngineCudaTestT, EmptyEngine) {
   EXPECT_EQ(this->engine.get_n_clusters(), 0);
-  EXPECT_TRUE(this->engine.is_gpu_accelerated());
+  EXPECT_EQ(this->engine.get_device(), ClusterBackendType::CUDA);
 }
 
 TYPED_TEST(ClusterEngineCudaTestT, LoadCentroids) {
@@ -1081,29 +1081,22 @@ TEST(BackendComparisonTest, EdgeCaseConsistency) {
 // SECTION 7: Backend Factory & Error Handling
 // =============================================================================
 
-TEST(ClusterBackendFactoryTest, AutoSelectsCUDAWhenAvailable) {
-  auto engine = ClusterEngine<float>(ClusterBackendType::Auto);
+TEST(ClusterBackendFactoryTest, CpuBackendWorks) {
+  auto engine = ClusterEngine<float>(ClusterBackendType::Cpu);
 
-  if (cuda_available()) {
-    EXPECT_TRUE(engine.is_gpu_accelerated());
-  } else {
-    EXPECT_FALSE(engine.is_gpu_accelerated());
-  }
+  EXPECT_EQ(engine.get_device(), ClusterBackendType::Cpu);
 }
 
 TEST(ClusterBackendFactoryTest, ExplicitCPUBackend) {
   auto engine = ClusterEngine<float>(ClusterBackendType::Cpu);
-  EXPECT_FALSE(engine.is_gpu_accelerated());
+  EXPECT_EQ(engine.get_device(), ClusterBackendType::Cpu);
 }
 
 TEST(ClusterBackendFactoryTest, ExplicitCUDABackendFallback) {
   auto engine = ClusterEngine<float>(ClusterBackendType::CUDA);
 
-  if (!cuda_available()) {
-    EXPECT_FALSE(engine.is_gpu_accelerated());
-  } else {
-    EXPECT_TRUE(engine.is_gpu_accelerated());
-  }
+  // Device should always be CUDA even if it falls back to CPU implementation
+  EXPECT_EQ(engine.get_device(), ClusterBackendType::CUDA);
 }
 
 TEST(ClusterBackendFactoryTest, CudaAvailableFunction) {
@@ -1113,11 +1106,11 @@ TEST(ClusterBackendFactoryTest, CudaAvailableFunction) {
 
 TEST(ClusterBackendFactoryTest, DoubleSupport) {
   ClusterEngine<double> cpu_engine(ClusterBackendType::Cpu);
-  EXPECT_FALSE(cpu_engine.is_gpu_accelerated());
+  EXPECT_EQ(cpu_engine.get_device(), ClusterBackendType::Cpu);
 
   if (cuda_available()) {
     ClusterEngine<double> cuda_engine(ClusterBackendType::CUDA);
-    EXPECT_TRUE(cuda_engine.is_gpu_accelerated());
+    EXPECT_EQ(cuda_engine.get_device(), ClusterBackendType::CUDA);
   }
 }
 

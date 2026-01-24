@@ -46,14 +46,26 @@ static RouterVariant* get_router(NordlysRouter* router) {
   return router ? reinterpret_cast<RouterVariant*>(router) : nullptr;
 }
 
+// Helper to convert NordlysDevice to ClusterBackendType
+static ClusterBackendType device_to_backend_type(NordlysDevice device) {
+  switch (device) {
+    case NORDLYS_DEVICE_CPU:
+      return ClusterBackendType::Cpu;
+    case NORDLYS_DEVICE_CUDA:
+      return ClusterBackendType::CUDA;
+    default:
+      return ClusterBackendType::Cpu;
+  }
+}
+
 // Factory: creates correct router type based on profile dtype
-static std::optional<RouterVariant> create_router_variant(NordlysCheckpoint profile) {
+static std::optional<RouterVariant> create_router_variant(NordlysCheckpoint profile, ClusterBackendType device) {
   if (profile.dtype() == "float64") {
-    auto result = Nordlys<double>::from_checkpoint(std::move(profile));
+    auto result = Nordlys<double>::from_checkpoint(std::move(profile), device);
     if (!result) return std::nullopt;
     return RouterVariant{std::in_place_type<Nordlys<double>>, std::move(result.value())};
   } else {
-    auto result = Nordlys<float>::from_checkpoint(std::move(profile));
+    auto result = Nordlys<float>::from_checkpoint(std::move(profile), device);
     if (!result) return std::nullopt;
     return RouterVariant{std::in_place_type<Nordlys<float>>, std::move(result.value())};
   }
@@ -103,11 +115,12 @@ static ResultT* build_route_result(const RouteResult<Scalar>& response) {
 // C API implementation
 extern "C" {
 
-NordlysRouter* nordlys_router_create(const char* profile_path) {
+NordlysRouter* nordlys_router_create(const char* profile_path, NordlysDevice device) {
   if (!profile_path) return nullptr;
   try {
     auto profile = NordlysCheckpoint::from_json(profile_path);
-    auto variant = create_router_variant(std::move(profile));
+    auto backend_type = device_to_backend_type(device);
+    auto variant = create_router_variant(std::move(profile), backend_type);
     if (!variant) return nullptr;
     return reinterpret_cast<NordlysRouter*>(new RouterVariant(std::move(*variant)));
   } catch (...) {
@@ -115,11 +128,12 @@ NordlysRouter* nordlys_router_create(const char* profile_path) {
   }
 }
 
-NordlysRouter* nordlys_router_create_from_json(const char* json_str) {
+NordlysRouter* nordlys_router_create_from_json(const char* json_str, NordlysDevice device) {
   if (!json_str) return nullptr;
   try {
     auto profile = NordlysCheckpoint::from_json_string(json_str);
-    auto variant = create_router_variant(std::move(profile));
+    auto backend_type = device_to_backend_type(device);
+    auto variant = create_router_variant(std::move(profile), backend_type);
     if (!variant) return nullptr;
     return reinterpret_cast<NordlysRouter*>(new RouterVariant(std::move(*variant)));
   } catch (...) {
@@ -127,11 +141,12 @@ NordlysRouter* nordlys_router_create_from_json(const char* json_str) {
   }
 }
 
-NordlysRouter* nordlys_router_create_from_msgpack(const char* path) {
+NordlysRouter* nordlys_router_create_from_msgpack(const char* path, NordlysDevice device) {
   if (!path) return nullptr;
   try {
     auto profile = NordlysCheckpoint::from_msgpack(path);
-    auto variant = create_router_variant(std::move(profile));
+    auto backend_type = device_to_backend_type(device);
+    auto variant = create_router_variant(std::move(profile), backend_type);
     if (!variant) return nullptr;
     return reinterpret_cast<NordlysRouter*>(new RouterVariant(std::move(*variant)));
   } catch (...) {

@@ -636,9 +636,12 @@ TEST_F(Nordlysest, LargeDimensions) {
 // Tests for Backend Selection
 // ============================================================================
 
-TEST_F(Nordlysest, BackendAutoSelection) {
-  // Auto backend selection should work without explicit configuration
-  auto router = CreateTestRouter();
+TEST_F(Nordlysest, BackendExplicitSelection) {
+  // Explicit device selection should work with CPU backend
+  auto checkpoint = NordlysCheckpoint::from_json_string(kTestCheckpointJson);
+  auto result = Nordlys32::from_checkpoint(std::move(checkpoint), ClusterBackendType::Cpu);
+  ASSERT_TRUE(result);
+  auto router = std::move(result.value());
 
   std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
   auto response = router.route(embedding.data(), embedding.size(), 0.5f);

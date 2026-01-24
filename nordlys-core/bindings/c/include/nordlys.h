@@ -75,6 +75,14 @@ typedef enum {
 } NordlysPrecision;
 
 /**
+ * Device type for cluster backend
+ */
+typedef enum {
+  NORDLYS_DEVICE_CPU = 0,
+  NORDLYS_DEVICE_CUDA = 1
+} NordlysDevice;
+
+/**
  * Error codes for nordlys router operations
  */
 typedef enum {
@@ -90,23 +98,26 @@ typedef enum {
 /**
  * Create a router from a JSON profile file
  * @param profile_path Path to the JSON profile file
+ * @param device Device to use (NORDLYS_DEVICE_CPU or NORDLYS_DEVICE_CUDA)
  * @return Router handle, or NULL on error
  */
-NORDLYS_API NordlysRouter* nordlys_router_create(const char* profile_path);
+NORDLYS_API NordlysRouter* nordlys_router_create(const char* profile_path, NordlysDevice device);
 
 /**
  * Create a router from a JSON string
  * @param json_str JSON string containing the profile
+ * @param device Device to use (NORDLYS_DEVICE_CPU or NORDLYS_DEVICE_CUDA)
  * @return Router handle, or NULL on error
  */
-NORDLYS_API NordlysRouter* nordlys_router_create_from_json(const char* json_str);
+NORDLYS_API NordlysRouter* nordlys_router_create_from_json(const char* json_str, NordlysDevice device);
 
 /**
  * Create a router from a binary MessagePack file
  * @param path Path to the binary profile file
+ * @param device Device to use (NORDLYS_DEVICE_CPU or NORDLYS_DEVICE_CUDA)
  * @return Router handle, or NULL on error
  */
-NORDLYS_API NordlysRouter* nordlys_router_create_from_msgpack(const char* path);
+NORDLYS_API NordlysRouter* nordlys_router_create_from_msgpack(const char* path, NordlysDevice device);
 
 /**
  * Destroy a router and free its resources

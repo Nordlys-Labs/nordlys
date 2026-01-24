@@ -17,7 +17,7 @@
 #include "matrix.hpp"
 #include "tracy.hpp"
 
-enum class ClusterBackendType { Cpu, CUDA, Auto };
+enum class ClusterBackendType { Cpu, CUDA };
 
 template <typename Scalar> class IClusterBackend {
 public:
@@ -285,7 +285,7 @@ private:
 
 template <typename Scalar>
 [[nodiscard]] std::unique_ptr<IClusterBackend<Scalar>> create_cluster_backend(
-    ClusterBackendType type = ClusterBackendType::Auto) {
+    ClusterBackendType type) {
   switch (type) {
     case ClusterBackendType::Cpu:
 #ifndef __CUDACC__
@@ -295,19 +295,6 @@ template <typename Scalar>
 #endif
 
     case ClusterBackendType::CUDA:
-#ifdef NORDLYS_HAS_CUDA
-      if (cuda_available()) {
-        return std::make_unique<CudaClusterBackend<Scalar>>();
-      }
-#endif
-#ifndef __CUDACC__
-      return std::make_unique<CpuClusterBackend<Scalar>>();
-#else
-      break;
-#endif
-
-    case ClusterBackendType::Auto:
-    default:
 #ifdef NORDLYS_HAS_CUDA
       if (cuda_available()) {
         return std::make_unique<CudaClusterBackend<Scalar>>();
@@ -329,13 +316,13 @@ template <typename Scalar>
 
 template <typename Scalar = float> class ClusterEngine {
 public:
-  ClusterEngine() : backend_(create_cluster_backend<Scalar>(ClusterBackendType::Auto)) {
+  ClusterEngine() : device_(ClusterBackendType::Cpu), backend_(create_cluster_backend<Scalar>(ClusterBackendType::Cpu)) {
     if (!backend_) [[unlikely]] {
       throw std::runtime_error("failed to create cluster backend");
     }
   }
 
-  explicit ClusterEngine(ClusterBackendType type) : backend_(create_cluster_backend<Scalar>(type)) {
+  explicit ClusterEngine(ClusterBackendType type) : device_(type), backend_(create_cluster_backend<Scalar>(type)) {
     if (!backend_) [[unlikely]] {
       throw std::runtime_error("failed to create cluster backend");
     }
@@ -379,8 +366,10 @@ public:
   }
 
   [[nodiscard]] int get_n_clusters() const noexcept { return backend_->get_n_clusters(); }
+  [[nodiscard]] ClusterBackendType get_device() const noexcept { return device_; }
   [[nodiscard]] bool is_gpu_accelerated() const noexcept { return backend_->is_gpu_accelerated(); }
 
 private:
+  ClusterBackendType device_;
   std::unique_ptr<IClusterBackend<Scalar>> backend_;
 };

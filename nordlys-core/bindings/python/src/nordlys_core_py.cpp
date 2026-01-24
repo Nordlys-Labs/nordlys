@@ -11,6 +11,17 @@
 namespace nb = nanobind;
 using namespace nb::literals;
 
+// Helper function to convert string device to ClusterBackendType
+static ClusterBackendType device_string_to_enum(const std::string& device) {
+  if (device == "cpu" || device == "CPU") {
+    return ClusterBackendType::Cpu;
+  } else if (device == "cuda" || device == "CUDA") {
+    return ClusterBackendType::CUDA;
+  } else {
+    throw nb::value_error("Invalid device: " + device + ". Must be 'cpu' or 'cuda'");
+  }
+}
+
 NB_MODULE(nordlys_core_ext, m) {
   m.doc() = "Nordlys Core - High-performance routing engine";
 
@@ -176,21 +187,23 @@ NB_MODULE(nordlys_core_ext, m) {
       "Use Nordlys32.from_checkpoint() to load a trained model.")
       .def_static(
           "from_checkpoint",
-          [](NordlysCheckpoint checkpoint) {
-            auto result = Nordlys<float>::from_checkpoint(std::move(checkpoint));
+          [](NordlysCheckpoint checkpoint, const std::string& device) {
+            auto device_type = device_string_to_enum(device);
+            auto result = Nordlys<float>::from_checkpoint(std::move(checkpoint), device_type);
             if (!result) {
               throw nb::value_error(result.error().c_str());
             }
             return std::move(result.value());
           },
-          "checkpoint"_a,
+          "checkpoint"_a, "device"_a = "cpu",
           "Load engine from checkpoint\n\n"
           "Args:\n"
-          "    checkpoint: NordlysCheckpoint instance with float32 dtype\n\n"
+          "    checkpoint: NordlysCheckpoint instance with float32 dtype\n"
+          "    device: Device to use ('cpu' or 'cuda'), defaults to 'cpu'\n\n"
           "Returns:\n"
           "    Nordlys32 engine instance\n\n"
           "Raises:\n"
-          "    ValueError: If checkpoint dtype doesn't match float32")
+          "    ValueError: If checkpoint dtype doesn't match float32 or device is invalid")
       .def(
           "route",
           [](Nordlys<float>& self, nb::ndarray<float, nb::ndim<1>, nb::c_contig> embedding,
@@ -236,21 +249,23 @@ NB_MODULE(nordlys_core_ext, m) {
       "Use Nordlys64.from_checkpoint() to load a trained model.")
       .def_static(
           "from_checkpoint",
-          [](NordlysCheckpoint checkpoint) {
-            auto result = Nordlys<double>::from_checkpoint(std::move(checkpoint));
+          [](NordlysCheckpoint checkpoint, const std::string& device) {
+            auto device_type = device_string_to_enum(device);
+            auto result = Nordlys<double>::from_checkpoint(std::move(checkpoint), device_type);
             if (!result) {
               throw nb::value_error(result.error().c_str());
             }
             return std::move(result.value());
           },
-          "checkpoint"_a,
+          "checkpoint"_a, "device"_a = "cpu",
           "Load engine from checkpoint\n\n"
           "Args:\n"
-          "    checkpoint: NordlysCheckpoint instance with float64 dtype\n\n"
+          "    checkpoint: NordlysCheckpoint instance with float64 dtype\n"
+          "    device: Device to use ('cpu' or 'cuda'), defaults to 'cpu'\n\n"
           "Returns:\n"
           "    Nordlys64 engine instance\n\n"
           "Raises:\n"
-          "    ValueError: If checkpoint dtype doesn't match float64")
+          "    ValueError: If checkpoint dtype doesn't match float64 or device is invalid")
       .def(
           "route",
           [](Nordlys<double>& self, nb::ndarray<double, nb::ndim<1>, nb::c_contig> embedding,

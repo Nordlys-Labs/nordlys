@@ -54,7 +54,8 @@ template <typename Scalar = float> class Nordlys {
 public:
   using value_type = Scalar;
 
-  static Result<Nordlys, std::string> from_checkpoint(NordlysCheckpoint checkpoint) noexcept {
+  static Result<Nordlys, std::string> from_checkpoint(NordlysCheckpoint checkpoint,
+                                                      ClusterBackendType device = ClusterBackendType::Cpu) noexcept {
     NORDLYS_ZONE_N("Nordlys::from_checkpoint");
     init_threading();
 
@@ -72,7 +73,7 @@ public:
 
     try {
       Nordlys engine;
-      engine.init(std::move(checkpoint));
+      engine.init(std::move(checkpoint), device);
       return engine;
     } catch (const std::exception& e) {
       return Unexpected(std::string(e.what()));
@@ -234,12 +235,13 @@ private:
     return std::span<const ModelFeatures>(filtered_models_);
   }
 
-  void init(NordlysCheckpoint checkpoint) {
+  void init(NordlysCheckpoint checkpoint, ClusterBackendType device = ClusterBackendType::Cpu) {
     NORDLYS_ZONE_N("Nordlys::init");
     checkpoint_ = std::move(checkpoint);
 
     const auto& centers = std::get<EmbeddingMatrix<Scalar>>(checkpoint_.cluster_centers);
     dim_ = static_cast<int>(centers.cols());
+    engine_ = ClusterEngine<Scalar>(device);
     engine_.load_centroids(centers);
 
     lambda_min_ = checkpoint_.routing.cost_bias_min;
