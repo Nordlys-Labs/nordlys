@@ -35,6 +35,7 @@ input = "../../VERSION"
 regex = "(?P<value>\\d+\\.\\d+\\.\\d+)"
 
 [tool.scikit-build-core-conan]
+path = "conanfile.py"
 build = ["missing"]
 settings = ["compiler.cppstd=20"]
 

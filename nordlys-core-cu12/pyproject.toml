@@ -19,10 +19,16 @@ dependencies = []
 [tool.scikit-build]
 minimum-version = "build-system.requires"
 build-dir = "build/{wheel_tag}"
-wheel.packages = []
+wheel.packages = ["src/nordlys_core"]
 cmake.build-type = "Release"
 cmake.version = ">=3.24"
 cmake.source-dir = "../nordlys-core"
+sdist.include = [
+    "../nordlys-core/conanfile.py",
+    "../nordlys-core/bindings/python/conanfile.py",
+    "../nordlys-core/bindings/python/CMakeLists.txt",
+    "../nordlys-core/bindings/python/src/**",
+]
 
 [tool.scikit-build.cmake.define]
 CMAKE_EXPORT_COMPILE_COMMANDS = "ON"
@@ -31,5 +37,6 @@ CMAKE_CUDA_COMPILER = "/usr/local/cuda-12.9/bin/nvcc"
 NORDLYS_ENABLE_CUDA = "ON"
 
 [tool.scikit-build-core-conan]
+path = "../nordlys-core/bindings/python/conanfile.py"
 build = ["missing"]
 settings = ["compiler.cppstd=20"]
