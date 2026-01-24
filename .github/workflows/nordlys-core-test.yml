@@ -126,21 +126,12 @@ jobs:
 
       - name: Install Python test dependencies
         working-directory: nordlys-core/bindings/python
-        env:
-          PYTHONPATH: ${{ github.workspace }}/nordlys-core/build/Release
         run: |
           uv sync --group test --no-install-project
-
-      - name: Install Python package (skip build)
-        working-directory: nordlys-core/bindings/python
-        env:
-          PYTHONPATH: ${{ github.workspace }}/nordlys-core/build/Release
-        run: |
-          uv pip install -e . --no-build-isolation --no-deps
 
       - name: Run Python tests
         working-directory: nordlys-core/bindings/python
         env:
-          PYTHONPATH: ${{ github.workspace }}/nordlys-core/build/Release
+          PYTHONPATH: ${{ github.workspace }}/nordlys-core/build/Release/bindings/python:${{ github.workspace }}/nordlys-core/build/Release
         run: |
-          uv run pytest tests/ -v --tb=short
+          uv run --no-install-project pytest tests/ -v --tb=short
