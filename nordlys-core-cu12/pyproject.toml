@@ -1,5 +1,5 @@
 [build-system]
-requires = ["scikit-build-core>=0.11.0", "scikit-build-core-conan>=0.9.0", "nanobind>=2.9.2"]
+requires = ["scikit-build-core>=0.11.0", "scikit-build-core-conan>=0.8.0,<0.9.0", "nanobind>=2.9.2"]
 build-backend = "scikit_build_core_conan.build"
 
 [project]
@@ -31,6 +31,5 @@ CMAKE_CUDA_COMPILER = "/usr/local/cuda-12.9/bin/nvcc"
 NORDLYS_ENABLE_CUDA = "ON"
 
 [tool.scikit-build-core-conan]
-path = "../nordlys-core"
-build = "missing"
-settings = { "compiler.cppstd" = "20" }
+build = ["missing"]
+settings = ["compiler.cppstd=20"]

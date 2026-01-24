@@ -1,5 +1,5 @@
 [build-system]
-requires = ["scikit-build-core>=0.11.0", "scikit-build-core-conan>=0.9.0", "nanobind>=2.9.2"]
+requires = ["scikit-build-core>=0.11.0", "scikit-build-core-conan>=0.8.0,<0.9.0", "nanobind>=2.9.2"]
 build-backend = "scikit_build_core_conan.build"
 
 [project]
@@ -42,9 +42,8 @@ NORDLYS_BUILD_TESTS = "OFF"
 NORDLYS_ENABLE_CUDA = "OFF"
 
 [tool.scikit-build-core-conan]
-path = "../.."
-build = "missing"
-settings = { "compiler.cppstd" = "20" }
+build = ["missing"]
+settings = ["compiler.cppstd=20"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
