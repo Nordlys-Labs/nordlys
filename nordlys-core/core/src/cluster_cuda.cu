@@ -247,13 +247,6 @@ void CudaClusterBackend::ensure_stage_capacity(int stage_idx, int count) {
   stage.capacity = new_cap;
 }
 
-// Forward declarations for batch processing helpers
-std::vector<std::pair<int, float>> CudaClusterBackend::assign_batch_from_host(
-    EmbeddingBatchView view);
-
-std::vector<std::pair<int, float>> CudaClusterBackend::assign_batch_from_device(
-    EmbeddingBatchView view);
-
 std::vector<std::pair<int, float>> CudaClusterBackend::assign_batch(
     EmbeddingBatchView view) {
   if (view.count == 0) return {};
