@@ -4,7 +4,6 @@
   "models": [],
   "embedding": {
     "model": "invalid-test",
-    "dtype": "float32",
     "trust_remote_code": false
   },
   "clustering": {

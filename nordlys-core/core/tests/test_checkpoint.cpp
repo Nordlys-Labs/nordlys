@@ -1,11 +1,11 @@
 #include <gtest/gtest.h>
 
 #ifdef _WIN32
-#include <process.h>
-#define GETPID() _getpid()
+#  include <process.h>
+#  define GETPID() _getpid()
 #else
-#include <unistd.h>
-#define GETPID() getpid()
+#  include <unistd.h>
+#  define GETPID() getpid()
 #endif
 
 #include <cstdio>
@@ -44,46 +44,6 @@ static const char* kTestCheckpointJson = R"({
   ],
   "embedding": {
     "model": "test-model",
-    "dtype": "float32",
-    "trust_remote_code": false
-  },
-  "clustering": {
-    "n_clusters": 3,
-    "random_state": 42,
-    "max_iter": 300,
-    "n_init": 10,
-    "algorithm": "lloyd",
-    "normalization": "l2"
-  },
-  "metrics": {
-    "silhouette_score": 0.85
-  }
-})";
-
-static const char* kTestCheckpointJsonFloat64 = R"({
-  "version": "2.0",
-  "cluster_centers": [
-    [1.0, 0.0, 0.0, 0.0],
-    [0.0, 1.0, 0.0, 0.0],
-    [0.0, 0.0, 1.0, 0.0]
-  ],
-  "models": [
-    {
-      "model_id": "openai/gpt-4",
-      "cost_per_1m_input_tokens": 30.0,
-      "cost_per_1m_output_tokens": 60.0,
-      "error_rates": [0.1, 0.05, 0.15]
-    },
-    {
-      "model_id": "anthropic/claude",
-      "cost_per_1m_input_tokens": 15.0,
-      "cost_per_1m_output_tokens": 45.0,
-      "error_rates": [0.08, 0.12, 0.06]
-    }
-  ],
-  "embedding": {
-    "model": "test-model",
-    "dtype": "float64",
     "trust_remote_code": false
   },
   "clustering": {
@@ -110,28 +70,18 @@ TEST_F(ProfileTest, RoundTripJson) {
 
   EXPECT_EQ(loaded.clustering.n_clusters, test_profile.clustering.n_clusters);
   EXPECT_EQ(loaded.embedding.model, test_profile.embedding.model);
-  EXPECT_EQ(loaded.embedding.dtype, test_profile.embedding.dtype);
   EXPECT_EQ(loaded.metrics.silhouette_score, test_profile.metrics.silhouette_score);
 
   EXPECT_EQ(loaded.clustering.max_iter, test_profile.clustering.max_iter);
   EXPECT_EQ(loaded.clustering.algorithm, test_profile.clustering.algorithm);
 
-
-  std::visit(
-      [&](const auto& orig_centers) {
-        std::visit(
-            [&](const auto& loaded_centers) {
-              EXPECT_EQ(orig_centers.rows(), loaded_centers.rows());
-              EXPECT_EQ(orig_centers.cols(), loaded_centers.cols());
-              for (size_t i = 0; i < orig_centers.rows(); ++i) {
-                for (size_t j = 0; j < orig_centers.cols(); ++j) {
-                  EXPECT_FLOAT_EQ(orig_centers(i, j), loaded_centers(i, j));
-                }
-              }
-            },
-            loaded.cluster_centers);
-      },
-      test_profile.cluster_centers);
+  EXPECT_EQ(test_profile.cluster_centers.rows(), loaded.cluster_centers.rows());
+  EXPECT_EQ(test_profile.cluster_centers.cols(), loaded.cluster_centers.cols());
+  for (size_t i = 0; i < test_profile.cluster_centers.rows(); ++i) {
+    for (size_t j = 0; j < test_profile.cluster_centers.cols(); ++j) {
+      EXPECT_FLOAT_EQ(test_profile.cluster_centers(i, j), loaded.cluster_centers(i, j));
+    }
+  }
 
   EXPECT_EQ(loaded.models.size(), test_profile.models.size());
   for (size_t i = 0; i < loaded.models.size(); ++i) {
@@ -153,24 +103,15 @@ TEST_F(ProfileTest, RoundTripMsgpack) {
 
   EXPECT_EQ(loaded.clustering.n_clusters, test_profile.clustering.n_clusters);
   EXPECT_EQ(loaded.embedding.model, test_profile.embedding.model);
-  EXPECT_EQ(loaded.embedding.dtype, test_profile.embedding.dtype);
   EXPECT_EQ(loaded.metrics.silhouette_score, test_profile.metrics.silhouette_score);
 
-  std::visit(
-      [&](const auto& orig_centers) {
-        std::visit(
-            [&](const auto& loaded_centers) {
-              EXPECT_EQ(orig_centers.rows(), loaded_centers.rows());
-              EXPECT_EQ(orig_centers.cols(), loaded_centers.cols());
-              for (size_t i = 0; i < orig_centers.rows(); ++i) {
-                for (size_t j = 0; j < orig_centers.cols(); ++j) {
-                  EXPECT_FLOAT_EQ(orig_centers(i, j), loaded_centers(i, j));
-                }
-              }
-            },
-            loaded.cluster_centers);
-      },
-      test_profile.cluster_centers);
+  EXPECT_EQ(test_profile.cluster_centers.rows(), loaded.cluster_centers.rows());
+  EXPECT_EQ(test_profile.cluster_centers.cols(), loaded.cluster_centers.cols());
+  for (size_t i = 0; i < test_profile.cluster_centers.rows(); ++i) {
+    for (size_t j = 0; j < test_profile.cluster_centers.cols(); ++j) {
+      EXPECT_FLOAT_EQ(test_profile.cluster_centers(i, j), loaded.cluster_centers(i, j));
+    }
+  }
 
   EXPECT_EQ(loaded.models.size(), test_profile.models.size());
   for (size_t i = 0; i < loaded.models.size(); ++i) {
@@ -210,10 +151,6 @@ TEST_F(ProfileTest, Validation) {
   EXPECT_THROW(invalid_profile.validate(), std::invalid_argument);
 
   invalid_profile = test_profile;
-  invalid_profile.embedding.dtype = "invalid";
-  EXPECT_THROW(invalid_profile.validate(), std::invalid_argument);
-
-  invalid_profile = test_profile;
   invalid_profile.models[0].error_rates.resize(2);
   EXPECT_THROW(invalid_profile.validate(), std::invalid_argument);
 
@@ -224,26 +161,6 @@ TEST_F(ProfileTest, Validation) {
   invalid_profile = test_profile;
   invalid_profile.models[0].cost_per_1m_input_tokens = -1.0f;
   EXPECT_THROW(invalid_profile.validate(), std::invalid_argument);
-}
-
-TEST_F(ProfileTest, Float64Support) {
-  NordlysCheckpoint double_profile
-      = NordlysCheckpoint::from_json_string(kTestCheckpointJsonFloat64);
-
-  EXPECT_EQ(double_profile.embedding.dtype, "float64");
-  EXPECT_EQ(double_profile.dtype(), "float64");
-
-  std::string json_str = double_profile.to_json_string();
-  NordlysCheckpoint loaded = NordlysCheckpoint::from_json_string(json_str);
-
-  EXPECT_EQ(loaded.embedding.dtype, "float64");
-  EXPECT_EQ(loaded.dtype(), "float64");
-
-  std::string msgpack_data = double_profile.to_msgpack_string();
-  NordlysCheckpoint loaded_msgpack = NordlysCheckpoint::from_msgpack_string(msgpack_data);
-
-  EXPECT_EQ(loaded_msgpack.embedding.dtype, "float64");
-  EXPECT_EQ(loaded_msgpack.dtype(), "float64");
 }
 
 TEST_F(ProfileTest, InvalidJsonParsing) {
@@ -282,7 +199,6 @@ TEST_F(ProfileTest, FileOperationErrors) {
 }
 
 TEST_F(ProfileTest, ConvenienceAccessors) {
-  EXPECT_EQ(test_profile.dtype(), "float32");
   EXPECT_EQ(test_profile.embedding_model(), "test-model");
   EXPECT_EQ(test_profile.random_state(), 42);
   EXPECT_EQ(test_profile.allow_trust_remote_code(), false);
@@ -299,9 +215,8 @@ TEST_F(ProfileTest, CopyConstructor) {
 }
 
 TEST_F(ProfileTest, CopyAssignment) {
-  NordlysCheckpoint copy = NordlysCheckpoint::from_json_string(kTestCheckpointJsonFloat64);
+  NordlysCheckpoint copy = NordlysCheckpoint::from_json_string(kTestCheckpointJson);
   copy = test_profile;
-  EXPECT_EQ(copy.embedding.dtype, "float32");
   EXPECT_EQ(copy.clustering.n_clusters, test_profile.clustering.n_clusters);
 }
 
@@ -314,7 +229,7 @@ TEST_F(ProfileTest, MoveConstructor) {
 
 TEST_F(ProfileTest, MoveAssignment) {
   NordlysCheckpoint original = test_profile;
-  NordlysCheckpoint moved = NordlysCheckpoint::from_json_string(kTestCheckpointJsonFloat64);
+  NordlysCheckpoint moved = NordlysCheckpoint::from_json_string(kTestCheckpointJson);
   moved = std::move(original);
   EXPECT_EQ(moved.clustering.n_clusters, 3);
   EXPECT_EQ(moved.models.size(), 3);
@@ -326,10 +241,9 @@ TEST_F(ProfileTest, LargeNumberOfModels) {
   for (int i = 0; i < 100; ++i) {
     if (i > 0) ss << ",";
     ss << R"({"model_id": "provider/model)" << i << R"(", "cost_per_1m_input_tokens": )" << i
-       << R"(, "cost_per_1m_output_tokens": )" << (i * 2)
-       << R"(, "error_rates": [0.01]})";
+       << R"(, "cost_per_1m_output_tokens": )" << (i * 2) << R"(, "error_rates": [0.01]})";
   }
-  ss << R"(], "embedding": {"model": "test", "dtype": "float32", "trust_remote_code": false}, )"
+  ss << R"(], "embedding": {"model": "test", "trust_remote_code": false}, )"
      << R"("clustering": {"n_clusters": 1, "random_state": 42, "max_iter": 300, "n_init": 10, "algorithm": "lloyd", "normalization": "l2"}, )"
      << R"("metrics": {"silhouette_score": 0.5}})";
 
@@ -349,5 +263,3 @@ TEST_F(ProfileTest, ValidationZeroModels) {
   invalid_profile.models.clear();
   EXPECT_THROW(invalid_profile.validate(), std::invalid_argument);
 }
-
-

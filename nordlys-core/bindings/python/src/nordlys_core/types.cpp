@@ -32,7 +32,6 @@ void register_types(nb::module_& m) {
   // EmbeddingConfig type
   nb::class_<EmbeddingConfig>(m, "EmbeddingConfig", "Embedding configuration")
       .def_ro("model", &EmbeddingConfig::model, "Embedding model ID")
-      .def_ro("dtype", &EmbeddingConfig::dtype, "Data type ('float32' or 'float64')")
       .def_ro("trust_remote_code", &EmbeddingConfig::trust_remote_code,
               "Whether to trust remote code");
 

@@ -32,7 +32,6 @@ SAMPLE_CHECKPOINT = {
     ],
     "embedding": {
         "model": "test-model",
-        "dtype": "float32",
         "trust_remote_code": False,
     },
     "clustering": {
@@ -70,26 +69,9 @@ def sample_embedding() -> np.ndarray:
 
 
 @pytest.fixture
-def sample_checkpoint_json_float64() -> str:
-    """Return sample checkpoint with float64 dtype as JSON string."""
-    checkpoint = copy.deepcopy(SAMPLE_CHECKPOINT)
-    checkpoint["embedding"]["dtype"] = "float64"
-    return json.dumps(checkpoint)
-
-
-@pytest.fixture
-def nordlys32(sample_checkpoint_json: str):
-    """Create a Nordlys32 instance from sample checkpoint."""
-    from nordlys_core import Nordlys32, NordlysCheckpoint
+def nordlys(sample_checkpoint_json: str):
+    """Create a Nordlys instance from sample checkpoint."""
+    from nordlys_core import Nordlys, NordlysCheckpoint
 
     checkpoint = NordlysCheckpoint.from_json_string(sample_checkpoint_json)
-    return Nordlys32.from_checkpoint(checkpoint)
-
-
-@pytest.fixture
-def nordlys64(sample_checkpoint_json_float64: str):
-    """Create a Nordlys64 instance from sample checkpoint."""
-    from nordlys_core import Nordlys64, NordlysCheckpoint
-
-    checkpoint = NordlysCheckpoint.from_json_string(sample_checkpoint_json_float64)
-    return Nordlys64.from_checkpoint(checkpoint)
+    return Nordlys.from_checkpoint(checkpoint)

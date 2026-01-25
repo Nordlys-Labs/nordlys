@@ -173,8 +173,6 @@ class TestEmbeddingConfig:
 
         assert isinstance(config.model, str)
         assert len(config.model) > 0
-        assert isinstance(config.dtype, str)
-        assert config.dtype in ("float32", "float64")
         assert isinstance(config.trust_remote_code, bool)
 
     def test_embedding_config_consistency(self, sample_checkpoint_json: str):
@@ -186,7 +184,6 @@ class TestEmbeddingConfig:
 
         # Checkpoint convenience accessors should match
         assert checkpoint.embedding_model == config.model
-        assert checkpoint.dtype == config.dtype
         assert checkpoint.allow_trust_remote_code == config.trust_remote_code
 
 

@@ -44,32 +44,18 @@ inline void set_num_threads(int n) {
 #endif
 }
 
-template <typename Scalar = float> struct RouteResult {
+struct RouteResult {
   std::string selected_model;
   std::vector<std::string> alternatives;
   int cluster_id;
-  Scalar cluster_distance;
+  float cluster_distance;
 };
 
-template <typename Scalar = float> class Nordlys {
+class Nordlys {
 public:
-  using value_type = Scalar;
-
   static Result<Nordlys, std::string> from_checkpoint(NordlysCheckpoint checkpoint,
                                                       Device device = CpuDevice{}) noexcept {
     init_threading();
-
-    if constexpr (std::is_same_v<Scalar, float>) {
-      if (checkpoint.dtype() != "float32") {
-        return Unexpected("Nordlys<float> requires float32 checkpoint, but checkpoint dtype is "
-                          + checkpoint.dtype());
-      }
-    } else if constexpr (std::is_same_v<Scalar, double>) {
-      if (checkpoint.dtype() != "float64") {
-        return Unexpected("Nordlys<double> requires float64 checkpoint, but checkpoint dtype is "
-                          + checkpoint.dtype());
-      }
-    }
 
     try {
       Nordlys engine;
@@ -86,40 +72,41 @@ public:
   Nordlys(const Nordlys&) = delete;
   Nordlys& operator=(const Nordlys&) = delete;
 
-  RouteResult<Scalar> route(EmbeddingView<Scalar> view) {
+  RouteResult route(EmbeddingView view) {
     if (!backend_) [[unlikely]] {
       throw std::runtime_error("Nordlys not initialized; call from_checkpoint() or init()");
     }
     return route_impl(view, std::nullopt);
   }
 
-  RouteResult<Scalar> route(EmbeddingView<Scalar> view,
-                            const std::vector<std::string>& model_filter) {
+  RouteResult route(EmbeddingView view, const std::vector<std::string>& model_filter) {
     if (!backend_) [[unlikely]] {
       throw std::runtime_error("Nordlys not initialized; call from_checkpoint() or init()");
     }
-    return route_impl(view,
-                      model_filter.empty()
-                          ? std::nullopt
-                          : std::optional<std::reference_wrapper<const std::vector<std::string>>>(model_filter));
+    return route_impl(
+        view,
+        model_filter.empty()
+            ? std::nullopt
+            : std::optional<std::reference_wrapper<const std::vector<std::string>>>(model_filter));
   }
 
-  std::vector<RouteResult<Scalar>> route_batch(EmbeddingBatchView<Scalar> view) {
+  std::vector<RouteResult> route_batch(EmbeddingBatchView view) {
     if (!backend_) [[unlikely]] {
       throw std::runtime_error("Nordlys not initialized; call from_checkpoint() or init()");
     }
     return route_batch_impl(view, std::nullopt);
   }
 
-  std::vector<RouteResult<Scalar>> route_batch(EmbeddingBatchView<Scalar> view,
-                                               const std::vector<std::string>& model_filter) {
+  std::vector<RouteResult> route_batch(EmbeddingBatchView view,
+                                       const std::vector<std::string>& model_filter) {
     if (!backend_) [[unlikely]] {
       throw std::runtime_error("Nordlys not initialized; call from_checkpoint() or init()");
     }
-    return route_batch_impl(view,
-                            model_filter.empty()
-                                ? std::nullopt
-                                : std::optional<std::reference_wrapper<const std::vector<std::string>>>(model_filter));
+    return route_batch_impl(
+        view,
+        model_filter.empty()
+            ? std::nullopt
+            : std::optional<std::reference_wrapper<const std::vector<std::string>>>(model_filter));
   }
 
   std::vector<std::string> get_supported_models() const {
@@ -136,8 +123,8 @@ public:
   size_t get_embedding_dim() const { return dim_; }
 
 private:
-  RouteResult<Scalar> route_impl(
-      EmbeddingView<Scalar> view,
+  RouteResult route_impl(
+      EmbeddingView view,
       std::optional<std::reference_wrapper<const std::vector<std::string>>> model_filter) {
     if (view.dim != dim_) [[unlikely]] {
       throw std::invalid_argument(std::format("dimension mismatch: {} vs {}", dim_, view.dim));
@@ -152,7 +139,7 @@ private:
     auto scores = scorer_.score_models(cid, models);
 
     // Convert string_view to string for RouteResult (necessary for API contract)
-    RouteResult<Scalar> resp{
+    RouteResult resp{
         .selected_model = scores.empty() ? std::string{} : std::string(scores[0].model_id),
         .alternatives = {},
         .cluster_id = cid,
@@ -160,22 +147,21 @@ private:
 
     if (scores.size() > 1) {
       resp.alternatives.reserve(scores.size() - 1);
-      std::ranges::transform(scores | std::views::drop(1),
-                              std::back_inserter(resp.alternatives),
-                              [](const ModelScore& s) { return std::string(s.model_id); });
+      std::ranges::transform(scores | std::views::drop(1), std::back_inserter(resp.alternatives),
+                             [](const ModelScore& s) { return std::string(s.model_id); });
     }
     return resp;
   }
 
-  std::vector<RouteResult<Scalar>> route_batch_impl(
-      EmbeddingBatchView<Scalar> view,
+  std::vector<RouteResult> route_batch_impl(
+      EmbeddingBatchView view,
       std::optional<std::reference_wrapper<const std::vector<std::string>>> model_filter) {
     if (view.dim != dim_) [[unlikely]] {
       throw std::invalid_argument(std::format("dimension mismatch: {} vs {}", dim_, view.dim));
     }
 
     auto assignments = backend_->assign_batch(view);
-    std::vector<RouteResult<Scalar>> results;
+    std::vector<RouteResult> results;
     results.reserve(view.count);
     results.resize(view.count);
     bool has_invalid = false;
@@ -198,12 +184,11 @@ private:
       std::vector<std::string> alternatives;
       if (scores.size() > 1) {
         alternatives.reserve(scores.size() - 1);
-        std::ranges::transform(scores | std::views::drop(1),
-                                std::back_inserter(alternatives),
-                                [](const ModelScore& s) { return std::string(s.model_id); });
+        std::ranges::transform(scores | std::views::drop(1), std::back_inserter(alternatives),
+                               [](const ModelScore& s) { return std::string(s.model_id); });
       }
 
-      results[static_cast<size_t>(i)] = RouteResult<Scalar>{
+      results[static_cast<size_t>(i)] = RouteResult{
           .selected_model = scores.empty() ? std::string{} : std::string(scores[0].model_id),
           .alternatives = std::move(alternatives),
           .cluster_id = cid,
@@ -235,18 +220,15 @@ private:
   void init(NordlysCheckpoint checkpoint, Device device = CpuDevice{}) {
     checkpoint_ = std::move(checkpoint);
 
-    const auto& centers = std::get<EmbeddingMatrix<Scalar>>(checkpoint_.cluster_centers);
+    const auto& centers = checkpoint_.cluster_centers;
     dim_ = centers.cols();
-    backend_ = create_backend<Scalar>(device);
+    backend_ = create_backend(device);
     backend_->load_centroids(centers.data(), centers.rows(), centers.cols());
   }
 
-  std::unique_ptr<IClusterBackend<Scalar>> backend_;
+  std::unique_ptr<IClusterBackend> backend_;
   ModelScorer scorer_;
   NordlysCheckpoint checkpoint_;
   size_t dim_ = 0;
   std::vector<ModelFeatures> filtered_models_;
 };
-
-using Nordlys32 = Nordlys<float>;
-using Nordlys64 = Nordlys<double>;

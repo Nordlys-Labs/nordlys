@@ -25,19 +25,7 @@ TEST_F(CheckpointIntegrationTest, LoadFromJsonFile) {
 
   EXPECT_EQ(checkpoint.clustering.n_clusters, 3);
   EXPECT_EQ(checkpoint.embedding.model, "integration-test-model");
-  EXPECT_EQ(checkpoint.embedding.dtype, "float32");
-  EXPECT_EQ(checkpoint.dtype(), "float32");
   EXPECT_EQ(checkpoint.models.size(), 3);
-}
-
-TEST_F(CheckpointIntegrationTest, LoadFromJsonFileFloat64) {
-  auto checkpoint_path = get_checkpoint_path("valid_checkpoint_f64.json");
-  ASSERT_TRUE(fs::exists(checkpoint_path));
-
-  auto checkpoint = NordlysCheckpoint::from_json(checkpoint_path.string());
-
-  EXPECT_EQ(checkpoint.embedding.dtype, "float64");
-  EXPECT_EQ(checkpoint.dtype(), "float64");
 }
 
 TEST_F(CheckpointIntegrationTest, JsonRoundTrip) {
@@ -50,7 +38,6 @@ TEST_F(CheckpointIntegrationTest, JsonRoundTrip) {
 
   EXPECT_EQ(loaded.clustering.n_clusters, original.clustering.n_clusters);
   EXPECT_EQ(loaded.embedding.model, original.embedding.model);
-  EXPECT_EQ(loaded.embedding.dtype, original.embedding.dtype);
   EXPECT_EQ(loaded.models.size(), original.models.size());
 }
 
@@ -64,7 +51,6 @@ TEST_F(CheckpointIntegrationTest, MsgpackRoundTrip) {
 
   EXPECT_EQ(loaded.clustering.n_clusters, original.clustering.n_clusters);
   EXPECT_EQ(loaded.embedding.model, original.embedding.model);
-  EXPECT_EQ(loaded.embedding.dtype, original.embedding.dtype);
   EXPECT_EQ(loaded.models.size(), original.models.size());
 }
 
@@ -92,7 +78,6 @@ TEST_F(CheckpointIntegrationTest, FileIOJsonRoundTrip) {
   auto loaded = NordlysCheckpoint::from_json(temp_path.string());
 
   EXPECT_EQ(loaded.clustering.n_clusters, original.clustering.n_clusters);
-  EXPECT_EQ(loaded.embedding.dtype, original.embedding.dtype);
 
   fs::remove(temp_path);
 }
@@ -109,7 +94,6 @@ TEST_F(CheckpointIntegrationTest, FileIOMsgpackRoundTrip) {
   auto loaded = NordlysCheckpoint::from_msgpack(temp_path.string());
 
   EXPECT_EQ(loaded.clustering.n_clusters, original.clustering.n_clusters);
-  EXPECT_EQ(loaded.embedding.dtype, original.embedding.dtype);
 
   fs::remove(temp_path);
 }
@@ -143,7 +127,6 @@ TEST_F(CheckpointIntegrationTest, CheckpointPropertiesAccessible) {
   EXPECT_EQ(checkpoint.embedding_model(), "integration-test-model");
   EXPECT_FLOAT_EQ(checkpoint.silhouette_score(), 0.85f);
   EXPECT_FALSE(checkpoint.allow_trust_remote_code());
-
 
   EXPECT_EQ(checkpoint.clustering.algorithm, "lloyd");
   EXPECT_EQ(checkpoint.clustering.random_state, 42);

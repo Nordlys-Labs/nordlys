@@ -32,13 +32,13 @@ std::vector<ModelScore> ModelScorer::score_models(int cluster_id,
     // Use string_view to avoid string copy - ModelFeatures are owned by Nordlys
     // and will outlive the scores vector. The string_view references the model_id
     // in the owned ModelFeatures, avoiding a copy until RouteResult is created.
-    scores.emplace_back(ModelScore{
-        .model_id = model.model_id,  // string_view from owned ModelFeatures (no copy)
-        .score = error_rate,         // score = error_rate (lower is better)
-        .error_rate = error_rate,
-        .accuracy = 1.0f - error_rate,
-        .cost = cost,
-        .normalized_cost = 0.0f});   // normalized_cost not used anymore
+    scores.emplace_back(
+        ModelScore{.model_id = model.model_id,  // string_view from owned ModelFeatures (no copy)
+                   .score = error_rate,         // score = error_rate (lower is better)
+                   .error_rate = error_rate,
+                   .accuracy = 1.0f - error_rate,
+                   .cost = cost,
+                   .normalized_cost = 0.0f});  // normalized_cost not used anymore
   }
 
   // Sort by score (error_rate) - lower is better

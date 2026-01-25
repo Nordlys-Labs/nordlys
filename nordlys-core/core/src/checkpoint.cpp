@@ -1,13 +1,15 @@
 #ifdef _WIN32
-#include <io.h>
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
+#  include <io.h>
+#  define WIN32_LEAN_AND_MEAN
+#  include <windows.h>
 #else
-#include <fcntl.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <unistd.h>
+#  include <fcntl.h>
+#  include <sys/mman.h>
+#  include <sys/stat.h>
+#  include <unistd.h>
 #endif
+
+#include <simdjson.h>
 
 #include <algorithm>
 #include <cstdint>
@@ -20,17 +22,16 @@
 #include <nordlys_core/cache.hpp>
 #include <nordlys_core/checkpoint.hpp>
 #include <ranges>
-#include <simdjson.h>
 #include <stdexcept>
 
 using json = nlohmann::json;
 namespace sj = simdjson;
 
 namespace {
-nordlys::LruCache<NordlysCheckpoint>& checkpoint_cache() {
-  static nordlys::LruCache<NordlysCheckpoint> cache;
-  return cache;
-}
+  nordlys::LruCache<NordlysCheckpoint>& checkpoint_cache() {
+    static nordlys::LruCache<NordlysCheckpoint> cache;
+    return cache;
+  }
 }  // namespace
 
 // ============================================================================
@@ -58,12 +59,11 @@ void from_json(const json& j, TrainingMetrics& m) {
 // ============================================================================
 
 void to_json(json& j, const EmbeddingConfig& c) {
-  j = {{"model", c.model}, {"dtype", c.dtype}, {"trust_remote_code", c.trust_remote_code}};
+  j = {{"model", c.model}, {"trust_remote_code", c.trust_remote_code}};
 }
 
 void from_json(const json& j, EmbeddingConfig& c) {
   j.at("model").get_to(c.model);
-  c.dtype = j.value("dtype", "float32");
   c.trust_remote_code = j.value("trust_remote_code", false);
 }
 
@@ -85,7 +85,6 @@ void from_json(const json& j, ClusteringConfig& c) {
   c.algorithm = j.value("algorithm", "lloyd");
   c.normalization = j.value("normalization", "l2");
 }
-
 
 // ============================================================================
 // JSON Serialization - ModelFeatures
@@ -151,8 +150,6 @@ NordlysCheckpoint NordlysCheckpoint::from_json_string(const std::string& json_st
   // Embedding config
   auto emb = doc["embedding"].get_object().value();
   checkpoint.embedding.model = std::string(emb["model"].get_string().value());
-  auto dtype_result = emb["dtype"].get_string();
-  checkpoint.embedding.dtype = dtype_result.error() ? "float32" : std::string(dtype_result.value());
   auto trust_result = emb["trust_remote_code"].get_bool();
   checkpoint.embedding.trust_remote_code = trust_result.error() ? false : trust_result.value();
 
@@ -168,8 +165,8 @@ NordlysCheckpoint NordlysCheckpoint::from_json_string(const std::string& json_st
   auto alg_result = clust["algorithm"].get_string();
   checkpoint.clustering.algorithm = alg_result.error() ? "lloyd" : std::string(alg_result.value());
   auto norm_result = clust["normalization"].get_string();
-  checkpoint.clustering.normalization = norm_result.error() ? "l2" : std::string(norm_result.value());
-
+  checkpoint.clustering.normalization
+      = norm_result.error() ? "l2" : std::string(norm_result.value());
 
   // Models
   auto models_array = doc["models"].get_array().value();
@@ -177,8 +174,10 @@ NordlysCheckpoint NordlysCheckpoint::from_json_string(const std::string& json_st
     auto m = model_obj.get_object().value();
     ModelFeatures model;
     model.model_id = std::string(m["model_id"].get_string().value());
-    model.cost_per_1m_input_tokens = static_cast<float>(m["cost_per_1m_input_tokens"].get_double().value());
-    model.cost_per_1m_output_tokens = static_cast<float>(m["cost_per_1m_output_tokens"].get_double().value());
+    model.cost_per_1m_input_tokens
+        = static_cast<float>(m["cost_per_1m_input_tokens"].get_double().value());
+    model.cost_per_1m_output_tokens
+        = static_cast<float>(m["cost_per_1m_output_tokens"].get_double().value());
     auto error_rates_array = m["error_rates"].get_array().value();
     for (auto err : error_rates_array) {
       model.error_rates.push_back(static_cast<float>(err.get_double().value()));
@@ -201,7 +200,8 @@ NordlysCheckpoint NordlysCheckpoint::from_json_string(const std::string& json_st
       checkpoint.metrics.cluster_sizes = std::move(sizes);
     }
     auto ss_result = met["silhouette_score"].get_double();
-    if (!ss_result.error()) checkpoint.metrics.silhouette_score = static_cast<float>(ss_result.value());
+    if (!ss_result.error())
+      checkpoint.metrics.silhouette_score = static_cast<float>(ss_result.value());
     auto in_result = met["inertia"].get_double();
     if (!in_result.error()) checkpoint.metrics.inertia = static_cast<float>(in_result.value());
   }
@@ -239,28 +239,18 @@ NordlysCheckpoint NordlysCheckpoint::from_json_string(const std::string& json_st
   }
 
   if (row_count != n_clusters) {
-    throw std::invalid_argument(std::format("cluster_centers has {} rows but n_clusters is {}",
-                                            row_count, n_clusters));
+    throw std::invalid_argument(
+        std::format("cluster_centers has {} rows but n_clusters is {}", row_count, n_clusters));
   }
 
-  // Copy buffered values into matrix
-  if (checkpoint.embedding.dtype == "float64") {
-    EmbeddingMatrix<double> centers(n_clusters, feature_dim);
-    for (size_t i = 0; i < n_clusters; ++i) {
-      for (size_t j = 0; j < feature_dim; ++j) {
-        centers(i, j) = all_values[i * feature_dim + j];
-      }
+  // Copy buffered values into matrix (always float32)
+  EmbeddingMatrix<float> centers(n_clusters, feature_dim);
+  for (size_t i = 0; i < n_clusters; ++i) {
+    for (size_t j = 0; j < feature_dim; ++j) {
+      centers(i, j) = static_cast<float>(all_values[i * feature_dim + j]);
     }
-    checkpoint.cluster_centers = std::move(centers);
-  } else {
-    EmbeddingMatrix<float> centers(n_clusters, feature_dim);
-    for (size_t i = 0; i < n_clusters; ++i) {
-      for (size_t j = 0; j < feature_dim; ++j) {
-        centers(i, j) = static_cast<float>(all_values[i * feature_dim + j]);
-      }
-    }
-    checkpoint.cluster_centers = std::move(centers);
   }
+  checkpoint.cluster_centers = std::move(centers);
 
   checkpoint.validate();
 
@@ -283,19 +273,15 @@ std::string NordlysCheckpoint::to_json_string() const {
   j["metrics"] = metrics;
 
   // Cluster centers as 2D array
-  std::visit(
-      [&](const auto& centers) {
-        json centers_array = json::array();
-        for (size_t i = 0; i < centers.rows(); ++i) {
-          json row = json::array();
-          for (size_t col = 0; col < centers.cols(); ++col) {
-            row.push_back(centers(i, col));
-          }
-          centers_array.push_back(row);
-        }
-        j["cluster_centers"] = centers_array;
-      },
-      cluster_centers);
+  json centers_array = json::array();
+  for (size_t i = 0; i < cluster_centers.rows(); ++i) {
+    json row = json::array();
+    for (size_t col = 0; col < cluster_centers.cols(); ++col) {
+      row.push_back(cluster_centers(i, col));
+    }
+    centers_array.push_back(row);
+  }
+  j["cluster_centers"] = centers_array;
 
   return j.dump(2);
 }
@@ -382,8 +368,6 @@ NordlysCheckpoint NordlysCheckpoint::from_msgpack_string(const std::string& data
   // Embedding config
   auto emb = map.at("embedding").as<std::map<std::string, msgpack::object>>();
   checkpoint.embedding.model = emb.at("model").as<std::string>();
-  checkpoint.embedding.dtype
-      = emb.contains("dtype") ? emb.at("dtype").as<std::string>() : "float32";
   checkpoint.embedding.trust_remote_code
       = emb.contains("trust_remote_code") ? emb.at("trust_remote_code").as<bool>() : false;
 
@@ -399,7 +383,6 @@ NordlysCheckpoint NordlysCheckpoint::from_msgpack_string(const std::string& data
       = clust.contains("algorithm") ? clust.at("algorithm").as<std::string>() : "lloyd";
   checkpoint.clustering.normalization
       = clust.contains("normalization") ? clust.at("normalization").as<std::string>() : "l2";
-
 
   // Models
   auto models_arr = map.at("models").as<std::vector<msgpack::object>>();
@@ -465,37 +448,34 @@ NordlysCheckpoint NordlysCheckpoint::from_msgpack_string(const std::string& data
 
   uint64_t total_elements = static_cast<uint64_t>(n_clusters) * static_cast<uint64_t>(feature_dim);
 
-  if (checkpoint.embedding.dtype == "float64") {
-    // Check for overflow before computing expected_size
-    if (total_elements > SIZE_MAX / sizeof(double)) {
-      throw std::invalid_argument(std::format(
-          "cluster_centers dimensions too large: {}x{} would overflow", n_clusters, feature_dim));
-    }
-    size_t expected_size = total_elements * sizeof(double);
-    if (centers_bytes.size() != expected_size) {
-      throw std::invalid_argument(
-          std::format("cluster_centers data size mismatch: expected {} bytes, got {}",
-                      expected_size, centers_bytes.size()));
-    }
-    EmbeddingMatrix<double> centers(n_clusters, feature_dim);
-    std::memcpy(centers.data(), centers_bytes.data(), expected_size);
-    checkpoint.cluster_centers = std::move(centers);
-  } else {
-    // Check for overflow before computing expected_size
-    if (total_elements > SIZE_MAX / sizeof(float)) {
-      throw std::invalid_argument(std::format(
-          "cluster_centers dimensions too large: {}x{} would overflow", n_clusters, feature_dim));
-    }
-    size_t expected_size = total_elements * sizeof(float);
-    if (centers_bytes.size() != expected_size) {
-      throw std::invalid_argument(
-          std::format("cluster_centers data size mismatch: expected {} bytes, got {}",
-                      expected_size, centers_bytes.size()));
-    }
-    EmbeddingMatrix<float> centers(n_clusters, feature_dim);
-    std::memcpy(centers.data(), centers_bytes.data(), expected_size);
-    checkpoint.cluster_centers = std::move(centers);
+  // Always use float32 (convert from float64 if needed)
+  if (total_elements > SIZE_MAX / sizeof(float)) {
+    throw std::invalid_argument(std::format(
+        "cluster_centers dimensions too large: {}x{} would overflow", n_clusters, feature_dim));
   }
+
+  // Check if data is float32 or float64
+  size_t expected_size_float32 = total_elements * sizeof(float);
+  size_t expected_size_float64 = total_elements * sizeof(double);
+
+  EmbeddingMatrix<float> centers(n_clusters, feature_dim);
+
+  if (centers_bytes.size() == expected_size_float32) {
+    // float32 data - direct copy
+    std::memcpy(centers.data(), centers_bytes.data(), expected_size_float32);
+  } else if (centers_bytes.size() == expected_size_float64) {
+    // float64 data - convert to float32
+    const double* src = reinterpret_cast<const double*>(centers_bytes.data());
+    for (size_t i = 0; i < total_elements; ++i) {
+      centers.data()[i] = static_cast<float>(src[i]);
+    }
+  } else {
+    throw std::invalid_argument(std::format(
+        "cluster_centers data size mismatch: expected {} (float32) or {} (float64) bytes, got {}",
+        expected_size_float32, expected_size_float64, centers_bytes.size()));
+  }
+
+  checkpoint.cluster_centers = std::move(centers);
 
   return checkpoint;
 }
@@ -513,11 +493,9 @@ std::string NordlysCheckpoint::to_msgpack_string() const {
 
   // Embedding config
   pk.pack("embedding");
-  pk.pack_map(3);
+  pk.pack_map(2);
   pk.pack("model");
   pk.pack(embedding.model);
-  pk.pack("dtype");
-  pk.pack(embedding.dtype);
   pk.pack("trust_remote_code");
   pk.pack(embedding.trust_remote_code);
 
@@ -537,7 +515,6 @@ std::string NordlysCheckpoint::to_msgpack_string() const {
   pk.pack("normalization");
   pk.pack(clustering.normalization);
 
-
   // Models
   pk.pack("models");
   pk.pack_array(static_cast<uint32_t>(models.size()));
@@ -556,24 +533,19 @@ std::string NordlysCheckpoint::to_msgpack_string() const {
   // Cluster centers (binary blob)
   pk.pack("cluster_centers");
   pk.pack_map(3);
-  std::visit(
-      [&](const auto& centers) {
-        using Scalar = typename std::decay_t<decltype(centers)>::Scalar;
-        pk.pack("rows");
-        pk.pack(static_cast<int>(centers.rows()));
-        pk.pack("cols");
-        pk.pack(static_cast<int>(centers.cols()));
-        pk.pack("data");
-        size_t data_size = static_cast<size_t>(centers.rows()) * static_cast<size_t>(centers.cols())
-                           * sizeof(Scalar);
-        if (data_size > std::numeric_limits<uint32_t>::max()) {
-          throw std::overflow_error("Matrix data size exceeds uint32_t max for msgpack");
-        }
-        pk.pack_bin(static_cast<uint32_t>(data_size));
-        pk.pack_bin_body(reinterpret_cast<const char*>(centers.data()),
-                         static_cast<uint32_t>(data_size));
-      },
-      cluster_centers);
+  pk.pack("rows");
+  pk.pack(static_cast<int>(cluster_centers.rows()));
+  pk.pack("cols");
+  pk.pack(static_cast<int>(cluster_centers.cols()));
+  pk.pack("data");
+  size_t data_size = static_cast<size_t>(cluster_centers.rows())
+                     * static_cast<size_t>(cluster_centers.cols()) * sizeof(float);
+  if (data_size > std::numeric_limits<uint32_t>::max()) {
+    throw std::overflow_error("Matrix data size exceeds uint32_t max for msgpack");
+  }
+  pk.pack_bin(static_cast<uint32_t>(data_size));
+  pk.pack_bin_body(reinterpret_cast<const char*>(cluster_centers.data()),
+                   static_cast<uint32_t>(data_size));
 
   // Training metrics (count non-null fields)
   pk.pack("metrics");
@@ -624,37 +596,17 @@ void NordlysCheckpoint::validate() const {
         std::format("n_clusters must be positive, got {}", clustering.n_clusters));
   }
 
-  // Validate dtype
-  if (embedding.dtype != "float32" && embedding.dtype != "float64") {
+  // Validate cluster centers
+  if (static_cast<int>(cluster_centers.rows()) != clustering.n_clusters) {
     throw std::invalid_argument(
-        std::format("dtype must be 'float32' or 'float64', got '{}'", embedding.dtype));
+        std::format("Cluster centers rows ({}) does not match n_clusters ({})",
+                    cluster_centers.rows(), clustering.n_clusters));
   }
 
-  // Validate cluster centers
-  std::visit(
-      [&](const auto& centers) {
-        using Scalar = typename std::decay_t<decltype(centers)>::Scalar;
-        bool is_double = std::is_same_v<Scalar, double>;
-
-        if (is_double && embedding.dtype != "float64") {
-          throw std::invalid_argument("Cluster centers are float64 but dtype is not 'float64'");
-        }
-        if (!is_double && embedding.dtype != "float32") {
-          throw std::invalid_argument("Cluster centers are float32 but dtype is not 'float32'");
-        }
-
-        if (static_cast<int>(centers.rows()) != clustering.n_clusters) {
-          throw std::invalid_argument(
-              std::format("Cluster centers rows ({}) does not match n_clusters ({})",
-                          centers.rows(), clustering.n_clusters));
-        }
-
-        if (centers.cols() == 0) {
-          throw std::invalid_argument(
-              std::format("feature_dim must be positive, got {}", centers.cols()));
-        }
-      },
-      cluster_centers);
+  if (cluster_centers.cols() == 0) {
+    throw std::invalid_argument(
+        std::format("feature_dim must be positive, got {}", cluster_centers.cols()));
+  }
 
   // Validate models
   if (models.empty()) {

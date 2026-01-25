@@ -18,7 +18,7 @@
 #include "embedding_view.hpp"
 #include "matrix.hpp"
 
-template <typename Scalar> class IClusterBackend {
+class IClusterBackend {
 public:
   virtual ~IClusterBackend() = default;
 
@@ -27,12 +27,12 @@ public:
   IClusterBackend(IClusterBackend&&) = delete;
   IClusterBackend& operator=(IClusterBackend&&) = delete;
 
-  virtual void load_centroids(const Scalar* data, size_t n_clusters, size_t dim) = 0;
+  virtual void load_centroids(const float* data, size_t n_clusters, size_t dim) = 0;
 
-  [[nodiscard]] virtual std::pair<int, Scalar> assign(EmbeddingView<Scalar> view) = 0;
+  [[nodiscard]] virtual std::pair<int, float> assign(EmbeddingView view) = 0;
 
-  [[nodiscard]] virtual std::vector<std::pair<int, Scalar>> assign_batch(
-      EmbeddingBatchView<Scalar> view) = 0;
+  [[nodiscard]] virtual std::vector<std::pair<int, float>> assign_batch(EmbeddingBatchView view)
+      = 0;
 
   [[nodiscard]] virtual size_t n_clusters() const = 0;
   [[nodiscard]] virtual size_t dim() const = 0;
@@ -51,32 +51,24 @@ protected:
 #  include <usearch/index_dense.hpp>
 
 // Helper struct for OpenMP custom reduction
-template <typename Scalar> struct MinDistanceResult {
-  Scalar dist_sq;
+struct MinDistanceResult {
+  float dist_sq;
   int idx;
 };
 
 // Declare custom OpenMP reduction for MinDistanceResult
-// Note: We declare explicit reductions for float and double to ensure compatibility
-// Template-based reductions have limited compiler support
 // MSVC's OpenMP 2.0 doesn't support custom reductions (OpenMP 4.0+ feature)
 #  ifdef _OPENMP
 #    ifndef _MSC_VER
-// For float
-#      pragma omp declare reduction(custom_min_float:MinDistanceResult<float>: \
-        omp_out = (omp_in.dist_sq < omp_out.dist_sq) ? omp_in : omp_out) \
-        initializer(omp_priv = {std::numeric_limits<float>::max(), -1})
-
-// For double  
-#      pragma omp declare reduction(custom_min_double:MinDistanceResult<double>: \
-        omp_out = (omp_in.dist_sq < omp_out.dist_sq) ? omp_in : omp_out) \
-        initializer(omp_priv = {std::numeric_limits<double>::max(), -1})
+#      pragma omp declare reduction(custom_min_float:MinDistanceResult : omp_out                 \
+                                        = (omp_in.dist_sq < omp_out.dist_sq) ? omp_in : omp_out) \
+          initializer(omp_priv = {std::numeric_limits<float>::max(), -1})
 #    endif  // _MSC_VER
 #  endif
 
-template <typename Scalar> class CpuClusterBackend : public IClusterBackend<Scalar> {
+class CpuClusterBackend : public IClusterBackend {
 public:
-  void load_centroids(const Scalar* data, size_t n_clusters, size_t dim) override {
+  void load_centroids(const float* data, size_t n_clusters, size_t dim) override {
     if (n_clusters <= 0 || dim <= 0) [[unlikely]] {
       throw std::invalid_argument("n_clusters and dim must be positive");
     }
@@ -89,7 +81,7 @@ public:
     }
 
     size_t total_size = nc * d;
-    if (total_size > SIZE_MAX / sizeof(Scalar)) [[unlikely]] {
+    if (total_size > SIZE_MAX / sizeof(float)) [[unlikely]] {
       throw std::invalid_argument("allocation size would overflow");
     }
 
@@ -97,32 +89,31 @@ public:
     dim_ = static_cast<int>(dim);
 
     using namespace unum::usearch;
-    auto scalar_kind = std::is_same_v<Scalar, float> ? scalar_kind_t::f32_k : scalar_kind_t::f64_k;
-    metric_ = metric_punned_t(d, metric_kind_t::l2sq_k, scalar_kind);
+    metric_ = metric_punned_t(d, metric_kind_t::l2sq_k, scalar_kind_t::f32_k);
 
     centroids_.resize(total_size);
-    std::memcpy(centroids_.data(), data, centroids_.size() * sizeof(Scalar));
+    std::memcpy(centroids_.data(), data, centroids_.size() * sizeof(float));
   }
 
-  [[nodiscard]] std::pair<int, Scalar> assign(EmbeddingView<Scalar> view) override {
-    if (n_clusters_ == 0) return {-1, Scalar{0}};
+  [[nodiscard]] std::pair<int, float> assign(EmbeddingView view) override {
+    if (n_clusters_ == 0) return {-1, 0.0f};
     if (view.dim != static_cast<size_t>(dim_)) [[unlikely]] {
       throw std::invalid_argument("dimension mismatch in assign");
     }
 
     // Throw if GPU memory passed to CPU backend
-    std::visit(overloaded{
-        [](CpuDevice) {},
-        [](CudaDevice) -> void {
-            throw std::invalid_argument("GPU tensor passed to CPU backend. "
-                                      "Create Nordlys with device=CudaDevice{} to use GPU embeddings.");
-        }
-    }, view.device);
+    std::visit(overloaded{[](CpuDevice) {},
+                          [](CudaDevice) -> void {
+                            throw std::invalid_argument(
+                                "GPU tensor passed to CPU backend. "
+                                "Create Nordlys with device=CudaDevice{} to use GPU embeddings.");
+                          }},
+               view.device);
 
     const auto* emb_bytes = reinterpret_cast<const unum::usearch::byte_t*>(view.data);
 
     int best_idx = -1;
-    Scalar best_dist_sq = std::numeric_limits<Scalar>::max();
+    float best_dist_sq = std::numeric_limits<float>::max();
 
 #  ifdef _OPENMP
     if (n_clusters_ > 100) {
@@ -133,9 +124,9 @@ public:
       for (int i = 0; i < n_clusters_; ++i) {
         const auto* centroid_bytes
             = reinterpret_cast<const unum::usearch::byte_t*>(centroids_.data() + i * dim_);
-        auto dist_sq = static_cast<Scalar>(metric_(emb_bytes, centroid_bytes));
+        auto dist_sq = static_cast<float>(metric_(emb_bytes, centroid_bytes));
 
-#        pragma omp critical
+#      pragma omp critical
         {
           if (dist_sq < best_dist_sq) {
             best_dist_sq = dist_sq;
@@ -144,43 +135,17 @@ public:
         }
       }
 #    else  // GCC/Clang: Use custom reduction (OpenMP 4.0+)
-      MinDistanceResult<Scalar> result{std::numeric_limits<Scalar>::max(), -1};
+      MinDistanceResult result{std::numeric_limits<float>::max(), -1};
 
-      if constexpr (std::is_same_v<Scalar, float>) {
-#        pragma omp parallel for reduction(custom_min_float:result)
-        for (int i = 0; i < n_clusters_; ++i) {
-          const auto* centroid_bytes
-              = reinterpret_cast<const unum::usearch::byte_t*>(centroids_.data() + i * dim_);
-          auto dist_sq = static_cast<Scalar>(metric_(emb_bytes, centroid_bytes));
+#      pragma omp parallel for reduction(custom_min_float : result)
+      for (int i = 0; i < n_clusters_; ++i) {
+        const auto* centroid_bytes
+            = reinterpret_cast<const unum::usearch::byte_t*>(centroids_.data() + i * dim_);
+        auto dist_sq = static_cast<float>(metric_(emb_bytes, centroid_bytes));
 
-          if (dist_sq < result.dist_sq) {
-            result.dist_sq = dist_sq;
-            result.idx = i;
-          }
-        }
-      } else if constexpr (std::is_same_v<Scalar, double>) {
-#        pragma omp parallel for reduction(custom_min_double:result)
-        for (int i = 0; i < n_clusters_; ++i) {
-          const auto* centroid_bytes
-              = reinterpret_cast<const unum::usearch::byte_t*>(centroids_.data() + i * dim_);
-          auto dist_sq = static_cast<Scalar>(metric_(emb_bytes, centroid_bytes));
-
-          if (dist_sq < result.dist_sq) {
-            result.dist_sq = dist_sq;
-            result.idx = i;
-          }
-        }
-      } else {
-        // Fallback for other types: use sequential or critical section
-        for (int i = 0; i < n_clusters_; ++i) {
-          const auto* centroid_bytes
-              = reinterpret_cast<const unum::usearch::byte_t*>(centroids_.data() + i * dim_);
-          auto dist_sq = static_cast<Scalar>(metric_(emb_bytes, centroid_bytes));
-
-          if (dist_sq < result.dist_sq) {
-            result.dist_sq = dist_sq;
-            result.idx = i;
-          }
+        if (dist_sq < result.dist_sq) {
+          result.dist_sq = dist_sq;
+          result.idx = i;
         }
       }
 
@@ -191,7 +156,7 @@ public:
       for (int i = 0; i < n_clusters_; ++i) {
         const auto* centroid_bytes
             = reinterpret_cast<const unum::usearch::byte_t*>(centroids_.data() + i * dim_);
-        auto dist_sq = static_cast<Scalar>(metric_(emb_bytes, centroid_bytes));
+        auto dist_sq = static_cast<float>(metric_(emb_bytes, centroid_bytes));
 
         if (dist_sq < best_dist_sq) {
           best_dist_sq = dist_sq;
@@ -203,7 +168,7 @@ public:
     for (int i = 0; i < n_clusters_; ++i) {
       const auto* centroid_bytes
           = reinterpret_cast<const unum::usearch::byte_t*>(centroids_.data() + i * dim_);
-      auto dist_sq = static_cast<Scalar>(metric_(emb_bytes, centroid_bytes));
+      auto dist_sq = static_cast<float>(metric_(emb_bytes, centroid_bytes));
 
       if (dist_sq < best_dist_sq) {
         best_dist_sq = dist_sq;
@@ -215,44 +180,41 @@ public:
     return {best_idx, std::sqrt(best_dist_sq)};
   }
 
-  [[nodiscard]] std::vector<std::pair<int, Scalar>> assign_batch(
-      EmbeddingBatchView<Scalar> view) override {
+  [[nodiscard]] std::vector<std::pair<int, float>> assign_batch(EmbeddingBatchView view) override {
     if (n_clusters_ > 0 && view.dim != static_cast<size_t>(dim_)) [[unlikely]] {
       throw std::invalid_argument("dimension mismatch in assign_batch");
     }
 
     // Throw if GPU memory passed to CPU backend
-    std::visit(overloaded{
-        [](CpuDevice) {},
-        [](CudaDevice) -> void {
-            throw std::invalid_argument("GPU tensor passed to CPU backend. "
-                                      "Create Nordlys with device=CudaDevice{} to use GPU embeddings.");
-        }
-    }, view.device);
+    std::visit(overloaded{[](CpuDevice) {},
+                          [](CudaDevice) -> void {
+                            throw std::invalid_argument(
+                                "GPU tensor passed to CPU backend. "
+                                "Create Nordlys with device=CudaDevice{} to use GPU embeddings.");
+                          }},
+               view.device);
 
-    std::vector<std::pair<int, Scalar>> results(view.count);
+    std::vector<std::pair<int, float>> results(view.count);
 
 #  ifdef _OPENMP
 #    pragma omp parallel for schedule(static)
 #  endif
     for (int i = 0; i < static_cast<int>(view.count); ++i) {
       size_t idx = static_cast<size_t>(i);
-      EmbeddingView<Scalar> single_view{
-          view.data + idx * view.dim,
-          view.dim,
-          view.device
-      };
+      EmbeddingView single_view{view.data + idx * view.dim, view.dim, view.device};
       results[idx] = assign(single_view);
     }
 
     return results;
   }
 
-  [[nodiscard]] size_t n_clusters() const noexcept override { return static_cast<size_t>(n_clusters_); }
+  [[nodiscard]] size_t n_clusters() const noexcept override {
+    return static_cast<size_t>(n_clusters_);
+  }
   [[nodiscard]] size_t dim() const noexcept override { return static_cast<size_t>(dim_); }
 
 private:
-  std::vector<Scalar> centroids_;
+  std::vector<float> centroids_;
   unum::usearch::metric_punned_t metric_;
   int n_clusters_ = 0;
   int dim_ = 0;
@@ -271,7 +233,7 @@ private:
 
 #  include <nordlys_core/cuda_memory.cuh>
 
-template <typename Scalar> class CudaClusterBackend : public IClusterBackend<Scalar> {
+class CudaClusterBackend : public IClusterBackend {
 public:
   CudaClusterBackend();
   ~CudaClusterBackend() override;
@@ -281,24 +243,25 @@ public:
   CudaClusterBackend(CudaClusterBackend&&) = delete;
   CudaClusterBackend& operator=(CudaClusterBackend&&) = delete;
 
-  void load_centroids(const Scalar* data, size_t n_clusters, size_t dim) override;
+  void load_centroids(const float* data, size_t n_clusters, size_t dim) override;
 
-  [[nodiscard]] std::pair<int, Scalar> assign(EmbeddingView<Scalar> view) override;
+  [[nodiscard]] std::pair<int, float> assign(EmbeddingView view) override;
 
-  [[nodiscard]] std::vector<std::pair<int, Scalar>> assign_batch(
-      EmbeddingBatchView<Scalar> view) override;
+  [[nodiscard]] std::vector<std::pair<int, float>> assign_batch(EmbeddingBatchView view) override;
 
-  [[nodiscard]] size_t n_clusters() const noexcept override { return static_cast<size_t>(n_clusters_); }
+  [[nodiscard]] size_t n_clusters() const noexcept override {
+    return static_cast<size_t>(n_clusters_);
+  }
   [[nodiscard]] size_t dim() const noexcept override { return static_cast<size_t>(dim_); }
 
 private:
   void free_memory();
   void capture_graph();
   void ensure_batch_capacity(int count);
-  
+
   // Helper methods for device-aware batch processing
-  std::vector<std::pair<int, Scalar>> assign_batch_from_host(EmbeddingBatchView<Scalar> view);
-  std::vector<std::pair<int, Scalar>> assign_batch_from_device(EmbeddingBatchView<Scalar> view);
+  std::vector<std::pair<int, float>> assign_batch_from_host(EmbeddingBatchView view);
+  std::vector<std::pair<int, float>> assign_batch_from_device(EmbeddingBatchView view);
 
   cublasHandle_t cublas_ = nullptr;
   cudaStream_t stream_ = nullptr;
@@ -306,31 +269,31 @@ private:
   cudaGraphExec_t graph_exec_ = nullptr;
   bool graph_valid_ = false;
 
-  CudaDevicePtr<Scalar> d_centroids_;
-  CudaDevicePtr<Scalar> d_centroid_norms_;
-  CudaDevicePtr<Scalar> d_embedding_;
-  CudaDevicePtr<Scalar> d_embed_norm_;
-  CudaDevicePtr<Scalar> d_dots_;
+  CudaDevicePtr<float> d_centroids_;
+  CudaDevicePtr<float> d_centroid_norms_;
+  CudaDevicePtr<float> d_embedding_;
+  CudaDevicePtr<float> d_embed_norm_;
+  CudaDevicePtr<float> d_dots_;
   CudaDevicePtr<int> d_best_idx_;
-  CudaDevicePtr<Scalar> d_best_dist_;
+  CudaDevicePtr<float> d_best_dist_;
 
-  CudaPinnedPtr<Scalar> h_embedding_;
+  CudaPinnedPtr<float> h_embedding_;
   CudaPinnedPtr<int> h_best_idx_;
-  CudaPinnedPtr<Scalar> h_best_dist_;
+  CudaPinnedPtr<float> h_best_dist_;
 
   static constexpr int kNumPipelineStages = 2;
 
   struct PipelineStage {
     cudaStream_t stream = nullptr;
     cudaEvent_t event = nullptr;
-    CudaDevicePtr<Scalar> d_queries;
-    CudaDevicePtr<Scalar> d_norms;
-    CudaDevicePtr<Scalar> d_dots;
+    CudaDevicePtr<float> d_queries;
+    CudaDevicePtr<float> d_norms;
+    CudaDevicePtr<float> d_dots;
     CudaDevicePtr<int> d_idx;
-    CudaDevicePtr<Scalar> d_dist;
-    CudaPinnedPtr<Scalar> h_queries;
+    CudaDevicePtr<float> d_dist;
+    CudaPinnedPtr<float> h_queries;
     CudaPinnedPtr<int> h_idx;
-    CudaPinnedPtr<Scalar> h_dist;
+    CudaPinnedPtr<float> h_dist;
     int capacity = 0;
   };
 
@@ -361,25 +324,24 @@ private:
 #endif
 }
 
-template <typename Scalar>
-[[nodiscard]] std::unique_ptr<IClusterBackend<Scalar>> create_backend(Device device) {
-  return std::visit(overloaded{
-      [](CpuDevice) -> std::unique_ptr<IClusterBackend<Scalar>> {
+[[nodiscard]] inline std::unique_ptr<IClusterBackend> create_backend(Device device) {
+  return std::visit(overloaded{[](CpuDevice) -> std::unique_ptr<IClusterBackend> {
 #ifndef __CUDACC__
-          return std::make_unique<CpuClusterBackend<Scalar>>();
+                                 return std::make_unique<CpuClusterBackend>();
 #else
-          throw std::runtime_error("CPU backend not available in CUDA compilation");
+                                 throw std::runtime_error(
+                                     "CPU backend not available in CUDA compilation");
 #endif
-      },
-      [](CudaDevice) -> std::unique_ptr<IClusterBackend<Scalar>> {
+                               },
+                               [](CudaDevice) -> std::unique_ptr<IClusterBackend> {
 #ifdef NORDLYS_HAS_CUDA
-          if (cuda_available()) {
-              return std::make_unique<CudaClusterBackend<Scalar>>();
-          }
-          throw std::runtime_error("CUDA not available");
+                                 if (cuda_available()) {
+                                   return std::make_unique<CudaClusterBackend>();
+                                 }
+                                 throw std::runtime_error("CUDA not available");
 #else
-          throw std::runtime_error("CUDA backend not compiled");
+                                 throw std::runtime_error("CUDA backend not compiled");
 #endif
-      }
-  }, device);
+                               }},
+                    device);
 }

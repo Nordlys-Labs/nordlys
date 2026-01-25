@@ -27,7 +27,6 @@
   ],
   "embedding": {
     "model": "integration-test-model",
-    "dtype": "float64",
     "trust_remote_code": false
   },
   "clustering": {

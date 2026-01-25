@@ -1,7 +1,6 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
 #include <nanobind/stl/string.h>
-#include <nanobind/stl/variant.h>
 #include <nanobind/stl/vector.h>
 
 #include <nordlys_core/checkpoint.hpp>
@@ -10,22 +9,6 @@
 
 namespace nb = nanobind;
 using namespace nb::literals;
-
-namespace {
-  struct ClusterCentersVisitor {
-    nb::object operator()(const EmbeddingMatrix<float>& centers) {
-      size_t shape[2] = {centers.rows(), centers.cols()};
-      return nb::cast(nb::ndarray<nb::numpy, const float, nb::ndim<2>>(
-          centers.data(), 2, shape, nb::handle()));
-    }
-    
-    nb::object operator()(const EmbeddingMatrix<double>& centers) {
-      size_t shape[2] = {centers.rows(), centers.cols()};
-      return nb::cast(nb::ndarray<nb::numpy, const double, nb::ndim<2>>(
-          centers.data(), 2, shape, nb::handle()));
-    }
-  };
-}
 
 void register_checkpoint(nb::module_& m) {
   // Checkpoint
@@ -74,10 +57,12 @@ void register_checkpoint(nb::module_& m) {
       .def_prop_ro(
           "cluster_centers",
           [](const NordlysCheckpoint& c) {
-            return std::visit(ClusterCentersVisitor{}, c.cluster_centers);
+            size_t shape[2] = {c.cluster_centers.rows(), c.cluster_centers.cols()};
+            return nb::cast(nb::ndarray<nb::numpy, const float, nb::ndim<2>>(
+                c.cluster_centers.data(), 2, shape, nb::handle()));
           },
           nb::rv_policy::reference_internal,
-          "Cluster centers as numpy array")
+          "Cluster centers as numpy array (float32)")
       .def_ro("models", &NordlysCheckpoint::models, "List of model configurations")
 
       // Configuration structs
@@ -91,7 +76,6 @@ void register_checkpoint(nb::module_& m) {
                    "Feature dimensionality (computed)")
 
       // Convenience accessors (aliases)
-      .def_prop_ro("dtype", &NordlysCheckpoint::dtype, "Data type ('float32' or 'float64')")
       .def_prop_ro("embedding_model", &NordlysCheckpoint::embedding_model, "Embedding model ID")
       .def_prop_ro("random_state", &NordlysCheckpoint::random_state, "Random state")
       .def_prop_ro("allow_trust_remote_code", &NordlysCheckpoint::allow_trust_remote_code,

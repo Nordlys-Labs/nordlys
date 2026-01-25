@@ -1,7 +1,6 @@
 #pragma once
 #include <optional>
 #include <string>
-#include <variant>
 #include <vector>
 
 #include "matrix.hpp"
@@ -21,7 +20,6 @@ struct TrainingMetrics {
 // Embedding configuration
 struct EmbeddingConfig {
   std::string model;
-  std::string dtype;
   bool trust_remote_code;
 };
 
@@ -35,16 +33,12 @@ struct ClusteringConfig {
   std::string normalization;
 };
 
-
-// Cluster centers (zero-copy variant)
-using ClusterCenters = std::variant<EmbeddingMatrix<float>, EmbeddingMatrix<double>>;
-
 // Optimized checkpoint structure
 struct NordlysCheckpoint {
   std::string version;
 
   // Core data (required for routing)
-  ClusterCenters cluster_centers;  // Shape: (n_clusters, feature_dim)
+  EmbeddingMatrix<float> cluster_centers;  // Shape: (n_clusters, feature_dim)
   std::vector<ModelFeatures> models;
 
   // Configuration (required)
@@ -68,18 +62,11 @@ struct NordlysCheckpoint {
   void validate() const;
 
   // Computed properties (not stored)
-  [[nodiscard]] int n_clusters() const {
-    return std::visit([](const auto& centers) { return static_cast<int>(centers.rows()); },
-                      cluster_centers);
-  }
+  [[nodiscard]] int n_clusters() const { return static_cast<int>(cluster_centers.rows()); }
 
-  [[nodiscard]] int feature_dim() const {
-    return std::visit([](const auto& centers) { return static_cast<int>(centers.cols()); },
-                      cluster_centers);
-  }
+  [[nodiscard]] int feature_dim() const { return static_cast<int>(cluster_centers.cols()); }
 
   // Convenience accessors (aliases to nested fields)
-  [[nodiscard]] const std::string& dtype() const { return embedding.dtype; }
   [[nodiscard]] const std::string& embedding_model() const { return embedding.model; }
   [[nodiscard]] int random_state() const { return clustering.random_state; }
   [[nodiscard]] bool allow_trust_remote_code() const { return embedding.trust_remote_code; }

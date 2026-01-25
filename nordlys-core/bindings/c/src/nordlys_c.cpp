@@ -13,8 +13,8 @@
 
 #include "nordlys.h"
 
-// Type-erased router: either float or double precision
-using RouterVariant = std::variant<Nordlys<float>, Nordlys<double>>;
+// Single router type (float32)
+using Router = Nordlys;
 
 // Internal helper to convert std::string to C string
 static char* str_duplicate(const std::string& str) {
@@ -27,7 +27,7 @@ static char* str_duplicate(const std::string& str) {
 }
 
 // Internal helper to clean up route result contents (but not the struct itself)
-template <typename ResultT> static void cleanup_route_result_contents(ResultT* result) {
+static void cleanup_route_result_contents(NordlysRouteResult* result) {
   if (!result) return;
 
   free(result->selected_model);
@@ -43,9 +43,9 @@ template <typename ResultT> static void cleanup_route_result_contents(ResultT* r
   result->alternatives_count = 0;
 }
 
-// Get RouterVariant pointer from opaque handle
-static RouterVariant* get_router(NordlysRouter* router) {
-  return router ? reinterpret_cast<RouterVariant*>(router) : nullptr;
+// Get Router pointer from opaque handle
+static Router* get_router(NordlysRouter* router) {
+  return router ? reinterpret_cast<Router*>(router) : nullptr;
 }
 
 // Helper to convert NordlysDevice to Device variant
@@ -60,23 +60,16 @@ static Device device_to_device(NordlysDevice device) {
   }
 }
 
-// Factory: creates correct router type based on profile dtype
-static std::optional<RouterVariant> create_router_variant(NordlysCheckpoint profile, Device device) {
-  if (profile.dtype() == "float64") {
-    auto result = Nordlys<double>::from_checkpoint(std::move(profile), device);
-    if (!result) return std::nullopt;
-    return RouterVariant{std::in_place_type<Nordlys<double>>, std::move(result.value())};
-  } else {
-    auto result = Nordlys<float>::from_checkpoint(std::move(profile), device);
-    if (!result) return std::nullopt;
-    return RouterVariant{std::in_place_type<Nordlys<float>>, std::move(result.value())};
-  }
+// Factory: creates router from checkpoint
+static std::optional<Router> create_router(NordlysCheckpoint profile, Device device) {
+  auto result = Nordlys::from_checkpoint(std::move(profile), device);
+  if (!result) return std::nullopt;
+  return std::move(result.value());
 }
 
-// Helper to build precision-specific result from RouteResult<Scalar>
-template <typename Scalar, typename ResultT>
-static ResultT* build_route_result(const RouteResult<Scalar>& response) {
-  auto* result = static_cast<ResultT*>(malloc(sizeof(ResultT)));
+// Helper to build route result
+static NordlysRouteResult* build_route_result(const RouteResult& response) {
+  auto* result = static_cast<NordlysRouteResult*>(malloc(sizeof(NordlysRouteResult)));
   if (!result) return nullptr;
 
   result->selected_model = str_duplicate(response.selected_model);
@@ -86,7 +79,7 @@ static ResultT* build_route_result(const RouteResult<Scalar>& response) {
   }
 
   result->cluster_id = response.cluster_id;
-  result->cluster_distance = response.cluster_distance;
+  result->cluster_distance = response.cluster_distance;  // float
 
   result->alternatives_count = response.alternatives.size();
   if (result->alternatives_count > 0) {
@@ -122,9 +115,9 @@ NordlysRouter* nordlys_router_create(const char* profile_path, NordlysDevice dev
   try {
     auto profile = NordlysCheckpoint::from_json(profile_path);
     auto dev = device_to_device(device);
-    auto variant = create_router_variant(std::move(profile), dev);
-    if (!variant) return nullptr;
-    return reinterpret_cast<NordlysRouter*>(new RouterVariant(std::move(*variant)));
+    auto router = create_router(std::move(profile), dev);
+    if (!router) return nullptr;
+    return reinterpret_cast<NordlysRouter*>(new Router(std::move(*router)));
   } catch (...) {
     return nullptr;
   }
@@ -135,9 +128,9 @@ NordlysRouter* nordlys_router_create_from_json(const char* json_str, NordlysDevi
   try {
     auto profile = NordlysCheckpoint::from_json_string(json_str);
     auto dev = device_to_device(device);
-    auto variant = create_router_variant(std::move(profile), dev);
-    if (!variant) return nullptr;
-    return reinterpret_cast<NordlysRouter*>(new RouterVariant(std::move(*variant)));
+    auto router = create_router(std::move(profile), dev);
+    if (!router) return nullptr;
+    return reinterpret_cast<NordlysRouter*>(new Router(std::move(*router)));
   } catch (...) {
     return nullptr;
   }
@@ -148,9 +141,9 @@ NordlysRouter* nordlys_router_create_from_msgpack(const char* path, NordlysDevic
   try {
     auto profile = NordlysCheckpoint::from_msgpack(path);
     auto dev = device_to_device(device);
-    auto variant = create_router_variant(std::move(profile), dev);
-    if (!variant) return nullptr;
-    return reinterpret_cast<NordlysRouter*>(new RouterVariant(std::move(*variant)));
+    auto router = create_router(std::move(profile), dev);
+    if (!router) return nullptr;
+    return reinterpret_cast<NordlysRouter*>(new Router(std::move(*router)));
   } catch (...) {
     return nullptr;
   }
@@ -158,9 +151,8 @@ NordlysRouter* nordlys_router_create_from_msgpack(const char* path, NordlysDevic
 
 void nordlys_router_destroy(NordlysRouter* router) { delete get_router(router); }
 
-NordlysRouteResult32* nordlys_router_route_f32(NordlysRouter* router, const float* embedding,
-                                               size_t embedding_size,
-                                               NordlysErrorCode* error_out) {
+NordlysRouteResult* nordlys_router_route(NordlysRouter* router, const float* embedding,
+                                         size_t embedding_size, NordlysErrorCode* error_out) {
   if (error_out) *error_out = NORDLYS_OK;
 
   if (!router) {
@@ -173,74 +165,25 @@ NordlysRouteResult32* nordlys_router_route_f32(NordlysRouter* router, const floa
   }
 
   try {
-    auto* var = get_router(router);
-
-    // Strict: only works on float32 router
-    if (!std::holds_alternative<Nordlys<float>>(*var)) {
-      if (error_out) *error_out = NORDLYS_ERROR_TYPE_MISMATCH;
-      return nullptr;
-    }
-
-    auto& r = std::get<Nordlys<float>>(*var);
-    EmbeddingView<float> view{embedding, embedding_size, Device{CpuDevice{}}};
-    auto response = r.route(view);
-    return build_route_result<float, NordlysRouteResult32>(response);
+    auto* r = get_router(router);
+    EmbeddingView view{embedding, embedding_size, Device{CpuDevice{}}};
+    auto response = r->route(view);
+    return build_route_result(response);
   } catch (...) {
     if (error_out) *error_out = NORDLYS_ERROR_INTERNAL;
     return nullptr;
   }
 }
 
-void nordlys_route_result_free_f32(NordlysRouteResult32* result) {
+void nordlys_route_result_free(NordlysRouteResult* result) {
   if (!result) return;
   cleanup_route_result_contents(result);
   free(result);
 }
 
-void nordlys_route_result_free_f64(NordlysRouteResult64* result) {
-  if (!result) return;
-  cleanup_route_result_contents(result);
-  free(result);
-}
-
-NordlysRouteResult64* nordlys_router_route_f64(NordlysRouter* router, const double* embedding,
-                                               size_t embedding_size,
-                                               NordlysErrorCode* error_out) {
-  if (error_out) *error_out = NORDLYS_OK;
-
-  if (!router) {
-    if (error_out) *error_out = NORDLYS_ERROR_NULL_ROUTER;
-    return nullptr;
-  }
-  if (!embedding) {
-    if (error_out) *error_out = NORDLYS_ERROR_NULL_EMBEDDING;
-    return nullptr;
-  }
-
-  try {
-    auto* var = get_router(router);
-
-    // Strict: only works on float64 router
-    if (!std::holds_alternative<Nordlys<double>>(*var)) {
-      if (error_out) *error_out = NORDLYS_ERROR_TYPE_MISMATCH;
-      return nullptr;
-    }
-
-    auto& r = std::get<Nordlys<double>>(*var);
-    EmbeddingView<double> view{embedding, embedding_size, Device{CpuDevice{}}};
-    auto response = r.route(view);
-    return build_route_result<double, NordlysRouteResult64>(response);
-  } catch (...) {
-    if (error_out) *error_out = NORDLYS_ERROR_INTERNAL;
-    return nullptr;
-  }
-}
-
-NordlysBatchRouteResult32* nordlys_router_route_batch_f32(NordlysRouter* router,
-                                                          const float* embeddings,
-                                                          size_t n_embeddings,
-                                                          size_t embedding_size,
-                                                          NordlysErrorCode* error_out) {
+NordlysBatchRouteResult* nordlys_router_route_batch(NordlysRouter* router, const float* embeddings,
+                                                    size_t n_embeddings, size_t embedding_size,
+                                                    NordlysErrorCode* error_out) {
   if (error_out) *error_out = NORDLYS_OK;
 
   if (!router) {
@@ -254,7 +197,7 @@ NordlysBatchRouteResult32* nordlys_router_route_batch_f32(NordlysRouter* router,
 
   try {
     auto* batch_result
-        = static_cast<NordlysBatchRouteResult32*>(malloc(sizeof(NordlysBatchRouteResult32)));
+        = static_cast<NordlysBatchRouteResult*>(malloc(sizeof(NordlysBatchRouteResult)));
     if (!batch_result) {
       return nullptr;
     }
@@ -267,14 +210,14 @@ NordlysBatchRouteResult32* nordlys_router_route_batch_f32(NordlysRouter* router,
     }
 
     batch_result->results
-        = static_cast<NordlysRouteResult32*>(malloc(sizeof(NordlysRouteResult32) * n_embeddings));
+        = static_cast<NordlysRouteResult*>(malloc(sizeof(NordlysRouteResult) * n_embeddings));
     if (!batch_result->results) {
       free(batch_result);
       return nullptr;
     }
 
     // Initialize all results to zero
-    std::fill_n(batch_result->results, n_embeddings, NordlysRouteResult32{});
+    std::fill_n(batch_result->results, n_embeddings, NordlysRouteResult{});
 
     // Route each embedding
     for (size_t result_idx = 0; result_idx < n_embeddings; ++result_idx) {
@@ -282,7 +225,7 @@ NordlysBatchRouteResult32* nordlys_router_route_batch_f32(NordlysRouter* router,
 
       // Call single route
       NordlysErrorCode route_error;
-      auto* result = nordlys_router_route_f32(router, embedding_ptr, embedding_size, &route_error);
+      auto* result = nordlys_router_route(router, embedding_ptr, embedding_size, &route_error);
 
       if (result) {
         // Transfer ownership of data
@@ -306,13 +249,13 @@ NordlysBatchRouteResult32* nordlys_router_route_batch_f32(NordlysRouter* router,
   }
 }
 
-void nordlys_batch_route_result_free_f32(NordlysBatchRouteResult32* result) {
+void nordlys_batch_route_result_free(NordlysBatchRouteResult* result) {
   if (!result) return;
 
   if (result->results) {
     // Free each individual result's data using ranges
     auto results_span = std::span(result->results, result->count);
-    std::ranges::for_each(results_span, [](NordlysRouteResult32& res) {
+    std::ranges::for_each(results_span, [](NordlysRouteResult& res) {
       free(res.selected_model);
       if (res.alternatives) {
         auto alternatives_span = std::span(res.alternatives, res.alternatives_count);
@@ -323,92 +266,6 @@ void nordlys_batch_route_result_free_f32(NordlysBatchRouteResult32* result) {
     free(result->results);
   }
   free(result);
-}
-
-void nordlys_batch_route_result_free_f64(NordlysBatchRouteResult64* result) {
-  if (!result) return;
-
-  if (result->results) {
-    // Free each individual result's data using ranges
-    auto results_span = std::span(result->results, result->count);
-    std::ranges::for_each(results_span, [](NordlysRouteResult64& res) {
-      free(res.selected_model);
-      if (res.alternatives) {
-        auto alternatives_span = std::span(res.alternatives, res.alternatives_count);
-        std::ranges::for_each(alternatives_span, [](char* str) { free(str); });
-        free(res.alternatives);
-      }
-    });
-    free(result->results);
-  }
-  free(result);
-}
-
-NordlysBatchRouteResult64* nordlys_router_route_batch_f64(NordlysRouter* router,
-                                                          const double* embeddings,
-                                                          size_t n_embeddings,
-                                                          size_t embedding_size,
-                                                          NordlysErrorCode* error_out) {
-  if (error_out) *error_out = NORDLYS_OK;
-
-  if (!router) {
-    if (error_out) *error_out = NORDLYS_ERROR_NULL_ROUTER;
-    return nullptr;
-  }
-  if (!embeddings) {
-    if (error_out) *error_out = NORDLYS_ERROR_NULL_EMBEDDING;
-    return nullptr;
-  }
-
-  try {
-    auto* batch_result
-        = static_cast<NordlysBatchRouteResult64*>(malloc(sizeof(NordlysBatchRouteResult64)));
-    if (!batch_result) {
-      return nullptr;
-    }
-
-    batch_result->count = n_embeddings;
-    batch_result->results = nullptr;
-
-    if (n_embeddings == 0) {
-      return batch_result;
-    }
-
-    batch_result->results
-        = static_cast<NordlysRouteResult64*>(malloc(sizeof(NordlysRouteResult64) * n_embeddings));
-    if (!batch_result->results) {
-      free(batch_result);
-      return nullptr;
-    }
-
-    // Initialize all results to zero
-    std::fill_n(batch_result->results, n_embeddings, NordlysRouteResult64{});
-
-    // Route each embedding using the double version
-    for (size_t result_idx = 0; result_idx < n_embeddings; ++result_idx) {
-      const double* embedding_ptr = embeddings + (result_idx * embedding_size);
-
-      NordlysErrorCode route_error;
-      auto* result = nordlys_router_route_f64(router, embedding_ptr, embedding_size, &route_error);
-
-      if (result) {
-        batch_result->results[result_idx] = *result;
-        free(result);
-      } else {
-        // If routing fails, clean up previously allocated results
-        for (size_t cleanup_idx = 0; cleanup_idx < result_idx; ++cleanup_idx) {
-          cleanup_route_result_contents(&batch_result->results[cleanup_idx]);
-        }
-        free(batch_result->results);
-        free(batch_result);
-        return nullptr;
-      }
-    }
-
-    return batch_result;
-  } catch (const std::exception&) {
-    return nullptr;
-  }
 }
 
 void nordlys_string_free(char* str) { free(str); }
@@ -416,8 +273,7 @@ void nordlys_string_free(char* str) { free(str); }
 size_t nordlys_router_get_n_clusters(NordlysRouter* router) {
   if (!router) return 0;
   try {
-    return std::visit([](auto& r) -> size_t { return static_cast<size_t>(r.get_n_clusters()); },
-                      *get_router(router));
+    return static_cast<size_t>(get_router(router)->get_n_clusters());
   } catch (...) {
     return 0;
   }
@@ -426,8 +282,7 @@ size_t nordlys_router_get_n_clusters(NordlysRouter* router) {
 size_t nordlys_router_get_embedding_dim(NordlysRouter* router) {
   if (!router) return 0;
   try {
-    return std::visit([](auto& r) -> size_t { return static_cast<size_t>(r.get_embedding_dim()); },
-                      *get_router(router));
+    return static_cast<size_t>(get_router(router)->get_embedding_dim());
   } catch (...) {
     return 0;
   }
@@ -439,7 +294,7 @@ char** nordlys_router_get_supported_models(NordlysRouter* router, size_t* count)
     return nullptr;
   }
   try {
-    auto models = std::visit([](auto& r) { return r.get_supported_models(); }, *get_router(router));
+    auto models = get_router(router)->get_supported_models();
 
     *count = models.size();
     if (models.empty()) {
@@ -478,13 +333,6 @@ void nordlys_string_array_free(char** strings, size_t count) {
     std::ranges::for_each(strings_span, [](char* str) { free(str); });
     free(strings);
   }
-}
-
-NordlysPrecision nordlys_router_get_precision(NordlysRouter* router) {
-  if (!router) return NORDLYS_PRECISION_UNKNOWN;
-  auto* var = get_router(router);
-  return std::holds_alternative<Nordlys<double>>(*var) ? NORDLYS_PRECISION_FLOAT64
-                                                       : NORDLYS_PRECISION_FLOAT32;
 }
 
 }  // extern "C"

@@ -9,26 +9,15 @@
 namespace nb = nanobind;
 
 void register_results(nb::module_& m) {
-  // Result types
-  nb::class_<RouteResult<float>>(m, "RouteResult32", "Routing result for float32 precision")
-      .def_ro("selected_model", &RouteResult<float>::selected_model, "Selected model ID")
-      .def_ro("alternatives", &RouteResult<float>::alternatives, "List of alternative model IDs")
-      .def_ro("cluster_id", &RouteResult<float>::cluster_id, "Assigned cluster ID")
-      .def_ro("cluster_distance", &RouteResult<float>::cluster_distance,
+  // Result type
+  nb::class_<RouteResult>(m, "RouteResult", "Routing result")
+      .def_ro("selected_model", &RouteResult::selected_model, "Selected model ID")
+      .def_ro("alternatives", &RouteResult::alternatives, "List of alternative model IDs")
+      .def_ro("cluster_id", &RouteResult::cluster_id, "Assigned cluster ID")
+      .def_ro("cluster_distance", &RouteResult::cluster_distance,
               "Distance to cluster center")
-      .def("__repr__", [](const RouteResult<float>& r) {
-        return "<RouteResult32 model='" + r.selected_model
-               + "' cluster=" + std::to_string(r.cluster_id) + ">";
-      });
-
-  nb::class_<RouteResult<double>>(m, "RouteResult64", "Routing result for float64 precision")
-      .def_ro("selected_model", &RouteResult<double>::selected_model, "Selected model ID")
-      .def_ro("alternatives", &RouteResult<double>::alternatives, "List of alternative model IDs")
-      .def_ro("cluster_id", &RouteResult<double>::cluster_id, "Assigned cluster ID")
-      .def_ro("cluster_distance", &RouteResult<double>::cluster_distance,
-              "Distance to cluster center")
-      .def("__repr__", [](const RouteResult<double>& r) {
-        return "<RouteResult64 model='" + r.selected_model
+      .def("__repr__", [](const RouteResult& r) {
+        return "<RouteResult model='" + r.selected_model
                + "' cluster=" + std::to_string(r.cluster_id) + ">";
       });
 }
