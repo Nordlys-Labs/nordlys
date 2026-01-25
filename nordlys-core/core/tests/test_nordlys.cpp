@@ -357,7 +357,7 @@ TEST_F(Nordlysest, AlternativeModelsAreDifferentFromSelected) {
 // ============================================================================
 
 TEST_F(Nordlysest, CreateFromJsonString) {
-  // Test creating router from JSON string
+  // Test creating nordlys from JSON string
   std::string json_checkpoint = R"({
     "version": "2.0",
     "cluster_centers": [[1.0, 0.0], [0.0, 1.0]],
@@ -377,9 +377,9 @@ TEST_F(Nordlysest, CreateFromJsonString) {
   auto checkpoint = NordlysCheckpoint::from_json_string(json_checkpoint);
   auto result = Nordlys::from_checkpoint(std::move(checkpoint));
 
-  ASSERT_TRUE(result.has_value()) << "Failed to create router from JSON: " << result.error();
+  ASSERT_TRUE(result.has_value()) << "Failed to create nordlys from JSON: " << result.error();
 
-  auto& router = result.value();
+  auto& nordlys = result.value();
   EXPECT_EQ(nordlys.get_embedding_dim(), 2);
   EXPECT_EQ(nordlys.get_n_clusters(), 2);
 }
@@ -453,7 +453,7 @@ TEST_F(Nordlysest, SingleCluster) {
   auto result = Nordlys::from_checkpoint(std::move(checkpoint));
 
   ASSERT_TRUE(result.has_value());
-  auto& router = result.value();
+  auto& nordlys = result.value();
 
   EXPECT_EQ(nordlys.get_n_clusters(), 1);
   EXPECT_EQ(nordlys.get_embedding_dim(), 3);
