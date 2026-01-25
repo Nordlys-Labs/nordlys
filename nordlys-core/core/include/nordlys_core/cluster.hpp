@@ -236,12 +236,13 @@ public:
 #    pragma omp parallel for schedule(static)
 #  endif
     for (int i = 0; i < static_cast<int>(view.count); ++i) {
+      size_t idx = static_cast<size_t>(i);
       EmbeddingView<Scalar> single_view{
-          view.data + i * view.dim,
+          view.data + idx * view.dim,
           view.dim,
           view.device
       };
-      results[i] = assign(single_view);
+      results[idx] = assign(single_view);
     }
 
     return results;
