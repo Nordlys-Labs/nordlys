@@ -165,6 +165,7 @@ class Nordlys:
         random_state: int = 42,
         allow_trust_remote_code: bool = False,
         embedding_cache_size: int = 1000,
+        device: Literal["cpu", "cuda"] = "cpu",
     ) -> None:
         """Initialize Nordlys router.
 
@@ -177,6 +178,7 @@ class Nordlys:
             random_state: Random seed for reproducibility
             allow_trust_remote_code: Allow remote code execution for embedding model
             embedding_cache_size: Maximum number of embeddings to cache (must be > 0)
+            device: Device for C++ core clustering operations ("cpu" or "cuda")
         """
         # C++ core (initialized on load or after fit) - set early to avoid __del__ errors
         self._core_engine: Nordlys32 | Nordlys64 | None = None
@@ -187,6 +189,11 @@ class Nordlys:
         if embedding_cache_size <= 0:
             raise ValueError("embedding_cache_size must be greater than 0")
 
+        # Validate and store device
+        if device not in ("cpu", "cuda"):
+            raise ValueError(f"device must be 'cpu' or 'cuda', got '{device}'")
+        self._device = device
+
         self._models = models
         self._model_ids = [m.id for m in models]
 
@@ -194,8 +201,9 @@ class Nordlys:
         self._embedding_model_name = embedding_model
         self._allow_trust_remote_code = allow_trust_remote_code
         self._embedding_model: SentenceTransformer
-        device = _get_device()
-        logger.info(f"Loading embedding model '{embedding_model}' on device: {device}")
+        logger.info(
+            f"Loading embedding model '{embedding_model}' on device: {self._device}"
+        )
         with warnings.catch_warnings():
             warnings.filterwarnings(
                 "ignore",
@@ -204,7 +212,7 @@ class Nordlys:
             )
             self._embedding_model = SentenceTransformer(
                 embedding_model,
-                device=device,
+                device=self._device,
                 trust_remote_code=allow_trust_remote_code,
             )
         self._embedding_model.tokenizer.clean_up_tokenization_spaces = False
@@ -407,9 +415,13 @@ class Nordlys:
         checkpoint = self._to_checkpoint()
         try:
             if self._dtype == DEFAULT_DTYPE:
-                self._core_engine = Nordlys32.from_checkpoint(checkpoint)
+                self._core_engine = Nordlys32.from_checkpoint(
+                    checkpoint, device=self._device
+                )
             else:
-                self._core_engine = Nordlys64.from_checkpoint(checkpoint)
+                self._core_engine = Nordlys64.from_checkpoint(
+                    checkpoint, device=self._device
+                )
         except (ValueError, RuntimeError, AttributeError, OSError) as e:
             raise RuntimeError(
                 f"Failed to initialize C++ core engine: {e}. "
@@ -800,13 +812,17 @@ class Nordlys:
 
     @classmethod
     def load(
-        cls, path: str | Path, models: list[ModelConfig] | None = None
+        cls,
+        path: str | Path,
+        models: list[ModelConfig] | None = None,
+        device: Literal["cpu", "cuda"] = "cpu",
     ) -> "Nordlys":
         """Load a fitted model from a file.
 
         Args:
             path: Path to saved model file
             models: Optional list of model configs (overrides saved costs)
+            device: Device for C++ core clustering operations ("cpu" or "cuda")
 
         Returns:
             Loaded Nordlys instance
@@ -818,13 +834,14 @@ class Nordlys:
         else:
             checkpoint = NordlysCheckpoint.from_json_file(str(path))
 
-        return cls._from_checkpoint(checkpoint, models)
+        return cls._from_checkpoint(checkpoint, models, device)
 
     @classmethod
     def _from_checkpoint(
         cls,
         checkpoint: NordlysCheckpoint,
         models: list[ModelConfig] | None = None,
+        device: Literal["cpu", "cuda"] = "cpu",
     ) -> "Nordlys":
         """Create Nordlys instance from NordlysCheckpoint."""
         # Extract model configs from checkpoint if not provided
@@ -845,14 +862,15 @@ class Nordlys:
             nr_clusters=checkpoint.clustering.n_clusters,
             random_state=checkpoint.clustering.random_state,
             allow_trust_remote_code=checkpoint.embedding.trust_remote_code,
+            device=device,
         )
 
         # Initialize C++ core - this is the source of truth for all routing
         checkpoint_dtype: Dtype = checkpoint.embedding.dtype
         if checkpoint_dtype == DEFAULT_DTYPE:
-            instance._core_engine = Nordlys32.from_checkpoint(checkpoint)
+            instance._core_engine = Nordlys32.from_checkpoint(checkpoint, device=device)
         else:
-            instance._core_engine = Nordlys64.from_checkpoint(checkpoint)
+            instance._core_engine = Nordlys64.from_checkpoint(checkpoint, device=device)
 
         # Populate Python-side fitted state from checkpoint
         instance._dtype = checkpoint_dtype
