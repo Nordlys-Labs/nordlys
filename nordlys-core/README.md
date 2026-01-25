@@ -1,15 +1,14 @@
-# Nordlys Model Engine - C++ Core
+# Nordlys Core
 
-High-performance C++ core library for intelligent LLM model routing and selection. This is the core engine used by Nordlys model runtime and tooling.
+High-performance C++ library for intelligent LLM model routing and selection.
 
 ## Overview
 
-The Nordlys C++ core provides:
-- **High-performance inference**: Fast model routing with GPU acceleration
-- **Cross-platform support**: Linux, macOS, and Windows
-- **Language bindings**: Python (via nanobind) and C FFI APIs
-- **ML routing**: UniRouter algorithm with K-means clustering
-- **Cost optimization**: Intelligent balancing of model capability vs cost
+Nordlys Core provides:
+- **Fast routing**: Sub-millisecond model selection with GPU acceleration
+- **Cross-platform**: Linux, macOS, and Windows
+- **Language bindings**: Python and C FFI APIs
+- **Smart selection**: K-means clustering with cost-accuracy optimization
 
 ## Build Requirements
 
@@ -20,68 +19,37 @@ The Nordlys C++ core provides:
 
 ## Quick Start
 
-### Prerequisites
 ```bash
-# Install Conan (package manager for C++)
+# Install Conan
 pip install conan
 
-# For CUDA support (Linux only)
-# Install CUDA Toolkit 12.x from NVIDIA
-```
-
-### Building the Core Library
-
-```bash
-cd nordlys-core
-
-# Install dependencies with Conan
+# Install dependencies
 conan install . --build=missing -s compiler.cppstd=20
 
-# Configure with CMake
+# Configure and build
 cmake --preset conan-release -DNORDLYS_BUILD_C=ON
-
-# Build the libraries
-cmake --build . --target nordlys_core nordlys_c
+cmake --build --preset conan-release
 ```
 
-### Build Targets
+**Requirements:**
+- C++20 compiler (GCC 10+, Clang 12+, MSVC 19.3+)
+- CMake 3.24+
+- Conan 2.0+
+- CUDA 12.x (optional, Linux only)
 
-The build process creates several artifacts:
+### Build Outputs
 
-1. **Core Library** (`libnordlys_core.a`)
-   - Static C++ library with routing logic
-   - Used by Python bindings and C FFI
+- **Core Library** (`libnordlys_core.a`) - Static C++ library
+- **C FFI** (`libnordlys_c.so`/`.dylib`) - C-compatible API for other languages
+- **Python Extension** (`nordlys_core_ext.so`) - Python bindings via nanobind
 
-2. **C FFI Library** (`libnordlys_c.so` or `nordlys_c.dll`)
-   - C-compatible API for integration with other languages
-   - Ideal for Rust, Go, Java, and other systems
+## Build Options
 
-3. **Python Extension** (`nordlys_core_ext.so`)
-   - Python bindings via nanobind
-   - Used by the `nordlys` Python package
-
-## Building Variants
-
-### CPU-only Version (Default)
-```bash
-cmake --preset conan-release
-cmake --build .
-```
-
-### CUDA Version (Linux only)
-```bash
-cmake --preset conan-release -DNORDLYS_ENABLE_CUDA=ON
-cmake --build .
-```
-
-### Package Options
-
-- `DNORDLYS_BUILD_PYTHON=ON|OFF` - Build Python bindings (default: ON)
-- `DNORDLYS_BUILD_C=ON|OFF` - Build C FFI bindings (default: OFF)
-- `DNORDLYS_BUILD_TESTS=ON|OFF` - Build test suite (default: OFF)
-- `DNORDLYS_BUILD_BENCHMARKS=ON|OFF` - Build benchmark suite (default: OFF)
-- `DNORDLYS_BUILD_PROFILE=ON|OFF` - Build with profiling symbols (default: OFF)
-- `DNORDLYS_ENABLE_CUDA=ON|OFF` - Enable CUDA support (default: OFF)
+- `DNORDLYS_BUILD_PYTHON=ON|OFF` - Python bindings (default: ON)
+- `DNORDLYS_BUILD_C=ON|OFF` - C FFI bindings (default: OFF)
+- `DNORDLYS_BUILD_TESTS=ON|OFF` - Test suite (default: OFF)
+- `DNORDLYS_BUILD_BENCHMARKS=ON|OFF` - Benchmark suite (default: OFF)
+- `DNORDLYS_ENABLE_CUDA=ON|OFF` - CUDA support (default: OFF, Linux only)
 
 ## Testing
 
@@ -125,6 +93,14 @@ Benchmarks measure:
 
 See [benchmarks/README.md](benchmarks/README.md) for detailed documentation.
 
+## Module Documentation
+
+- [Core Library](core/README.md) - C++ routing engine implementation
+- [Bindings](bindings/README.md) - Language bindings overview
+  - [Python](bindings/python/README.md) - Python API
+  - [C FFI](bindings/c/README.md) - C API for other languages
+- [Benchmarks](benchmarks/README.md) - Performance benchmarks
+
 ## Profiling
 
 Profile benchmarks using headless profiling tools (`perf` or `gprof`) that work without GUI connections:
@@ -148,69 +124,64 @@ perf report
 
 See [benchmarks/PROFILING.md](benchmarks/PROFILING.md) for detailed guide.
 
-## Usage Examples
+## Usage
 
-### C API Usage
+### C++ API
+
+```cpp
+#include <nordlys_core/nordlys.hpp>
+
+auto checkpoint = NordlysCheckpoint::from_json_file("checkpoint.json");
+auto router = Nordlys32::from_checkpoint(std::move(checkpoint));
+auto result = router.route(embedding, embedding_size, 0.5f);
+```
+
+### Python API
+
+```python
+from nordlys_core import Nordlys32, NordlysCheckpoint
+
+checkpoint = NordlysCheckpoint.from_json_file("checkpoint.json")
+router = Nordlys32.from_checkpoint(checkpoint)
+result = router.route(embedding, cost_bias=0.5)
+```
+
+### C FFI API
 
 ```c
 #include "nordlys.h"
 
-// Create router from checkpoint
-NordlysRouter* router = nordlys_router_create("checkpoint.json");
-
-// Route with embedding
-float embedding[] = {0.1f, 0.2f, ...};
-NordlysErrorCode error;
-NordlysRouteResult32* result = nordlys_router_route_f32(
-    router, embedding, embedding_size, 0.5f, &error);
-
-// Use result
-printf("Selected model: %s\n", result->selected_model);
-
-// Cleanup
-nordlys_route_result_free_f32(result);
-nordlys_router_destroy(router);
+NordlysRouter* router = nordlys_router_create_from_file("checkpoint.json", ...);
+NordlysRouteResult32* result = nordlys_router_route_f32(router, embedding, ...);
 ```
 
-### Integration with Python
-
-```python
-# The C++ core is automatically used by the Python package
-from nordlys_core_ext import Nordlys32, NordlysCheckpoint
-
-checkpoint = NordlysCheckpoint.from_json_file("checkpoint.json")
-engine = Nordlys32.from_checkpoint(checkpoint)
-result = engine.route(embedding, cost_bias=0.5)
-print(f"Selected: {result.selected_model}")
-```
+See module READMEs for detailed API documentation:
+- [Core Library](core/README.md) - C++ API
+- [Python Bindings](bindings/python/README.md) - Python API
+- [C FFI](bindings/c/README.md) - C API
 
 ## Architecture
 
-The C++ core implements the following algorithms:
+- **UniRouter**: Cluster-based model selection algorithm
+- **K-means Clustering**: Embedding-to-cluster assignment
+- **Cost Optimization**: λ-weighted scoring for cost-accuracy trade-off
 
-1. **UniRouter Algorithm**: Cluster-based model selection
-2. **K-means Clustering**: Prompt similarity grouping
-3. **Feature Extraction**: Embedding computation
-4. **Cost Optimization**: λ-weighted scoring
+## Performance
 
-## Performance Characteristics
-
-- **Routing latency**: ~0.15ms (excluding embedding computation)
-- **Memory usage**: ~10-50MB depending on profile size
+- **Routing latency**: ~50-500μs (depends on profile size)
+- **Memory**: ~10-50MB (depends on profile size)
 - **GPU acceleration**: 10-100x speedup for batch operations
-- **Concurrency**: Thread-safe for concurrent routing operations
+- **Thread-safe**: Safe for concurrent routing
 
 ## Dependencies
 
-The C++ core depends on:
-
-- **Eigen3**: Linear algebra
-- **Boost**: Utilities and containers
-- **nlohmann/json**: JSON parsing
-- **msgpack-cxx**: Serialization
-- **tsl-robin-map**: High-performance hash maps
-- **nanobind**: Python bindings (optional)
-- **CUDA Toolkit**: GPU support (optional)
+- **Eigen3** - Linear algebra
+- **Boost** - Utilities and containers
+- **nlohmann/json** - JSON parsing
+- **msgpack-cxx** - Serialization
+- **tsl-robin-map** - High-performance hash maps
+- **nanobind** - Python bindings (optional)
+- **CUDA Toolkit** - GPU support (optional)
 
 ## Contributing
 

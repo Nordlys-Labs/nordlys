@@ -1,33 +1,86 @@
-# Nordlys Model Engine - Python Bindings
+# Python Bindings
 
-Python bindings for the Nordlys C++ core. Internal use only.
+Python bindings for the Nordlys C++ core using nanobind.
 
-## Package Structure
+## Overview
 
-The Python bindings use a standard `src/` layout:
-- `src/nordlys_core/` - Python package directory
-- `src/nordlys_core/__init__.py` - Package initialization
-- `src/nordlys_core/_core.pyi` - Type stubs for IDE support
-- `src/nordlys_core/module.cpp` - Main module definition
-- `src/nordlys_core/helpers.cpp` - Helper functions
-- `src/nordlys_core/types.cpp` - Configuration type bindings
-- `src/nordlys_core/results.cpp` - Result type bindings
-- `src/nordlys_core/checkpoint.cpp` - NordlysCheckpoint bindings
-- `src/nordlys_core/nordlys.cpp` - Nordlys32/64 bindings
+Provides native Python APIs for the Nordlys routing engine with:
+- Type stubs for IDE support
+- NumPy array compatibility
+- Native Python types (lists, dicts, strings)
+- Used by the main `nordlys` Python package
 
-The package can be imported as:
-```python
-import nordlys_core
-from nordlys_core import Nordlys32, Nordlys64, NordlysCheckpoint
-```
-
-## Build
+## Installation
 
 ```bash
+# Install from source
 pip install -e .
+
+# Or via the main nordlys package
+pip install nordlys
 ```
 
-## Links
+## Usage
 
-- Docs: https://docs.nordlyslabs.com
-- Issues: https://github.com/Egham-7/nordlys/issues
+```python
+from nordlys_core import Nordlys32, NordlysCheckpoint
+
+# Load checkpoint
+checkpoint = NordlysCheckpoint.from_json_file("profile.json")
+router = Nordlys32.from_checkpoint(checkpoint)
+
+# Route embedding
+embedding = [0.1, 0.2, 0.3, ...]  # List or NumPy array
+result = router.route(embedding, cost_bias=0.5)
+
+# Access results
+print(f"Selected: {result.selected_model}")
+print(f"Cluster: {result.cluster_id}")
+print(f"Alternatives: {result.alternatives}")
+```
+
+## API Reference
+
+### `Nordlys32` / `Nordlys64`
+Main router class for float32/float64 precision.
+
+**Methods:**
+- `from_checkpoint(checkpoint)` - Create router from checkpoint
+- `route(embedding, cost_bias=0.0)` - Route single embedding
+- `route_batch(embeddings, cost_bias=0.0)` - Route batch of embeddings
+- `get_supported_models()` - Get list of available models
+- `get_n_clusters()` - Get number of clusters
+- `get_embedding_dim()` - Get embedding dimension
+
+### `NordlysCheckpoint`
+Routing profile data structure.
+
+**Methods:**
+- `from_json_file(path)` - Load from JSON file
+- `from_json_string(json)` - Load from JSON string
+- `to_json()` - Serialize to JSON string
+
+### `RouteResult32` / `RouteResult64`
+Routing result with selected model and metadata.
+
+**Attributes:**
+- `selected_model` - Selected model ID (str)
+- `alternatives` - List of alternative model IDs
+- `cluster_id` - Assigned cluster ID (int)
+- `cluster_distance` - Distance to cluster center (float)
+
+## Testing
+
+```bash
+# Run Python binding tests
+ctest -R python_bindings --output-on-failure
+
+# Or with pytest
+pytest tests/
+```
+
+## See Also
+
+- [Main README](../../README.md) - Build and usage guide
+- [Core Library](../../core/README.md) - C++ implementation
+- [Bindings Overview](../README.md) - All language bindings
