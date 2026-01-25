@@ -13,11 +13,12 @@ Provides native Python APIs for the Nordlys routing engine with:
 ## Installation
 
 ```bash
-# Install from source
-pip install -e .
+# Install from source using uv
+uv sync --group test
+uv pip install -e .
 
 # Or via the main nordlys package
-pip install nordlys
+uv pip install nordlys
 ```
 
 ## Usage
@@ -72,11 +73,14 @@ Routing result with selected model and metadata.
 ## Testing
 
 ```bash
-# Run Python binding tests
-ctest -R python_bindings --output-on-failure
+# Run Python binding tests with uv
+uv run pytest tests/
 
-# Or with pytest
-pytest tests/
+# Or with verbose output
+uv run pytest tests/ -v
+
+# Or using ctest (from build directory)
+ctest -R python_bindings --output-on-failure
 ```
 
 ## See Also

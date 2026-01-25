@@ -186,3 +186,41 @@ class TestNordlysCheckpointProperties:
 
         # Test dtype consistency
         assert checkpoint.dtype in ("float32", "float64")
+
+    def test_models_property(self, sample_checkpoint_json: str):
+        """Test accessing checkpoint.models property."""
+        from nordlys_core import NordlysCheckpoint
+
+        checkpoint = NordlysCheckpoint.from_json_string(sample_checkpoint_json)
+
+        # Access models - this will fail if vector.h is missing
+        models = checkpoint.models
+        assert len(models) == 2
+
+        # Iterate over models to get model IDs
+        model_ids = [model.model_id for model in models]
+        assert "openai/gpt-4" in model_ids
+        assert "anthropic/claude-3" in model_ids
+
+        # Access individual model properties
+        for model in models:
+            assert hasattr(model, "model_id")
+            assert hasattr(model, "error_rates")
+            assert hasattr(model, "cost_per_1m_input_tokens")
+            assert hasattr(model, "cost_per_1m_output_tokens")
+
+    def test_model_features_properties(self, sample_checkpoint_json: str):
+        """Test accessing ModelFeatures properties including error_rates vector."""
+        from nordlys_core import NordlysCheckpoint
+
+        checkpoint = NordlysCheckpoint.from_json_string(sample_checkpoint_json)
+
+        # Get a model and access its properties
+        model = checkpoint.models[0]
+        assert isinstance(model.model_id, str)
+
+        # Access error_rates - this will fail if vector.h is missing
+        error_rates = model.error_rates
+        assert len(error_rates) == checkpoint.n_clusters
+        assert all(isinstance(rate, float) for rate in error_rates)
+        assert all(0.0 <= rate <= 1.0 for rate in error_rates)
