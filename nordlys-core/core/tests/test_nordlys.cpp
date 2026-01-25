@@ -53,12 +53,12 @@ static const char* kTestCheckpointJson = R"({
 
 class Nordlysest : public ::testing::Test {
 protected:
-  // Helper to create a test router from JSON string
-  Nordlys CreateTestRouter() {
+  // Helper to create a test nordlys from JSON string
+  Nordlys CreateTestNordlys() {
     auto checkpoint = NordlysCheckpoint::from_json_string(kTestCheckpointJson);
     auto result = Nordlys::from_checkpoint(std::move(checkpoint));
     if (!result) {
-      throw std::runtime_error("Failed to create test router: " + result.error());
+      throw std::runtime_error("Failed to create test nordlys: " + result.error());
     }
     return std::move(result.value());
   }
@@ -69,38 +69,38 @@ protected:
 // ============================================================================
 
 TEST_F(Nordlysest, BasicInitialization) {
-  // Verify router can be created and basic properties are accessible
-  auto router = CreateTestRouter();
+  // Verify nordlys can be created and basic properties are accessible
+  auto nordlys = CreateTestNordlys();
 
   // Check that basic getters work
-  EXPECT_EQ(router.get_embedding_dim(), 4);
-  EXPECT_EQ(router.get_n_clusters(), 3);
+  EXPECT_EQ(nordlys.get_embedding_dim(), 4);
+  EXPECT_EQ(nordlys.get_n_clusters(), 3);
 
-  auto models = router.get_supported_models();
+  auto models = nordlys.get_supported_models();
   EXPECT_EQ(models.size(), 2);
 }
 
 TEST_F(Nordlysest, EmbeddingDimension) {
   // Verify get_embedding_dim() returns correct value from checkpoint
-  auto router = CreateTestRouter();
+  auto nordlys = CreateTestNordlys();
 
   // Checkpoint has 4D embeddings (3 clusters x 4 dimensions)
-  EXPECT_EQ(router.get_embedding_dim(), 4);
+  EXPECT_EQ(nordlys.get_embedding_dim(), 4);
 }
 
 TEST_F(Nordlysest, NClusters) {
   // Verify get_n_clusters() returns correct value from checkpoint
-  auto router = CreateTestRouter();
+  auto nordlys = CreateTestNordlys();
 
   // Checkpoint has 3 clusters
-  EXPECT_EQ(router.get_n_clusters(), 3);
+  EXPECT_EQ(nordlys.get_n_clusters(), 3);
 }
 
 TEST_F(Nordlysest, SupportedModels) {
   // Verify get_supported_models() returns all models from checkpoint
-  auto router = CreateTestRouter();
+  auto nordlys = CreateTestNordlys();
 
-  auto models = router.get_supported_models();
+  auto models = nordlys.get_supported_models();
   EXPECT_EQ(models.size(), 2);
 
   // Check model IDs are correct
@@ -114,14 +114,14 @@ TEST_F(Nordlysest, SupportedModels) {
 
 TEST_F(Nordlysest, BasicRoutingWithFloat) {
   // Verify route() works with valid float embedding and returns proper response
-  auto router = CreateTestRouter();
+  auto nordlys = CreateTestNordlys();
 
   // Create embedding vector matching cluster centroid (4D)
   std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
 
   // Route should assign to cluster 0 (closest to [1,0,0,0])
   EmbeddingView view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
-  auto response = router.route(view);
+  auto response = nordlys.route(view);
 
   EXPECT_EQ(response.cluster_id, 0);
   EXPECT_GE(response.cluster_distance, 0.0f);
@@ -131,12 +131,12 @@ TEST_F(Nordlysest, BasicRoutingWithFloat) {
 
 TEST_F(Nordlysest, RoutingByErrorRate) {
   // Verify routing selects models by error rate
-  auto router = CreateTestRouter();
+  auto nordlys = CreateTestNordlys();
 
   std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
 
   EmbeddingView view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
-  auto response = router.route(view);
+  auto response = nordlys.route(view);
 
   EXPECT_FALSE(response.selected_model.empty());
   EXPECT_EQ(response.cluster_id, 0);
@@ -144,13 +144,13 @@ TEST_F(Nordlysest, RoutingByErrorRate) {
 
 TEST_F(Nordlysest, RoutingWithFilteredModels) {
   // Verify routing works with model filter
-  auto router = CreateTestRouter();
+  auto nordlys = CreateTestNordlys();
 
   std::vector<float> embedding = {0.0f, 0.95f, 0.05f, 0.0f};
   std::vector<std::string> filtered_models = {"provider1/gpt-4"};
 
   EmbeddingView view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
-  auto response = router.route(view, filtered_models);
+  auto response = nordlys.route(view, filtered_models);
 
   EXPECT_EQ(response.cluster_id, 1);
   EXPECT_EQ(response.selected_model, "provider1/gpt-4");
@@ -162,24 +162,24 @@ TEST_F(Nordlysest, RoutingWithFilteredModels) {
 
 TEST_F(Nordlysest, DimensionMismatchThrows) {
   // Verify route() throws std::invalid_argument on embedding dimension mismatch
-  auto router = CreateTestRouter();
+  auto nordlys = CreateTestNordlys();
 
   // Create wrong-sized embedding (3D instead of 4D)
   std::vector<float> wrong_embedding = {0.5f, 0.5f, 0.0f};
 
   EmbeddingView wrong_view{wrong_embedding.data(), wrong_embedding.size(), Device{CpuDevice{}}};
-  EXPECT_THROW(router.route(wrong_view), std::invalid_argument);
+  EXPECT_THROW(nordlys.route(wrong_view), std::invalid_argument);
 }
 
 TEST_F(Nordlysest, DimensionMismatchErrorMessage) {
   // Verify error message contains dimension information
-  auto router = CreateTestRouter();
+  auto nordlys = CreateTestNordlys();
 
   std::vector<float> wrong_embedding = {1.0f, 0.0f};  // 2D instead of 4D
 
   try {
     EmbeddingView wrong_view{wrong_embedding.data(), wrong_embedding.size(), Device{CpuDevice{}}};
-    (void)router.route(wrong_view);
+    (void)nordlys.route(wrong_view);
     FAIL() << "Expected std::invalid_argument to be thrown";
   } catch (const std::invalid_argument& e) {
     std::string msg = e.what();
@@ -195,13 +195,13 @@ TEST_F(Nordlysest, DimensionMismatchErrorMessage) {
 
 TEST_F(Nordlysest, RoutingWithEmptyModelFilter) {
   // Empty filter should use all available models
-  auto router = CreateTestRouter();
+  auto nordlys = CreateTestNordlys();
 
   std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
   std::vector<std::string> empty_filter;
 
   EmbeddingView view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
-  auto response = router.route(view, empty_filter);
+  auto response = nordlys.route(view, empty_filter);
 
   EXPECT_EQ(response.cluster_id, 0);
   EXPECT_FALSE(response.selected_model.empty());
@@ -209,13 +209,13 @@ TEST_F(Nordlysest, RoutingWithEmptyModelFilter) {
 
 TEST_F(Nordlysest, RoutingWithSingleModelFilter) {
   // Filter to only one model - should always select that model
-  auto router = CreateTestRouter();
+  auto nordlys = CreateTestNordlys();
 
   std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
   std::vector<std::string> filter = {"provider2/llama"};
 
   EmbeddingView view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
-  auto response = router.route(view, filter);
+  auto response = nordlys.route(view, filter);
 
   EXPECT_EQ(response.cluster_id, 0);
   EXPECT_EQ(response.selected_model, "provider2/llama");
@@ -223,12 +223,12 @@ TEST_F(Nordlysest, RoutingWithSingleModelFilter) {
 
 TEST_F(Nordlysest, AlternativesReturned) {
   // Verify that alternatives are returned (all models except selected)
-  auto router = CreateTestRouter();
+  auto nordlys = CreateTestNordlys();
 
   std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
 
   EmbeddingView view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
-  auto response = router.route(view);
+  auto response = nordlys.route(view);
 
   // With 2 models, alternatives should have at most 1 (all except selected)
   EXPECT_LE(response.alternatives.size(), 1);
@@ -240,7 +240,7 @@ TEST_F(Nordlysest, AlternativesReturned) {
 
 TEST_F(Nordlysest, DifferentEmbeddingsAssignToDifferentClusters) {
   // Verify that embeddings close to different centroids are assigned correctly
-  auto router = CreateTestRouter();
+  auto nordlys = CreateTestNordlys();
 
   std::vector<float> embedding1 = {0.95f, 0.05f, 0.0f, 0.0f};  // Close to cluster 0
   std::vector<float> embedding2 = {0.05f, 0.95f, 0.0f, 0.0f};  // Close to cluster 1
@@ -249,9 +249,9 @@ TEST_F(Nordlysest, DifferentEmbeddingsAssignToDifferentClusters) {
   EmbeddingView view1{embedding1.data(), embedding1.size(), Device{CpuDevice{}}};
   EmbeddingView view2{embedding2.data(), embedding2.size(), Device{CpuDevice{}}};
   EmbeddingView view3{embedding3.data(), embedding3.size(), Device{CpuDevice{}}};
-  auto response1 = router.route(view1);
-  auto response2 = router.route(view2);
-  auto response3 = router.route(view3);
+  auto response1 = nordlys.route(view1);
+  auto response2 = nordlys.route(view2);
+  auto response3 = nordlys.route(view3);
 
   EXPECT_EQ(response1.cluster_id, 0);
   EXPECT_EQ(response2.cluster_id, 1);
@@ -260,25 +260,25 @@ TEST_F(Nordlysest, DifferentEmbeddingsAssignToDifferentClusters) {
 
 TEST_F(Nordlysest, ClusterDistanceIsNonNegative) {
   // Verify cluster distance is always non-negative
-  auto router = CreateTestRouter();
+  auto nordlys = CreateTestNordlys();
 
   std::vector<float> embedding = {0.5f, 0.5f, 0.0f, 0.0f};
 
   EmbeddingView view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
-  auto response = router.route(view);
+  auto response = nordlys.route(view);
 
   EXPECT_GE(response.cluster_distance, 0.0f);
 }
 
 TEST_F(Nordlysest, ExactCentroidMatchHasSmallDistance) {
   // Embedding exactly matching a centroid should have very small distance
-  auto router = CreateTestRouter();
+  auto nordlys = CreateTestNordlys();
 
   // Exact match with cluster 0 centroid [1, 0, 0, 0]
   std::vector<float> embedding = {1.0f, 0.0f, 0.0f, 0.0f};
 
   EmbeddingView view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
-  auto response = router.route(view);
+  auto response = nordlys.route(view);
 
   EXPECT_EQ(response.cluster_id, 0);
   EXPECT_NEAR(response.cluster_distance, 0.0f, 1e-5);
@@ -290,12 +290,12 @@ TEST_F(Nordlysest, ExactCentroidMatchHasSmallDistance) {
 
 TEST_F(Nordlysest, RoutingSelectsByErrorRate) {
   // Routing selects models by error rate (lower is better)
-  auto router = CreateTestRouter();
+  auto nordlys = CreateTestNordlys();
 
   std::vector<float> embedding = {0.0f, 0.95f, 0.05f, 0.0f};
 
   EmbeddingView view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
-  auto response = router.route(view);
+  auto response = nordlys.route(view);
 
   // Should return valid model
   EXPECT_FALSE(response.selected_model.empty());
@@ -304,12 +304,12 @@ TEST_F(Nordlysest, RoutingSelectsByErrorRate) {
 
 TEST_F(Nordlysest, RoutingWorks) {
   // Basic routing functionality
-  auto router = CreateTestRouter();
+  auto nordlys = CreateTestNordlys();
 
   std::vector<float> embedding = {0.0f, 0.0f, 0.95f, 0.05f};
 
   EmbeddingView view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
-  auto response = router.route(view);
+  auto response = nordlys.route(view);
 
   EXPECT_FALSE(response.selected_model.empty());
 }
@@ -320,12 +320,12 @@ TEST_F(Nordlysest, RoutingWorks) {
 
 TEST_F(Nordlysest, ResponseContainsAllRequiredFields) {
   // Verify response has all required fields populated
-  auto router = CreateTestRouter();
+  auto nordlys = CreateTestNordlys();
 
   std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
 
   EmbeddingView view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
-  auto response = router.route(view);
+  auto response = nordlys.route(view);
 
   // Check all fields are populated
   EXPECT_FALSE(response.selected_model.empty());
@@ -333,19 +333,19 @@ TEST_F(Nordlysest, ResponseContainsAllRequiredFields) {
   EXPECT_LT(response.cluster_id, 3);
   EXPECT_GE(response.cluster_distance, 0.0f);
   // alternatives can be empty, contains all models except selected
-  const auto models = router.get_supported_models();
+  const auto models = nordlys.get_supported_models();
   const auto model_count = static_cast<unsigned int>(models.size());
   EXPECT_LE(response.alternatives.size(), model_count - 1u);
 }
 
 TEST_F(Nordlysest, AlternativeModelsAreDifferentFromSelected) {
   // Verify alternative models don't include the selected model
-  auto router = CreateTestRouter();
+  auto nordlys = CreateTestNordlys();
 
   std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
 
   EmbeddingView view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
-  auto response = router.route(view);
+  auto response = nordlys.route(view);
 
   for (const auto& alt : response.alternatives) {
     EXPECT_NE(alt, response.selected_model);
@@ -380,8 +380,8 @@ TEST_F(Nordlysest, CreateFromJsonString) {
   ASSERT_TRUE(result.has_value()) << "Failed to create router from JSON: " << result.error();
 
   auto& router = result.value();
-  EXPECT_EQ(router.get_embedding_dim(), 2);
-  EXPECT_EQ(router.get_n_clusters(), 2);
+  EXPECT_EQ(nordlys.get_embedding_dim(), 2);
+  EXPECT_EQ(nordlys.get_n_clusters(), 2);
 }
 
 TEST_F(Nordlysest, CreateFromInvalidJsonStringFails) {
@@ -401,7 +401,7 @@ TEST_F(Nordlysest, CreateFromNonexistentFileFails) {
 // ============================================================================
 
 TEST_F(Nordlysest, MoveConstructor) {
-  auto router1 = CreateTestRouter();
+  auto router1 = CreateTestNordlys();
   EXPECT_EQ(router1.get_embedding_dim(), 4);
   EXPECT_EQ(router1.get_n_clusters(), 3);
 
@@ -417,8 +417,8 @@ TEST_F(Nordlysest, MoveConstructor) {
 }
 
 TEST_F(Nordlysest, MoveAssignment) {
-  auto router1 = CreateTestRouter();
-  auto router2 = CreateTestRouter();
+  auto router1 = CreateTestNordlys();
+  auto router2 = CreateTestNordlys();
 
   EXPECT_EQ(router1.get_embedding_dim(), 4);
   EXPECT_EQ(router2.get_embedding_dim(), 4);
@@ -455,12 +455,12 @@ TEST_F(Nordlysest, SingleCluster) {
   ASSERT_TRUE(result.has_value());
   auto& router = result.value();
 
-  EXPECT_EQ(router.get_n_clusters(), 1);
-  EXPECT_EQ(router.get_embedding_dim(), 3);
+  EXPECT_EQ(nordlys.get_n_clusters(), 1);
+  EXPECT_EQ(nordlys.get_embedding_dim(), 3);
 
   std::vector<float> embedding = {0.5f, 0.5f, 0.5f};
   EmbeddingView view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
-  auto response = router.route(view);
+  auto response = nordlys.route(view);
 
   EXPECT_EQ(response.cluster_id, 0);
 }
@@ -499,8 +499,8 @@ TEST_F(Nordlysest, LargeDimensions) {
   ASSERT_TRUE(result.has_value());
   auto& router = result.value();
 
-  EXPECT_EQ(router.get_embedding_dim(), 4096);
-  EXPECT_EQ(router.get_n_clusters(), 2);
+  EXPECT_EQ(nordlys.get_embedding_dim(), 4096);
+  EXPECT_EQ(nordlys.get_n_clusters(), 2);
 
   std::vector<float> embedding(4096);
   for (int i = 0; i < 4096; ++i) {
@@ -508,7 +508,7 @@ TEST_F(Nordlysest, LargeDimensions) {
   }
 
   EmbeddingView view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
-  auto response = router.route(view);
+  auto response = nordlys.route(view);
   EXPECT_EQ(response.cluster_id, 0);
 }
 
@@ -525,57 +525,57 @@ TEST_F(Nordlysest, BackendExplicitSelection) {
 
   std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
   EmbeddingView view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
-  auto response = router.route(view);
+  auto response = nordlys.route(view);
 
   EXPECT_EQ(response.cluster_id, 0);
   EXPECT_FALSE(response.selected_model.empty());
 }
 
 TEST_F(Nordlysest, RoutingBasic) {
-  auto router = CreateTestRouter();
+  auto nordlys = CreateTestNordlys();
 
   std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
 
   EmbeddingView view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
-  auto response = router.route(view);
+  auto response = nordlys.route(view);
   EXPECT_FALSE(response.selected_model.empty());
 }
 
 TEST_F(Nordlysest, SupportedModelsAfterInit) {
-  auto router = CreateTestRouter();
-  auto models = router.get_supported_models();
+  auto nordlys = CreateTestNordlys();
+  auto models = nordlys.get_supported_models();
 
   EXPECT_EQ(models.size(), 2);
   EXPECT_EQ(models[0], "provider1/gpt-4");
   EXPECT_EQ(models[1], "provider2/llama");
 
   // Call again to verify consistency
-  auto models2 = router.get_supported_models();
+  auto models2 = nordlys.get_supported_models();
   EXPECT_EQ(models, models2);
 }
 
 TEST_F(Nordlysest, DimensionValidationComprehensive) {
-  auto router = CreateTestRouter();
+  auto nordlys = CreateTestNordlys();
 
   // Test zero dimensions
   std::vector<float> empty_embedding;
   EmbeddingView empty_view{empty_embedding.data(), empty_embedding.size(), Device{CpuDevice{}}};
-  EXPECT_THROW(router.route(empty_view), std::invalid_argument);
+  EXPECT_THROW(nordlys.route(empty_view), std::invalid_argument);
 
   // Test undersized
   std::vector<float> undersized = {1.0f, 0.0f};
   EmbeddingView undersized_view{undersized.data(), undersized.size(), Device{CpuDevice{}}};
-  EXPECT_THROW(router.route(undersized_view), std::invalid_argument);
+  EXPECT_THROW(nordlys.route(undersized_view), std::invalid_argument);
 
   // Test oversized
   std::vector<float> oversized = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
   EmbeddingView oversized_view{oversized.data(), oversized.size(), Device{CpuDevice{}}};
-  EXPECT_THROW(router.route(oversized_view), std::invalid_argument);
+  EXPECT_THROW(nordlys.route(oversized_view), std::invalid_argument);
 
   // Test correct size
   std::vector<float> correct = {1.0f, 0.0f, 0.0f, 0.0f};
   EmbeddingView correct_view{correct.data(), correct.size(), Device{CpuDevice{}}};
-  EXPECT_NO_THROW(router.route(correct_view));
+  EXPECT_NO_THROW(nordlys.route(correct_view));
 }
 
 // ============================================================================
@@ -619,9 +619,9 @@ TEST(ThreadingAPITest, InitThreadingIdempotent) {
 TEST(ThreadingAPITest, BatchRoutingWithDifferentThreadCounts) {
   auto checkpoint = NordlysCheckpoint::from_json_string(kTestCheckpointJson);
 
-  auto router_result = Nordlys::from_checkpoint(std::move(checkpoint));
-  ASSERT_TRUE(router_result.has_value());
-  auto& router = router_result.value();
+  auto nordlys_result = Nordlys::from_checkpoint(std::move(checkpoint));
+  ASSERT_TRUE(nordlys_result.has_value());
+  auto& nordlys = nordlys_result.value();
 
   std::vector<float> embeddings = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
                                    0.0f, 0.0f, 1.0f, 0.0f, 0.5f, 0.5f, 0.0f, 0.0f};
@@ -629,10 +629,10 @@ TEST(ThreadingAPITest, BatchRoutingWithDifferentThreadCounts) {
   EmbeddingBatchView batch_view{embeddings.data(), 4, 4, Device{CpuDevice{}}};
 
   set_num_threads(1);
-  auto results_1thread = router.route_batch(batch_view);
+  auto results_1thread = nordlys.route_batch(batch_view);
 
   set_num_threads(4);
-  auto results_4threads = router.route_batch(batch_view);
+  auto results_4threads = nordlys.route_batch(batch_view);
 
   ASSERT_EQ(results_1thread.size(), 4);
   ASSERT_EQ(results_4threads.size(), 4);

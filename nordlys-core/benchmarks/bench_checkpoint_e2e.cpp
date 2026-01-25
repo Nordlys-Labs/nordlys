@@ -49,8 +49,8 @@ static void BM_RouterInitialization_Small(benchmark::State& state) {
 
   for (auto _ : state) {
     auto checkpoint = NordlysCheckpoint::from_json(path);
-    auto router_result = Nordlys32::from_checkpoint(std::move(checkpoint));
-    benchmark::DoNotOptimize(router_result);
+    auto nordlys_result = Nordlys::from_checkpoint(std::move(checkpoint));
+    benchmark::DoNotOptimize(nordlys_result);
   }
 }
 BENCHMARK(BM_RouterInitialization_Small)->Unit(benchmark::kMillisecond);
@@ -60,8 +60,8 @@ static void BM_RouterInitialization_Medium(benchmark::State& state) {
 
   for (auto _ : state) {
     auto checkpoint = NordlysCheckpoint::from_json(path);
-    auto router_result = Nordlys32::from_checkpoint(std::move(checkpoint));
-    benchmark::DoNotOptimize(router_result);
+    auto nordlys_result = Nordlys::from_checkpoint(std::move(checkpoint));
+    benchmark::DoNotOptimize(nordlys_result);
   }
 }
 BENCHMARK(BM_RouterInitialization_Medium)->Unit(benchmark::kMillisecond);
@@ -71,8 +71,8 @@ static void BM_RouterInitialization_Large(benchmark::State& state) {
 
   for (auto _ : state) {
     auto checkpoint = NordlysCheckpoint::from_json(path);
-    auto router_result = Nordlys32::from_checkpoint(std::move(checkpoint));
-    benchmark::DoNotOptimize(router_result);
+    auto nordlys_result = Nordlys::from_checkpoint(std::move(checkpoint));
+    benchmark::DoNotOptimize(nordlys_result);
   }
 }
 BENCHMARK(BM_RouterInitialization_Large)->Unit(benchmark::kMillisecond);
@@ -82,8 +82,8 @@ static void BM_RouterInitialization_XL(benchmark::State& state) {
 
   for (auto _ : state) {
     auto checkpoint = NordlysCheckpoint::from_json(path);
-    auto router_result = Nordlys32::from_checkpoint(std::move(checkpoint));
-    benchmark::DoNotOptimize(router_result);
+    auto nordlys_result = Nordlys::from_checkpoint(std::move(checkpoint));
+    benchmark::DoNotOptimize(nordlys_result);
   }
 }
 BENCHMARK(BM_RouterInitialization_XL)->Unit(benchmark::kMillisecond);
