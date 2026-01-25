@@ -58,8 +58,8 @@ static Device device_to_device(NordlysDevice device) {
 }
 
 // Factory: creates nordlys from checkpoint
-static std::optional<Nordlys> create_nordlys(NordlysCheckpoint profile, Device device) {
-  auto result = Nordlys::from_checkpoint(std::move(profile), device);
+static std::optional<::Nordlys> create_nordlys(NordlysCheckpoint profile, Device device) {
+  auto result = ::Nordlys::from_checkpoint(std::move(profile), device);
   if (!result) return std::nullopt;
   return std::move(result.value());
 }
