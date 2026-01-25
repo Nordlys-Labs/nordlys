@@ -25,7 +25,11 @@ extern "C" {
 /**
  * Opaque handle to a Nordlys instance
  */
+#ifdef __cplusplus
+class Nordlys;
+#else
 typedef struct Nordlys Nordlys;
+#endif
 
 /**
  * Route result structure
