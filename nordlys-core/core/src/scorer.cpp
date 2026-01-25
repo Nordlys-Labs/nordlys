@@ -2,14 +2,12 @@
 #include <cmath>
 #include <format>
 #include <nordlys_core/scorer.hpp>
-#include <nordlys_core/tracy.hpp>
 #include <ranges>
 #include <stdexcept>
 
 std::vector<ModelScore> ModelScorer::score_models(int cluster_id, float cost_bias,
                                                   std::span<const ModelFeatures> models,
                                                   float lambda_min, float lambda_max) const {
-  NORDLYS_ZONE;
   if (cluster_id < 0) {
     throw std::invalid_argument(std::format("cluster_id must be non-negative, got {}", cluster_id));
   }
@@ -42,12 +40,16 @@ std::vector<ModelScore> ModelScorer::score_models(int cluster_id, float cost_bia
     if (cost > max_cost) max_cost = cost;
 
     // Store score with unnormalized cost for now
-    scores.push_back(ModelScore{.model_id = model.model_id,
-                                .score = 0.0f,  // Will compute after normalization
-                                .error_rate = error_rate,
-                                .accuracy = 1.0f - error_rate,
-                                .cost = cost,
-                                .normalized_cost = 0.0f});  // Will compute after normalization
+    // Use string_view to avoid string copy - ModelFeatures are owned by Nordlys
+    // and will outlive the scores vector. The string_view references the model_id
+    // in the owned ModelFeatures, avoiding a copy until RouteResult is created.
+    scores.emplace_back(ModelScore{
+        .model_id = model.model_id,  // string_view from owned ModelFeatures (no copy)
+        .score = 0.0f,               // score - will compute after normalization
+        .error_rate = error_rate,
+        .accuracy = 1.0f - error_rate,
+        .cost = cost,
+        .normalized_cost = 0.0f});   // normalized_cost - will compute after normalization
   }
 
   // Compute cost range and normalize

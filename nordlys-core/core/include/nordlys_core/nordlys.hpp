@@ -18,7 +18,6 @@
 #include "cluster.hpp"
 #include "result.hpp"
 #include "scorer.hpp"
-#include "tracy.hpp"
 
 inline void init_threading() {
 #ifdef _OPENMP
@@ -56,7 +55,6 @@ public:
 
   static Result<Nordlys, std::string> from_checkpoint(NordlysCheckpoint checkpoint,
                                                       ClusterBackendType device = ClusterBackendType::Cpu) noexcept {
-    NORDLYS_ZONE_N("Nordlys::from_checkpoint");
     init_threading();
 
     if constexpr (std::is_same_v<Scalar, float>) {
@@ -150,7 +148,6 @@ private:
   RouteResult<Scalar> route_impl(
       const Scalar* data, size_t size, float cost_bias,
       std::optional<std::reference_wrapper<const std::vector<std::string>>> model_filter) {
-    NORDLYS_ZONE_N("Nordlys::route");
     if (size != static_cast<size_t>(dim_)) [[unlikely]] {
       throw std::invalid_argument(std::format("dimension mismatch: {} vs {}", dim_, size));
     }
@@ -163,15 +160,18 @@ private:
     auto models = get_models_to_score(model_filter);
     auto scores = scorer_.score_models(cid, cost_bias, models, lambda_min_, lambda_max_);
 
-    RouteResult<Scalar> resp{.selected_model = scores.empty() ? "" : scores[0].model_id,
-                             .alternatives = {},
-                             .cluster_id = cid,
-                             .cluster_distance = dist};
+    // Convert string_view to string for RouteResult (necessary for API contract)
+    RouteResult<Scalar> resp{
+        .selected_model = scores.empty() ? std::string{} : std::string(scores[0].model_id),
+        .alternatives = {},
+        .cluster_id = cid,
+        .cluster_distance = dist};
 
     if (scores.size() > 1) {
       resp.alternatives.reserve(scores.size() - 1);
-      auto alts = scores | std::views::drop(1) | std::views::transform(&ModelScore::model_id);
-      resp.alternatives.assign(alts.begin(), alts.end());
+      std::ranges::transform(scores | std::views::drop(1),
+                              std::back_inserter(resp.alternatives),
+                              [](const ModelScore& s) { return std::string(s.model_id); });
     }
     return resp;
   }
@@ -179,7 +179,6 @@ private:
   std::vector<RouteResult<Scalar>> route_batch_impl(
       const Scalar* data, size_t count, size_t dim, float cost_bias,
       std::optional<std::reference_wrapper<const std::vector<std::string>>> model_filter) {
-    NORDLYS_ZONE_N("Nordlys::route_batch");
     if (dim != static_cast<size_t>(dim_)) [[unlikely]] {
       throw std::invalid_argument(std::format("dimension mismatch: {} vs {}", dim_, dim));
     }
@@ -208,12 +207,13 @@ private:
       std::vector<std::string> alternatives;
       if (scores.size() > 1) {
         alternatives.reserve(scores.size() - 1);
-        auto alts = scores | std::views::drop(1) | std::views::transform(&ModelScore::model_id);
-        alternatives.assign(alts.begin(), alts.end());
+        std::ranges::transform(scores | std::views::drop(1),
+                                std::back_inserter(alternatives),
+                                [](const ModelScore& s) { return std::string(s.model_id); });
       }
 
       results[static_cast<size_t>(i)] = RouteResult<Scalar>{
-          .selected_model = scores.empty() ? std::string{} : scores[0].model_id,
+          .selected_model = scores.empty() ? std::string{} : std::string(scores[0].model_id),
           .alternatives = std::move(alternatives),
           .cluster_id = cid,
           .cluster_distance = dist};
@@ -242,7 +242,6 @@ private:
   }
 
   void init(NordlysCheckpoint checkpoint, ClusterBackendType device = ClusterBackendType::Cpu) {
-    NORDLYS_ZONE_N("Nordlys::init");
     checkpoint_ = std::move(checkpoint);
 
     const auto& centers = std::get<EmbeddingMatrix<Scalar>>(checkpoint_.cluster_centers);

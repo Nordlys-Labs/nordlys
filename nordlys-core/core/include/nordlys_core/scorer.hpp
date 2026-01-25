@@ -1,10 +1,11 @@
 #pragma once
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 struct ModelScore {
-  std::string model_id;
+  std::string_view model_id;  // References model_id in owned ModelFeatures (no copy)
   float score;
   float error_rate;
   float accuracy;
