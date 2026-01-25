@@ -664,10 +664,6 @@ TEST_F(Nordlysest, RoutingBasic) {
   EmbeddingView<float> view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
   auto response = router.route(view);
   EXPECT_FALSE(response.selected_model.empty());
-
-  // Test with extremely positive cost bias
-  auto response_positive = router.route(view);
-  EXPECT_FALSE(response_positive.selected_model.empty());
 }
 
 TEST_F(Nordlysest, SupportedModelsAfterInit) {

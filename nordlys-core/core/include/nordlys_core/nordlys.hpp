@@ -87,11 +87,17 @@ public:
   Nordlys& operator=(const Nordlys&) = delete;
 
   RouteResult<Scalar> route(EmbeddingView<Scalar> view) {
+    if (!backend_) [[unlikely]] {
+      throw std::runtime_error("Nordlys not initialized; call from_checkpoint() or init()");
+    }
     return route_impl(view, std::nullopt);
   }
 
   RouteResult<Scalar> route(EmbeddingView<Scalar> view,
                             const std::vector<std::string>& model_filter) {
+    if (!backend_) [[unlikely]] {
+      throw std::runtime_error("Nordlys not initialized; call from_checkpoint() or init()");
+    }
     return route_impl(view,
                       model_filter.empty()
                           ? std::nullopt
@@ -99,11 +105,17 @@ public:
   }
 
   std::vector<RouteResult<Scalar>> route_batch(EmbeddingBatchView<Scalar> view) {
+    if (!backend_) [[unlikely]] {
+      throw std::runtime_error("Nordlys not initialized; call from_checkpoint() or init()");
+    }
     return route_batch_impl(view, std::nullopt);
   }
 
   std::vector<RouteResult<Scalar>> route_batch(EmbeddingBatchView<Scalar> view,
                                                const std::vector<std::string>& model_filter) {
+    if (!backend_) [[unlikely]] {
+      throw std::runtime_error("Nordlys not initialized; call from_checkpoint() or init()");
+    }
     return route_batch_impl(view,
                             model_filter.empty()
                                 ? std::nullopt
@@ -115,7 +127,12 @@ public:
     return {ids.begin(), ids.end()};
   }
 
-  size_t get_n_clusters() const { return backend_->n_clusters(); }
+  size_t get_n_clusters() const {
+    if (!backend_) [[unlikely]] {
+      throw std::runtime_error("Nordlys not initialized; call from_checkpoint() or init()");
+    }
+    return backend_->n_clusters();
+  }
   size_t get_embedding_dim() const { return dim_; }
 
 private:

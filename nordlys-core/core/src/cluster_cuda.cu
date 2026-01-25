@@ -272,6 +272,86 @@ std::vector<std::pair<int, float>> CudaClusterBackend<float>::assign_batch(
 }
 
 template <>
+std::vector<std::pair<int, float>> CudaClusterBackend<float>::assign_batch_from_device(
+    EmbeddingBatchView<float> view) {
+  init_pipeline();
+
+  constexpr int kMinChunkSize = 64;
+  int chunk_size = std::max(kMinChunkSize, (static_cast<int>(view.count) + kNumPipelineStages - 1) / kNumPipelineStages);
+  int num_chunks = (static_cast<int>(view.count) + chunk_size - 1) / chunk_size;
+
+  for (int i = 0; i < kNumPipelineStages; ++i) {
+    ensure_stage_capacity(i, chunk_size);
+  }
+
+  std::vector<std::pair<int, float>> results(view.count);
+  int fused_threads = std::max((dim_ <= 512) ? 128 : 256, (n_clusters_ <= 128) ? 64 : 128);
+  size_t shared_mem = fused_l2_argmin_shared_mem_size<float>();
+  float alpha = 1.0f, beta = 0.0f;
+
+  for (int chunk = 0; chunk < num_chunks; ++chunk) {
+    int stage_idx = chunk % kNumPipelineStages;
+    auto& stage = stages_[stage_idx];
+    auto& cublas = pipeline_cublas_[stage_idx];
+
+    int offset = chunk * chunk_size;
+    int this_count = std::min(chunk_size, static_cast<int>(view.count) - offset);
+    const float* src = view.data + offset * static_cast<int>(view.dim);
+
+    if (chunk >= kNumPipelineStages) {
+      int prev_chunk = chunk - kNumPipelineStages;
+      int prev_stage = prev_chunk % kNumPipelineStages;
+      auto& prev = stages_[prev_stage];
+
+      NORDLYS_CUDA_CHECK(cudaEventSynchronize(prev.event));
+
+      int prev_offset = prev_chunk * chunk_size;
+      int prev_count = std::min(chunk_size, static_cast<int>(view.count) - prev_offset);
+      for (int i = 0; i < prev_count; ++i) {
+        results[prev_offset + i] = {prev.h_idx.get()[i], prev.h_dist.get()[i]};
+      }
+    }
+
+    // Device-to-device copy
+    NORDLYS_CUDA_CHECK(cudaMemcpyAsync(stage.d_queries.get(), src,
+                                       this_count * dim_ * sizeof(float), cudaMemcpyDeviceToDevice,
+                                       stage.stream));
+
+    NORDLYS_CUBLAS_CHECK(cublasSgemm(
+        cublas, CUBLAS_OP_N, CUBLAS_OP_N, n_clusters_, this_count, dim_, &alpha, d_centroids_.get(),
+        n_clusters_, stage.d_queries.get(), dim_, &beta, stage.d_dots.get(), n_clusters_));
+
+    batch_l2_argmin_fused<<<this_count, fused_threads, shared_mem, stage.stream>>>(
+        stage.d_queries.get(), d_centroid_norms_.get(), stage.d_dots.get(), this_count, n_clusters_,
+        dim_, stage.d_idx.get(), stage.d_dist.get());
+
+    NORDLYS_CUDA_CHECK(cudaMemcpyAsync(stage.h_idx.get(), stage.d_idx.get(),
+                                       this_count * sizeof(int), cudaMemcpyDeviceToHost,
+                                       stage.stream));
+    NORDLYS_CUDA_CHECK(cudaMemcpyAsync(stage.h_dist.get(), stage.d_dist.get(),
+                                       this_count * sizeof(float), cudaMemcpyDeviceToHost,
+                                       stage.stream));
+
+    NORDLYS_CUDA_CHECK(cudaEventRecord(stage.event, stage.stream));
+  }
+
+  for (int tail = std::max(0, num_chunks - kNumPipelineStages); tail < num_chunks; ++tail) {
+    int stage_idx = tail % kNumPipelineStages;
+    auto& stage = stages_[stage_idx];
+
+    NORDLYS_CUDA_CHECK(cudaEventSynchronize(stage.event));
+
+    int offset = tail * chunk_size;
+    int this_count = std::min(chunk_size, static_cast<int>(view.count) - offset);
+    for (int i = 0; i < this_count; ++i) {
+      results[offset + i] = {stage.h_idx.get()[i], stage.h_dist.get()[i]};
+    }
+  }
+
+  return results;
+}
+
+template <>
 std::vector<std::pair<int, float>> CudaClusterBackend<float>::assign_batch_from_host(
     EmbeddingBatchView<float> view) {
   init_pipeline();

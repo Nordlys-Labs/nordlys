@@ -15,14 +15,14 @@ namespace {
   struct ClusterCentersVisitor {
     nb::object operator()(const EmbeddingMatrix<float>& centers) {
       size_t shape[2] = {centers.rows(), centers.cols()};
-      return nb::cast(nb::ndarray<nb::numpy, float, nb::ndim<2>>(
-          const_cast<float*>(centers.data()), 2, shape, nb::handle()));
+      return nb::cast(nb::ndarray<nb::numpy, const float, nb::ndim<2>>(
+          centers.data(), 2, shape, nb::handle()));
     }
     
     nb::object operator()(const EmbeddingMatrix<double>& centers) {
       size_t shape[2] = {centers.rows(), centers.cols()};
-      return nb::cast(nb::ndarray<nb::numpy, double, nb::ndim<2>>(
-          const_cast<double*>(centers.data()), 2, shape, nb::handle()));
+      return nb::cast(nb::ndarray<nb::numpy, const double, nb::ndim<2>>(
+          centers.data(), 2, shape, nb::handle()));
     }
   };
 }
