@@ -39,8 +39,6 @@ Dtype = Literal["float32", "float64"]
 # Constants
 DEFAULT_MAX_ITER = 300
 DEFAULT_N_INIT = 10
-DEFAULT_COST_BIAS_MIN = 0.0
-DEFAULT_COST_BIAS_MAX = 1.0
 DEFAULT_DTYPE: Dtype = "float32"
 
 
@@ -150,9 +148,9 @@ class Nordlys:
         >>> model = Nordlys(models=models, nr_clusters=10)
         >>> model.fit(df)
         >>>
-        >>> # Route prompts
-        >>> result = model.route("Explain quantum computing", cost_bias=0.5)
-        >>> print(f"Selected: {result.model_id}")
+         >>> # Route prompts
+         >>> result = model.route("Explain quantum computing")
+         >>> print(f"Selected: {result.model_id}")
     """
 
     def __init__(
@@ -475,14 +473,13 @@ class Nordlys:
     def route(
         self,
         prompt: str,
-        cost_bias: float = 0.5,
         models: list[str] | None = None,
     ) -> RouteResult:
         """Route a prompt to the best model using C++ core engine.
 
         Args:
             prompt: The text prompt to route
-            cost_bias: Cost preference (0.0=cheapest, 1.0=highest quality)
+            models: Optional list of model IDs to filter
 
         Returns:
             RouteResult with selected model and alternatives
@@ -501,7 +498,7 @@ class Nordlys:
         # Route using C++ core
         if models is None:
             models = []
-        response = core_engine.route(embedding, cost_bias, models)
+        response = core_engine.route(embedding, models)
 
         return RouteResult(
             model_id=response.selected_model,
@@ -513,14 +510,12 @@ class Nordlys:
     def route_batch(
         self,
         prompts: Sequence[str],
-        cost_bias: float = 0.5,
         models: list[str] | None = None,
     ) -> list[RouteResult]:
         """Route multiple prompts in batch using core engine's route_batch.
 
         Args:
             prompts: List of text prompts
-            cost_bias: Cost preference (0.0=cheapest, 1.0=highest quality)
             models: Optional list of model IDs to filter
 
         Returns:
@@ -546,7 +541,7 @@ class Nordlys:
         embeddings_array = embeddings
 
         # Route using C++ core engine's route_batch
-        responses = core_engine.route_batch(embeddings_array, cost_bias, models)
+        responses = core_engine.route_batch(embeddings_array, models)
 
         # Convert responses to RouteResult objects
         return [
@@ -795,10 +790,6 @@ class Nordlys:
                 "n_init": DEFAULT_N_INIT,
                 "algorithm": "lloyd",
                 "normalization": "l2",
-            },
-            "routing": {
-                "cost_bias_min": DEFAULT_COST_BIAS_MIN,
-                "cost_bias_max": DEFAULT_COST_BIAS_MAX,
             },
             "metrics": {
                 "n_samples": metrics.n_samples,

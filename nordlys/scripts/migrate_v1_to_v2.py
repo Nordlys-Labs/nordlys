@@ -12,7 +12,6 @@ v2 format:
 - models: [{model_id, cost_per_1m_input_tokens, cost_per_1m_output_tokens, error_rates}]
 - embedding: {model, dtype, trust_remote_code}
 - clustering: {n_clusters, random_state, max_iter, n_init, algorithm, normalization}
-- routing: {cost_bias_min, cost_bias_max, default_cost_bias, max_alternatives}
 - metrics: {n_samples, cluster_sizes, silhouette_score, inertia}
 """
 
@@ -122,18 +121,6 @@ def migrate_v1_to_v2(v1_data: dict) -> dict:
             "n_init": metadata.get("n_init", 10),
             "algorithm": metadata.get("algorithm", "lloyd"),
             "normalization": metadata.get("normalization", "l2"),
-        },
-        "routing": {
-            "cost_bias_min": metadata.get(
-                "lambda_min", metadata.get("cost_bias_min", 0.0)
-            ),
-            "cost_bias_max": metadata.get(
-                "lambda_max", metadata.get("cost_bias_max", 1.0)
-            ),
-            "default_cost_bias": metadata.get(
-                "default_lambda", metadata.get("default_cost_bias", 0.5)
-            ),
-            "max_alternatives": metadata.get("max_alternatives", 5),
         },
         "metrics": {
             "n_samples": metadata.get("n_train_questions", metadata.get("n_samples")),

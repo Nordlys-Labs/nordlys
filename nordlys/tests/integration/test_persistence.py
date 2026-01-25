@@ -138,7 +138,6 @@ class TestCheckpointFormat:
         assert "version" in data
         assert "embedding" in data
         assert "clustering" in data
-        assert "routing" in data
         assert "metrics" in data
 
 
