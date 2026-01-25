@@ -222,20 +222,3 @@ class TestClusteringConfig:
         # Checkpoint convenience accessors should match
         assert checkpoint.n_clusters == config.n_clusters
         assert checkpoint.random_state == config.random_state
-
-
-class TestRoutingConfig:
-    """Test RoutingConfig type bindings."""
-
-    def test_routing_config_properties(self, sample_checkpoint_json: str):
-        """Test RoutingConfig property access."""
-        from nordlys_core import NordlysCheckpoint
-
-        checkpoint = NordlysCheckpoint.from_json_string(sample_checkpoint_json)
-        config = checkpoint.routing
-
-        assert isinstance(config.cost_bias_min, float)
-        assert isinstance(config.cost_bias_max, float)
-        assert config.cost_bias_min <= config.cost_bias_max
-        assert 0.0 <= config.cost_bias_min
-        assert config.cost_bias_max <= 2.0  # Reasonable upper bound

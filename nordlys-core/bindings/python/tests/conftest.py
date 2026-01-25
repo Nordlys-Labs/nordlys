@@ -43,10 +43,6 @@ SAMPLE_CHECKPOINT = {
         "algorithm": "lloyd",
         "normalization": "l2",
     },
-    "routing": {
-        "cost_bias_min": 0.0,
-        "cost_bias_max": 1.0,
-    },
     "metrics": {
         "silhouette_score": 0.85,
     },

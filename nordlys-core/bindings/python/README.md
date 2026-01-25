@@ -32,7 +32,7 @@ router = Nordlys32.from_checkpoint(checkpoint)
 
 # Route embedding
 embedding = [0.1, 0.2, 0.3, ...]  # List or NumPy array
-result = router.route(embedding, cost_bias=0.5)
+result = router.route(embedding)
 
 # Access results
 print(f"Selected: {result.selected_model}")
@@ -47,8 +47,8 @@ Main router class for float32/float64 precision.
 
 **Methods:**
 - `from_checkpoint(checkpoint)` - Create router from checkpoint
-- `route(embedding, cost_bias=0.0)` - Route single embedding
-- `route_batch(embeddings, cost_bias=0.0)` - Route batch of embeddings
+- `route(embedding, models=None)` - Route single embedding
+- `route_batch(embeddings, models=None)` - Route batch of embeddings
 - `get_supported_models()` - Get list of available models
 - `get_n_clusters()` - Get number of clusters
 - `get_embedding_dim()` - Get embedding dimension

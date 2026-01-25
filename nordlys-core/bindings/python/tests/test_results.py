@@ -11,7 +11,7 @@ class TestRouteResult32:
         """Test RouteResult32 property access."""
         from nordlys_core import RouteResult32
 
-        response = nordlys32.route(sample_embedding, cost_bias=0.5)
+        response = nordlys32.route(sample_embedding)
 
         assert isinstance(response, RouteResult32)
         assert isinstance(response.selected_model, str)
@@ -28,7 +28,7 @@ class TestRouteResult32:
 
     def test_alternatives_vector_operations(self, nordlys32, sample_embedding):
         """Test that alternatives vector supports list operations."""
-        response = nordlys32.route(sample_embedding, cost_bias=0.5)
+        response = nordlys32.route(sample_embedding)
 
         # Test list conversion
         alternatives_list = list(response.alternatives)
@@ -48,7 +48,7 @@ class TestRouteResult32:
 
     def test_route_result_repr(self, nordlys32, sample_embedding):
         """Test RouteResult32 __repr__ method."""
-        response = nordlys32.route(sample_embedding, cost_bias=0.5)
+        response = nordlys32.route(sample_embedding)
 
         repr_str = repr(response)
         assert isinstance(repr_str, str)
@@ -69,7 +69,7 @@ class TestRouteResult32:
 
         selected_models = set()
         for embedding in embeddings:
-            response = nordlys32.route(embedding, cost_bias=0.5)
+            response = nordlys32.route(embedding)
             assert isinstance(response, RouteResult32)
             selected_models.add(response.selected_model)
             assert isinstance(response.alternatives, list)
@@ -83,7 +83,7 @@ class TestRouteResult64:
         from nordlys_core import RouteResult64
 
         embedding = np.array([0.0, 0.9, 0.1, 0.0], dtype=np.float64)
-        response = nordlys64.route(embedding, cost_bias=0.5)
+        response = nordlys64.route(embedding)
 
         assert isinstance(response, RouteResult64)
         assert isinstance(response.selected_model, str)
@@ -99,7 +99,7 @@ class TestRouteResult64:
     def test_alternatives_vector_operations(self, nordlys64):
         """Test that alternatives vector supports list operations."""
         embedding = np.array([0.0, 0.9, 0.1, 0.0], dtype=np.float64)
-        response = nordlys64.route(embedding, cost_bias=0.5)
+        response = nordlys64.route(embedding)
 
         # Test list conversion
         alternatives_list = list(response.alternatives)
@@ -115,7 +115,7 @@ class TestRouteResult64:
     def test_route_result_repr(self, nordlys64):
         """Test RouteResult64 __repr__ method."""
         embedding = np.array([0.0, 0.9, 0.1, 0.0], dtype=np.float64)
-        response = nordlys64.route(embedding, cost_bias=0.5)
+        response = nordlys64.route(embedding)
 
         repr_str = repr(response)
         assert isinstance(repr_str, str)
@@ -128,7 +128,7 @@ class TestRouteResult64:
         from nordlys_core import RouteResult64
 
         embedding = np.array([0.0, 0.9, 0.1, 0.0], dtype=np.float64)
-        response = nordlys64.route(embedding, cost_bias=0.5, models=["openai/gpt-4"])
+        response = nordlys64.route(embedding, models=["openai/gpt-4"])
 
         assert isinstance(response, RouteResult64)
         assert response.selected_model == "openai/gpt-4"

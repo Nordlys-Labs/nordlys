@@ -53,7 +53,7 @@ class TestRouting:
         """Test routing with float32 embedding."""
         from nordlys_core import RouteResult32
 
-        response = nordlys32.route(sample_embedding, cost_bias=0.5)
+        response = nordlys32.route(sample_embedding)
 
         assert isinstance(response, RouteResult32)
         assert response.selected_model in ["openai/gpt-4", "anthropic/claude-3"]
@@ -66,28 +66,14 @@ class TestRouting:
         from nordlys_core import RouteResult64
 
         embedding = np.array([0.0, 0.9, 0.1, 0.0], dtype=np.float64)
-        response = nordlys64.route(embedding, cost_bias=0.5)
+        response = nordlys64.route(embedding)
 
         assert isinstance(response, RouteResult64)
         assert response.selected_model is not None
 
-    def test_route_default_cost_bias(self, nordlys32, sample_embedding):
-        """Test routing with default cost_bias."""
-        response = nordlys32.route(sample_embedding)
-        assert response.selected_model is not None
-
-    def test_cost_bias_affects_selection(self, nordlys32, sample_embedding):
-        """Test that cost_bias affects model selection."""
-        response_cheap = nordlys32.route(sample_embedding, cost_bias=1.0)
-        response_quality = nordlys32.route(sample_embedding, cost_bias=0.0)
-
-        # Both should return valid models (may or may not be different)
-        assert response_cheap.selected_model is not None
-        assert response_quality.selected_model is not None
-
     def test_alternatives_returned(self, nordlys32, sample_embedding):
         """Test that alternatives are returned."""
-        response = nordlys32.route(sample_embedding, cost_bias=0.5)
+        response = nordlys32.route(sample_embedding)
 
         # This will fail if vector.h is missing in results.cpp
         assert isinstance(response.alternatives, list)
@@ -116,7 +102,7 @@ class TestBatchRouting:
             dtype=np.float32,
         )
 
-        responses = nordlys32.route_batch(embeddings, cost_bias=0.5)
+        responses = nordlys32.route_batch(embeddings)
 
         # This will fail if vector.h is missing in nordlys.cpp
         assert isinstance(responses, list)
@@ -140,7 +126,7 @@ class TestBatchRouting:
             dtype=np.float64,
         )
 
-        responses = nordlys64.route_batch(embeddings, cost_bias=0.5)
+        responses = nordlys64.route_batch(embeddings)
 
         # This will fail if vector.h is missing in nordlys.cpp
         assert isinstance(responses, list)
@@ -153,7 +139,7 @@ class TestBatchRouting:
     def test_batch_single_embedding(self, nordlys32, sample_embedding):
         """Test batch routing with single embedding."""
         embeddings = sample_embedding.reshape(1, -1)
-        responses = nordlys32.route_batch(embeddings, cost_bias=0.5)
+        responses = nordlys32.route_batch(embeddings)
 
         assert isinstance(responses, list)
         assert len(responses) == 1
@@ -170,7 +156,7 @@ class TestBatchRouting:
         )
 
         # Filter to specific model
-        responses = nordlys32.route_batch(embeddings, cost_bias=0.5, models=["openai/gpt-4"])
+        responses = nordlys32.route_batch(embeddings, models=["openai/gpt-4"])
         assert len(responses) == 2
         for response in responses:
             assert response.selected_model == "openai/gpt-4"

@@ -59,16 +59,6 @@ class ClusteringConfig:
     """Normalization strategy."""
 
 
-class RoutingConfig:
-    """Routing configuration parameters."""
-    
-    cost_bias_min: float
-    """Minimum cost bias."""
-    
-    cost_bias_max: float
-    """Maximum cost bias."""
-
-
 class ModelFeatures:
     """Model configuration with error rates."""
     
@@ -144,9 +134,6 @@ class NordlysCheckpoint:
     
     clustering: ClusteringConfig
     """Clustering configuration."""
-    
-    routing: RoutingConfig
-    """Routing configuration."""
     
     metrics: TrainingMetrics
     """Training metrics (optional fields)."""
@@ -225,7 +212,6 @@ class Nordlys32:
     def route(
         self,
         embedding: "numpy.ndarray[numpy.float32]",
-        cost_bias: float = 0.5,
         models: Optional[list[str]] = None
     ) -> RouteResult32: ...
     """Route an embedding to the best model."""
@@ -233,7 +219,6 @@ class Nordlys32:
     def route_batch(
         self,
         embeddings: "numpy.ndarray[numpy.float32]",
-        cost_bias: float = 0.5,
         models: Optional[list[str]] = None
     ) -> list[RouteResult32]: ...
     """Batch route multiple embeddings."""
@@ -264,7 +249,6 @@ class Nordlys64:
     def route(
         self,
         embedding: "numpy.ndarray[numpy.float64]",
-        cost_bias: float = 0.5,
         models: Optional[list[str]] = None
     ) -> RouteResult64: ...
     """Route an embedding to the best model."""
@@ -272,7 +256,6 @@ class Nordlys64:
     def route_batch(
         self,
         embeddings: "numpy.ndarray[numpy.float64]",
-        cost_bias: float = 0.5,
         models: Optional[list[str]] = None
     ) -> list[RouteResult64]: ...
     """Batch route multiple embeddings."""
