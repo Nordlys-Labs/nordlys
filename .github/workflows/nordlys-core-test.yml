@@ -55,8 +55,7 @@ jobs:
             -DNORDLYS_BUILD_PYTHON=ON \
             -DNORDLYS_BUILD_C=ON \
             -DNORDLYS_BUILD_BENCHMARKS=OFF \
-            -DNORDLYS_ENABLE_CUDA=OFF \
-            -DNORDLYS_ENABLE_TRACY=OFF
+            -DNORDLYS_ENABLE_CUDA=OFF
 
       - name: Build
         working-directory: nordlys-core

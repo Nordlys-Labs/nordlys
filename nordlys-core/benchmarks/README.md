@@ -184,43 +184,63 @@ Actual performance varies based on:
 
 ## Profiling
 
-Profile benchmarks with Tracy Profiler - a unified real-time profiling tool with GUI.
+Profile benchmarks using headless profiling tools that work without GUI connections.
 
 ### Quick Start
 
+**macOS (easiest):**
 ```bash
-# Build with Tracy enabled
-cmake --preset conan-release \
-  -DNORDLYS_BUILD_BENCHMARKS=ON \
-  -DNORDLYS_ENABLE_TRACY=ON
-cmake --build --preset conan-release
-
-# Run Tracy profiler (auto-downloads GUI)
-./benchmarks/scripts/run_tracy.sh RoutingSingle_Medium
-
-# Or use CMake target
-cmake --build --preset conan-release --target bench_tracy
+# Use the provided profiling script
+cd nordlys-core
+bash benchmarks/scripts/profile.sh
 ```
 
-### Tracy Features
+**macOS (manual):**
+```bash
+# Build benchmarks
+conan install . --output-folder=build/Release --build=missing -s build_type=Release
+cmake --preset conan-release -DNORDLYS_BUILD_BENCHMARKS=ON
+cmake --build build/Release/build/Release --target bench_nordlys_core
 
-Tracy provides in a single tool:
-- **Real-time CPU profiling** with interactive flame graphs
-- **Memory allocation tracking** per function
-- **GPU profiling** for CUDA benchmarks  
-- **Lock contention analysis** for concurrent code
-- **<1% overhead** - minimal performance impact
+# Profile with sample
+./build/Release/build/Release/benchmarks/bench_nordlys_core \
+  --benchmark_filter=RoutingSingle_Medium \
+  --benchmark_min_time=1.0 > /dev/null 2>&1 &
+BENCH_PID=$!
+sample $BENCH_PID 10 -f profile.txt
+wait $BENCH_PID
+```
 
-### Viewing Profiles
+**Linux:**
+```bash
+# Profile with perf (recommended)
+perf record ./build/Release/build/Release/benchmarks/bench_nordlys_core \
+  --benchmark_filter=RoutingSingle_Medium
+perf report
+```
 
-After running Tracy:
-1. GUI opens automatically and connects to benchmark
-2. Browse timeline to see function execution
-3. Click "Statistics" for aggregate timing data
-4. Click "Memory" to see allocations
-5. Zoom/pan to analyze specific regions
+### Profiling Tools
 
-See [PROFILING.md](./PROFILING.md) for detailed guide on interpreting results and adding instrumentation.
+- **sample** (macOS): Built-in, no installation needed - use `profile_benchmark.sh` script
+- **perf** (Linux): Recommended, no code changes needed
+- **gprof** (All platforms): Requires `-pg` compile flag
+
+All tools provide:
+- Function-level timing analysis
+- Call graph visualization
+- Hotspot identification
+- Works in CI/headless environments
+
+### Expected Profile Results
+
+After optimizations, typical profiles show:
+- **60-90%** in SIMD distance calculation (expected bottleneck)
+- **<1%** in model scoring (fast)
+- **<0.5%** in memory allocations (minimal)
+- **0%** string copy operations (using move semantics)
+- **0%** Tracy profiler overhead (removed)
+
+See [PROFILING.md](./PROFILING.md) for detailed guide on using profiling tools, interpreting results, and analyzing performance bottlenecks.
 
 ## Contributing
 

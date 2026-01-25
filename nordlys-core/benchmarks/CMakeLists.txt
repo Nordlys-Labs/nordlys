@@ -7,10 +7,6 @@ find_package(benchmark REQUIRED)
 # Create profiling output directory at configure time (CMake best practice)
 file(MAKE_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/profiling")
 
-# Tracy profiler integration
-if(NORDLYS_ENABLE_TRACY)
-  find_package(Tracy REQUIRED)
-endif()
 
 # CPU Benchmarks (always built when NORDLYS_BUILD_BENCHMARKS=ON)
 add_executable(bench_nordlys_core
@@ -24,18 +20,12 @@ target_link_libraries(bench_nordlys_core
     nordlys::core
     benchmark::benchmark
     benchmark::benchmark_main
-    $<$<BOOL:${NORDLYS_ENABLE_TRACY}>:Tracy::TracyClient>
 )
 
 target_include_directories(bench_nordlys_core PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-# Tracy profiling support
-if(NORDLYS_ENABLE_TRACY)
-  target_compile_definitions(bench_nordlys_core PRIVATE TRACY_ENABLE)
-  message(STATUS "Tracy profiler enabled for benchmarks")
-endif()
 
 # Copy fixtures to build directory at build-time
 file(GLOB FIXTURE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/*.json)
@@ -71,32 +61,13 @@ if(NORDLYS_ENABLE_CUDA)
       benchmark::benchmark_main
       CUDA::cudart
       stdc++
-      $<$<BOOL:${NORDLYS_ENABLE_TRACY}>:Tracy::TracyClient>
   )
   
   target_include_directories(bench_nordlys_cuda PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
   )
   
-  # Tracy profiling support for CUDA benchmarks
-  if(NORDLYS_ENABLE_TRACY)
-    target_compile_definitions(bench_nordlys_cuda PRIVATE TRACY_ENABLE)
-  endif()
   
   message(STATUS "CUDA benchmarks enabled (bench_nordlys_cuda)")
 endif()
 
-# Tracy convenience target
-if(NORDLYS_ENABLE_TRACY)
-  set(PROFILE_SCRIPTS "${CMAKE_CURRENT_SOURCE_DIR}/scripts")
-  
-  add_custom_target(bench_tracy
-    COMMAND "${PROFILE_SCRIPTS}/run_tracy.sh" "RoutingSingle_Medium"
-    DEPENDS bench_nordlys_core
-    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-    COMMENT "Running Tracy profiler on RoutingSingle_Medium"
-  )
-  
-  message(STATUS "Tracy targets available:")
-  message(STATUS "  - bench_tracy: Quick Tracy profiling session")
-endif()

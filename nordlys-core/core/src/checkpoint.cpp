@@ -19,7 +19,6 @@
 #include <nlohmann/json.hpp>
 #include <nordlys_core/cache.hpp>
 #include <nordlys_core/checkpoint.hpp>
-#include <nordlys_core/tracy.hpp>
 #include <ranges>
 #include <simdjson.h>
 #include <stdexcept>
@@ -123,8 +122,6 @@ void from_json(const json& j, ModelFeatures& f) {
 // ============================================================================
 
 NordlysCheckpoint NordlysCheckpoint::from_json(const std::string& path) {
-  NORDLYS_ZONE;
-
   if (auto cached = checkpoint_cache().get(path)) {
     return *cached;
   }
@@ -148,8 +145,6 @@ NordlysCheckpoint NordlysCheckpoint::from_json(const std::string& path) {
 }
 
 NordlysCheckpoint NordlysCheckpoint::from_json_string(const std::string& json_str) {
-  NORDLYS_ZONE;
-
   sj::ondemand::parser parser;
   sj::padded_string padded(json_str);
   auto doc_result = parser.iterate(padded);
@@ -337,8 +332,6 @@ void NordlysCheckpoint::to_json(const std::string& path) const {
 // ============================================================================
 
 NordlysCheckpoint NordlysCheckpoint::from_msgpack(const std::string& path) {
-  NORDLYS_ZONE;
-
   if (auto cached = checkpoint_cache().get(path)) {
     return *cached;
   }
@@ -397,8 +390,6 @@ NordlysCheckpoint NordlysCheckpoint::from_msgpack(const std::string& path) {
 }
 
 NordlysCheckpoint NordlysCheckpoint::from_msgpack_string(const std::string& data) {
-  NORDLYS_ZONE;
-
   msgpack::object_handle handle = msgpack::unpack(data.data(), data.size());
   auto map = handle.get().as<std::map<std::string, msgpack::object>>();
 

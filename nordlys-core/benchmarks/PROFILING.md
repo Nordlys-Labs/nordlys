@@ -1,325 +1,537 @@
-# Profiling with Tracy
+# Profiling Benchmarks
 
-Profile nordlys-core benchmarks using Tracy Profiler - a unified real-time profiling tool with GUI that provides CPU, memory, GPU, and lock profiling with <1% overhead.
+Profile nordlys-core benchmarks using headless profiling tools that work without GUI connections. This guide covers using `sample` (macOS), `perf` (Linux), and `gprof` (all platforms) for performance analysis.
 
 ## Quick Start
 
+### Using the Profiling Script (macOS - Easiest)
+
+The easiest way to profile on macOS is using the provided script:
+
 ```bash
-# 1. Build with Tracy enabled
-cmake --preset conan-release \
-  -DNORDLYS_BUILD_BENCHMARKS=ON \
-  -DNORDLYS_ENABLE_TRACY=ON
-cmake --build --preset conan-release
-
-# 2. Run Tracy profiler (auto-downloads GUI on first run)
-./benchmarks/scripts/run_tracy.sh RoutingSingle_Medium
-
-# Or use CMake target
-cmake --build --preset conan-release --target bench_tracy
+cd nordlys-core
+bash benchmarks/scripts/profile.sh
 ```
 
-The Tracy GUI will open automatically and connect to the running benchmark. Profile data appears in real-time.
+This script will:
+1. Find or build the benchmark executable
+2. Run the benchmark in the background
+3. Profile it for 10 seconds using `sample`
+4. Save results to `benchmarks/profile.txt`
+5. Display key metrics and top functions
 
-## What is Tracy?
+**Usage:**
+```bash
+# Default: profile RoutingSingle_Medium for 10 seconds
+bash benchmarks/scripts/profile.sh
 
-Tracy is a modern profiler with:
-- **Real-time visualization** - See profiling data as it happens
-- **Interactive GUI** - Click to zoom, filter, analyze
-- **CPU profiling** - Flame graphs, statistics, call trees
-- **Memory tracking** - Allocation timelines and hotspots
-- **GPU support** - CUDA profiling built-in
-- **Lock analysis** - Contention detection
-- **<1% overhead** - Minimal performance impact
+# Custom benchmark
+bash benchmarks/scripts/profile.sh RoutingSingle_Large
 
-## Tracy Features
+# Custom benchmark and duration
+bash benchmarks/scripts/profile.sh RoutingSingle_Small 5
+```
 
-### Timeline View
-Shows function execution over time:
-- **Zones**: Each instrumented function appears as a colored bar
-- **Zoom**: Scroll to zoom, click-drag to pan
-- **Statistics**: Click any zone to see timing stats
-- **Frame marks**: Benchmark iterations appear as frames
+**Note:** The script must be run from the `nordlys-core` directory (not from inside `benchmarks/`).
 
-### Statistics View
-Aggregate timing data:
-- **Mean/Min/Max**: See function timing distribution
-- **Call count**: How many times each function runs
-- **Time percentage**: Which functions dominate CPU
-- **Flame graph**: Visual hotspot identification
+### Using sample (macOS - Manual)
 
-### Memory View
-Allocation tracking:
-- **Allocation timeline**: See when memory is allocated
-- **Per-zone breakdown**: Which functions allocate
-- **Peak memory**: Maximum memory usage
-- **Leak detection**: Identify memory leaks
+`sample` is the built-in profiling tool for macOS:
+
+```bash
+# Build benchmarks (if not already built)
+conan install . --output-folder=build/Release --build=missing -s build_type=Release
+cmake --preset conan-release -DNORDLYS_BUILD_BENCHMARKS=ON
+cmake --build build/Release/build/Release --target bench_nordlys_core
+
+# Run benchmark in background and profile
+./build/Release/build/Release/benchmarks/bench_nordlys_core \
+  --benchmark_filter=RoutingSingle_Medium \
+  --benchmark_min_time=1.0 > /dev/null 2>&1 &
+BENCH_PID=$!
+
+# Profile for 10 seconds
+sample $BENCH_PID 10 -f profile.txt
+
+# Wait for benchmark to finish
+wait $BENCH_PID
+
+# View results
+cat profile.txt
+```
+
+### Using perf (Linux only)
+
+`perf` is the recommended profiling tool for Linux:
+
+```bash
+# Build benchmarks (if not already built)
+conan install . --output-folder=build/Release --build=missing -s build_type=Release
+cmake --preset conan-release -DNORDLYS_BUILD_BENCHMARKS=ON
+cmake --build build/Release/build/Release --target bench_nordlys_core
+
+# Profile a benchmark
+perf record ./build/Release/build/Release/benchmarks/bench_nordlys_core \
+  --benchmark_filter=RoutingSingle_Medium
+
+# View results
+perf report
+
+# Or save to file
+perf report > profile.txt
+```
+
+### Using gprof (Alternative)
+
+`gprof` works on all platforms but requires recompiling with profiling flags:
+
+```bash
+# Build with profiling enabled
+cmake --preset conan-release \
+  -DNORDLYS_BUILD_BENCHMARKS=ON \
+  -DCMAKE_CXX_FLAGS="-pg"
+
+cmake --build --preset conan-release
+
+# Run benchmark (generates gmon.out)
+./build/Release/benchmarks/bench_nordlys_core --benchmark_filter=RoutingSingle_Medium
+
+# Analyze results
+gprof ./build/Release/benchmarks/bench_nordlys_core gmon.out
+```
+
+## Profiling Tools
+
+### sample (macOS - Recommended)
+
+**Installation:**
+- Built into macOS (no installation needed)
+- Located at `/usr/bin/sample`
+
+**Advantages:**
+- No code changes required
+- Low overhead
+- Works with any binary
+- Built into macOS
+
+**Basic Usage:**
+
+```bash
+# Run benchmark in background
+./build/Release/build/Release/benchmarks/bench_nordlys_core \
+  --benchmark_filter=RoutingSingle_Medium \
+  --benchmark_min_time=1.0 > /dev/null 2>&1 &
+BENCH_PID=$!
+
+# Profile for 10 seconds
+sample $BENCH_PID 10 -f profile.txt
+
+# Wait for benchmark to finish
+wait $BENCH_PID
+
+# View results
+cat profile.txt
+```
+
+**Advanced Usage:**
+
+```bash
+# Profile with more detail and demangling
+sample $BENCH_PID 30 -mayDemangle -f detailed_profile.txt
+
+# Profile and filter for specific function
+sample $BENCH_PID 10 -f profile.txt | grep -A 10 "route"
+
+# Profile and search for specific patterns
+sample $BENCH_PID 10 -f profile.txt | grep -E "simsimd|ModelScorer|route_impl"
+
+# Get top functions summary
+grep -A 5 "Sort by top of stack" profile.txt
+```
+
+**Interpreting sample Output:**
+
+The `sample` output shows:
+- **Call graph**: Hierarchical view of function calls with sample counts
+- **Total number in stack**: Flat list of functions sorted by sample count
+- **Sort by top of stack**: Functions that appear at the top of call stacks
+
+Key sections to look for:
+- `simsimd_l2sq_f32_neon` - SIMD distance calculation (expected bottleneck)
+- `Nordlys::route_impl` - Main routing function
+- `ModelScorer::score_models` - Model scoring logic
+- `operator new` / `malloc` - Memory allocations
+- `__init_copy_ctor_external` - String copy operations (should be minimal after optimizations)
+
+### perf (Linux only)
+
+**Installation:**
+- **Linux**: Usually pre-installed, or `sudo apt-get install linux-perf` / `sudo yum install perf`
+- **macOS**: Not available - use `sample` instead (see below)
+
+**Advantages:**
+- No code changes required
+- Low overhead
+- Works with any binary
+- Rich analysis features
+
+**Basic Usage:**
+
+```bash
+# Record profile data
+perf record ./build/Release/build/Release/benchmarks/bench_nordlys_core \
+  --benchmark_filter=RoutingSingle_Medium
+
+# View flat profile
+perf report
+
+# View call graph
+perf report --call-graph
+
+# View specific function
+perf report --symbol-filter=route
+
+# Save report to file
+perf report > profile.txt
+
+# View with more context
+perf report --stdio -n
+```
+
+**Advanced Usage:**
+
+```bash
+# Profile with call stacks
+perf record --call-graph dwarf ./build/Release/benchmarks/bench_nordlys_core
+
+# Profile specific events (cache misses, branch mispredictions)
+perf record -e cache-misses,branch-misses ./build/Release/benchmarks/bench_nordlys_core
+
+# Profile with sampling frequency
+perf record -F 1000 ./build/Release/benchmarks/bench_nordlys_core
+
+# Compare two profiles
+perf diff baseline.data current.data
+```
+
+### gprof (All Platforms)
+
+**Installation:**
+- Usually comes with GCC/Clang toolchain
+
+**Advantages:**
+- Works everywhere
+- Simple text output
+- Call graph generation
+
+**Usage:**
+
+```bash
+# Build with -pg flag
+cmake --preset conan-release \
+  -DNORDLYS_BUILD_BENCHMARKS=ON \
+  -DCMAKE_CXX_FLAGS="-pg -g" \
+  -DCMAKE_EXE_LINKER_FLAGS="-pg"
+
+cmake --build --preset conan-release
+
+# Run benchmark
+./build/Release/benchmarks/bench_nordlys_core --benchmark_filter=RoutingSingle_Medium
+
+# Analyze flat profile
+gprof ./build/Release/benchmarks/bench_nordlys_core gmon.out
+
+# Generate call graph
+gprof -b ./build/Release/benchmarks/bench_nordlys_core gmon.out | gprof2dot | dot -Tpng -o callgraph.png
+```
 
 ## Interpreting Results
 
-### Example: Analyzing Routing Performance
+### sample Output (macOS)
 
-After running Tracy, you'll see:
+The `sample` output shows a call graph with sample counts. Key things to look for:
 
+**Example Call Graph:**
 ```
-Timeline:
-├─ Frame 1 (1.2ms)                    ← One benchmark iteration
-│  ├─ BM_RoutingSingle_Medium (1.2ms)
-│  │  ├─ Nordlys::route (1.15ms)
-│  │  │  ├─ cluster_assign (800μs)   ← Hotspot!
-│  │  │  └─ score_models (300μs)
-│  │  └─ route_iteration (1.15ms)
-├─ Frame 2 (1.3ms)
-...
-```
-
-**What to look for:**
-1. **Wide zones** = Functions taking the most time (hotspots)
-2. **Many zones** = Functions called frequently
-3. **Deep nesting** = Complex call chains
-4. **Gaps** = Time unaccounted for (overhead, I/O)
-
-### Common Patterns
-
-**Pattern: cluster_assign is slow**
-```
-Solution: Check distance calculation algorithm
+2038 Thread_12092304   DispatchQueue_1: com.apple.main-thread
+  2038 main
+    2038 benchmark::RunSpecifiedBenchmarks()
+      1350 BM_RoutingSingle_Medium
+        1313 Nordlys<float>::route_impl
+          1297 CpuClusterBackend<float>::assign
+            1286 simsimd_l2sq_f32_neon  ← Main bottleneck
 ```
 
-**Pattern: Many small allocations**
+**Flat Summary (at end of file):**
 ```
-Statistics → Memory → Group by Zone
-Solution: Pre-allocate buffers, use object pooling
-```
-
-**Pattern: score_models called repeatedly**
-```
-Timeline shows same calculation multiple times
-Solution: Cache scoring results
+Sort by top of stack, same collapsed (when >= 5):
+    simsimd_l2sq_f32_neon(...)        1286
+    benchmark::CPUInfo::CPUInfo()      684
+    CpuClusterBackend<float>::assign   17
+    ModelScorer::score_models(...)      11
 ```
 
-## Adding Instrumentation
+**What to Check:**
+1. **SIMD distance calculation** (`simsimd_l2sq_f32_neon`) - Should be the dominant cost (60-90%)
+2. **String operations** - Look for `__init_copy_ctor_external` (should be minimal/zero after optimizations)
+3. **Memory allocations** - Look for `operator new` or `malloc` (should be <1% of total)
+4. **Tracy profiler** - Search for `tracy` (should be zero - profiler removed)
+5. **Timing overhead** - Look for `clock_gettime` (should only be in benchmark framework)
 
-Tracy uses macros to mark code regions for profiling:
+### perf Output (Linux)
 
-### Available Macros
+The `perf report` shows:
+- **Overhead**: Percentage of time spent in each function
+- **Samples**: Number of profiling samples
+- **Symbol**: Function name
 
-```cpp
-#include <nordlys_core/tracy.hpp>
-
-void my_function() {
-  NORDLYS_ZONE;  // Profile entire function (uses function name)
-  
-  {
-    NORDLYS_ZONE_N("custom_name");  // Profile scope with custom name
-    // ... code to profile
-  }
-  
-  NORDLYS_FRAME_MARK;  // Mark frame boundary (for benchmarks)
-}
+**Example:**
+```
+Overhead  Samples  Symbol
+  63.1%    1286   simsimd_l2sq_f32_neon
+  33.6%     684   benchmark::CPUInfo::CPUInfo
+   0.5%      11   ModelScorer::score_models
 ```
 
-### When to Add Zones
+### gprof Output
 
-✅ **Add zones to:**
-- Functions you suspect are slow
-- Loops that process large amounts of data
-- I/O operations (file read/write)
-- Complex algorithms
+The `gprof` output shows:
+- **% time**: Percentage of total execution time
+- **cumulative seconds**: Cumulative time
+- **self seconds**: Time in this function
+- **calls**: Number of function calls
 
-❌ **Don't add zones to:**
-- Trivial functions (<1μs)
-- Very frequently called functions (>1M calls/sec) unless investigating hotspot
-- Inline functions (compiler warning)
-
-### Example: Instrumenting a New Function
-
-```cpp
-// Before (no profiling)
-std::vector<float> compute_embeddings(const std::string& text) {
-  auto tokens = tokenize(text);
-  auto vectors = lookup_vectors(tokens);
-  return aggregate(vectors);
-}
-
-// After (with Tracy)
-std::vector<float> compute_embeddings(const std::string& text) {
-  NORDLYS_ZONE;  // Profile entire function
-  
-  {
-    NORDLYS_ZONE_N("tokenize");
-    auto tokens = tokenize(text);
-  }
-  
-  {
-    NORDLYS_ZONE_N("lookup_vectors");
-    auto vectors = lookup_vectors(tokens);
-  }
-  
-  {
-    NORDLYS_ZONE_N("aggregate");
-    return aggregate(vectors);
-  }
-}
+**Example:**
+```
+% time  cumulative seconds  self seconds  calls  name
+ 63.1           0.123        0.123       1000   simsimd_l2sq_f32_neon
+  0.5           0.234        0.111       1000   ModelScorer::score_models
 ```
 
-Now Tracy shows which part of `compute_embeddings` is slow.
+## Expected Performance Profile
 
-## CI Integration
+After optimizations, a typical profile should show:
 
-Tracy captures are automatically generated in CI for every commit on Linux:
+| Component | Expected % | What It Means |
+|-----------|------------|---------------|
+| SIMD Distance Calc | 60-90% | Expected bottleneck - algorithmic |
+| Benchmark Overhead | 10-30% | Google Benchmark framework |
+| Model Scoring | 0.5-1% | Fast, acceptable |
+| Memory Alloc | <0.5% | Should be minimal |
+| String Operations | <0.1% | Should be near zero (using move semantics) |
+| Tracy Profiler | 0% | Should be completely removed |
 
-### Viewing CI Captures
+**Red Flags:**
+- String copy operations (`__init_copy_ctor_external`) > 1% - indicates unnecessary copies
+- Memory allocations > 2% - may indicate optimization opportunities
+- Tracy symbols present - profiler not fully removed
+- Timing calls in production code - should only be in benchmark framework
 
-1. Go to GitHub Actions run for your commit
-2. Download `tracy-capture-<sha>` artifact
-3. Open with Tracy GUI locally:
-   ```bash
-   # Download Tracy GUI if needed
-   ./benchmarks/scripts/run_tracy.sh --download-only
-   
-   # Open capture
-   .tracy/tracy-profiler path/to/capture.tracy
-   ```
+## Common Profiling Workflows
+
+### Finding Hotspots
+
+```bash
+# Use perf to find functions taking most time
+perf record ./build/Release/benchmarks/bench_nordlys_core
+perf report --sort=overhead
+```
+
+### Analyzing Cache Performance
+
+```bash
+# Profile cache misses
+perf record -e cache-misses,cache-references ./build/Release/benchmarks/bench_nordlys_core
+perf report
+```
 
 ### Comparing Performance
 
 ```bash
-# Download baseline from main branch
-gh run download <main-run-id> -n tracy-capture-main
+# Profile baseline
+perf record -o baseline.data ./build/Release/benchmarks/bench_nordlys_core
 
-# Download PR capture
-gh run download <pr-run-id> -n tracy-capture-pr
+# Profile optimized version
+perf record -o optimized.data ./build/Release/benchmarks/bench_nordlys_core
 
-# Open both for side-by-side comparison
-./benchmarks/scripts/.tracy/tracy-profiler tracy_capture_main.tracy &
-./benchmarks/scripts/.tracy/tracy-profiler tracy_capture_pr.tracy &
+# Compare
+perf diff baseline.data optimized.data
 ```
 
-Compare zone timing in Statistics view to identify regressions.
-
-### Headless Capture (CI)
+### Profiling Specific Benchmarks
 
 ```bash
-# Capture without GUI (for automation)
-./benchmarks/scripts/tracy_ci_capture.sh RoutingSingle_Medium output.tracy
+# Profile only routing benchmarks
+perf record ./build/Release/build/Release/benchmarks/bench_nordlys_core \
+  --benchmark_filter=Routing
+
+# Profile batch operations
+perf record ./build/Release/build/Release/benchmarks/bench_nordlys_core \
+  --benchmark_filter=Batch
+
+# Profile specific benchmark (macOS with sample)
+./build/Release/build/Release/benchmarks/bench_nordlys_core \
+  --benchmark_filter=RoutingSingle_Medium \
+  --benchmark_min_time=1.0 > /dev/null 2>&1 &
+BENCH_PID=$!
+sample $BENCH_PID 10 -f profile_routing.txt
+wait $BENCH_PID
 ```
 
-## Advanced Usage
+### Analyzing Profile Results
 
-### Filtering Benchmarks
+The profiling script automatically displays key metrics. For detailed analysis:
 
 ```bash
-# Profile specific benchmark
-./benchmarks/scripts/run_tracy.sh RoutingBatch
+# View full profile
+cat benchmarks/profile.txt
 
-# Profile cold start
-./benchmarks/scripts/run_tracy.sh RoutingColdStart_Medium
+# Count samples for specific functions
+grep -c "simsimd_l2sq" benchmarks/profile.txt
+grep -c "ModelScorer" benchmarks/profile.txt
+grep -c "route_impl" benchmarks/profile.txt
 
-# Profile concurrent benchmark
-./benchmarks/scripts/run_tracy.sh RoutingConcurrent
+# Check for string copies (should be zero)
+grep -c "__init_copy_ctor_external" benchmarks/profile.txt
+
+# Check for Tracy (should be zero)
+grep -ci tracy benchmarks/profile.txt
+
+# Get top 10 functions
+grep -A 10 "Sort by top of stack" benchmarks/profile.txt | head -15
 ```
 
-### Tracy GUI Tips
+## CI Integration
 
-**Keyboard shortcuts:**
-- `F1` - Help / Keyboard shortcuts
-- `Ctrl +/-` - Zoom timeline
-- `Ctrl 0` - Reset zoom
-- `Ctrl F` - Find zone by name
+For CI environments, use profiling tools in headless mode:
 
-**Mouse controls:**
-- `Scroll` - Zoom timeline
-- `Middle-click drag` - Pan timeline
-- `Left-click` - Select zone, show statistics
-- `Right-click` - Context menu
+### Linux (perf)
 
-**Useful views:**
-- `Statistics` - Aggregate timing data
-- `Memory` - Allocation tracking
-- `Compare` - Side-by-side comparison
-- `Frame` - Per-frame breakdown (benchmarks)
+```bash
+# Record profile data
+perf record -o profile.data ./build/Release/build/Release/benchmarks/bench_nordlys_core \
+  --benchmark_filter=RoutingSingle_Medium
 
-### Performance Tips
+# Generate report as artifact
+perf report --stdio > profile.txt
 
-Based on Tracy profiling, common optimizations:
+# Upload profile.txt as CI artifact
+```
 
-1. **Cache optimization**
-   - See high L1/L2 cache miss rates in zone details
-   - Solution: Improve data locality, reduce pointer chasing
+### macOS (sample)
 
-2. **Memory allocation**
-   - See many allocations in Memory view
-   - Solution: Pre-allocate, use stack allocation, object pooling
+```bash
+# Run benchmark and profile
+./build/Release/build/Release/benchmarks/bench_nordlys_core \
+  --benchmark_filter=RoutingSingle_Medium \
+  --benchmark_min_time=1.0 > /dev/null 2>&1 &
+BENCH_PID=$!
+sample $BENCH_PID 10 -f profile.txt
+wait $BENCH_PID
 
-3. **Algorithm complexity**
-   - See zone time grows non-linearly with input
-   - Solution: Use better algorithm (O(n) → O(log n))
-
-4. **Unnecessary work**
-   - See same calculation repeated
-   - Solution: Cache results, memoization
+# Upload profile.txt as CI artifact
+```
 
 ## Troubleshooting
 
-### Tracy GUI won't connect
+### perf not found on macOS
 
-**Problem:** Benchmark runs but Tracy shows "Waiting for connection"
+**Problem:** `perf` command not available
 
-**Solutions:**
-1. Check firewall allows port 8086 (Tracy default)
-2. Ensure benchmark was built with `-DNORDLYS_ENABLE_TRACY=ON`
-3. Check benchmark is still running (`ps aux | grep bench_nordlys`)
-
-### No zones appear in Tracy
-
-**Problem:** Timeline is empty
-
-**Solutions:**
-1. Verify benchmark has Tracy zones (check source for `NORDLYS_ZONE`)
-2. Rebuild with Tracy enabled
-3. Check Tracy macros are not `#ifdef`'d out
-
-### Performance overhead is high
-
-**Problem:** Benchmark is slower with Tracy
-
-**Solution:** This is normal! Tracy has <1% overhead, but debug symbols (`-g`) add overhead. Use Release build with Tracy for realistic profiling.
-
-### Tracy GUI download fails
-
-**Problem:** Script can't download Tracy
-
-**Manual download:**
+**Solution:** Install via Homebrew:
 ```bash
-# Linux
-wget https://github.com/wolfpld/tracy/releases/download/v0.11.1/tracy-linux-x64.tar.gz
-tar -xzf tracy-linux-x64.tar.gz -C benchmarks/scripts/.tracy/
-
-# macOS
-wget https://github.com/wolfpld/tracy/releases/download/v0.11.1/tracy-macos.tar.gz
-tar -xzf tracy-macos.tar.gz -C benchmarks/scripts/.tracy/
+brew install perf
 ```
 
-## Platform Support
+Note: macOS perf support may be limited compared to Linux.
 
-Tracy works on all platforms:
-- **Linux**: Fully supported (CI + local)
-- **macOS**: Fully supported (local only)
-- **Windows**: Fully supported (local only, not tested)
+### gprof shows no data
 
-CI only runs Tracy on Linux for speed, but developers can profile locally on any platform.
+**Problem:** `gmon.out` is empty or missing
+
+**Solutions:**
+1. Ensure `-pg` flag is used for both compilation and linking
+2. Check that benchmark ran to completion
+3. Verify `gmon.out` exists in current directory
+
+### perf shows [unknown] symbols
+
+**Problem:** Function names appear as memory addresses
+
+**Solution:** Build with debug symbols:
+```bash
+cmake --preset conan-release -DCMAKE_BUILD_TYPE=RelWithDebInfo
+```
+
+### sample shows no useful data
+
+**Problem:** Profile shows mostly benchmark framework overhead
+
+**Solutions:**
+1. Increase profiling duration: `sample $BENCH_PID 30 -f profile.txt`
+2. Use `--benchmark_min_time` to ensure benchmark runs long enough
+3. Filter specific benchmarks: `--benchmark_filter=RoutingSingle_Medium`
+4. Check that benchmark is actually running (not stuck in initialization)
+
+### Finding the benchmark executable
+
+**Problem:** Can't find `bench_nordlys_core`
+
+**Solution:** The build path depends on your CMake preset:
+```bash
+# Find the executable
+find build -name "bench_nordlys_core" -type f
+
+# Or use the script (run from nordlys-core directory)
+bash benchmarks/scripts/profile.sh  # Will find or build automatically
+```
+
+## Profiling Workflow Example
+
+Here's a complete example of profiling and analyzing results:
+
+```bash
+cd nordlys-core
+
+# 1. Build benchmarks
+conan install . --output-folder=build/Release --build=missing -s build_type=Release
+cmake --preset conan-release -DNORDLYS_BUILD_BENCHMARKS=ON
+cmake --build build/Release/build/Release --target bench_nordlys_core
+
+# 2. Profile (macOS)
+./build/Release/build/Release/benchmarks/bench_nordlys_core \
+  --benchmark_filter=RoutingSingle_Medium \
+  --benchmark_min_time=1.0 > /dev/null 2>&1 &
+BENCH_PID=$!
+sample $BENCH_PID 10 -f profile.txt
+wait $BENCH_PID
+
+# 3. Analyze results
+echo "=== Top Functions ==="
+grep -A 10 "Sort by top of stack" profile.txt | head -15
+
+echo ""
+echo "=== String Operations ==="
+grep -c "__init_copy_ctor_external" profile.txt || echo "0 (good - no string copies)"
+
+echo ""
+echo "=== Memory Allocations ==="
+grep -c "operator new" profile.txt
+
+echo ""
+echo "=== Tracy Profiler ==="
+grep -ci tracy profile.txt || echo "0 (good - Tracy removed)"
+
+echo ""
+echo "=== SIMD Distance Calculation ==="
+grep "simsimd_l2sq" profile.txt | head -1
+```
 
 ## Further Reading
 
-- [Tracy Manual](https://github.com/wolfpld/tracy/releases/download/v0.11.1/tracy.pdf) - Comprehensive Tracy documentation
-- [Tracy GitHub](https://github.com/wolfpld/tracy) - Source code and examples
+- [perf Tutorial](https://perf.wiki.kernel.org/index.php/Tutorial)
+- [gprof Manual](https://sourceware.org/binutils/docs/gprof/)
+- [Linux Performance Tools](https://www.brendangregg.com/linuxperf.html)
+- [macOS sample man page](https://developer.apple.com/library/archive/documentation/DeveloperTools/Conceptual/InstrumentsUserGuide/Instrument-Sample.html)
 - [benchmarks/README.md](./README.md) - Benchmark suite overview
 - [Nordlys Core README](../README.md) - Project overview
-
-## Getting Help
-
-If you encounter issues:
-1. Check this guide's Troubleshooting section
-2. Review Tracy Manual (linked above)
-3. Ask in project Discord/Slack
-4. File issue: https://github.com/Nordlys-Labs/nordlys/issues

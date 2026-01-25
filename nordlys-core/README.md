@@ -127,29 +127,24 @@ See [benchmarks/README.md](benchmarks/README.md) for detailed documentation.
 
 ## Profiling
 
-Profile benchmarks using Tracy Profiler - a unified real-time profiling tool:
+Profile benchmarks using headless profiling tools (`perf` or `gprof`) that work without GUI connections:
 
 ```bash
-# Build with Tracy enabled
-cmake --preset conan-release \
-  -DNORDLYS_BUILD_BENCHMARKS=ON \
-  -DNORDLYS_ENABLE_TRACY=ON
+# Build benchmarks
+cmake --preset conan-release -DNORDLYS_BUILD_BENCHMARKS=ON
 cmake --build --preset conan-release
 
-# Run Tracy profiler (downloads GUI automatically on first run)
-./benchmarks/scripts/run_tracy.sh RoutingSingle_Medium
-
-# Or use CMake target
-cmake --build --preset conan-release --target bench_tracy
+# Profile with perf (recommended)
+perf record ./build/Release/benchmarks/bench_nordlys_core --benchmark_filter=RoutingSingle_Medium
+perf report
 ```
 
-**Tracy provides:**
-- Real-time CPU profiling with flame graphs
-- Memory allocation tracking
-- GPU profiling (CUDA support)
-- Interactive GUI with zoom/filter
-- <1% performance overhead
-- Cross-platform (Linux, macOS, Windows)
+**Profiling tools provide:**
+- Function-level timing analysis
+- Call graph visualization
+- Hotspot identification
+- Works in CI/headless environments
+- No GUI connection required
 
 See [benchmarks/PROFILING.md](benchmarks/PROFILING.md) for detailed guide.
 

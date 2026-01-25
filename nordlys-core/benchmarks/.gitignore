@@ -7,8 +7,18 @@ benchmark_results*.json
 results_*.json
 *.csv
 
-# Tracy profiler captures
+# Profiling data
 *.tracy
+perf.data*
+gmon.out
+profile.txt
+profile_*.txt
+profiling_results*.txt
+
+# Benchmark results
+results/
+benchmark_results_*.json
+benchmark_results_*.txt
 
 # Keep fixtures directory
 !fixtures/

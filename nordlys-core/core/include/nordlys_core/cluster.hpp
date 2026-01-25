@@ -15,7 +15,6 @@
 #endif
 
 #include "matrix.hpp"
-#include "tracy.hpp"
 
 enum class ClusterBackendType { Cpu, CUDA };
 
@@ -86,8 +85,6 @@ template <typename Scalar> struct MinDistanceResult {
 template <typename Scalar> class CpuClusterBackend : public IClusterBackend<Scalar> {
 public:
   void load_centroids(const Scalar* data, int n_clusters, int dim) override {
-    NORDLYS_ZONE_N("CpuClusterBackend::load_centroids");
-
     if (n_clusters <= 0 || dim <= 0) [[unlikely]] {
       throw std::invalid_argument("n_clusters and dim must be positive");
     }
@@ -116,8 +113,6 @@ public:
   }
 
   [[nodiscard]] std::pair<int, Scalar> assign(const Scalar* embedding, int dim) override {
-    NORDLYS_ZONE_N("CpuClusterBackend::assign");
-
     if (n_clusters_ == 0) return {-1, Scalar{0}};
     if (dim != dim_) [[unlikely]] {
       throw std::invalid_argument("dimension mismatch in assign");
@@ -202,8 +197,6 @@ public:
 
   [[nodiscard]] std::vector<std::pair<int, Scalar>> assign_batch(const Scalar* embeddings,
                                                                  int count, int dim) override {
-    NORDLYS_ZONE_N("CpuClusterBackend::assign_batch");
-
     if (count < 0) [[unlikely]] {
       throw std::invalid_argument("count must be non-negative");
     }
@@ -380,7 +373,6 @@ public:
   }
 
   void load_centroids(const EmbeddingMatrix<Scalar>& centers) {
-    NORDLYS_ZONE;
     if (centers.rows() > static_cast<size_t>(std::numeric_limits<int>::max())
         || centers.cols() > static_cast<size_t>(std::numeric_limits<int>::max())) [[unlikely]] {
       throw std::invalid_argument("matrix dimensions exceed int range");
@@ -390,7 +382,6 @@ public:
   }
 
   [[nodiscard]] auto assign(const Scalar* embedding, size_t dim) {
-    NORDLYS_ZONE;
     if (dim > static_cast<size_t>(std::numeric_limits<int>::max())) [[unlikely]] {
       throw std::invalid_argument("dim exceeds int range");
     }
@@ -403,7 +394,6 @@ public:
   }
 
   [[nodiscard]] auto assign_batch(const Scalar* embeddings, size_t count, size_t dim) {
-    NORDLYS_ZONE;
     if (count > static_cast<size_t>(std::numeric_limits<int>::max())
         || dim > static_cast<size_t>(std::numeric_limits<int>::max())) [[unlikely]] {
       throw std::invalid_argument("count or dim exceeds int range");

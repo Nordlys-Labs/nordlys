@@ -15,7 +15,6 @@ option(NORDLYS_BUILD_C "Build C FFI bindings" ON)
 option(NORDLYS_ENABLE_SANITIZERS "Enable sanitizers in Debug" OFF)
 option(NORDLYS_WARNINGS_AS_ERRORS "Treat warnings as errors" ON)
 option(NORDLYS_BUILD_BENCHMARKS "Build benchmark suite" OFF)
-option(NORDLYS_ENABLE_TRACY "Enable Tracy profiler integration" OFF)
 
 # CUDA auto-detection and configuration
 if(NORDLYS_ENABLE_CUDA STREQUAL "AUTO")
@@ -61,14 +60,6 @@ find_package(nlohmann_json REQUIRED)
 find_package(msgpack-cxx REQUIRED)
 find_package(simdjson REQUIRED)
 
-# Tracy profiler (optional)
-# NOTE: Do NOT use add_compile_definitions(TRACY_ENABLE) here - it would affect
-# all targets globally, but only targets that link Tracy::TracyClient have access
-# to the headers. Each target that wants Tracy must add the definition itself.
-if(NORDLYS_ENABLE_TRACY)
-  find_package(Tracy REQUIRED)
-  message(STATUS "Tracy profiler enabled")
-endif()
 
 # Enable testing
 if(NORDLYS_BUILD_TESTS)
@@ -93,5 +84,4 @@ message(STATUS "  Python:       ${NORDLYS_BUILD_PYTHON}")
 message(STATUS "  C bindings:   ${NORDLYS_BUILD_C}")
 message(STATUS "  Tests:        ${NORDLYS_BUILD_TESTS}")
 message(STATUS "  Benchmarks:   ${NORDLYS_BUILD_BENCHMARKS}")
-message(STATUS "  Tracy:        ${NORDLYS_ENABLE_TRACY}")
 message(STATUS "")
