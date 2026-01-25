@@ -44,7 +44,7 @@ regex = "(?P<value>\\d+\\.\\d+\\.\\d+)"
 
 [tool.scikit-build-core-conan]
 path = "conanfile.py"
-build = ["missing"]
+build = "missing"
 settings = ["compiler.cppstd=20"]
 
 [tool.pytest.ini_options]

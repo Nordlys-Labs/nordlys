@@ -38,5 +38,5 @@ NORDLYS_ENABLE_CUDA = "ON"
 
 [tool.scikit-build-core-conan]
 path = "../nordlys-core/bindings/python/conanfile.py"
-build = ["missing"]
+build = "missing"
 settings = ["compiler.cppstd=20"]
