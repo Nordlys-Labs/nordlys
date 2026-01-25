@@ -12,7 +12,7 @@ import warnings
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 import numpy as np
 import pandas as pd
@@ -866,7 +866,7 @@ class Nordlys:
         )
 
         # Initialize C++ core - this is the source of truth for all routing
-        checkpoint_dtype: Dtype = checkpoint.embedding.dtype
+        checkpoint_dtype: Dtype = cast(Dtype, checkpoint.embedding.dtype)
         if checkpoint_dtype == DEFAULT_DTYPE:
             instance._core_engine = Nordlys32.from_checkpoint(checkpoint, device=device)
         else:
