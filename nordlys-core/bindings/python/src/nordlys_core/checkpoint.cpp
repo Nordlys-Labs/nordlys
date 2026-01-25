@@ -11,6 +11,22 @@
 namespace nb = nanobind;
 using namespace nb::literals;
 
+namespace {
+  struct ClusterCentersVisitor {
+    nb::object operator()(const EmbeddingMatrix<float>& centers) {
+      size_t shape[2] = {centers.rows(), centers.cols()};
+      return nb::cast(nb::ndarray<nb::numpy, float, nb::ndim<2>>(
+          const_cast<float*>(centers.data()), 2, shape, nb::handle()));
+    }
+    
+    nb::object operator()(const EmbeddingMatrix<double>& centers) {
+      size_t shape[2] = {centers.rows(), centers.cols()};
+      return nb::cast(nb::ndarray<nb::numpy, double, nb::ndim<2>>(
+          const_cast<double*>(centers.data()), 2, shape, nb::handle()));
+    }
+  };
+}
+
 void register_checkpoint(nb::module_& m) {
   // Checkpoint
   nb::class_<NordlysCheckpoint>(
@@ -58,14 +74,7 @@ void register_checkpoint(nb::module_& m) {
       .def_prop_ro(
           "cluster_centers",
           [](const NordlysCheckpoint& c) {
-            return std::visit(
-                [](const auto& centers) -> nb::object {
-                  using Scalar = typename std::decay_t<decltype(centers)>::Scalar;
-                  size_t shape[2] = {centers.rows(), centers.cols()};
-                  return nb::cast(nb::ndarray<nb::numpy, Scalar, nb::ndim<2>>(
-                      const_cast<Scalar*>(centers.data()), 2, shape, nb::handle()));
-                },
-                c.cluster_centers);
+            return std::visit(ClusterCentersVisitor{}, c.cluster_centers);
           },
           nb::rv_policy::reference_internal,
           "Cluster centers as numpy array")
@@ -74,7 +83,6 @@ void register_checkpoint(nb::module_& m) {
       // Configuration structs
       .def_ro("embedding", &NordlysCheckpoint::embedding, "Embedding configuration")
       .def_ro("clustering", &NordlysCheckpoint::clustering, "Clustering configuration")
-      .def_ro("routing", &NordlysCheckpoint::routing, "Routing configuration")
       .def_ro("metrics", &NordlysCheckpoint::metrics, "Training metrics (optional fields)")
 
       // Computed properties

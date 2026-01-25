@@ -134,7 +134,7 @@ TEST_F(CFFITest, SingleRouteReturnsValidResult) {
 
   NordlysErrorCode error;
   NordlysRouteResult32* result
-      = nordlys_router_route_f32(router_, embedding.data(), embedding_dim, 0.5f, &error);
+      = nordlys_router_route_f32(router_, embedding.data(), embedding_dim, &error);
 
   ASSERT_NE(result, nullptr);
   EXPECT_NE(result->selected_model, nullptr);
@@ -159,7 +159,7 @@ TEST_F(CFFITest, SingleRouteWithDoubleReturnsValidResult) {
   // With strict type enforcement, double routing on float32 router returns nullptr
   NordlysErrorCode error;
   NordlysRouteResult64* result
-      = nordlys_router_route_f64(router_, embedding.data(), embedding_dim, 0.5f, &error);
+      = nordlys_router_route_f64(router_, embedding.data(), embedding_dim, &error);
 
   EXPECT_EQ(result, nullptr);
 }
@@ -178,7 +178,7 @@ TEST_F(CFFITest, BatchRouteReturnsValidResults) {
 
   NordlysErrorCode error;
   NordlysBatchRouteResult32* result = nordlys_router_route_batch_f32(
-      router_, embeddings.data(), n_embeddings, embedding_dim, 0.5f, &error);
+      router_, embeddings.data(), n_embeddings, embedding_dim, &error);
 
   ASSERT_NE(result, nullptr);
   EXPECT_EQ(result->count, n_embeddings);
@@ -207,7 +207,7 @@ TEST_F(CFFITest, BatchRouteWithDoubleReturnsValidResults) {
   // With strict type enforcement, double batch routing on float32 router returns nullptr
   NordlysErrorCode error;
   NordlysBatchRouteResult64* result = nordlys_router_route_batch_f64(
-      router_, embeddings.data(), n_embeddings, embedding_dim, 0.5f, &error);
+      router_, embeddings.data(), n_embeddings, embedding_dim, &error);
 
   EXPECT_EQ(result, nullptr);
 }
@@ -242,12 +242,12 @@ TEST_F(CFFITest, RouteWithDifferentCostBiasSelectsDifferentModels) {
   // Route with accuracy preference (cost_bias = 0.0)
   NordlysErrorCode error_accuracy;
   NordlysRouteResult32* result_accuracy
-      = nordlys_router_route_f32(router_, embedding.data(), embedding_dim, 0.0f, &error_accuracy);
+      = nordlys_router_route_f32(router_, embedding.data(), embedding_dim, &error_accuracy);
 
   // Route with cost preference (cost_bias = 1.0)
   NordlysErrorCode error_cost;
   NordlysRouteResult32* result_cost
-      = nordlys_router_route_f32(router_, embedding.data(), embedding_dim, 1.0f, &error_cost);
+      = nordlys_router_route_f32(router_, embedding.data(), embedding_dim, &error_cost);
 
   ASSERT_NE(result_accuracy, nullptr);
   ASSERT_NE(result_cost, nullptr);
@@ -268,8 +268,8 @@ TEST_F(CFFITest, RouteWithWrongDimensionReturnsNull) {
   std::vector<float> wrong_embedding = {1.0f, 0.0f, 0.0f};
 
   NordlysErrorCode error;
-  NordlysRouteResult32* result = nordlys_router_route_f32(router_, wrong_embedding.data(),
-                                                          wrong_embedding.size(), 0.5f, &error);
+  NordlysRouteResult32* result       = nordlys_router_route_f32(router_, wrong_embedding.data(),
+                                                          wrong_embedding.size(), &error);
 
   EXPECT_EQ(result, nullptr);
 }
@@ -280,7 +280,7 @@ TEST_F(CFFITest, RouteResultHasAlternatives) {
 
   NordlysErrorCode error;
   NordlysRouteResult32* result
-      = nordlys_router_route_f32(router_, embedding.data(), embedding_dim, 0.5f, &error);
+      = nordlys_router_route_f32(router_, embedding.data(), embedding_dim, &error);
 
   ASSERT_NE(result, nullptr);
 
@@ -300,7 +300,7 @@ TEST_F(CFFITest, BatchRouteHandlesNullRouter) {
   std::vector<float> embeddings(384, 0.5f);
   NordlysErrorCode error;
   NordlysBatchRouteResult32* result
-      = nordlys_router_route_batch_f32(nullptr, embeddings.data(), 1, 384, 0.5f, &error);
+      = nordlys_router_route_batch_f32(nullptr, embeddings.data(), 1, 384, &error);
   EXPECT_EQ(result, nullptr);
 }
 
@@ -310,7 +310,7 @@ TEST_F(CFFITest, BatchRouteHandlesNullEmbeddings) {
   // Pass nullptr embeddings - should return nullptr
   NordlysErrorCode error;
   NordlysBatchRouteResult32* result
-      = nordlys_router_route_batch_f32(router_, nullptr, 1, embedding_dim, 0.5f, &error);
+      = nordlys_router_route_batch_f32(router_, nullptr, 1, embedding_dim, &error);
   EXPECT_EQ(result, nullptr);
 }
 
@@ -319,7 +319,7 @@ TEST_F(CFFITest, RouteHandlesNullRouter) {
 
   NordlysErrorCode error;
   NordlysRouteResult32* result
-      = nordlys_router_route_f32(nullptr, embedding.data(), embedding.size(), 0.5f, &error);
+      = nordlys_router_route_f32(nullptr, embedding.data(), embedding.size(), &error);
   EXPECT_EQ(result, nullptr);
 }
 
@@ -402,7 +402,7 @@ TEST_F(CFFITest, RouteDoubleOnFloat32RouterReturnsNull) {
   std::vector<double> embedding = {0.95, 0.05, 0.0, 0.0};
   NordlysErrorCode error;
   NordlysRouteResult64* result
-      = nordlys_router_route_f64(router_, embedding.data(), embedding.size(), 0.5f, &error);
+      = nordlys_router_route_f64(router_, embedding.data(), embedding.size(), &error);
   EXPECT_EQ(result, nullptr);  // Type mismatch: can't use double on float32 router
 }
 
@@ -410,7 +410,7 @@ TEST_F(CFFITestFloat64, RouteFloatOnFloat64RouterReturnsNull) {
   std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
   NordlysErrorCode error;
   NordlysRouteResult32* result
-      = nordlys_router_route_f32(router_, embedding.data(), embedding.size(), 0.5f, &error);
+      = nordlys_router_route_f32(router_, embedding.data(), embedding.size(), &error);
   EXPECT_EQ(result, nullptr);  // Type mismatch: can't use float on float64 router
 }
 
@@ -419,7 +419,7 @@ TEST_F(CFFITestFloat64, RouteDoubleOnFloat64RouterSucceeds) {
   std::vector<double> embedding = {0.95, 0.05, 0.0, 0.0};
   NordlysErrorCode error;
   NordlysRouteResult64* result
-      = nordlys_router_route_f64(router_, embedding.data(), embedding.size(), 0.5f, &error);
+      = nordlys_router_route_f64(router_, embedding.data(), embedding.size(), &error);
 
   ASSERT_NE(result, nullptr);
   EXPECT_NE(result->selected_model, nullptr);
@@ -433,7 +433,7 @@ TEST_F(CFFITestFloat64, BatchRouteDoubleOnFloat64RouterSucceeds) {
 
   NordlysErrorCode error;
   NordlysBatchRouteResult64* result
-      = nordlys_router_route_batch_f64(router_, embeddings.data(), 2, 4, 0.5f, &error);
+      = nordlys_router_route_batch_f64(router_, embeddings.data(), 2, 4, &error);
 
   ASSERT_NE(result, nullptr);
   EXPECT_EQ(result->count, 2);
@@ -447,7 +447,7 @@ TEST_F(CFFITest, BatchRouteDoubleOnFloat32RouterReturnsNull) {
   std::vector<double> embeddings = {0.95, 0.05, 0.0, 0.0};
   NordlysErrorCode error;
   NordlysBatchRouteResult64* result
-      = nordlys_router_route_batch_f64(router_, embeddings.data(), 1, 4, 0.5f, &error);
+      = nordlys_router_route_batch_f64(router_, embeddings.data(), 1, 4, &error);
   EXPECT_EQ(result, nullptr);
 }
 
@@ -455,7 +455,7 @@ TEST_F(CFFITestFloat64, BatchRouteFloatOnFloat64RouterReturnsNull) {
   std::vector<float> embeddings = {0.95f, 0.05f, 0.0f, 0.0f};
   NordlysErrorCode error;
   NordlysBatchRouteResult32* result
-      = nordlys_router_route_batch_f32(router_, embeddings.data(), 1, 4, 0.5f, &error);
+      = nordlys_router_route_batch_f32(router_, embeddings.data(), 1, 4, &error);
   EXPECT_EQ(result, nullptr);
 }
 
@@ -481,18 +481,18 @@ TEST_F(CFFITest, RouteF32SetsErrorCodes) {
 
   // Valid call should succeed
   NordlysRouteResult32* result
-      = nordlys_router_route_f32(router_, embedding.data(), embedding.size(), 0.5f, &error);
+      = nordlys_router_route_f32(router_, embedding.data(), embedding.size(), &error);
   EXPECT_EQ(error, NORDLYS_OK);
   EXPECT_NE(result, nullptr);
   nordlys_route_result_free_f32(result);
 
   // Null router should set error
-  result = nordlys_router_route_f32(nullptr, embedding.data(), embedding.size(), 0.5f, &error);
+  result = nordlys_router_route_f32(nullptr, embedding.data(), embedding.size(), &error);
   EXPECT_EQ(error, NORDLYS_ERROR_NULL_ROUTER);
   EXPECT_EQ(result, nullptr);
 
   // Null embedding should set error
-  result = nordlys_router_route_f32(router_, nullptr, embedding.size(), 0.5f, &error);
+  result = nordlys_router_route_f32(router_, nullptr, embedding.size(), &error);
   EXPECT_EQ(error, NORDLYS_ERROR_NULL_EMBEDDING);
   EXPECT_EQ(result, nullptr);
 }
@@ -502,7 +502,7 @@ TEST_F(CFFITest, RouteF64OnF32RouterSetsTypeMismatchError) {
   NordlysErrorCode error;
 
   NordlysRouteResult64* result
-      = nordlys_router_route_f64(router_, embedding.data(), embedding.size(), 0.5f, &error);
+      = nordlys_router_route_f64(router_, embedding.data(), embedding.size(), &error);
   EXPECT_EQ(error, NORDLYS_ERROR_TYPE_MISMATCH);
   EXPECT_EQ(result, nullptr);
 }
@@ -512,7 +512,7 @@ TEST_F(CFFITestFloat64, RouteF32OnF64RouterSetsTypeMismatchError) {
   NordlysErrorCode error;
 
   NordlysRouteResult32* result
-      = nordlys_router_route_f32(router_, embedding.data(), embedding.size(), 0.5f, &error);
+      = nordlys_router_route_f32(router_, embedding.data(), embedding.size(), &error);
   EXPECT_EQ(error, NORDLYS_ERROR_TYPE_MISMATCH);
   EXPECT_EQ(result, nullptr);
 }

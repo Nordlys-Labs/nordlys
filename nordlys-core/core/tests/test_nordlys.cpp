@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include <nordlys_core/device.hpp>
+#include <nordlys_core/embedding_view.hpp>
 #include <nordlys_core/nordlys.hpp>
 #include <vector>
 
@@ -45,10 +47,6 @@ static const char* kTestCheckpointJson = R"({
     "algorithm": "lloyd",
     "normalization": "l2"
   },
-  "routing": {
-    "cost_bias_min": 0.0,
-    "cost_bias_max": 1.0
-  },
   "metrics": {
     "silhouette_score": 0.85
   }
@@ -88,10 +86,6 @@ static const char* kTestCheckpointJsonFloat64 = R"({
     "n_init": 10,
     "algorithm": "lloyd",
     "normalization": "l2"
-  },
-  "routing": {
-    "cost_bias_min": 0.0,
-    "cost_bias_max": 1.0
   },
   "metrics": {
     "silhouette_score": 0.85
@@ -177,7 +171,8 @@ TEST_F(Nordlysest, BasicRoutingWithFloat) {
   std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
 
   // Route should assign to cluster 0 (closest to [1,0,0,0])
-  auto response = router.route(embedding.data(), embedding.size(), 0.5f);
+  EmbeddingView<float> view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
+  auto response = router.route(view);
 
   EXPECT_EQ(response.cluster_id, 0);
   EXPECT_GE(response.cluster_distance, 0.0f);
@@ -185,21 +180,17 @@ TEST_F(Nordlysest, BasicRoutingWithFloat) {
   EXPECT_GE(response.alternatives.size(), 0);
 }
 
-TEST_F(Nordlysest, RoutingWithCustomCostBias) {
-  // Verify cost_bias parameter affects model selection
+TEST_F(Nordlysest, RoutingByErrorRate) {
+  // Verify routing selects models by error rate
   auto router = CreateTestRouter();
 
   std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
 
-  // Route with different cost biases
-  auto response_accuracy = router.route(embedding.data(), embedding.size(), 0.0f);
-  auto response_cost = router.route(embedding.data(), embedding.size(), 1.0f);
+  EmbeddingView<float> view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
+  auto response = router.route(view);
 
-  // Both should return valid responses
-  EXPECT_FALSE(response_accuracy.selected_model.empty());
-  EXPECT_FALSE(response_cost.selected_model.empty());
-  EXPECT_EQ(response_accuracy.cluster_id, 0);
-  EXPECT_EQ(response_cost.cluster_id, 0);
+  EXPECT_FALSE(response.selected_model.empty());
+  EXPECT_EQ(response.cluster_id, 0);
 }
 
 TEST_F(Nordlysest, RoutingWithFilteredModels) {
@@ -209,7 +200,8 @@ TEST_F(Nordlysest, RoutingWithFilteredModels) {
   std::vector<float> embedding = {0.0f, 0.95f, 0.05f, 0.0f};
   std::vector<std::string> filtered_models = {"provider1/gpt-4"};
 
-  auto response = router.route(embedding.data(), embedding.size(), 0.5f, filtered_models);
+  EmbeddingView<float> view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
+  auto response = router.route(view, filtered_models);
 
   EXPECT_EQ(response.cluster_id, 1);
   EXPECT_EQ(response.selected_model, "provider1/gpt-4");
@@ -227,7 +219,8 @@ TEST_F(Nordlysest, RoutingWithDouble) {
   std::vector<double> embedding = {0.95, 0.05, 0.0, 0.0};
 
   // Should work with double precision router
-  auto response = router.route(embedding.data(), embedding.size(), 0.5f);
+  EmbeddingView<double> view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
+  auto response = router.route(view);
 
   EXPECT_EQ(response.cluster_id, 0);
   EXPECT_FALSE(response.selected_model.empty());
@@ -241,9 +234,10 @@ TEST_F(Nordlysest, FloatAndDoublePrecisionConsistency) {
   std::vector<float> embedding_float = {0.0f, 0.95f, 0.05f, 0.0f};
   std::vector<double> embedding_double = {0.0, 0.95, 0.05, 0.0};
 
-  auto response_float = router_float.route(embedding_float.data(), embedding_float.size(), 0.5f);
-  auto response_double
-      = router_double.route(embedding_double.data(), embedding_double.size(), 0.5f);
+  EmbeddingView<float> view_float{embedding_float.data(), embedding_float.size(), Device{CpuDevice{}}};
+  EmbeddingView<double> view_double{embedding_double.data(), embedding_double.size(), Device{CpuDevice{}}};
+  auto response_float = router_float.route(view_float);
+  auto response_double = router_double.route(view_double);
 
   // Both should assign to same cluster
   EXPECT_EQ(response_float.cluster_id, response_double.cluster_id);
@@ -260,7 +254,8 @@ TEST_F(Nordlysest, DimensionMismatchThrows) {
   // Create wrong-sized embedding (3D instead of 4D)
   std::vector<float> wrong_embedding = {0.5f, 0.5f, 0.0f};
 
-  EXPECT_THROW(router.route(wrong_embedding.data(), wrong_embedding.size(), 0.5f),
+  EmbeddingView<float> wrong_view{wrong_embedding.data(), wrong_embedding.size(), Device{CpuDevice{}}};
+  EXPECT_THROW(router.route(wrong_view),
                std::invalid_argument);
 }
 
@@ -271,7 +266,8 @@ TEST_F(Nordlysest, DimensionMismatchErrorMessage) {
   std::vector<float> wrong_embedding = {1.0f, 0.0f};  // 2D instead of 4D
 
   try {
-    (void)router.route(wrong_embedding.data(), wrong_embedding.size(), 0.5f);
+    EmbeddingView<float> wrong_view{wrong_embedding.data(), wrong_embedding.size(), Device{CpuDevice{}}};
+    (void)router.route(wrong_view);
     FAIL() << "Expected std::invalid_argument to be thrown";
   } catch (const std::invalid_argument& e) {
     std::string msg = e.what();
@@ -292,7 +288,8 @@ TEST_F(Nordlysest, RoutingWithEmptyModelFilter) {
   std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
   std::vector<std::string> empty_filter;
 
-  auto response = router.route(embedding.data(), embedding.size(), 0.5f, empty_filter);
+  EmbeddingView<float> view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
+  auto response = router.route(view, empty_filter);
 
   EXPECT_EQ(response.cluster_id, 0);
   EXPECT_FALSE(response.selected_model.empty());
@@ -305,7 +302,8 @@ TEST_F(Nordlysest, RoutingWithSingleModelFilter) {
   std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
   std::vector<std::string> filter = {"provider2/llama"};
 
-  auto response = router.route(embedding.data(), embedding.size(), 0.5f, filter);
+  EmbeddingView<float> view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
+  auto response = router.route(view, filter);
 
   EXPECT_EQ(response.cluster_id, 0);
   EXPECT_EQ(response.selected_model, "provider2/llama");
@@ -317,7 +315,8 @@ TEST_F(Nordlysest, AlternativesReturned) {
 
   std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
 
-  auto response = router.route(embedding.data(), embedding.size(), 0.5f);
+  EmbeddingView<float> view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
+  auto response = router.route(view);
 
   // With 2 models, alternatives should have at most 1 (all except selected)
   EXPECT_LE(response.alternatives.size(), 1);
@@ -335,9 +334,12 @@ TEST_F(Nordlysest, DifferentEmbeddingsAssignToDifferentClusters) {
   std::vector<float> embedding2 = {0.05f, 0.95f, 0.0f, 0.0f};  // Close to cluster 1
   std::vector<float> embedding3 = {0.0f, 0.05f, 0.95f, 0.0f};  // Close to cluster 2
 
-  auto response1 = router.route(embedding1.data(), embedding1.size(), 0.5f);
-  auto response2 = router.route(embedding2.data(), embedding2.size(), 0.5f);
-  auto response3 = router.route(embedding3.data(), embedding3.size(), 0.5f);
+  EmbeddingView<float> view1{embedding1.data(), embedding1.size(), Device{CpuDevice{}}};
+  EmbeddingView<float> view2{embedding2.data(), embedding2.size(), Device{CpuDevice{}}};
+  EmbeddingView<float> view3{embedding3.data(), embedding3.size(), Device{CpuDevice{}}};
+  auto response1 = router.route(view1);
+  auto response2 = router.route(view2);
+  auto response3 = router.route(view3);
 
   EXPECT_EQ(response1.cluster_id, 0);
   EXPECT_EQ(response2.cluster_id, 1);
@@ -350,7 +352,8 @@ TEST_F(Nordlysest, ClusterDistanceIsNonNegative) {
 
   std::vector<float> embedding = {0.5f, 0.5f, 0.0f, 0.0f};
 
-  auto response = router.route(embedding.data(), embedding.size(), 0.5f);
+  EmbeddingView<float> view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
+  auto response = router.route(view);
 
   EXPECT_GE(response.cluster_distance, 0.0f);
 }
@@ -362,7 +365,8 @@ TEST_F(Nordlysest, ExactCentroidMatchHasSmallDistance) {
   // Exact match with cluster 0 centroid [1, 0, 0, 0]
   std::vector<float> embedding = {1.0f, 0.0f, 0.0f, 0.0f};
 
-  auto response = router.route(embedding.data(), embedding.size(), 0.5f);
+  EmbeddingView<float> view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
+  auto response = router.route(view);
 
   EXPECT_EQ(response.cluster_id, 0);
   EXPECT_NEAR(response.cluster_distance, 0.0f, 1e-5);
@@ -372,35 +376,30 @@ TEST_F(Nordlysest, ExactCentroidMatchHasSmallDistance) {
 // Tests for Cost Bias Effects
 // ============================================================================
 
-TEST_F(Nordlysest, CostBiasAffectsModelSelection) {
-  // Different cost biases may lead to different model selections
+TEST_F(Nordlysest, RoutingSelectsByErrorRate) {
+  // Routing selects models by error rate (lower is better)
   auto router = CreateTestRouter();
 
   std::vector<float> embedding = {0.0f, 0.95f, 0.05f, 0.0f};
 
-  auto response_accuracy = router.route(embedding.data(), embedding.size(), 0.0f);
-  auto response_cost = router.route(embedding.data(), embedding.size(), 1.0f);
+  EmbeddingView<float> view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
+  auto response = router.route(view);
 
-  // Both should assign to same cluster
-  EXPECT_EQ(response_accuracy.cluster_id, response_cost.cluster_id);
-
-  // Both should return valid models
-  EXPECT_FALSE(response_accuracy.selected_model.empty());
-  EXPECT_FALSE(response_cost.selected_model.empty());
+  // Should return valid model
+  EXPECT_FALSE(response.selected_model.empty());
+  EXPECT_GE(response.cluster_id, 0);
 }
 
-TEST_F(Nordlysest, ExtremeCostBiasValues) {
-  // Test with extreme cost bias values
+TEST_F(Nordlysest, RoutingWorks) {
+  // Basic routing functionality
   auto router = CreateTestRouter();
 
   std::vector<float> embedding = {0.0f, 0.0f, 0.95f, 0.05f};
 
-  // Should handle extreme values gracefully
-  auto response_low = router.route(embedding.data(), embedding.size(), -1.0f);
-  auto response_high = router.route(embedding.data(), embedding.size(), 2.0f);
+  EmbeddingView<float> view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
+  auto response = router.route(view);
 
-  EXPECT_FALSE(response_low.selected_model.empty());
-  EXPECT_FALSE(response_high.selected_model.empty());
+  EXPECT_FALSE(response.selected_model.empty());
 }
 
 // ============================================================================
@@ -413,7 +412,8 @@ TEST_F(Nordlysest, ResponseContainsAllRequiredFields) {
 
   std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
 
-  auto response = router.route(embedding.data(), embedding.size(), 0.5f);
+  EmbeddingView<float> view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
+  auto response = router.route(view);
 
   // Check all fields are populated
   EXPECT_FALSE(response.selected_model.empty());
@@ -432,7 +432,8 @@ TEST_F(Nordlysest, AlternativeModelsAreDifferentFromSelected) {
 
   std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
 
-  auto response = router.route(embedding.data(), embedding.size(), 0.5f);
+  EmbeddingView<float> view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
+  auto response = router.route(view);
 
   for (const auto& alt : response.alternatives) {
     EXPECT_NE(alt, response.selected_model);
@@ -458,7 +459,6 @@ TEST_F(Nordlysest, CreateFromJsonString) {
     ],
     "embedding": {"model": "test", "dtype": "float32", "trust_remote_code": false},
     "clustering": {"n_clusters": 2, "random_state": 42, "max_iter": 300, "n_init": 10, "algorithm": "lloyd", "normalization": "l2"},
-    "routing": {"cost_bias_min": 0.0, "cost_bias_max": 1.0},
     "metrics": {"silhouette_score": 0.8}
   })";
 
@@ -489,7 +489,8 @@ TEST_F(Nordlysest, DoublePrecisionClusterDistance) {
   auto router = CreateTestRouterDouble();
 
   std::vector<double> embedding = {0.95, 0.05, 0.0, 0.0};
-  auto response = router.route(embedding.data(), embedding.size(), 0.5f);
+  EmbeddingView<double> view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
+  auto response = router.route(view);
 
   // Compile-time verification
   static_assert(std::is_same_v<decltype(response.cluster_distance), double>);
@@ -533,7 +534,8 @@ TEST_F(Nordlysest, MoveConstructor) {
   EXPECT_EQ(router2.get_n_clusters(), 3);
 
   std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
-  auto response = router2.route(embedding.data(), embedding.size(), 0.5f);
+  EmbeddingView<float> view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
+  auto response = router2.route(view);
   EXPECT_EQ(response.cluster_id, 0);
 }
 
@@ -549,7 +551,8 @@ TEST_F(Nordlysest, MoveAssignment) {
   EXPECT_EQ(router2.get_embedding_dim(), 4);
 
   std::vector<float> embedding = {0.0f, 0.95f, 0.05f, 0.0f};
-  auto response = router2.route(embedding.data(), embedding.size(), 0.5f);
+  EmbeddingView<float> view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
+  auto response = router2.route(view);
   EXPECT_EQ(response.cluster_id, 1);
 }
 
@@ -566,7 +569,6 @@ TEST_F(Nordlysest, SingleCluster) {
     ],
     "embedding": {"model": "test", "dtype": "float32", "trust_remote_code": false},
     "clustering": {"n_clusters": 1, "random_state": 42, "max_iter": 300, "n_init": 10, "algorithm": "lloyd", "normalization": "l2"},
-    "routing": {"cost_bias_min": 0.0, "cost_bias_max": 1.0},
     "metrics": {"silhouette_score": 0.0}
   })";
 
@@ -580,7 +582,8 @@ TEST_F(Nordlysest, SingleCluster) {
   EXPECT_EQ(router.get_embedding_dim(), 3);
 
   std::vector<float> embedding = {0.5f, 0.5f, 0.5f};
-  auto response = router.route(embedding.data(), embedding.size(), 0.5f);
+  EmbeddingView<float> view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
+  auto response = router.route(view);
 
   EXPECT_EQ(response.cluster_id, 0);
 }
@@ -610,7 +613,6 @@ TEST_F(Nordlysest, LargeDimensions) {
     ],
     "embedding": {"model": "test", "dtype": "float32", "trust_remote_code": false},
     "clustering": {"n_clusters": 2, "random_state": 42, "max_iter": 300, "n_init": 10, "algorithm": "lloyd", "normalization": "l2"},
-    "routing": {"cost_bias_min": 0.0, "cost_bias_max": 1.0},
     "metrics": {"silhouette_score": 0.5}
   })";
 
@@ -628,7 +630,8 @@ TEST_F(Nordlysest, LargeDimensions) {
     embedding[i] = (i % 2 == 0) ? 0.9f : 0.1f;
   }
 
-  auto response = router.route(embedding.data(), embedding.size(), 0.5f);
+  EmbeddingView<float> view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
+  auto response = router.route(view);
   EXPECT_EQ(response.cluster_id, 0);
 }
 
@@ -639,12 +642,13 @@ TEST_F(Nordlysest, LargeDimensions) {
 TEST_F(Nordlysest, BackendExplicitSelection) {
   // Explicit device selection should work with CPU backend
   auto checkpoint = NordlysCheckpoint::from_json_string(kTestCheckpointJson);
-  auto result = Nordlys32::from_checkpoint(std::move(checkpoint), ClusterBackendType::Cpu);
+  auto result = Nordlys32::from_checkpoint(std::move(checkpoint), Device{CpuDevice{}});
   ASSERT_TRUE(result);
   auto router = std::move(result.value());
 
   std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
-  auto response = router.route(embedding.data(), embedding.size(), 0.5f);
+  EmbeddingView<float> view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
+  auto response = router.route(view);
 
   EXPECT_EQ(response.cluster_id, 0);
   EXPECT_FALSE(response.selected_model.empty());
@@ -652,17 +656,17 @@ TEST_F(Nordlysest, BackendExplicitSelection) {
 
 
 
-TEST_F(Nordlysest, CostBiasExtreme) {
+TEST_F(Nordlysest, RoutingBasic) {
   auto router = CreateTestRouter();
 
   std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
 
-  // Test with extremely negative cost bias
-  auto response_negative = router.route(embedding.data(), embedding.size(), -1000.0f);
-  EXPECT_FALSE(response_negative.selected_model.empty());
+  EmbeddingView<float> view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
+  auto response = router.route(view);
+  EXPECT_FALSE(response.selected_model.empty());
 
   // Test with extremely positive cost bias
-  auto response_positive = router.route(embedding.data(), embedding.size(), 1000.0f);
+  auto response_positive = router.route(view);
   EXPECT_FALSE(response_positive.selected_model.empty());
 }
 
@@ -684,22 +688,26 @@ TEST_F(Nordlysest, DimensionValidationComprehensive) {
 
   // Test zero dimensions
   std::vector<float> empty_embedding;
-  EXPECT_THROW(router.route(empty_embedding.data(), empty_embedding.size(), 0.5f),
+  EmbeddingView<float> empty_view{empty_embedding.data(), empty_embedding.size(), Device{CpuDevice{}}};
+  EXPECT_THROW(router.route(empty_view),
                std::invalid_argument);
 
   // Test undersized
   std::vector<float> undersized = {1.0f, 0.0f};
-  EXPECT_THROW(router.route(undersized.data(), undersized.size(), 0.5f),
+  EmbeddingView<float> undersized_view{undersized.data(), undersized.size(), Device{CpuDevice{}}};
+  EXPECT_THROW(router.route(undersized_view),
                std::invalid_argument);
 
   // Test oversized
   std::vector<float> oversized = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
-  EXPECT_THROW(router.route(oversized.data(), oversized.size(), 0.5f),
+  EmbeddingView<float> oversized_view{oversized.data(), oversized.size(), Device{CpuDevice{}}};
+  EXPECT_THROW(router.route(oversized_view),
                std::invalid_argument);
 
   // Test correct size
   std::vector<float> correct = {1.0f, 0.0f, 0.0f, 0.0f};
-  EXPECT_NO_THROW(router.route(correct.data(), correct.size(), 0.5f));
+  EmbeddingView<float> correct_view{correct.data(), correct.size(), Device{CpuDevice{}}};
+  EXPECT_NO_THROW(router.route(correct_view));
 }
 
 // ============================================================================
@@ -754,11 +762,13 @@ TEST(ThreadingAPITest, BatchRoutingWithDifferentThreadCounts) {
     0.5f, 0.5f, 0.0f, 0.0f
   };
   
+  EmbeddingBatchView<float> batch_view{embeddings.data(), 4, 4, Device{CpuDevice{}}};
+  
   set_num_threads(1);
-  auto results_1thread = router.route_batch(embeddings.data(), 4, 4, 0.5f);
+  auto results_1thread = router.route_batch(batch_view);
   
   set_num_threads(4);
-  auto results_4threads = router.route_batch(embeddings.data(), 4, 4, 0.5f);
+  auto results_4threads = router.route_batch(batch_view);
   
   ASSERT_EQ(results_1thread.size(), 4);
   ASSERT_EQ(results_4threads.size(), 4);

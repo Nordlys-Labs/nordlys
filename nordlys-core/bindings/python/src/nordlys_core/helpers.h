@@ -1,7 +1,7 @@
 #pragma once
 
-#include <nordlys_core/nordlys.hpp>
+#include <nordlys_core/device.hpp>
 #include <string>
 
-// Helper function to convert string device to ClusterBackendType
-ClusterBackendType device_string_to_enum(const std::string& device);
+// Helper function to convert string device to Device variant
+Device device_string_to_device(const std::string& device);

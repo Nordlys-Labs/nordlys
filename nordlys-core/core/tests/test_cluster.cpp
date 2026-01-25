@@ -4,6 +4,8 @@
 #include <cmath>
 #include <limits>
 #include <nordlys_core/cluster.hpp>
+#include <nordlys_core/device.hpp>
+#include <nordlys_core/embedding_view.hpp>
 #include <random>
 #include <thread>
 #include <vector>
@@ -14,7 +16,7 @@
 
 template <typename Scalar> class ClusterEngineCpuTestT : public ::testing::Test {
 protected:
-  ClusterEngine<Scalar> engine{ClusterBackendType::Cpu};
+  std::unique_ptr<IClusterBackend<Scalar>> engine{create_backend<Scalar>(Device{CpuDevice{}})};
 
   static void fill_matrix(EmbeddingMatrix<Scalar>& m, std::initializer_list<Scalar> values) {
     auto it = values.begin();
@@ -39,8 +41,7 @@ using ScalarTypes = ::testing::Types<float, double>;
 TYPED_TEST_SUITE(ClusterEngineCpuTestT, ScalarTypes);
 
 TYPED_TEST(ClusterEngineCpuTestT, EmptyEngine) {
-  EXPECT_EQ(this->engine.get_n_clusters(), 0);
-  EXPECT_EQ(this->engine.get_device(), ClusterBackendType::Cpu);
+  EXPECT_EQ(this->engine->n_clusters(), 0);
 }
 
 TYPED_TEST(ClusterEngineCpuTestT, LoadCentroids) {
@@ -49,8 +50,8 @@ TYPED_TEST(ClusterEngineCpuTestT, LoadCentroids) {
                               TypeParam(0.0), TypeParam(1.0), TypeParam(0.0), TypeParam(0.0),
                               TypeParam(0.0), TypeParam(0.0), TypeParam(1.0), TypeParam(0.0)});
 
-  this->engine.load_centroids(centers);
-  EXPECT_EQ(this->engine.get_n_clusters(), 3);
+  this->engine->load_centroids(centers.data(), centers.rows(), centers.cols());
+  EXPECT_EQ(this->engine->n_clusters(), 3);
 }
 
 TYPED_TEST(ClusterEngineCpuTestT, AssignToNearestCluster) {
@@ -59,10 +60,11 @@ TYPED_TEST(ClusterEngineCpuTestT, AssignToNearestCluster) {
                               TypeParam(0.0), TypeParam(1.0), TypeParam(0.0), TypeParam(0.0),
                               TypeParam(0.0), TypeParam(0.0), TypeParam(1.0), TypeParam(0.0)});
 
-  this->engine.load_centroids(centers);
+  this->engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   TypeParam vec[] = {TypeParam(0.9), TypeParam(0.1), TypeParam(0.0), TypeParam(0.0)};
-  auto [cluster_id, distance] = this->engine.assign(vec, 4);
+  EmbeddingView<TypeParam> view{vec, 4, Device{CpuDevice{}}};
+  auto [cluster_id, distance] = this->engine->assign(view);
   EXPECT_EQ(cluster_id, 0);
   EXPECT_GT(distance, TypeParam(0.0));
 }
@@ -73,10 +75,11 @@ TYPED_TEST(ClusterEngineCpuTestT, AssignToSecondCluster) {
                               TypeParam(0.0), TypeParam(1.0), TypeParam(0.0), TypeParam(0.0),
                               TypeParam(0.0), TypeParam(0.0), TypeParam(1.0), TypeParam(0.0)});
 
-  this->engine.load_centroids(centers);
+  this->engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   TypeParam vec[] = {TypeParam(0.0), TypeParam(0.95), TypeParam(0.05), TypeParam(0.0)};
-  auto [cluster_id, distance] = this->engine.assign(vec, 4);
+  EmbeddingView<TypeParam> view{vec, 4, Device{CpuDevice{}}};
+  auto [cluster_id, distance] = this->engine->assign(view);
   EXPECT_EQ(cluster_id, 1);
   EXPECT_LT(distance, TypeParam(0.1));
 }
@@ -87,10 +90,11 @@ TYPED_TEST(ClusterEngineCpuTestT, AssignToThirdCluster) {
                               TypeParam(0.0), TypeParam(1.0), TypeParam(0.0), TypeParam(0.0),
                               TypeParam(0.0), TypeParam(0.0), TypeParam(1.0), TypeParam(0.0)});
 
-  this->engine.load_centroids(centers);
+  this->engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   TypeParam vec[] = {TypeParam(0.0), TypeParam(0.0), TypeParam(1.0), TypeParam(0.0)};
-  auto [cluster_id, distance] = this->engine.assign(vec, 4);
+  EmbeddingView<TypeParam> view{vec, 4, Device{CpuDevice{}}};
+  auto [cluster_id, distance] = this->engine->assign(view);
   EXPECT_EQ(cluster_id, 2);
   EXPECT_NEAR(distance, TypeParam(0.0), TypeParam(1e-6));
 }
@@ -104,8 +108,8 @@ TYPED_TEST(ClusterEngineCpuTestT, ManyClusterAssignment) {
   EmbeddingMatrix<TypeParam> centers(N_CLUSTERS, DIM);
   this->random_matrix(centers, gen);
 
-  this->engine.load_centroids(centers);
-  EXPECT_EQ(this->engine.get_n_clusters(), static_cast<int>(N_CLUSTERS));
+  this->engine->load_centroids(centers.data(), centers.rows(), centers.cols());
+  EXPECT_EQ(this->engine->n_clusters(), static_cast<size_t>(N_CLUSTERS));
 
   std::uniform_real_distribution<TypeParam> dist(-1.0, 1.0);
   for (int q = 0; q < N_QUERIES; ++q) {
@@ -114,7 +118,8 @@ TYPED_TEST(ClusterEngineCpuTestT, ManyClusterAssignment) {
       query[d] = dist(gen);
     }
 
-    auto [cluster_id, distance] = this->engine.assign(query.data(), DIM);
+    EmbeddingView<TypeParam> view{query.data(), DIM, Device{CpuDevice{}}};
+    auto [cluster_id, distance] = this->engine->assign(view);
 
     EXPECT_GE(cluster_id, 0);
     EXPECT_LT(cluster_id, static_cast<int>(N_CLUSTERS));
@@ -124,7 +129,8 @@ TYPED_TEST(ClusterEngineCpuTestT, ManyClusterAssignment) {
 
 TYPED_TEST(ClusterEngineCpuTestT, AssignBeforeLoadReturnsError) {
   std::vector<TypeParam> query(4, TypeParam(1.0));
-  auto [cluster_id, distance] = this->engine.assign(query.data(), 4);
+  EmbeddingView<TypeParam> view{query.data(), 4, Device{CpuDevice{}}};
+  auto [cluster_id, distance] = this->engine->assign(view);
   EXPECT_EQ(cluster_id, -1);
   EXPECT_EQ(distance, TypeParam(0.0));
 }
@@ -137,11 +143,12 @@ TYPED_TEST(ClusterEngineCpuTestT, LargeClusterCount) {
   EmbeddingMatrix<TypeParam> centers(N_CLUSTERS, DIM);
   this->random_matrix(centers, gen);
 
-  this->engine.load_centroids(centers);
-  EXPECT_EQ(this->engine.get_n_clusters(), static_cast<int>(N_CLUSTERS));
+  this->engine->load_centroids(centers.data(), centers.rows(), centers.cols());
+  EXPECT_EQ(this->engine->n_clusters(), static_cast<size_t>(N_CLUSTERS));
 
   std::vector<TypeParam> query(DIM, TypeParam(0.5));
-  auto [cluster_id, distance] = this->engine.assign(query.data(), DIM);
+    EmbeddingView<TypeParam> view{query.data(), DIM, Device{CpuDevice{}}};
+    auto [cluster_id, distance] = this->engine->assign(view);
   EXPECT_GE(cluster_id, 0);
   EXPECT_LT(cluster_id, static_cast<int>(N_CLUSTERS));
 }
@@ -154,7 +161,7 @@ TYPED_TEST(ClusterEngineCpuTestT, HighDimensionalEmbeddings) {
   EmbeddingMatrix<TypeParam> centers(N_CLUSTERS, DIM);
   this->random_matrix(centers, gen);
 
-  this->engine.load_centroids(centers);
+  this->engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   std::vector<TypeParam> query(DIM);
   std::uniform_real_distribution<TypeParam> dist(-1.0, 1.0);
@@ -162,7 +169,8 @@ TYPED_TEST(ClusterEngineCpuTestT, HighDimensionalEmbeddings) {
     query[d] = dist(gen);
   }
 
-  auto [cluster_id, distance] = this->engine.assign(query.data(), DIM);
+    EmbeddingView<TypeParam> view{query.data(), DIM, Device{CpuDevice{}}};
+    auto [cluster_id, distance] = this->engine->assign(view);
   EXPECT_GE(cluster_id, 0);
   EXPECT_LT(cluster_id, static_cast<int>(N_CLUSTERS));
 }
@@ -189,10 +197,10 @@ protected:
       }
     }
 
-    engine_.load_centroids(centers);
+    engine_->load_centroids(centers.data(), centers.rows(), centers.cols());
   }
 
-  ClusterEngine<Scalar> engine_{ClusterBackendType::Cpu};
+  std::unique_ptr<IClusterBackend<Scalar>> engine_{create_backend<Scalar>(Device{CpuDevice{}})};
 };
 
 TYPED_TEST_SUITE(ClusterCpuThreadSafetyTestT, ScalarTypes);
@@ -213,7 +221,8 @@ TYPED_TEST(ClusterCpuThreadSafetyTestT, ConcurrentAssign) {
           query[d] = dist(gen);
         }
 
-        auto [cluster_id, distance] = this->engine_.assign(query.data(), this->DIM);
+        EmbeddingView<TypeParam> view{query.data(), this->DIM, Device{CpuDevice{}}};
+        auto [cluster_id, distance] = this->engine_->assign(view);
 
         if (cluster_id >= 0 && cluster_id < static_cast<int>(this->N_CLUSTERS) && distance >= 0
             && !std::isnan(distance) && !std::isinf(distance)) {
@@ -252,7 +261,8 @@ TYPED_TEST(ClusterCpuThreadSafetyTestT, StressTest) {
           query[d] = dist(gen);
         }
 
-        auto [cluster_id, distance] = this->engine_.assign(query.data(), this->DIM);
+        EmbeddingView<TypeParam> view{query.data(), this->DIM, Device{CpuDevice{}}};
+        auto [cluster_id, distance] = this->engine_->assign(view);
 
         if (cluster_id >= 0 && cluster_id < static_cast<int>(this->N_CLUSTERS) && distance >= 0
             && !std::isnan(distance)) {
@@ -292,10 +302,10 @@ protected:
       }
     }
 
-    engine.load_centroids(centers);
+    engine->load_centroids(centers.data(), centers.rows(), centers.cols());
   }
 
-  ClusterEngine<Scalar> engine{ClusterBackendType::Cpu};
+  std::unique_ptr<IClusterBackend<Scalar>> engine{create_backend<Scalar>(Device{CpuDevice{}})};
 };
 
 TYPED_TEST_SUITE(ClusterBatchTestT, ScalarTypes);
@@ -311,7 +321,8 @@ TYPED_TEST(ClusterBatchTestT, AssignBatchBasic) {
     embeddings[i] = dist(gen);
   }
 
-  auto results = this->engine.assign_batch(embeddings.data(), BATCH_SIZE, this->DIM);
+  EmbeddingBatchView<TypeParam> batch_view{embeddings.data(), BATCH_SIZE, this->DIM, Device{CpuDevice{}}};
+  auto results = this->engine->assign_batch(batch_view);
 
   ASSERT_EQ(results.size(), BATCH_SIZE);
   for (const auto& [cluster_id, distance] : results) {
@@ -332,11 +343,13 @@ TYPED_TEST(ClusterBatchTestT, AssignBatchMatchesSingleAssign) {
     embeddings[i] = dist(gen);
   }
 
-  auto batch_results = this->engine.assign_batch(embeddings.data(), BATCH_SIZE, this->DIM);
+  EmbeddingBatchView<TypeParam> batch_view{embeddings.data(), BATCH_SIZE, this->DIM, Device{CpuDevice{}}};
+  auto batch_results = this->engine->assign_batch(batch_view);
 
   ASSERT_EQ(batch_results.size(), BATCH_SIZE);
   for (size_t i = 0; i < BATCH_SIZE; ++i) {
-    auto single_result = this->engine.assign(embeddings.data() + i * this->DIM, this->DIM);
+    EmbeddingView<TypeParam> view{embeddings.data() + i * this->DIM, this->DIM, Device{CpuDevice{}}};
+    auto single_result = this->engine->assign(view);
     EXPECT_EQ(batch_results[i].first, single_result.first);
     EXPECT_NEAR(batch_results[i].second, single_result.second, TypeParam(1e-5));
   }
@@ -353,7 +366,8 @@ TYPED_TEST(ClusterBatchTestT, AssignBatchLargeBatch) {
     embeddings[i] = dist(gen);
   }
 
-  auto results = this->engine.assign_batch(embeddings.data(), BATCH_SIZE, this->DIM);
+  EmbeddingBatchView<TypeParam> batch_view{embeddings.data(), BATCH_SIZE, this->DIM, Device{CpuDevice{}}};
+  auto results = this->engine->assign_batch(batch_view);
 
   ASSERT_EQ(results.size(), BATCH_SIZE);
   for (const auto& [cluster_id, distance] : results) {
@@ -365,10 +379,12 @@ TYPED_TEST(ClusterBatchTestT, AssignBatchLargeBatch) {
 TYPED_TEST(ClusterBatchTestT, AssignBatchSingleItem) {
   std::vector<TypeParam> embedding(this->DIM, TypeParam(0.5));
 
-  auto results = this->engine.assign_batch(embedding.data(), 1, this->DIM);
+  EmbeddingBatchView<TypeParam> batch_view{embedding.data(), 1, this->DIM, Device{CpuDevice{}}};
+  auto results = this->engine->assign_batch(batch_view);
 
   ASSERT_EQ(results.size(), 1);
-  auto single_result = this->engine.assign(embedding.data(), this->DIM);
+  EmbeddingView<TypeParam> view{embedding.data(), this->DIM, Device{CpuDevice{}}};
+  auto single_result = this->engine->assign(view);
   EXPECT_EQ(results[0].first, single_result.first);
   EXPECT_NEAR(results[0].second, single_result.second, TypeParam(1e-5));
 }
@@ -378,8 +394,9 @@ TYPED_TEST(ClusterBatchTestT, AssignBatchDeterministic) {
 
   std::vector<TypeParam> embeddings(BATCH_SIZE * this->DIM, TypeParam(0.1));
 
-  auto results1 = this->engine.assign_batch(embeddings.data(), BATCH_SIZE, this->DIM);
-  auto results2 = this->engine.assign_batch(embeddings.data(), BATCH_SIZE, this->DIM);
+  EmbeddingBatchView<TypeParam> batch_view{embeddings.data(), BATCH_SIZE, this->DIM, Device{CpuDevice{}}};
+  auto results1 = this->engine->assign_batch(batch_view);
+  auto results2 = this->engine->assign_batch(batch_view);
 
   ASSERT_EQ(results1.size(), results2.size());
   for (size_t i = 0; i < results1.size(); ++i) {
@@ -398,10 +415,10 @@ protected:
     if (!cuda_available()) {
       GTEST_SKIP() << "CUDA not available, skipping GPU tests";
     }
-    engine = ClusterEngine<Scalar>(ClusterBackendType::CUDA);
+    engine = create_backend<Scalar>(Device{CudaDevice{0}});
   }
 
-  ClusterEngine<Scalar> engine{ClusterBackendType::Cpu};
+  std::unique_ptr<IClusterBackend<Scalar>> engine{create_backend<Scalar>(Device{CpuDevice{}})};
 
   static void fill_matrix(EmbeddingMatrix<Scalar>& m, std::initializer_list<Scalar> values) {
     auto it = values.begin();
@@ -425,8 +442,7 @@ protected:
 TYPED_TEST_SUITE(ClusterEngineCudaTestT, ScalarTypes);
 
 TYPED_TEST(ClusterEngineCudaTestT, EmptyEngine) {
-  EXPECT_EQ(this->engine.get_n_clusters(), 0);
-  EXPECT_EQ(this->engine.get_device(), ClusterBackendType::CUDA);
+  EXPECT_EQ(this->engine->n_clusters(), 0);
 }
 
 TYPED_TEST(ClusterEngineCudaTestT, LoadCentroids) {
@@ -435,8 +451,8 @@ TYPED_TEST(ClusterEngineCudaTestT, LoadCentroids) {
                               TypeParam(0.0), TypeParam(1.0), TypeParam(0.0), TypeParam(0.0),
                               TypeParam(0.0), TypeParam(0.0), TypeParam(1.0), TypeParam(0.0)});
 
-  this->engine.load_centroids(centers);
-  EXPECT_EQ(this->engine.get_n_clusters(), 3);
+  this->engine->load_centroids(centers.data(), centers.rows(), centers.cols());
+  EXPECT_EQ(this->engine->n_clusters(), 3);
 }
 
 TYPED_TEST(ClusterEngineCudaTestT, AssignToNearestCluster) {
@@ -445,10 +461,11 @@ TYPED_TEST(ClusterEngineCudaTestT, AssignToNearestCluster) {
                               TypeParam(0.0), TypeParam(1.0), TypeParam(0.0), TypeParam(0.0),
                               TypeParam(0.0), TypeParam(0.0), TypeParam(1.0), TypeParam(0.0)});
 
-  this->engine.load_centroids(centers);
+  this->engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   TypeParam vec[] = {TypeParam(0.9), TypeParam(0.1), TypeParam(0.0), TypeParam(0.0)};
-  auto [cluster_id, distance] = this->engine.assign(vec, 4);
+  EmbeddingView<TypeParam> view{vec, 4, Device{CpuDevice{}}};
+  auto [cluster_id, distance] = this->engine->assign(view);
   EXPECT_EQ(cluster_id, 0);
   EXPECT_GT(distance, TypeParam(0.0));
 }
@@ -459,10 +476,11 @@ TYPED_TEST(ClusterEngineCudaTestT, AssignToSecondCluster) {
                               TypeParam(0.0), TypeParam(1.0), TypeParam(0.0), TypeParam(0.0),
                               TypeParam(0.0), TypeParam(0.0), TypeParam(1.0), TypeParam(0.0)});
 
-  this->engine.load_centroids(centers);
+  this->engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   TypeParam vec[] = {TypeParam(0.0), TypeParam(0.95), TypeParam(0.05), TypeParam(0.0)};
-  auto [cluster_id, distance] = this->engine.assign(vec, 4);
+  EmbeddingView<TypeParam> view{vec, 4, Device{CpuDevice{}}};
+  auto [cluster_id, distance] = this->engine->assign(view);
   EXPECT_EQ(cluster_id, 1);
   EXPECT_LT(distance, TypeParam(0.1));
 }
@@ -473,10 +491,11 @@ TYPED_TEST(ClusterEngineCudaTestT, AssignToThirdCluster) {
                               TypeParam(0.0), TypeParam(1.0), TypeParam(0.0), TypeParam(0.0),
                               TypeParam(0.0), TypeParam(0.0), TypeParam(1.0), TypeParam(0.0)});
 
-  this->engine.load_centroids(centers);
+  this->engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   TypeParam vec[] = {TypeParam(0.0), TypeParam(0.0), TypeParam(1.0), TypeParam(0.0)};
-  auto [cluster_id, distance] = this->engine.assign(vec, 4);
+  EmbeddingView<TypeParam> view{vec, 4, Device{CpuDevice{}}};
+  auto [cluster_id, distance] = this->engine->assign(view);
   EXPECT_EQ(cluster_id, 2);
   EXPECT_NEAR(distance, TypeParam(0.0), TypeParam(1e-5));
 }
@@ -490,8 +509,8 @@ TYPED_TEST(ClusterEngineCudaTestT, ManyClusterAssignment) {
   EmbeddingMatrix<TypeParam> centers(N_CLUSTERS, DIM);
   this->random_matrix(centers, gen);
 
-  this->engine.load_centroids(centers);
-  EXPECT_EQ(this->engine.get_n_clusters(), static_cast<int>(N_CLUSTERS));
+  this->engine->load_centroids(centers.data(), centers.rows(), centers.cols());
+  EXPECT_EQ(this->engine->n_clusters(), static_cast<size_t>(N_CLUSTERS));
 
   std::uniform_real_distribution<TypeParam> dist(-1.0, 1.0);
   for (int q = 0; q < N_QUERIES; ++q) {
@@ -500,7 +519,8 @@ TYPED_TEST(ClusterEngineCudaTestT, ManyClusterAssignment) {
       query[d] = dist(gen);
     }
 
-    auto [cluster_id, distance] = this->engine.assign(query.data(), DIM);
+    EmbeddingView<TypeParam> view{query.data(), DIM, Device{CpuDevice{}}};
+    auto [cluster_id, distance] = this->engine->assign(view);
 
     EXPECT_GE(cluster_id, 0);
     EXPECT_LT(cluster_id, static_cast<int>(N_CLUSTERS));
@@ -516,10 +536,11 @@ TYPED_TEST(ClusterEngineCudaTestT, SmallDimensionOptimization) {
   EmbeddingMatrix<TypeParam> centers(N_CLUSTERS, DIM);
   this->random_matrix(centers, gen);
 
-  this->engine.load_centroids(centers);
+  this->engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   std::vector<TypeParam> query(DIM, TypeParam(0.5));
-  auto [cluster_id, distance] = this->engine.assign(query.data(), DIM);
+    EmbeddingView<TypeParam> view{query.data(), DIM, Device{CpuDevice{}}};
+    auto [cluster_id, distance] = this->engine->assign(view);
   EXPECT_GE(cluster_id, 0);
   EXPECT_LT(cluster_id, static_cast<int>(N_CLUSTERS));
 }
@@ -532,10 +553,11 @@ TYPED_TEST(ClusterEngineCudaTestT, LargeDimensionOptimization) {
   EmbeddingMatrix<TypeParam> centers(N_CLUSTERS, DIM);
   this->random_matrix(centers, gen);
 
-  this->engine.load_centroids(centers);
+  this->engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   std::vector<TypeParam> query(DIM, TypeParam(0.5));
-  auto [cluster_id, distance] = this->engine.assign(query.data(), DIM);
+    EmbeddingView<TypeParam> view{query.data(), DIM, Device{CpuDevice{}}};
+    auto [cluster_id, distance] = this->engine->assign(view);
   EXPECT_GE(cluster_id, 0);
   EXPECT_LT(cluster_id, static_cast<int>(N_CLUSTERS));
 }
@@ -548,10 +570,11 @@ TYPED_TEST(ClusterEngineCudaTestT, SmallClusterCountOptimization) {
   EmbeddingMatrix<TypeParam> centers(N_CLUSTERS, DIM);
   this->random_matrix(centers, gen);
 
-  this->engine.load_centroids(centers);
+  this->engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   std::vector<TypeParam> query(DIM, TypeParam(0.5));
-  auto [cluster_id, distance] = this->engine.assign(query.data(), DIM);
+    EmbeddingView<TypeParam> view{query.data(), DIM, Device{CpuDevice{}}};
+    auto [cluster_id, distance] = this->engine->assign(view);
   EXPECT_GE(cluster_id, 0);
   EXPECT_LT(cluster_id, static_cast<int>(N_CLUSTERS));
 }
@@ -564,10 +587,11 @@ TYPED_TEST(ClusterEngineCudaTestT, LargeClusterCountOptimization) {
   EmbeddingMatrix<TypeParam> centers(N_CLUSTERS, DIM);
   this->random_matrix(centers, gen);
 
-  this->engine.load_centroids(centers);
+  this->engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   std::vector<TypeParam> query(DIM, TypeParam(0.5));
-  auto [cluster_id, distance] = this->engine.assign(query.data(), DIM);
+    EmbeddingView<TypeParam> view{query.data(), DIM, Device{CpuDevice{}}};
+    auto [cluster_id, distance] = this->engine->assign(view);
   EXPECT_GE(cluster_id, 0);
   EXPECT_LT(cluster_id, static_cast<int>(N_CLUSTERS));
 }
@@ -578,10 +602,11 @@ TYPED_TEST(ClusterEngineCudaTestT, ReloadCentroidsRecapturesGraph) {
                                TypeParam(0.0), TypeParam(1.0), TypeParam(0.0), TypeParam(0.0),
                                TypeParam(0.0), TypeParam(0.0), TypeParam(1.0), TypeParam(0.0)});
 
-  this->engine.load_centroids(centers1);
+  this->engine->load_centroids(centers1.data(), centers1.rows(), centers1.cols());
 
   TypeParam vec1[] = {TypeParam(0.9), TypeParam(0.1), TypeParam(0.0), TypeParam(0.0)};
-  auto [id1, dist1] = this->engine.assign(vec1, 4);
+  EmbeddingView<TypeParam> view1{vec1, 4, Device{CpuDevice{}}};
+  auto [id1, dist1] = this->engine->assign(view1);
   EXPECT_EQ(id1, 0);
 
   EmbeddingMatrix<TypeParam> centers2(3, 4);
@@ -589,9 +614,10 @@ TYPED_TEST(ClusterEngineCudaTestT, ReloadCentroidsRecapturesGraph) {
                                TypeParam(1.0), TypeParam(0.0), TypeParam(0.0), TypeParam(0.0),
                                TypeParam(0.0), TypeParam(0.0), TypeParam(1.0), TypeParam(0.0)});
 
-  this->engine.load_centroids(centers2);
+  this->engine->load_centroids(centers2.data(), centers2.rows(), centers2.cols());
 
-  auto [id2, dist2] = this->engine.assign(vec1, 4);
+  EmbeddingView<TypeParam> view2{vec1, 4, Device{CpuDevice{}}};
+  auto [id2, dist2] = this->engine->assign(view2);
   EXPECT_EQ(id2, 1);
 }
 
@@ -600,10 +626,11 @@ TYPED_TEST(ClusterEngineCudaTestT, DimensionMismatch) {
   this->fill_matrix(centers, {TypeParam(1.0), TypeParam(0.0), TypeParam(0.0), TypeParam(0.0),
                               TypeParam(0.0), TypeParam(1.0), TypeParam(0.0), TypeParam(0.0),
                               TypeParam(0.0), TypeParam(0.0), TypeParam(1.0), TypeParam(0.0)});
-  this->engine.load_centroids(centers);
+  this->engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   std::vector<TypeParam> query(3, TypeParam(1.0));
-  EXPECT_THROW(this->engine.assign(query.data(), 3), std::invalid_argument);
+  EmbeddingView<TypeParam> view{query.data(), 3, Device{CpuDevice{}}};
+  EXPECT_THROW(this->engine->assign(view), std::invalid_argument);
 }
 
 // =============================================================================
@@ -616,7 +643,7 @@ TEST(CudaAdvancedTest, VeryLargeClusterCount) {
   constexpr size_t N_CLUSTERS = 5000;
   constexpr size_t DIM = 128;
 
-  ClusterEngine<float> engine(ClusterBackendType::CUDA);
+  std::unique_ptr<IClusterBackend<float>> engine{create_backend<float>(Device{CudaDevice{0}})};
 
   std::mt19937 gen(42);
   std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
@@ -628,15 +655,16 @@ TEST(CudaAdvancedTest, VeryLargeClusterCount) {
     }
   }
 
-  engine.load_centroids(centers);
-  EXPECT_EQ(engine.get_n_clusters(), static_cast<int>(N_CLUSTERS));
+  engine->load_centroids(centers.data(), centers.rows(), centers.cols());
+  EXPECT_EQ(engine->n_clusters(), static_cast<size_t>(N_CLUSTERS));
 
   std::vector<float> query(DIM);
   for (size_t d = 0; d < DIM; ++d) {
     query[d] = dist(gen);
   }
 
-  auto [cluster_id, distance] = engine.assign(query.data(), DIM);
+  EmbeddingView<float> view{query.data(), DIM, Device{CpuDevice{}}};
+  auto [cluster_id, distance] = engine->assign(view);
   EXPECT_GE(cluster_id, 0);
   EXPECT_LT(cluster_id, static_cast<int>(N_CLUSTERS));
 }
@@ -647,7 +675,7 @@ TEST(CudaAdvancedTest, VeryHighDimensionality) {
   constexpr size_t N_CLUSTERS = 10;
   constexpr size_t DIM = 4096;
 
-  ClusterEngine<float> engine(ClusterBackendType::CUDA);
+  std::unique_ptr<IClusterBackend<float>> engine{create_backend<float>(Device{CudaDevice{0}})};
 
   std::mt19937 gen(42);
   std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
@@ -659,14 +687,15 @@ TEST(CudaAdvancedTest, VeryHighDimensionality) {
     }
   }
 
-  engine.load_centroids(centers);
+  engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   std::vector<float> query(DIM);
   for (size_t d = 0; d < DIM; ++d) {
     query[d] = dist(gen);
   }
 
-  auto [cluster_id, distance] = engine.assign(query.data(), DIM);
+  EmbeddingView<float> view{query.data(), DIM, Device{CpuDevice{}}};
+  auto [cluster_id, distance] = engine->assign(view);
   EXPECT_GE(cluster_id, 0);
   EXPECT_LT(cluster_id, static_cast<int>(N_CLUSTERS));
 }
@@ -677,7 +706,7 @@ TEST(CudaAdvancedTest, ArgminWithNonMultipleOfFourClusters) {
   constexpr size_t N_CLUSTERS = 37;
   constexpr size_t DIM = 64;
 
-  ClusterEngine<float> engine(ClusterBackendType::CUDA);
+  std::unique_ptr<IClusterBackend<float>> engine{create_backend<float>(Device{CudaDevice{0}})};
 
   std::mt19937 gen(42);
   std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
@@ -689,14 +718,15 @@ TEST(CudaAdvancedTest, ArgminWithNonMultipleOfFourClusters) {
     }
   }
 
-  engine.load_centroids(centers);
+  engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   std::vector<float> query(DIM);
   for (size_t d = 0; d < DIM; ++d) {
     query[d] = dist(gen);
   }
 
-  auto [cluster_id, distance] = engine.assign(query.data(), DIM);
+  EmbeddingView<float> view{query.data(), DIM, Device{CpuDevice{}}};
+  auto [cluster_id, distance] = engine->assign(view);
   EXPECT_GE(cluster_id, 0);
   EXPECT_LT(cluster_id, static_cast<int>(N_CLUSTERS));
 }
@@ -707,7 +737,7 @@ TEST(CudaAdvancedTest, NormCalculationAccuracy) {
   constexpr size_t N_CLUSTERS = 10;
   constexpr size_t DIM = 128;
 
-  ClusterEngine<double> engine(ClusterBackendType::CUDA);
+  std::unique_ptr<IClusterBackend<double>> engine{create_backend<double>(Device{CudaDevice{0}})};
 
   std::mt19937 gen(42);
   std::uniform_real_distribution<double> dist(-1.0, 1.0);
@@ -719,14 +749,15 @@ TEST(CudaAdvancedTest, NormCalculationAccuracy) {
     }
   }
 
-  engine.load_centroids(centers);
+  engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   std::vector<double> query(DIM);
   for (size_t d = 0; d < DIM; ++d) {
     query[d] = dist(gen);
   }
 
-  auto [cluster_id, distance] = engine.assign(query.data(), DIM);
+  EmbeddingView<double> view{query.data(), DIM, Device{CpuDevice{}}};
+  auto [cluster_id, distance] = engine->assign(view);
   EXPECT_GE(cluster_id, 0);
   EXPECT_GE(distance, 0.0);
   EXPECT_FALSE(std::isnan(distance));
@@ -739,8 +770,8 @@ TEST(CudaAdvancedTest, MultipleEngineInstances) {
   constexpr size_t N_CLUSTERS = 20;
   constexpr size_t DIM = 64;
 
-  ClusterEngine<float> engine1(ClusterBackendType::CUDA);
-  ClusterEngine<float> engine2(ClusterBackendType::CUDA);
+  std::unique_ptr<IClusterBackend<float>> engine1{create_backend<float>(Device{CudaDevice{0}})};
+  std::unique_ptr<IClusterBackend<float>> engine2{create_backend<float>(Device{CudaDevice{0}})};
 
   std::mt19937 gen(42);
   std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
@@ -754,16 +785,17 @@ TEST(CudaAdvancedTest, MultipleEngineInstances) {
     }
   }
 
-  engine1.load_centroids(centers1);
-  engine2.load_centroids(centers2);
+  engine1->load_centroids(centers1.data(), centers1.rows(), centers1.cols());
+  engine2->load_centroids(centers2.data(), centers2.rows(), centers2.cols());
 
   std::vector<float> query(DIM);
   for (size_t d = 0; d < DIM; ++d) {
     query[d] = dist(gen);
   }
 
-  auto [id1, dist1] = engine1.assign(query.data(), DIM);
-  auto [id2, dist2] = engine2.assign(query.data(), DIM);
+  EmbeddingView<float> view{query.data(), DIM, Device{CpuDevice{}}};
+  auto [id1, dist1] = engine1->assign(view);
+  auto [id2, dist2] = engine2->assign(view);
 
   EXPECT_GE(id1, 0);
   EXPECT_GE(id2, 0);
@@ -777,7 +809,7 @@ TEST(CudaAdvancedTest, NonMultipleOfFourDimensions) {
   constexpr size_t N_CLUSTERS = 10;
   constexpr size_t DIM = 127;
 
-  ClusterEngine<float> engine(ClusterBackendType::CUDA);
+  std::unique_ptr<IClusterBackend<float>> engine{create_backend<float>(Device{CudaDevice{0}})};
 
   std::mt19937 gen(42);
   std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
@@ -789,14 +821,15 @@ TEST(CudaAdvancedTest, NonMultipleOfFourDimensions) {
     }
   }
 
-  engine.load_centroids(centers);
+  engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   std::vector<float> query(DIM);
   for (size_t d = 0; d < DIM; ++d) {
     query[d] = dist(gen);
   }
 
-  auto [cluster_id, distance] = engine.assign(query.data(), DIM);
+  EmbeddingView<float> view{query.data(), DIM, Device{CpuDevice{}}};
+  auto [cluster_id, distance] = engine->assign(view);
   EXPECT_GE(cluster_id, 0);
   EXPECT_LT(cluster_id, static_cast<int>(N_CLUSTERS));
 }
@@ -808,7 +841,7 @@ TEST(CudaAdvancedTest, RepeatedAssignCalls) {
   constexpr size_t DIM = 128;
   constexpr int N_ITERATIONS = 1000;
 
-  ClusterEngine<float> engine(ClusterBackendType::CUDA);
+  std::unique_ptr<IClusterBackend<float>> engine{create_backend<float>(Device{CudaDevice{0}})};
 
   std::mt19937 gen(42);
   std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
@@ -820,7 +853,7 @@ TEST(CudaAdvancedTest, RepeatedAssignCalls) {
     }
   }
 
-  engine.load_centroids(centers);
+  engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   for (int iter = 0; iter < N_ITERATIONS; ++iter) {
     std::vector<float> query(DIM);
@@ -828,7 +861,8 @@ TEST(CudaAdvancedTest, RepeatedAssignCalls) {
       query[d] = dist(gen);
     }
 
-    auto [cluster_id, distance] = engine.assign(query.data(), DIM);
+    EmbeddingView<float> view{query.data(), DIM, Device{CpuDevice{}}};
+  auto [cluster_id, distance] = engine->assign(view);
     EXPECT_GE(cluster_id, 0);
     EXPECT_LT(cluster_id, static_cast<int>(N_CLUSTERS));
     EXPECT_GE(distance, 0.0f);
@@ -861,11 +895,11 @@ protected:
       }
     }
 
-    engine_ = ClusterEngine<Scalar>(ClusterBackendType::CUDA);
-    engine_.load_centroids(centers);
+    engine_ = create_backend<Scalar>(Device{CudaDevice{0}});
+    engine_->load_centroids(centers.data(), centers.rows(), centers.cols());
   }
 
-  ClusterEngine<Scalar> engine_{ClusterBackendType::Cpu};
+  std::unique_ptr<IClusterBackend<Scalar>> engine_{create_backend<Scalar>(Device{CpuDevice{}})};
 };
 
 TYPED_TEST_SUITE(ClusterCudaThreadSafetyTestT, ScalarTypes);
@@ -886,7 +920,8 @@ TYPED_TEST(ClusterCudaThreadSafetyTestT, ConcurrentAssign) {
           query[d] = dist(gen);
         }
 
-        auto [cluster_id, distance] = this->engine_.assign(query.data(), this->DIM);
+        EmbeddingView<TypeParam> view{query.data(), this->DIM, Device{CpuDevice{}}};
+        auto [cluster_id, distance] = this->engine_->assign(view);
 
         if (cluster_id >= 0 && cluster_id < static_cast<int>(this->N_CLUSTERS) && distance >= 0
             && !std::isnan(distance) && !std::isinf(distance)) {
@@ -925,7 +960,8 @@ TYPED_TEST(ClusterCudaThreadSafetyTestT, StressTest) {
           query[d] = dist(gen);
         }
 
-        auto [cluster_id, distance] = this->engine_.assign(query.data(), this->DIM);
+        EmbeddingView<TypeParam> view{query.data(), this->DIM, Device{CpuDevice{}}};
+        auto [cluster_id, distance] = this->engine_->assign(view);
 
         if (cluster_id >= 0 && cluster_id < static_cast<int>(this->N_CLUSTERS) && distance >= 0
             && !std::isnan(distance)) {
@@ -956,8 +992,8 @@ TEST(BackendComparisonTest, CPUvsCUDAConsistencyFloat) {
   constexpr size_t DIM = 128;
   constexpr int N_QUERIES = 100;
 
-  ClusterEngine<float> cpu_engine(ClusterBackendType::Cpu);
-  ClusterEngine<float> cuda_engine(ClusterBackendType::CUDA);
+  std::unique_ptr<IClusterBackend<float>> cpu_engine{create_backend<float>(Device{CpuDevice{}})};
+  std::unique_ptr<IClusterBackend<float>> cuda_engine{create_backend<float>(Device{CudaDevice{0}})};
 
   std::mt19937 gen(42);
   std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
@@ -969,8 +1005,8 @@ TEST(BackendComparisonTest, CPUvsCUDAConsistencyFloat) {
     }
   }
 
-  cpu_engine.load_centroids(centers);
-  cuda_engine.load_centroids(centers);
+  cpu_engine->load_centroids(centers.data(), centers.rows(), centers.cols());
+  cuda_engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   int mismatch_count = 0;
   for (int q = 0; q < N_QUERIES; ++q) {
@@ -979,8 +1015,9 @@ TEST(BackendComparisonTest, CPUvsCUDAConsistencyFloat) {
       query[d] = dist(gen);
     }
 
-    auto [cpu_id, cpu_dist] = cpu_engine.assign(query.data(), DIM);
-    auto [cuda_id, cuda_dist] = cuda_engine.assign(query.data(), DIM);
+    EmbeddingView<float> view{query.data(), DIM, Device{CpuDevice{}}};
+    auto [cpu_id, cpu_dist] = cpu_engine->assign(view);
+    auto [cuda_id, cuda_dist] = cuda_engine->assign(view);
 
     if (cpu_id != cuda_id) {
       ++mismatch_count;
@@ -998,8 +1035,8 @@ TEST(BackendComparisonTest, CPUvsCUDAConsistencyDouble) {
   constexpr size_t DIM = 128;
   constexpr int N_QUERIES = 100;
 
-  ClusterEngine<double> cpu_engine(ClusterBackendType::Cpu);
-  ClusterEngine<double> cuda_engine(ClusterBackendType::CUDA);
+  std::unique_ptr<IClusterBackend<double>> cpu_engine{create_backend<double>(Device{CpuDevice{}})};
+  std::unique_ptr<IClusterBackend<double>> cuda_engine{create_backend<double>(Device{CudaDevice{0}})};
 
   std::mt19937 gen(42);
   std::uniform_real_distribution<double> dist(-1.0, 1.0);
@@ -1011,8 +1048,8 @@ TEST(BackendComparisonTest, CPUvsCUDAConsistencyDouble) {
     }
   }
 
-  cpu_engine.load_centroids(centers);
-  cuda_engine.load_centroids(centers);
+  cpu_engine->load_centroids(centers.data(), centers.rows(), centers.cols());
+  cuda_engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   int mismatch_count = 0;
   for (int q = 0; q < N_QUERIES; ++q) {
@@ -1021,8 +1058,9 @@ TEST(BackendComparisonTest, CPUvsCUDAConsistencyDouble) {
       query[d] = dist(gen);
     }
 
-    auto [cpu_id, cpu_dist] = cpu_engine.assign(query.data(), DIM);
-    auto [cuda_id, cuda_dist] = cuda_engine.assign(query.data(), DIM);
+    EmbeddingView<double> view{query.data(), DIM, Device{CpuDevice{}}};
+    auto [cpu_id, cpu_dist] = cpu_engine->assign(view);
+    auto [cuda_id, cuda_dist] = cuda_engine->assign(view);
 
     if (cpu_id != cuda_id) {
       ++mismatch_count;
@@ -1041,8 +1079,8 @@ TEST(BackendComparisonTest, EdgeCaseConsistency) {
   constexpr size_t N_CLUSTERS = 10;
   constexpr size_t DIM = 64;
 
-  ClusterEngine<float> cpu_engine(ClusterBackendType::Cpu);
-  ClusterEngine<float> cuda_engine(ClusterBackendType::CUDA);
+  std::unique_ptr<IClusterBackend<float>> cpu_engine{create_backend<float>(Device{CpuDevice{}})};
+  std::unique_ptr<IClusterBackend<float>> cuda_engine{create_backend<float>(Device{CudaDevice{0}})};
 
   std::mt19937 gen(42);
   std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
@@ -1054,24 +1092,27 @@ TEST(BackendComparisonTest, EdgeCaseConsistency) {
     }
   }
 
-  cpu_engine.load_centroids(centers);
-  cuda_engine.load_centroids(centers);
+  cpu_engine->load_centroids(centers.data(), centers.rows(), centers.cols());
+  cuda_engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   std::vector<float> zero_query(DIM, 0.0f);
-  auto [cpu_id1, cpu_dist1] = cpu_engine.assign(zero_query.data(), DIM);
-  auto [cuda_id1, cuda_dist1] = cuda_engine.assign(zero_query.data(), DIM);
+  EmbeddingView<float> view{zero_query.data(), DIM, Device{CpuDevice{}}};
+  auto [cpu_id1, cpu_dist1] = cpu_engine->assign(view);
+  auto [cuda_id1, cuda_dist1] = cuda_engine->assign(view);
   EXPECT_EQ(cpu_id1, cuda_id1) << "Zero embedding mismatch";
   EXPECT_NEAR(cpu_dist1, cuda_dist1, 1e-4f);
 
   std::vector<float> small_query(DIM, 1e-7f);
-  auto [cpu_id2, cpu_dist2] = cpu_engine.assign(small_query.data(), DIM);
-  auto [cuda_id2, cuda_dist2] = cuda_engine.assign(small_query.data(), DIM);
+  EmbeddingView<float> small_view{small_query.data(), DIM, Device{CpuDevice{}}};
+  auto [cpu_id2, cpu_dist2] = cpu_engine->assign(small_view);
+  auto [cuda_id2, cuda_dist2] = cuda_engine->assign(small_view);
   EXPECT_EQ(cpu_id2, cuda_id2) << "Small values mismatch";
   EXPECT_NEAR(cpu_dist2, cuda_dist2, 1e-4f);
 
   std::vector<float> large_query(DIM, 1e6f);
-  auto [cpu_id3, cpu_dist3] = cpu_engine.assign(large_query.data(), DIM);
-  auto [cuda_id3, cuda_dist3] = cuda_engine.assign(large_query.data(), DIM);
+  EmbeddingView<float> large_view{large_query.data(), DIM, Device{CpuDevice{}}};
+  auto [cpu_id3, cpu_dist3] = cpu_engine->assign(large_view);
+  auto [cuda_id3, cuda_dist3] = cuda_engine->assign(large_view);
   // For large values, floating-point precision can cause different argmin results
   // when distances are very close. Just verify distances are similar.
   EXPECT_NEAR(cpu_dist3, cuda_dist3, cpu_dist3 * 1e-4f) << "Large values distance mismatch";
@@ -1082,21 +1123,12 @@ TEST(BackendComparisonTest, EdgeCaseConsistency) {
 // =============================================================================
 
 TEST(ClusterBackendFactoryTest, CpuBackendWorks) {
-  auto engine = ClusterEngine<float>(ClusterBackendType::Cpu);
-
-  EXPECT_EQ(engine.get_device(), ClusterBackendType::Cpu);
+  auto engine = create_backend<float>(Device{CpuDevice{}});
+  EXPECT_NE(engine, nullptr);
 }
 
 TEST(ClusterBackendFactoryTest, ExplicitCPUBackend) {
-  auto engine = ClusterEngine<float>(ClusterBackendType::Cpu);
-  EXPECT_EQ(engine.get_device(), ClusterBackendType::Cpu);
-}
-
-TEST(ClusterBackendFactoryTest, ExplicitCUDABackendFallback) {
-  auto engine = ClusterEngine<float>(ClusterBackendType::CUDA);
-
-  // Device should always be CUDA even if it falls back to CPU implementation
-  EXPECT_EQ(engine.get_device(), ClusterBackendType::CUDA);
+  auto engine = create_backend<float>(Device{CpuDevice{}});
 }
 
 TEST(ClusterBackendFactoryTest, CudaAvailableFunction) {
@@ -1105,12 +1137,10 @@ TEST(ClusterBackendFactoryTest, CudaAvailableFunction) {
 }
 
 TEST(ClusterBackendFactoryTest, DoubleSupport) {
-  ClusterEngine<double> cpu_engine(ClusterBackendType::Cpu);
-  EXPECT_EQ(cpu_engine.get_device(), ClusterBackendType::Cpu);
+  auto cpu_engine = create_backend<double>(Device{CpuDevice{}});
 
   if (cuda_available()) {
-    ClusterEngine<double> cuda_engine(ClusterBackendType::CUDA);
-    EXPECT_EQ(cuda_engine.get_device(), ClusterBackendType::CUDA);
+    auto cuda_engine = create_backend<double>(Device{CudaDevice{0}});
   }
 }
 
@@ -1119,14 +1149,15 @@ TEST(ClusterBackendFactoryTest, DoubleSupport) {
 // =============================================================================
 
 TEST(ClusterEdgeCasesTest, ZeroClusters) {
-  ClusterEngine<float> engine(ClusterBackendType::Cpu);
+  auto engine = create_backend<float>(Device{CpuDevice{}});
   std::vector<float> query(128, 1.0f);
-  auto [id, dist] = engine.assign(query.data(), 128);
+  EmbeddingView<float> view{query.data(), 128, Device{CpuDevice{}}};
+  auto [id, dist] = engine->assign(view);
   EXPECT_EQ(id, -1);
 }
 
 TEST(ClusterEdgeCasesTest, SingleCluster) {
-  ClusterEngine<float> engine(ClusterBackendType::Cpu);
+  auto engine = create_backend<float>(Device{CpuDevice{}});
 
   EmbeddingMatrix<float> centers(1, 4);
   centers(0, 0) = 1.0f;
@@ -1134,19 +1165,21 @@ TEST(ClusterEdgeCasesTest, SingleCluster) {
   centers(0, 2) = 0.0f;
   centers(0, 3) = 0.0f;
 
-  engine.load_centroids(centers);
+  engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   std::vector<float> query1{0.9f, 0.1f, 0.0f, 0.0f};
-  auto [id1, dist1] = engine.assign(query1.data(), 4);
+  EmbeddingView<float> view1{query1.data(), 4, Device{CpuDevice{}}};
+  auto [id1, dist1] = engine->assign(view1);
   EXPECT_EQ(id1, 0);
 
   std::vector<float> query2{0.0f, 0.0f, 1.0f, 0.0f};
-  auto [id2, dist2] = engine.assign(query2.data(), 4);
+  EmbeddingView<float> view2{query2.data(), 4, Device{CpuDevice{}}};
+  auto [id2, dist2] = engine->assign(view2);
   EXPECT_EQ(id2, 0);
 }
 
 TEST(ClusterEdgeCasesTest, TwoClusters) {
-  ClusterEngine<float> engine(ClusterBackendType::Cpu);
+  auto engine = create_backend<float>(Device{CpuDevice{}});
 
   EmbeddingMatrix<float> centers(2, 2);
   centers(0, 0) = 1.0f;
@@ -1154,19 +1187,21 @@ TEST(ClusterEdgeCasesTest, TwoClusters) {
   centers(1, 0) = 0.0f;
   centers(1, 1) = 1.0f;
 
-  engine.load_centroids(centers);
+  engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   std::vector<float> query1{0.9f, 0.1f};
-  auto [id1, dist1] = engine.assign(query1.data(), 2);
+  EmbeddingView<float> view1{query1.data(), 2, Device{CpuDevice{}}};
+  auto [id1, dist1] = engine->assign(view1);
   EXPECT_EQ(id1, 0);
 
   std::vector<float> query2{0.1f, 0.9f};
-  auto [id2, dist2] = engine.assign(query2.data(), 2);
+  EmbeddingView<float> view2{query2.data(), 2, Device{CpuDevice{}}};
+  auto [id2, dist2] = engine->assign(view2);
   EXPECT_EQ(id2, 1);
 }
 
 TEST(ClusterEdgeCasesTest, EmbeddingAllZeros) {
-  ClusterEngine<float> engine(ClusterBackendType::Cpu);
+  auto engine = create_backend<float>(Device{CpuDevice{}});
 
   EmbeddingMatrix<float> centers(3, 4);
   centers(0, 0) = 1.0f;
@@ -1182,17 +1217,18 @@ TEST(ClusterEdgeCasesTest, EmbeddingAllZeros) {
   centers(2, 2) = 1.0f;
   centers(2, 3) = 0.0f;
 
-  engine.load_centroids(centers);
+  engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   std::vector<float> zero_query(4, 0.0f);
-  auto [id, dist] = engine.assign(zero_query.data(), 4);
+  EmbeddingView<float> view{zero_query.data(), 4, Device{CpuDevice{}}};
+  auto [id, dist] = engine->assign(view);
   EXPECT_GE(id, 0);
   EXPECT_LT(id, 3);
   EXPECT_GE(dist, 0.0f);
 }
 
 TEST(ClusterEdgeCasesTest, VerySmallValues) {
-  ClusterEngine<float> engine(ClusterBackendType::Cpu);
+  auto engine = create_backend<float>(Device{CpuDevice{}});
 
   EmbeddingMatrix<float> centers(2, 4);
   for (size_t i = 0; i < 2; ++i) {
@@ -1201,16 +1237,17 @@ TEST(ClusterEdgeCasesTest, VerySmallValues) {
     }
   }
 
-  engine.load_centroids(centers);
+  engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   std::vector<float> query(4, 1e-7f);
-  auto [id, dist] = engine.assign(query.data(), 4);
+  EmbeddingView<float> view{query.data(), 4, Device{CpuDevice{}}};
+  auto [id, dist] = engine->assign(view);
   EXPECT_GE(id, 0);
   EXPECT_LT(id, 2);
 }
 
 TEST(ClusterEdgeCasesTest, VeryLargeValues) {
-  ClusterEngine<float> engine(ClusterBackendType::Cpu);
+  auto engine = create_backend<float>(Device{CpuDevice{}});
 
   EmbeddingMatrix<float> centers(2, 4);
   for (size_t i = 0; i < 2; ++i) {
@@ -1219,16 +1256,17 @@ TEST(ClusterEdgeCasesTest, VeryLargeValues) {
     }
   }
 
-  engine.load_centroids(centers);
+  engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   std::vector<float> query(4, 1e6f);
-  auto [id, dist] = engine.assign(query.data(), 4);
+  EmbeddingView<float> view{query.data(), 4, Device{CpuDevice{}}};
+  auto [id, dist] = engine->assign(view);
   EXPECT_GE(id, 0);
   EXPECT_LT(id, 2);
 }
 
 TEST(ClusterEdgeCasesTest, MixedScaleValues) {
-  ClusterEngine<float> engine(ClusterBackendType::Cpu);
+  auto engine = create_backend<float>(Device{CpuDevice{}});
 
   EmbeddingMatrix<float> centers(2, 4);
   centers(0, 0) = 1e-7f;
@@ -1240,16 +1278,17 @@ TEST(ClusterEdgeCasesTest, MixedScaleValues) {
   centers(1, 2) = 1e3f;
   centers(1, 3) = 1e-3f;
 
-  engine.load_centroids(centers);
+  engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   std::vector<float> query{1e-6f, 1e6f, 1e-2f, 1e2f};
-  auto [id, dist] = engine.assign(query.data(), 4);
+  EmbeddingView<float> view{query.data(), 4, Device{CpuDevice{}}};
+  auto [id, dist] = engine->assign(view);
   EXPECT_GE(id, 0);
   EXPECT_LT(id, 2);
 }
 
 TEST(ClusterEdgeCasesTest, IdenticalCentroids) {
-  ClusterEngine<float> engine(ClusterBackendType::Cpu);
+  auto engine = create_backend<float>(Device{CpuDevice{}});
 
   EmbeddingMatrix<float> centers(3, 4);
   for (size_t i = 0; i < 3; ++i) {
@@ -1258,10 +1297,11 @@ TEST(ClusterEdgeCasesTest, IdenticalCentroids) {
     }
   }
 
-  engine.load_centroids(centers);
+  engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   std::vector<float> query{1.0f, 1.0f, 1.0f, 1.0f};
-  auto [id, dist] = engine.assign(query.data(), 4);
+  EmbeddingView<float> view{query.data(), 4, Device{CpuDevice{}}};
+  auto [id, dist] = engine->assign(view);
   EXPECT_GE(id, 0);
   EXPECT_LT(id, 3);
   EXPECT_NEAR(dist, 0.0f, 1e-5f);
@@ -1270,16 +1310,17 @@ TEST(ClusterEdgeCasesTest, IdenticalCentroids) {
 TEST(ClusterEdgeCasesTest, CUDAZeroClusters) {
   if (!cuda_available()) GTEST_SKIP();
 
-  ClusterEngine<float> engine(ClusterBackendType::CUDA);
+  std::unique_ptr<IClusterBackend<float>> engine{create_backend<float>(Device{CudaDevice{0}})};
   std::vector<float> query(128, 1.0f);
-  auto [id, dist] = engine.assign(query.data(), 128);
+  EmbeddingView<float> view{query.data(), 128, Device{CpuDevice{}}};
+  auto [id, dist] = engine->assign(view);
   EXPECT_EQ(id, -1);
 }
 
 TEST(ClusterEdgeCasesTest, CUDASingleCluster) {
   if (!cuda_available()) GTEST_SKIP();
 
-  ClusterEngine<float> engine(ClusterBackendType::CUDA);
+  std::unique_ptr<IClusterBackend<float>> engine{create_backend<float>(Device{CudaDevice{0}})};
 
   EmbeddingMatrix<float> centers(1, 4);
   centers(0, 0) = 1.0f;
@@ -1287,10 +1328,11 @@ TEST(ClusterEdgeCasesTest, CUDASingleCluster) {
   centers(0, 2) = 0.0f;
   centers(0, 3) = 0.0f;
 
-  engine.load_centroids(centers);
+  engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   std::vector<float> query{0.5f, 0.5f, 0.5f, 0.5f};
-  auto [id, dist] = engine.assign(query.data(), 4);
+  EmbeddingView<float> view{query.data(), 4, Device{CpuDevice{}}};
+  auto [id, dist] = engine->assign(view);
   EXPECT_EQ(id, 0);
   EXPECT_GE(dist, 0.0f);
 }
@@ -1302,26 +1344,28 @@ TEST(ClusterEdgeCasesTest, CUDASingleCluster) {
 TEST(CudaKernelEdgeCasesTest, SingleDimension) {
   if (!cuda_available()) GTEST_SKIP();
 
-  ClusterEngine<float> cuda_engine(ClusterBackendType::CUDA);
-  ClusterEngine<float> cpu_engine(ClusterBackendType::Cpu);
+  std::unique_ptr<IClusterBackend<float>> cuda_engine{create_backend<float>(Device{CudaDevice{0}})};
+  std::unique_ptr<IClusterBackend<float>> cpu_engine{create_backend<float>(Device{CpuDevice{}})};
 
   EmbeddingMatrix<float> centers(3, 1);
   centers(0, 0) = 0.0f;
   centers(1, 0) = 5.0f;
   centers(2, 0) = 10.0f;
 
-  cuda_engine.load_centroids(centers);
-  cpu_engine.load_centroids(centers);
+  cuda_engine->load_centroids(centers.data(), centers.rows(), centers.cols());
+  cpu_engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   std::vector<float> query1{4.0f};
-  auto [cuda_id1, cuda_dist1] = cuda_engine.assign(query1.data(), 1);
-  auto [cpu_id1, cpu_dist1] = cpu_engine.assign(query1.data(), 1);
+  EmbeddingView<float> view1{query1.data(), 1, Device{CpuDevice{}}};
+  auto [cuda_id1, cuda_dist1] = cuda_engine->assign(view1);
+  auto [cpu_id1, cpu_dist1] = cpu_engine->assign(view1);
   EXPECT_EQ(cuda_id1, cpu_id1);
   EXPECT_NEAR(cuda_dist1, cpu_dist1, 1e-5f);
 
   std::vector<float> query2{11.0f};
-  auto [cuda_id2, cuda_dist2] = cuda_engine.assign(query2.data(), 1);
-  auto [cpu_id2, cpu_dist2] = cpu_engine.assign(query2.data(), 1);
+  EmbeddingView<float> view2{query2.data(), 1, Device{CpuDevice{}}};
+  auto [cuda_id2, cuda_dist2] = cuda_engine->assign(view2);
+  auto [cpu_id2, cpu_dist2] = cpu_engine->assign(view2);
   EXPECT_EQ(cuda_id2, cpu_id2);
   EXPECT_NEAR(cuda_dist2, cpu_dist2, 1e-5f);
 }
@@ -1329,8 +1373,8 @@ TEST(CudaKernelEdgeCasesTest, SingleDimension) {
 TEST(CudaKernelEdgeCasesTest, TwoDimensions) {
   if (!cuda_available()) GTEST_SKIP();
 
-  ClusterEngine<float> cuda_engine(ClusterBackendType::CUDA);
-  ClusterEngine<float> cpu_engine(ClusterBackendType::Cpu);
+  std::unique_ptr<IClusterBackend<float>> cuda_engine{create_backend<float>(Device{CudaDevice{0}})};
+  std::unique_ptr<IClusterBackend<float>> cpu_engine{create_backend<float>(Device{CpuDevice{}})};
 
   EmbeddingMatrix<float> centers(4, 2);
   centers(0, 0) = 0.0f;
@@ -1342,12 +1386,13 @@ TEST(CudaKernelEdgeCasesTest, TwoDimensions) {
   centers(3, 0) = 1.0f;
   centers(3, 1) = 1.0f;
 
-  cuda_engine.load_centroids(centers);
-  cpu_engine.load_centroids(centers);
+  cuda_engine->load_centroids(centers.data(), centers.rows(), centers.cols());
+  cpu_engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   std::vector<float> query{0.8f, 0.2f};
-  auto [cuda_id, cuda_dist] = cuda_engine.assign(query.data(), 2);
-  auto [cpu_id, cpu_dist] = cpu_engine.assign(query.data(), 2);
+  EmbeddingView<float> view{query.data(), 2, Device{CpuDevice{}}};
+  auto [cuda_id, cuda_dist] = cuda_engine->assign(view);
+  auto [cpu_id, cpu_dist] = cpu_engine->assign(view);
   EXPECT_EQ(cuda_id, cpu_id);
   EXPECT_NEAR(cuda_dist, cpu_dist, 1e-5f);
 }
@@ -1355,8 +1400,8 @@ TEST(CudaKernelEdgeCasesTest, TwoDimensions) {
 TEST(CudaKernelEdgeCasesTest, ThreeDimensions) {
   if (!cuda_available()) GTEST_SKIP();
 
-  ClusterEngine<float> cuda_engine(ClusterBackendType::CUDA);
-  ClusterEngine<float> cpu_engine(ClusterBackendType::Cpu);
+  std::unique_ptr<IClusterBackend<float>> cuda_engine{create_backend<float>(Device{CudaDevice{0}})};
+  std::unique_ptr<IClusterBackend<float>> cpu_engine{create_backend<float>(Device{CpuDevice{}})};
 
   EmbeddingMatrix<float> centers(2, 3);
   centers(0, 0) = 1.0f;
@@ -1366,12 +1411,13 @@ TEST(CudaKernelEdgeCasesTest, ThreeDimensions) {
   centers(1, 1) = 5.0f;
   centers(1, 2) = 6.0f;
 
-  cuda_engine.load_centroids(centers);
-  cpu_engine.load_centroids(centers);
+  cuda_engine->load_centroids(centers.data(), centers.rows(), centers.cols());
+  cpu_engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   std::vector<float> query{2.0f, 3.0f, 4.0f};
-  auto [cuda_id, cuda_dist] = cuda_engine.assign(query.data(), 3);
-  auto [cpu_id, cpu_dist] = cpu_engine.assign(query.data(), 3);
+  EmbeddingView<float> view{query.data(), 3, Device{CpuDevice{}}};
+  auto [cuda_id, cuda_dist] = cuda_engine->assign(view);
+  auto [cpu_id, cpu_dist] = cpu_engine->assign(view);
   EXPECT_EQ(cuda_id, cpu_id);
   EXPECT_NEAR(cuda_dist, cpu_dist, 1e-5f);
 }
@@ -1379,8 +1425,8 @@ TEST(CudaKernelEdgeCasesTest, ThreeDimensions) {
 TEST(CudaKernelEdgeCasesTest, TwoClusters) {
   if (!cuda_available()) GTEST_SKIP();
 
-  ClusterEngine<float> cuda_engine(ClusterBackendType::CUDA);
-  ClusterEngine<float> cpu_engine(ClusterBackendType::Cpu);
+  std::unique_ptr<IClusterBackend<float>> cuda_engine{create_backend<float>(Device{CudaDevice{0}})};
+  std::unique_ptr<IClusterBackend<float>> cpu_engine{create_backend<float>(Device{CpuDevice{}})};
 
   EmbeddingMatrix<float> centers(2, 64);
   std::mt19937 gen(42);
@@ -1391,16 +1437,17 @@ TEST(CudaKernelEdgeCasesTest, TwoClusters) {
     }
   }
 
-  cuda_engine.load_centroids(centers);
-  cpu_engine.load_centroids(centers);
+  cuda_engine->load_centroids(centers.data(), centers.rows(), centers.cols());
+  cpu_engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   for (int q = 0; q < 10; ++q) {
     std::vector<float> query(64);
     for (size_t d = 0; d < 64; ++d) {
       query[d] = dist(gen);
     }
-    auto [cuda_id, cuda_dist] = cuda_engine.assign(query.data(), 64);
-    auto [cpu_id, cpu_dist] = cpu_engine.assign(query.data(), 64);
+    EmbeddingView<float> view{query.data(), 64, Device{CpuDevice{}}};
+    auto [cuda_id, cuda_dist] = cuda_engine->assign(view);
+    auto [cpu_id, cpu_dist] = cpu_engine->assign(view);
     EXPECT_EQ(cuda_id, cpu_id) << "Mismatch at query " << q;
     EXPECT_NEAR(cuda_dist, cpu_dist, 1e-4f);
   }
@@ -1409,7 +1456,7 @@ TEST(CudaKernelEdgeCasesTest, TwoClusters) {
 TEST(CudaKernelEdgeCasesTest, IdenticalCentroidsCUDA) {
   if (!cuda_available()) GTEST_SKIP();
 
-  ClusterEngine<float> cuda_engine(ClusterBackendType::CUDA);
+  std::unique_ptr<IClusterBackend<float>> cuda_engine{create_backend<float>(Device{CudaDevice{0}})};
 
   EmbeddingMatrix<float> centers(5, 32);
   for (size_t i = 0; i < 5; ++i) {
@@ -1418,10 +1465,11 @@ TEST(CudaKernelEdgeCasesTest, IdenticalCentroidsCUDA) {
     }
   }
 
-  cuda_engine.load_centroids(centers);
+  cuda_engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   std::vector<float> query(32, 0.5f);
-  auto [id, dist] = cuda_engine.assign(query.data(), 32);
+  EmbeddingView<float> view{query.data(), 32, Device{CpuDevice{}}};
+  auto [id, dist] = cuda_engine->assign(view);
   EXPECT_GE(id, 0);
   EXPECT_LT(id, 5);
   EXPECT_NEAR(dist, 0.0f, 1e-5f);
@@ -1430,8 +1478,8 @@ TEST(CudaKernelEdgeCasesTest, IdenticalCentroidsCUDA) {
 TEST(CudaKernelEdgeCasesTest, ZeroEmbedding) {
   if (!cuda_available()) GTEST_SKIP();
 
-  ClusterEngine<float> cuda_engine(ClusterBackendType::CUDA);
-  ClusterEngine<float> cpu_engine(ClusterBackendType::Cpu);
+  std::unique_ptr<IClusterBackend<float>> cuda_engine{create_backend<float>(Device{CudaDevice{0}})};
+  std::unique_ptr<IClusterBackend<float>> cpu_engine{create_backend<float>(Device{CpuDevice{}})};
 
   EmbeddingMatrix<float> centers(3, 64);
   std::mt19937 gen(42);
@@ -1442,12 +1490,13 @@ TEST(CudaKernelEdgeCasesTest, ZeroEmbedding) {
     }
   }
 
-  cuda_engine.load_centroids(centers);
-  cpu_engine.load_centroids(centers);
+  cuda_engine->load_centroids(centers.data(), centers.rows(), centers.cols());
+  cpu_engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   std::vector<float> zero_query(64, 0.0f);
-  auto [cuda_id, cuda_dist] = cuda_engine.assign(zero_query.data(), 64);
-  auto [cpu_id, cpu_dist] = cpu_engine.assign(zero_query.data(), 64);
+  EmbeddingView<float> view{zero_query.data(), 64, Device{CpuDevice{}}};
+  auto [cuda_id, cuda_dist] = cuda_engine->assign(view);
+  auto [cpu_id, cpu_dist] = cpu_engine->assign(view);
   EXPECT_EQ(cuda_id, cpu_id);
   EXPECT_NEAR(cuda_dist, cpu_dist, 1e-4f);
 }
@@ -1455,8 +1504,8 @@ TEST(CudaKernelEdgeCasesTest, ZeroEmbedding) {
 TEST(CudaKernelEdgeCasesTest, LargeValues) {
   if (!cuda_available()) GTEST_SKIP();
 
-  ClusterEngine<float> cuda_engine(ClusterBackendType::CUDA);
-  ClusterEngine<float> cpu_engine(ClusterBackendType::Cpu);
+  std::unique_ptr<IClusterBackend<float>> cuda_engine{create_backend<float>(Device{CudaDevice{0}})};
+  std::unique_ptr<IClusterBackend<float>> cpu_engine{create_backend<float>(Device{CpuDevice{}})};
 
   EmbeddingMatrix<float> centers(3, 32);
   for (size_t i = 0; i < 3; ++i) {
@@ -1465,16 +1514,17 @@ TEST(CudaKernelEdgeCasesTest, LargeValues) {
     }
   }
 
-  cuda_engine.load_centroids(centers);
-  cpu_engine.load_centroids(centers);
+  cuda_engine->load_centroids(centers.data(), centers.rows(), centers.cols());
+  cpu_engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   std::vector<float> query(32);
   for (size_t j = 0; j < 32; ++j) {
     query[j] = static_cast<float>(1000 + j);
   }
 
-  auto [cuda_id, cuda_dist] = cuda_engine.assign(query.data(), 32);
-  auto [cpu_id, cpu_dist] = cpu_engine.assign(query.data(), 32);
+  EmbeddingView<float> view{query.data(), 32, Device{CpuDevice{}}};
+  auto [cuda_id, cuda_dist] = cuda_engine->assign(view);
+  auto [cpu_id, cpu_dist] = cpu_engine->assign(view);
   EXPECT_EQ(cuda_id, cpu_id);
   EXPECT_NEAR(cuda_dist, cpu_dist, 1e-2f);
 }
@@ -1482,8 +1532,8 @@ TEST(CudaKernelEdgeCasesTest, LargeValues) {
 TEST(CudaKernelEdgeCasesTest, SmallValues) {
   if (!cuda_available()) GTEST_SKIP();
 
-  ClusterEngine<float> cuda_engine(ClusterBackendType::CUDA);
-  ClusterEngine<float> cpu_engine(ClusterBackendType::Cpu);
+  std::unique_ptr<IClusterBackend<float>> cuda_engine{create_backend<float>(Device{CudaDevice{0}})};
+  std::unique_ptr<IClusterBackend<float>> cpu_engine{create_backend<float>(Device{CpuDevice{}})};
 
   EmbeddingMatrix<float> centers(3, 32);
   for (size_t i = 0; i < 3; ++i) {
@@ -1492,12 +1542,13 @@ TEST(CudaKernelEdgeCasesTest, SmallValues) {
     }
   }
 
-  cuda_engine.load_centroids(centers);
-  cpu_engine.load_centroids(centers);
+  cuda_engine->load_centroids(centers.data(), centers.rows(), centers.cols());
+  cpu_engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   std::vector<float> query(32, 2e-6f);
-  auto [cuda_id, cuda_dist] = cuda_engine.assign(query.data(), 32);
-  auto [cpu_id, cpu_dist] = cpu_engine.assign(query.data(), 32);
+  EmbeddingView<float> view{query.data(), 32, Device{CpuDevice{}}};
+  auto [cuda_id, cuda_dist] = cuda_engine->assign(view);
+  auto [cpu_id, cpu_dist] = cpu_engine->assign(view);
   EXPECT_EQ(cuda_id, cpu_id);
   EXPECT_NEAR(cuda_dist, cpu_dist, 1e-10f);
 }
@@ -1505,8 +1556,8 @@ TEST(CudaKernelEdgeCasesTest, SmallValues) {
 TEST(CudaKernelEdgeCasesTest, NegativeValues) {
   if (!cuda_available()) GTEST_SKIP();
 
-  ClusterEngine<float> cuda_engine(ClusterBackendType::CUDA);
-  ClusterEngine<float> cpu_engine(ClusterBackendType::Cpu);
+  std::unique_ptr<IClusterBackend<float>> cuda_engine{create_backend<float>(Device{CudaDevice{0}})};
+  std::unique_ptr<IClusterBackend<float>> cpu_engine{create_backend<float>(Device{CpuDevice{}})};
 
   EmbeddingMatrix<float> centers(3, 16);
   centers(0, 0) = -1.0f;
@@ -1516,12 +1567,13 @@ TEST(CudaKernelEdgeCasesTest, NegativeValues) {
   centers(2, 0) = 1.0f;
   for (size_t j = 1; j < 16; ++j) centers(2, j) = 1.0f;
 
-  cuda_engine.load_centroids(centers);
-  cpu_engine.load_centroids(centers);
+  cuda_engine->load_centroids(centers.data(), centers.rows(), centers.cols());
+  cpu_engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   std::vector<float> query(16, -0.5f);
-  auto [cuda_id, cuda_dist] = cuda_engine.assign(query.data(), 16);
-  auto [cpu_id, cpu_dist] = cpu_engine.assign(query.data(), 16);
+  EmbeddingView<float> view{query.data(), 16, Device{CpuDevice{}}};
+  auto [cuda_id, cuda_dist] = cuda_engine->assign(view);
+  auto [cpu_id, cpu_dist] = cpu_engine->assign(view);
   // Floating-point precision differences can cause different argmin when distances
   // are very close. Verify distances match; ID match is best-effort.
   EXPECT_NEAR(cuda_dist, cpu_dist, 1e-5f);
@@ -1534,8 +1586,8 @@ TEST(CudaKernelEdgeCasesTest, NegativeValues) {
 TEST(CudaKernelEdgeCasesTest, PrimeDimension) {
   if (!cuda_available()) GTEST_SKIP();
 
-  ClusterEngine<float> cuda_engine(ClusterBackendType::CUDA);
-  ClusterEngine<float> cpu_engine(ClusterBackendType::Cpu);
+  std::unique_ptr<IClusterBackend<float>> cuda_engine{create_backend<float>(Device{CudaDevice{0}})};
+  std::unique_ptr<IClusterBackend<float>> cpu_engine{create_backend<float>(Device{CpuDevice{}})};
 
   constexpr size_t DIM = 131;
   EmbeddingMatrix<float> centers(10, DIM);
@@ -1547,16 +1599,17 @@ TEST(CudaKernelEdgeCasesTest, PrimeDimension) {
     }
   }
 
-  cuda_engine.load_centroids(centers);
-  cpu_engine.load_centroids(centers);
+  cuda_engine->load_centroids(centers.data(), centers.rows(), centers.cols());
+  cpu_engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   std::vector<float> query(DIM);
   for (size_t d = 0; d < DIM; ++d) {
     query[d] = dist(gen);
   }
 
-  auto [cuda_id, cuda_dist] = cuda_engine.assign(query.data(), DIM);
-  auto [cpu_id, cpu_dist] = cpu_engine.assign(query.data(), DIM);
+  EmbeddingView<float> view{query.data(), DIM, Device{CpuDevice{}}};
+  auto [cuda_id, cuda_dist] = cuda_engine->assign(view);
+  auto [cpu_id, cpu_dist] = cpu_engine->assign(view);
   EXPECT_EQ(cuda_id, cpu_id);
   EXPECT_NEAR(cuda_dist, cpu_dist, 1e-4f);
 }
@@ -1564,8 +1617,8 @@ TEST(CudaKernelEdgeCasesTest, PrimeDimension) {
 TEST(CudaKernelEdgeCasesTest, PrimeClusterCount) {
   if (!cuda_available()) GTEST_SKIP();
 
-  ClusterEngine<float> cuda_engine(ClusterBackendType::CUDA);
-  ClusterEngine<float> cpu_engine(ClusterBackendType::Cpu);
+  std::unique_ptr<IClusterBackend<float>> cuda_engine{create_backend<float>(Device{CudaDevice{0}})};
+  std::unique_ptr<IClusterBackend<float>> cpu_engine{create_backend<float>(Device{CpuDevice{}})};
 
   constexpr size_t N_CLUSTERS = 97;
   constexpr size_t DIM = 64;
@@ -1578,16 +1631,17 @@ TEST(CudaKernelEdgeCasesTest, PrimeClusterCount) {
     }
   }
 
-  cuda_engine.load_centroids(centers);
-  cpu_engine.load_centroids(centers);
+  cuda_engine->load_centroids(centers.data(), centers.rows(), centers.cols());
+  cpu_engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   std::vector<float> query(DIM);
   for (size_t d = 0; d < DIM; ++d) {
     query[d] = dist(gen);
   }
 
-  auto [cuda_id, cuda_dist] = cuda_engine.assign(query.data(), DIM);
-  auto [cpu_id, cpu_dist] = cpu_engine.assign(query.data(), DIM);
+  EmbeddingView<float> view{query.data(), DIM, Device{CpuDevice{}}};
+  auto [cuda_id, cuda_dist] = cuda_engine->assign(view);
+  auto [cpu_id, cpu_dist] = cpu_engine->assign(view);
   EXPECT_EQ(cuda_id, cpu_id);
   EXPECT_NEAR(cuda_dist, cpu_dist, 1e-4f);
 }
@@ -1599,7 +1653,7 @@ TEST(CudaKernelEdgeCasesTest, PrimeClusterCount) {
 TEST(CudaBatchEdgeCasesTest, BatchSizeOne) {
   if (!cuda_available()) GTEST_SKIP();
 
-  ClusterEngine<float> cuda_engine(ClusterBackendType::CUDA);
+  std::unique_ptr<IClusterBackend<float>> cuda_engine{create_backend<float>(Device{CudaDevice{0}})};
 
   EmbeddingMatrix<float> centers(5, 32);
   std::mt19937 gen(42);
@@ -1610,15 +1664,17 @@ TEST(CudaBatchEdgeCasesTest, BatchSizeOne) {
     }
   }
 
-  cuda_engine.load_centroids(centers);
+  cuda_engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   std::vector<float> query(32);
   for (size_t d = 0; d < 32; ++d) {
     query[d] = dist(gen);
   }
 
-  auto single_result = cuda_engine.assign(query.data(), 32);
-  auto batch_results = cuda_engine.assign_batch(query.data(), 1, 32);
+  EmbeddingView<float> view{query.data(), 32, Device{CpuDevice{}}};
+  auto single_result = cuda_engine->assign(view);
+  EmbeddingBatchView<float> batch_view{query.data(), 1, 32, Device{CpuDevice{}}};
+  auto batch_results = cuda_engine->assign_batch(batch_view);
 
   ASSERT_EQ(batch_results.size(), 1u);
   EXPECT_EQ(single_result.first, batch_results[0].first);
@@ -1628,7 +1684,7 @@ TEST(CudaBatchEdgeCasesTest, BatchSizeOne) {
 TEST(CudaBatchEdgeCasesTest, BatchSizeTwo) {
   if (!cuda_available()) GTEST_SKIP();
 
-  ClusterEngine<float> cuda_engine(ClusterBackendType::CUDA);
+  std::unique_ptr<IClusterBackend<float>> cuda_engine{create_backend<float>(Device{CudaDevice{0}})};
 
   constexpr size_t DIM = 64;
   EmbeddingMatrix<float> centers(10, DIM);
@@ -1640,18 +1696,20 @@ TEST(CudaBatchEdgeCasesTest, BatchSizeTwo) {
     }
   }
 
-  cuda_engine.load_centroids(centers);
+  cuda_engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   std::vector<float> queries(2 * DIM);
   for (size_t d = 0; d < 2 * DIM; ++d) {
     queries[d] = dist(gen);
   }
 
-  auto batch_results = cuda_engine.assign_batch(queries.data(), 2, DIM);
+  EmbeddingBatchView<float> batch_view{queries.data(), 2, DIM, Device{CpuDevice{}}};
+  auto batch_results = cuda_engine->assign_batch(batch_view);
   ASSERT_EQ(batch_results.size(), 2u);
 
   for (size_t i = 0; i < 2; ++i) {
-    auto single_result = cuda_engine.assign(queries.data() + i * DIM, DIM);
+    EmbeddingView<float> view{queries.data() + i * DIM, DIM, Device{CpuDevice{}}};
+    auto single_result = cuda_engine->assign(view);
     EXPECT_EQ(batch_results[i].first, single_result.first);
     EXPECT_NEAR(batch_results[i].second, single_result.second, 1e-5f);
   }
@@ -1660,7 +1718,7 @@ TEST(CudaBatchEdgeCasesTest, BatchSizeTwo) {
 TEST(CudaBatchEdgeCasesTest, BatchSizePrime) {
   if (!cuda_available()) GTEST_SKIP();
 
-  ClusterEngine<float> cuda_engine(ClusterBackendType::CUDA);
+  std::unique_ptr<IClusterBackend<float>> cuda_engine{create_backend<float>(Device{CudaDevice{0}})};
 
   constexpr size_t N_QUERIES = 67;
   constexpr size_t DIM = 64;
@@ -1673,18 +1731,20 @@ TEST(CudaBatchEdgeCasesTest, BatchSizePrime) {
     }
   }
 
-  cuda_engine.load_centroids(centers);
+  cuda_engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   std::vector<float> queries(N_QUERIES * DIM);
   for (size_t d = 0; d < N_QUERIES * DIM; ++d) {
     queries[d] = dist(gen);
   }
 
-  auto batch_results = cuda_engine.assign_batch(queries.data(), N_QUERIES, DIM);
+  EmbeddingBatchView<float> batch_view{queries.data(), N_QUERIES, DIM, Device{CpuDevice{}}};
+  auto batch_results = cuda_engine->assign_batch(batch_view);
   ASSERT_EQ(batch_results.size(), N_QUERIES);
 
   for (size_t i = 0; i < N_QUERIES; ++i) {
-    auto single_result = cuda_engine.assign(queries.data() + i * DIM, DIM);
+    EmbeddingView<float> view{queries.data() + i * DIM, DIM, Device{CpuDevice{}}};
+    auto single_result = cuda_engine->assign(view);
     EXPECT_EQ(batch_results[i].first, single_result.first) << "Mismatch at query " << i;
     EXPECT_NEAR(batch_results[i].second, single_result.second, 1e-5f);
     EXPECT_GE(batch_results[i].first, 0);
@@ -1695,7 +1755,7 @@ TEST(CudaBatchEdgeCasesTest, BatchSizePrime) {
 TEST(CudaBatchEdgeCasesTest, LargeBatch) {
   if (!cuda_available()) GTEST_SKIP();
 
-  ClusterEngine<float> engine(ClusterBackendType::CUDA);
+  std::unique_ptr<IClusterBackend<float>> engine{create_backend<float>(Device{CudaDevice{0}})};
 
   constexpr size_t N_QUERIES = 2048;
   constexpr size_t N_CLUSTERS = 100;
@@ -1710,19 +1770,21 @@ TEST(CudaBatchEdgeCasesTest, LargeBatch) {
     }
   }
 
-  engine.load_centroids(centers);
+  engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   std::vector<float> queries(N_QUERIES * DIM);
   for (size_t d = 0; d < N_QUERIES * DIM; ++d) {
     queries[d] = dist(gen);
   }
 
-  auto batch_results = engine.assign_batch(queries.data(), N_QUERIES, DIM);
+  EmbeddingBatchView<float> batch_view{queries.data(), N_QUERIES, DIM, Device{CpuDevice{}}};
+  auto batch_results = engine->assign_batch(batch_view);
 
   // Verify batch vs single consistency within CUDA backend
   ASSERT_EQ(batch_results.size(), N_QUERIES);
   for (size_t i = 0; i < N_QUERIES; ++i) {
-    auto single_result = engine.assign(queries.data() + i * DIM, DIM);
+    EmbeddingView<float> view{queries.data() + i * DIM, DIM, Device{CpuDevice{}}};
+    auto single_result = engine->assign(view);
     EXPECT_EQ(batch_results[i].first, single_result.first) << "Mismatch at query " << i;
     EXPECT_NEAR(batch_results[i].second, single_result.second, 1e-5f);
   }
@@ -1731,7 +1793,7 @@ TEST(CudaBatchEdgeCasesTest, LargeBatch) {
 TEST(CudaBatchEdgeCasesTest, BatchVsSingleConsistency) {
   if (!cuda_available()) GTEST_SKIP();
 
-  ClusterEngine<float> engine(ClusterBackendType::CUDA);
+  std::unique_ptr<IClusterBackend<float>> engine{create_backend<float>(Device{CudaDevice{0}})};
 
   constexpr size_t N_QUERIES = 100;
   constexpr size_t DIM = 64;
@@ -1745,18 +1807,20 @@ TEST(CudaBatchEdgeCasesTest, BatchVsSingleConsistency) {
     }
   }
 
-  engine.load_centroids(centers);
+  engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   std::vector<float> queries(N_QUERIES * DIM);
   for (size_t d = 0; d < N_QUERIES * DIM; ++d) {
     queries[d] = dist(gen);
   }
 
-  auto batch_results = engine.assign_batch(queries.data(), N_QUERIES, DIM);
+  EmbeddingBatchView<float> batch_view{queries.data(), N_QUERIES, DIM, Device{CpuDevice{}}};
+  auto batch_results = engine->assign_batch(batch_view);
 
   ASSERT_EQ(batch_results.size(), N_QUERIES);
   for (size_t i = 0; i < N_QUERIES; ++i) {
-    auto single_result = engine.assign(queries.data() + i * DIM, DIM);
+    EmbeddingView<float> view{queries.data() + i * DIM, DIM, Device{CpuDevice{}}};
+    auto single_result = engine->assign(view);
     EXPECT_EQ(batch_results[i].first, single_result.first) << "Mismatch at query " << i;
     EXPECT_NEAR(batch_results[i].second, single_result.second, 1e-5f);
   }
@@ -1765,7 +1829,7 @@ TEST(CudaBatchEdgeCasesTest, BatchVsSingleConsistency) {
 TEST(CudaBatchEdgeCasesTest, EmptyBatch) {
   if (!cuda_available()) GTEST_SKIP();
 
-  ClusterEngine<float> engine(ClusterBackendType::CUDA);
+  std::unique_ptr<IClusterBackend<float>> engine{create_backend<float>(Device{CudaDevice{0}})};
 
   EmbeddingMatrix<float> centers(5, 32);
   std::mt19937 gen(42);
@@ -1776,16 +1840,17 @@ TEST(CudaBatchEdgeCasesTest, EmptyBatch) {
     }
   }
 
-  engine.load_centroids(centers);
+  engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
-  auto results = engine.assign_batch(nullptr, 0, 32);
+  EmbeddingBatchView<float> batch_view{nullptr, 0, 32, Device{CpuDevice{}}};
+  auto results = engine->assign_batch(batch_view);
   EXPECT_TRUE(results.empty());
 }
 
 TEST(CudaBatchEdgeCasesTest, BatchWithSmallDimension) {
   if (!cuda_available()) GTEST_SKIP();
 
-  ClusterEngine<float> engine(ClusterBackendType::CUDA);
+  std::unique_ptr<IClusterBackend<float>> engine{create_backend<float>(Device{CudaDevice{0}})};
 
   constexpr size_t N_QUERIES = 50;
   constexpr size_t DIM = 3;
@@ -1804,7 +1869,7 @@ TEST(CudaBatchEdgeCasesTest, BatchWithSmallDimension) {
   centers(3, 1) = 0.0f;
   centers(3, 2) = 1.0f;
 
-  engine.load_centroids(centers);
+  engine->load_centroids(centers.data(), centers.rows(), centers.cols());
 
   std::mt19937 gen(42);
   std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
@@ -1813,12 +1878,14 @@ TEST(CudaBatchEdgeCasesTest, BatchWithSmallDimension) {
     queries[d] = dist(gen);
   }
 
-  auto batch_results = engine.assign_batch(queries.data(), N_QUERIES, DIM);
+  EmbeddingBatchView<float> batch_view{queries.data(), N_QUERIES, DIM, Device{CpuDevice{}}};
+  auto batch_results = engine->assign_batch(batch_view);
 
   // Verify batch vs single consistency within CUDA backend
   ASSERT_EQ(batch_results.size(), N_QUERIES);
   for (size_t i = 0; i < N_QUERIES; ++i) {
-    auto single_result = engine.assign(queries.data() + i * DIM, DIM);
+    EmbeddingView<float> view{queries.data() + i * DIM, DIM, Device{CpuDevice{}}};
+    auto single_result = engine->assign(view);
     EXPECT_EQ(batch_results[i].first, single_result.first) << "Mismatch at query " << i;
     EXPECT_NEAR(batch_results[i].second, single_result.second, 1e-5f);
   }

@@ -45,11 +45,6 @@ void register_types(nb::module_& m) {
       .def_ro("algorithm", &ClusteringConfig::algorithm, "Clustering algorithm")
       .def_ro("normalization", &ClusteringConfig::normalization, "Normalization strategy");
 
-  // RoutingConfig type
-  nb::class_<RoutingConfig>(m, "RoutingConfig", "Routing configuration parameters")
-      .def_ro("cost_bias_min", &RoutingConfig::cost_bias_min, "Minimum cost bias")
-      .def_ro("cost_bias_max", &RoutingConfig::cost_bias_max, "Maximum cost bias");
-
   // ModelFeatures type
   nb::class_<ModelFeatures>(m, "ModelFeatures", "Model configuration with error rates")
       .def_ro("model_id", &ModelFeatures::model_id, "Full model ID (e.g., 'openai/gpt-4')")

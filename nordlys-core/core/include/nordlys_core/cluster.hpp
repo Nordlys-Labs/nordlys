@@ -14,9 +14,9 @@
 #  include <omp.h>
 #endif
 
+#include "device.hpp"
+#include "embedding_view.hpp"
 #include "matrix.hpp"
-
-enum class ClusterBackendType { Cpu, CUDA };
 
 template <typename Scalar> class IClusterBackend {
 public:
@@ -27,26 +27,15 @@ public:
   IClusterBackend(IClusterBackend&&) = delete;
   IClusterBackend& operator=(IClusterBackend&&) = delete;
 
-  virtual void load_centroids(const Scalar* data, int n_clusters, int dim) = 0;
+  virtual void load_centroids(const Scalar* data, size_t n_clusters, size_t dim) = 0;
 
-  [[nodiscard]] virtual std::pair<int, Scalar> assign(const Scalar* embedding, int dim) = 0;
+  [[nodiscard]] virtual std::pair<int, Scalar> assign(EmbeddingView<Scalar> view) = 0;
 
-  [[nodiscard]] virtual std::vector<std::pair<int, Scalar>> assign_batch(const Scalar* embeddings,
-                                                                         int count, int dim) {
-    if (count < 0 || dim <= 0) [[unlikely]] {
-      throw std::invalid_argument("count must be non-negative and dim must be positive");
-    }
-    std::vector<std::pair<int, Scalar>> results;
-    results.reserve(static_cast<size_t>(count));
-    for (int i = 0; i < count; ++i) {
-      results.push_back(assign(embeddings + i * dim, dim));
-    }
-    return results;
-  }
+  [[nodiscard]] virtual std::vector<std::pair<int, Scalar>> assign_batch(
+      EmbeddingBatchView<Scalar> view) = 0;
 
-  [[nodiscard]] virtual int get_n_clusters() const noexcept = 0;
-  [[nodiscard]] virtual int get_dim() const noexcept = 0;
-  [[nodiscard]] virtual bool is_gpu_accelerated() const noexcept = 0;
+  [[nodiscard]] virtual size_t n_clusters() const = 0;
+  [[nodiscard]] virtual size_t dim() const = 0;
 
 protected:
   IClusterBackend() = default;
@@ -87,7 +76,7 @@ template <typename Scalar> struct MinDistanceResult {
 
 template <typename Scalar> class CpuClusterBackend : public IClusterBackend<Scalar> {
 public:
-  void load_centroids(const Scalar* data, int n_clusters, int dim) override {
+  void load_centroids(const Scalar* data, size_t n_clusters, size_t dim) override {
     if (n_clusters <= 0 || dim <= 0) [[unlikely]] {
       throw std::invalid_argument("n_clusters and dim must be positive");
     }
@@ -104,8 +93,8 @@ public:
       throw std::invalid_argument("allocation size would overflow");
     }
 
-    n_clusters_ = n_clusters;
-    dim_ = dim;
+    n_clusters_ = static_cast<int>(n_clusters);
+    dim_ = static_cast<int>(dim);
 
     using namespace unum::usearch;
     auto scalar_kind = std::is_same_v<Scalar, float> ? scalar_kind_t::f32_k : scalar_kind_t::f64_k;
@@ -115,13 +104,22 @@ public:
     std::memcpy(centroids_.data(), data, centroids_.size() * sizeof(Scalar));
   }
 
-  [[nodiscard]] std::pair<int, Scalar> assign(const Scalar* embedding, int dim) override {
+  [[nodiscard]] std::pair<int, Scalar> assign(EmbeddingView<Scalar> view) override {
     if (n_clusters_ == 0) return {-1, Scalar{0}};
-    if (dim != dim_) [[unlikely]] {
+    if (view.dim != static_cast<size_t>(dim_)) [[unlikely]] {
       throw std::invalid_argument("dimension mismatch in assign");
     }
 
-    const auto* emb_bytes = reinterpret_cast<const unum::usearch::byte_t*>(embedding);
+    // Throw if GPU memory passed to CPU backend
+    std::visit(overloaded{
+        [](CpuDevice) {},
+        [](CudaDevice) -> void {
+            throw std::invalid_argument("GPU tensor passed to CPU backend. "
+                                      "Create Nordlys with device=CudaDevice{} to use GPU embeddings.");
+        }
+    }, view.device);
+
+    const auto* emb_bytes = reinterpret_cast<const unum::usearch::byte_t*>(view.data);
 
     int best_idx = -1;
     Scalar best_dist_sq = std::numeric_limits<Scalar>::max();
@@ -217,30 +215,40 @@ public:
     return {best_idx, std::sqrt(best_dist_sq)};
   }
 
-  [[nodiscard]] std::vector<std::pair<int, Scalar>> assign_batch(const Scalar* embeddings,
-                                                                 int count, int dim) override {
-    if (count < 0) [[unlikely]] {
-      throw std::invalid_argument("count must be non-negative");
-    }
-    if (n_clusters_ > 0 && dim != dim_) [[unlikely]] {
+  [[nodiscard]] std::vector<std::pair<int, Scalar>> assign_batch(
+      EmbeddingBatchView<Scalar> view) override {
+    if (n_clusters_ > 0 && view.dim != static_cast<size_t>(dim_)) [[unlikely]] {
       throw std::invalid_argument("dimension mismatch in assign_batch");
     }
 
-    std::vector<std::pair<int, Scalar>> results(static_cast<size_t>(count));
+    // Throw if GPU memory passed to CPU backend
+    std::visit(overloaded{
+        [](CpuDevice) {},
+        [](CudaDevice) -> void {
+            throw std::invalid_argument("GPU tensor passed to CPU backend. "
+                                      "Create Nordlys with device=CudaDevice{} to use GPU embeddings.");
+        }
+    }, view.device);
+
+    std::vector<std::pair<int, Scalar>> results(view.count);
 
 #  ifdef _OPENMP
 #    pragma omp parallel for schedule(static)
 #  endif
-    for (int i = 0; i < count; ++i) {
-      results[static_cast<size_t>(i)] = assign(embeddings + i * dim_, dim_);
+    for (size_t i = 0; i < view.count; ++i) {
+      EmbeddingView<Scalar> single_view{
+          view.data + i * view.dim,
+          view.dim,
+          view.device
+      };
+      results[i] = assign(single_view);
     }
 
     return results;
   }
 
-  [[nodiscard]] int get_n_clusters() const noexcept override { return n_clusters_; }
-  [[nodiscard]] int get_dim() const noexcept override { return dim_; }
-  [[nodiscard]] bool is_gpu_accelerated() const noexcept override { return false; }
+  [[nodiscard]] size_t n_clusters() const noexcept override { return static_cast<size_t>(n_clusters_); }
+  [[nodiscard]] size_t dim() const noexcept override { return static_cast<size_t>(dim_); }
 
 private:
   std::vector<Scalar> centroids_;
@@ -272,21 +280,24 @@ public:
   CudaClusterBackend(CudaClusterBackend&&) = delete;
   CudaClusterBackend& operator=(CudaClusterBackend&&) = delete;
 
-  void load_centroids(const Scalar* data, int n_clusters, int dim) override;
+  void load_centroids(const Scalar* data, size_t n_clusters, size_t dim) override;
 
-  [[nodiscard]] std::pair<int, Scalar> assign(const Scalar* embedding, int dim) override;
+  [[nodiscard]] std::pair<int, Scalar> assign(EmbeddingView<Scalar> view) override;
 
-  [[nodiscard]] std::vector<std::pair<int, Scalar>> assign_batch(const Scalar* embeddings,
-                                                                 int count, int dim) override;
+  [[nodiscard]] std::vector<std::pair<int, Scalar>> assign_batch(
+      EmbeddingBatchView<Scalar> view) override;
 
-  [[nodiscard]] int get_n_clusters() const noexcept override { return n_clusters_; }
-  [[nodiscard]] int get_dim() const noexcept override { return dim_; }
-  [[nodiscard]] bool is_gpu_accelerated() const noexcept override { return true; }
+  [[nodiscard]] size_t n_clusters() const noexcept override { return static_cast<size_t>(n_clusters_); }
+  [[nodiscard]] size_t dim() const noexcept override { return static_cast<size_t>(dim_); }
 
 private:
   void free_memory();
   void capture_graph();
   void ensure_batch_capacity(int count);
+  
+  // Helper methods for device-aware batch processing
+  std::vector<std::pair<int, Scalar>> assign_batch_from_host(EmbeddingBatchView<Scalar> view);
+  std::vector<std::pair<int, Scalar>> assign_batch_from_device(EmbeddingBatchView<Scalar> view);
 
   cublasHandle_t cublas_ = nullptr;
   cudaStream_t stream_ = nullptr;
@@ -350,89 +361,24 @@ private:
 }
 
 template <typename Scalar>
-[[nodiscard]] std::unique_ptr<IClusterBackend<Scalar>> create_cluster_backend(
-    ClusterBackendType type) {
-  switch (type) {
-    case ClusterBackendType::Cpu:
+[[nodiscard]] std::unique_ptr<IClusterBackend<Scalar>> create_backend(Device device) {
+  return std::visit(overloaded{
+      [](CpuDevice) -> std::unique_ptr<IClusterBackend<Scalar>> {
 #ifndef __CUDACC__
-      return std::make_unique<CpuClusterBackend<Scalar>>();
+          return std::make_unique<CpuClusterBackend<Scalar>>();
 #else
-      break;
+          throw std::runtime_error("CPU backend not available in CUDA compilation");
 #endif
-
-    case ClusterBackendType::CUDA:
+      },
+      [](CudaDevice) -> std::unique_ptr<IClusterBackend<Scalar>> {
 #ifdef NORDLYS_HAS_CUDA
-      if (cuda_available()) {
-        return std::make_unique<CudaClusterBackend<Scalar>>();
+          if (cuda_available()) {
+              return std::make_unique<CudaClusterBackend<Scalar>>();
+          }
+          throw std::runtime_error("CUDA not available");
+#else
+          throw std::runtime_error("CUDA backend not compiled");
+#endif
       }
-#endif
-#ifndef __CUDACC__
-      return std::make_unique<CpuClusterBackend<Scalar>>();
-#else
-      break;
-#endif
-  }
-
-#ifndef __CUDACC__
-  return std::make_unique<CpuClusterBackend<Scalar>>();
-#else
-  return nullptr;
-#endif
+  }, device);
 }
-
-template <typename Scalar = float> class ClusterEngine {
-public:
-  ClusterEngine() : device_(ClusterBackendType::Cpu), backend_(create_cluster_backend<Scalar>(ClusterBackendType::Cpu)) {
-    if (!backend_) [[unlikely]] {
-      throw std::runtime_error("failed to create cluster backend");
-    }
-  }
-
-  explicit ClusterEngine(ClusterBackendType type) : device_(type), backend_(create_cluster_backend<Scalar>(type)) {
-    if (!backend_) [[unlikely]] {
-      throw std::runtime_error("failed to create cluster backend");
-    }
-  }
-
-  void load_centroids(const EmbeddingMatrix<Scalar>& centers) {
-    if (centers.rows() > static_cast<size_t>(std::numeric_limits<int>::max())
-        || centers.cols() > static_cast<size_t>(std::numeric_limits<int>::max())) [[unlikely]] {
-      throw std::invalid_argument("matrix dimensions exceed int range");
-    }
-    backend_->load_centroids(centers.data(), static_cast<int>(centers.rows()),
-                             static_cast<int>(centers.cols()));
-  }
-
-  [[nodiscard]] auto assign(const Scalar* embedding, size_t dim) {
-    if (dim > static_cast<size_t>(std::numeric_limits<int>::max())) [[unlikely]] {
-      throw std::invalid_argument("dim exceeds int range");
-    }
-    int backend_dim = backend_->get_dim();
-    if (backend_dim > 0 && static_cast<int>(dim) != backend_dim) [[unlikely]] {
-      throw std::invalid_argument("dimension mismatch: expected " + std::to_string(backend_dim)
-                                  + ", got " + std::to_string(dim));
-    }
-    return backend_->assign(embedding, static_cast<int>(dim));
-  }
-
-  [[nodiscard]] auto assign_batch(const Scalar* embeddings, size_t count, size_t dim) {
-    if (count > static_cast<size_t>(std::numeric_limits<int>::max())
-        || dim > static_cast<size_t>(std::numeric_limits<int>::max())) [[unlikely]] {
-      throw std::invalid_argument("count or dim exceeds int range");
-    }
-    int backend_dim = backend_->get_dim();
-    if (backend_dim > 0 && static_cast<int>(dim) != backend_dim) [[unlikely]] {
-      throw std::invalid_argument("dimension mismatch: expected " + std::to_string(backend_dim)
-                                  + ", got " + std::to_string(dim));
-    }
-    return backend_->assign_batch(embeddings, static_cast<int>(count), static_cast<int>(dim));
-  }
-
-  [[nodiscard]] int get_n_clusters() const noexcept { return backend_->get_n_clusters(); }
-  [[nodiscard]] ClusterBackendType get_device() const noexcept { return device_; }
-  [[nodiscard]] bool is_gpu_accelerated() const noexcept { return backend_->is_gpu_accelerated(); }
-
-private:
-  ClusterBackendType device_;
-  std::unique_ptr<IClusterBackend<Scalar>> backend_;
-};

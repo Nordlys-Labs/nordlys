@@ -130,14 +130,12 @@ NORDLYS_API void nordlys_router_destroy(NordlysRouter* router);
   * @param router Router handle
   * @param embedding Pointer to embedding data (float array)
   * @param embedding_size Size of the embedding array
-  * @param cost_bias Cost bias (0.0 = prefer accuracy, 1.0 = prefer low cost)
   * @param error_out Optional error code output (can be NULL)
   * @return Route result (caller must free with nordlys_route_result_free_f32)
   */
 NORDLYS_API NordlysRouteResult32* nordlys_router_route_f32(NordlysRouter* router,
                                                               const float* embedding,
                                                               size_t embedding_size,
-                                                              float cost_bias,
                                                               NordlysErrorCode* error_out);
 
 /**
@@ -145,14 +143,12 @@ NORDLYS_API NordlysRouteResult32* nordlys_router_route_f32(NordlysRouter* router
   * @param router Router handle
   * @param embedding Pointer to embedding data (double array)
   * @param embedding_size Size of the embedding array
-  * @param cost_bias Cost bias (0.0 = prefer accuracy, 1.0 = prefer low cost)
   * @param error_out Optional error code output (can be NULL)
   * @return Route result (caller must free with nordlys_route_result_free_f64)
   */
 NORDLYS_API NordlysRouteResult64* nordlys_router_route_f64(NordlysRouter* router,
                                                               const double* embedding,
                                                               size_t embedding_size,
-                                                              float cost_bias,
                                                               NordlysErrorCode* error_out);
 
 /**
@@ -161,7 +157,6 @@ NORDLYS_API NordlysRouteResult64* nordlys_router_route_f64(NordlysRouter* router
   * @param embeddings Pointer to embedding data (N×D row-major array)
   * @param n_embeddings Number of embeddings in batch
   * @param embedding_size Dimension of each embedding (D)
-  * @param cost_bias Cost bias (0.0 = prefer accuracy, 1.0 = prefer low cost)
   * @param error_out Optional error code output (can be NULL)
   * @return Batch route result (caller must free with nordlys_batch_route_result_free_f32)
   */
@@ -170,7 +165,6 @@ NORDLYS_API NordlysBatchRouteResult32* nordlys_router_route_batch_f32(
     const float* embeddings,
     size_t n_embeddings,
     size_t embedding_size,
-    float cost_bias,
     NordlysErrorCode* error_out);
 
 /**
@@ -179,7 +173,6 @@ NORDLYS_API NordlysBatchRouteResult32* nordlys_router_route_batch_f32(
   * @param embeddings Pointer to embedding data (N×D row-major array)
   * @param n_embeddings Number of embeddings in batch
   * @param embedding_size Dimension of each embedding (D)
-  * @param cost_bias Cost bias (0.0 = prefer accuracy, 1.0 = prefer low cost)
   * @param error_out Optional error code output (can be NULL)
   * @return Batch route result (caller must free with nordlys_batch_route_result_free_f64)
   */
@@ -188,7 +181,6 @@ NORDLYS_API NordlysBatchRouteResult64* nordlys_router_route_batch_f64(
     const double* embeddings,
     size_t n_embeddings,
     size_t embedding_size,
-    float cost_bias,
     NordlysErrorCode* error_out);
 
 /**

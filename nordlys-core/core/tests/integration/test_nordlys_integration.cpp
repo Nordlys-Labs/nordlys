@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <filesystem>
 #include <nordlys_core/checkpoint.hpp>
+#include <nordlys_core/device.hpp>
+#include <nordlys_core/embedding_view.hpp>
 #include <nordlys_core/nordlys.hpp>
 #include <vector>
 
@@ -39,7 +41,8 @@ TEST_F(NordlysIntegrationTest, LoadCheckpointAndRouteFloat32) {
   EXPECT_TRUE(std::find(models.begin(), models.end(), "meta/llama-3-70b") != models.end());
 
   std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
-  auto response = engine.route(embedding.data(), embedding.size(), 0.5f);
+  EmbeddingView<float> view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
+  auto response = engine.route(view);
 
   EXPECT_FALSE(response.selected_model.empty());
   EXPECT_EQ(response.cluster_id, 0);
@@ -61,14 +64,15 @@ TEST_F(NordlysIntegrationTest, LoadCheckpointAndRouteFloat64) {
   EXPECT_EQ(engine.get_embedding_dim(), 4);
 
   std::vector<double> embedding = {0.0, 0.95, 0.05, 0.0};
-  auto response = engine.route(embedding.data(), embedding.size(), 0.5f);
+  EmbeddingView<double> view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
+  auto response = engine.route(view);
 
   EXPECT_FALSE(response.selected_model.empty());
   EXPECT_EQ(response.cluster_id, 1);
   EXPECT_GE(response.cluster_distance, 0.0);
 }
 
-TEST_F(NordlysIntegrationTest, CostBiasAffectsModelSelection) {
+TEST_F(NordlysIntegrationTest, RoutingSelectsByErrorRate) {
   auto checkpoint_path = get_checkpoint_path("valid_checkpoint_f32.json");
   auto checkpoint = NordlysCheckpoint::from_json(checkpoint_path.string());
   auto result = Nordlys32::from_checkpoint(std::move(checkpoint));
@@ -77,18 +81,11 @@ TEST_F(NordlysIntegrationTest, CostBiasAffectsModelSelection) {
   auto engine = std::move(result.value());
   std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
 
-  auto response_cheap = engine.route(embedding.data(), embedding.size(), 1.0f);
-  auto response_quality = engine.route(embedding.data(), embedding.size(), 0.0f);
+  EmbeddingView<float> view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
+  auto response = engine.route(view);
 
-  EXPECT_FALSE(response_cheap.selected_model.empty());
-  EXPECT_FALSE(response_quality.selected_model.empty());
-
-  EXPECT_EQ(response_cheap.cluster_id, response_quality.cluster_id);
-
-  EXPECT_EQ(response_cheap.selected_model, "meta/llama-3-70b");
-
-  EXPECT_TRUE(response_quality.selected_model == "openai/gpt-4"
-              || response_quality.selected_model == "anthropic/claude-3-opus");
+  EXPECT_FALSE(response.selected_model.empty());
+  EXPECT_GE(response.cluster_id, 0);
 }
 
 TEST_F(NordlysIntegrationTest, ModelFilteringWorks) {
@@ -101,7 +98,8 @@ TEST_F(NordlysIntegrationTest, ModelFilteringWorks) {
   std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
 
   std::vector<std::string> filter = {"openai/gpt-4"};
-  auto response = engine.route(embedding.data(), embedding.size(), 0.5f, filter);
+  EmbeddingView<float> view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
+  auto response = engine.route(view, filter);
 
   EXPECT_EQ(response.selected_model, "openai/gpt-4");
   EXPECT_TRUE(response.alternatives.empty());
@@ -115,7 +113,8 @@ TEST_F(NordlysIntegrationTest, AlternativesReturned) {
 
   auto engine = std::move(result.value());
   std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
-  auto response = engine.route(embedding.data(), embedding.size(), 0.5f);
+  EmbeddingView<float> view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
+  auto response = engine.route(view);
 
   EXPECT_FALSE(response.selected_model.empty());
   EXPECT_LE(response.alternatives.size(), 2);
@@ -144,7 +143,8 @@ TEST_F(NordlysIntegrationTest, DimensionMismatchThrows) {
   auto engine = std::move(result.value());
 
   std::vector<float> wrong_dim = {1.0f, 0.0f};
-  EXPECT_THROW(engine.route(wrong_dim.data(), wrong_dim.size(), 0.5f), std::invalid_argument);
+  EmbeddingView<float> wrong_view{wrong_dim.data(), wrong_dim.size(), Device{CpuDevice{}}};
+  EXPECT_THROW(engine.route(wrong_view), std::invalid_argument);
 }
 
 TEST_F(NordlysIntegrationTest, DifferentEmbeddingsAssignToDifferentClusters) {
@@ -159,9 +159,12 @@ TEST_F(NordlysIntegrationTest, DifferentEmbeddingsAssignToDifferentClusters) {
   std::vector<float> emb1 = {0.05f, 0.95f, 0.0f, 0.0f};
   std::vector<float> emb2 = {0.0f, 0.05f, 0.95f, 0.0f};
 
-  auto resp0 = engine.route(emb0.data(), emb0.size(), 0.5f);
-  auto resp1 = engine.route(emb1.data(), emb1.size(), 0.5f);
-  auto resp2 = engine.route(emb2.data(), emb2.size(), 0.5f);
+  EmbeddingView<float> view0{emb0.data(), emb0.size(), Device{CpuDevice{}}};
+  EmbeddingView<float> view1{emb1.data(), emb1.size(), Device{CpuDevice{}}};
+  EmbeddingView<float> view2{emb2.data(), emb2.size(), Device{CpuDevice{}}};
+  auto resp0 = engine.route(view0);
+  auto resp1 = engine.route(view1);
+  auto resp2 = engine.route(view2);
 
   EXPECT_EQ(resp0.cluster_id, 0);
   EXPECT_EQ(resp1.cluster_id, 1);

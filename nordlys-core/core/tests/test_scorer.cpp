@@ -6,7 +6,7 @@
 TEST(ModelScorerTest, EmptyModelsReturnsEmptyScores) {
   ModelScorer scorer;
   std::vector<ModelFeatures> models;
-  auto scores = scorer.score_models(0, 0.5f, models);
+  auto scores = scorer.score_models(0, models);
   EXPECT_TRUE(scores.empty());
 }
 
@@ -22,12 +22,12 @@ TEST(ModelScorerTest, SingleModel) {
 
   models.push_back(m1);
 
-  auto scores = scorer.score_models(0, 0.5f, models);
+  auto scores = scorer.score_models(0, models);
   EXPECT_EQ(scores.size(), 1);
   EXPECT_EQ(scores[0].model_id, "only_model");
 }
 
-TEST(ModelScorerTest, CostBiasAffectsScoring) {
+TEST(ModelScorerTest, ScoringByErrorRate) {
   ModelScorer scorer;
 
   std::vector<ModelFeatures> models;
@@ -47,13 +47,11 @@ TEST(ModelScorerTest, CostBiasAffectsScoring) {
   models.push_back(m1);
   models.push_back(m2);
 
-  auto scores_accuracy = scorer.score_models(0, 0.0f, models);
-  EXPECT_EQ(scores_accuracy.size(), 2);
-  EXPECT_EQ(scores_accuracy[0].model_id, "expensive/accurate");
-
-  auto scores_cost = scorer.score_models(0, 1.0f, models);
-  EXPECT_EQ(scores_cost.size(), 2);
-  EXPECT_EQ(scores_cost[0].model_id, "cheap/less_accurate");
+  auto scores = scorer.score_models(0, models);
+  EXPECT_EQ(scores.size(), 2);
+  // Should rank by error rate (lower is better)
+  EXPECT_EQ(scores[0].model_id, "expensive/accurate");
+  EXPECT_EQ(scores[1].model_id, "cheap/less_accurate");
 }
 
 TEST(ModelScorerTest, ZeroCostRange) {
@@ -75,7 +73,7 @@ TEST(ModelScorerTest, ZeroCostRange) {
   models.push_back(m1);
   models.push_back(m2);
 
-  auto scores = scorer.score_models(0, 0.5f, models);
+  auto scores = scorer.score_models(0, models);
   EXPECT_EQ(scores.size(), 2);
   EXPECT_EQ(scores[0].model_id, "model1");
 }
@@ -92,8 +90,7 @@ TEST(ModelScorerTest, CustomLambdaParams) {
 
   models.push_back(m1);
 
-  // Pass custom lambda_min and lambda_max as parameters
-  auto scores = scorer.score_models(0, 0.5f, models, 0.5f, 3.0f);
+  auto scores = scorer.score_models(0, models);
   EXPECT_EQ(scores.size(), 1);
 }
 
@@ -109,7 +106,7 @@ TEST(ModelScorerTest, NegativeClusterIdThrows) {
 
   models.push_back(m1);
 
-  EXPECT_THROW(scorer.score_models(-1, 0.5f, models), std::invalid_argument);
+  EXPECT_THROW(scorer.score_models(-1, models), std::invalid_argument);
 }
 
 TEST(ModelScorerTest, ClusterIdOutOfBoundsThrows) {
@@ -124,7 +121,7 @@ TEST(ModelScorerTest, ClusterIdOutOfBoundsThrows) {
 
   models.push_back(m1);
 
-  EXPECT_THROW(scorer.score_models(5, 0.5f, models), std::invalid_argument);
+  EXPECT_THROW(scorer.score_models(5, models), std::invalid_argument);
 }
 
 TEST(ModelScorerTest, ManyModels) {
@@ -140,7 +137,7 @@ TEST(ModelScorerTest, ManyModels) {
     models.push_back(m);
   }
 
-  auto scores = scorer.score_models(0, 0.5f, models);
+  auto scores = scorer.score_models(0, models);
   EXPECT_EQ(scores.size(), 50);
 }
 
@@ -163,11 +160,11 @@ TEST(ModelScorerTest, ExtremeCostValues) {
   models.push_back(m1);
   models.push_back(m2);
 
-  auto scores = scorer.score_models(0, 0.5f, models);
+  auto scores = scorer.score_models(0, models);
   EXPECT_EQ(scores.size(), 2);
 }
 
-TEST(ModelScorerTest, ExtremeCostBias) {
+TEST(ModelScorerTest, ScoringWorks) {
   ModelScorer scorer;
 
   std::vector<ModelFeatures> models;
@@ -179,10 +176,10 @@ TEST(ModelScorerTest, ExtremeCostBias) {
 
   models.push_back(m1);
 
-  auto scores_neg = scorer.score_models(0, -1.0f, models);
+  auto scores_neg = scorer.score_models(0, models);
   EXPECT_EQ(scores_neg.size(), 1);
 
-  auto scores_large = scorer.score_models(0, 10.0f, models);
+  auto scores_large = scorer.score_models(0, models);
   EXPECT_EQ(scores_large.size(), 1);
 }
 
@@ -205,14 +202,14 @@ TEST(ModelScorerTest, ErrorRateBoundaries) {
   models.push_back(m1);
   models.push_back(m2);
 
-  auto scores = scorer.score_models(0, 0.5f, models);
+  auto scores = scorer.score_models(0, models);
   EXPECT_EQ(scores.size(), 2);
   EXPECT_EQ(scores[0].model_id, "perfect");
   EXPECT_FLOAT_EQ(scores[0].accuracy, 1.0f);
   EXPECT_FLOAT_EQ(scores[1].accuracy, 0.0f);
 }
 
-TEST(ModelScorerTest, NormalizedCostCalculation) {
+TEST(ModelScorerTest, SameErrorRateOrdering) {
   ModelScorer scorer;
 
   std::vector<ModelFeatures> models;
@@ -231,11 +228,11 @@ TEST(ModelScorerTest, NormalizedCostCalculation) {
   models.push_back(m1);
   models.push_back(m2);
 
-  auto scores = scorer.score_models(0, 0.0f, models);
+  auto scores = scorer.score_models(0, models);
   EXPECT_EQ(scores.size(), 2);
-
-  EXPECT_FLOAT_EQ(scores[0].normalized_cost, 0.0f);
-  EXPECT_FLOAT_EQ(scores[1].normalized_cost, 1.0f);
+  // With same error rate, order is stable (first model wins)
+  EXPECT_EQ(scores[0].model_id, "cheap");
+  EXPECT_EQ(scores[1].model_id, "expensive");
 }
 
 TEST(ModelScorerTest, AccuracyFieldCalculation) {
@@ -250,7 +247,7 @@ TEST(ModelScorerTest, AccuracyFieldCalculation) {
 
   models.push_back(m1);
 
-  auto scores = scorer.score_models(0, 0.5f, models);
+  auto scores = scorer.score_models(0, models);
   EXPECT_EQ(scores.size(), 1);
   EXPECT_FLOAT_EQ(scores[0].error_rate, 0.25f);
   EXPECT_FLOAT_EQ(scores[0].accuracy, 0.75f);
@@ -269,7 +266,7 @@ TEST(ModelScorerTest, SortingOrderVerification) {
     models.push_back(m);
   }
 
-  auto scores = scorer.score_models(0, 0.0f, models);
+  auto scores = scorer.score_models(0, models);
   EXPECT_EQ(scores.size(), 10);
 
   for (size_t i = 1; i < scores.size(); ++i) {
@@ -292,7 +289,7 @@ TEST(ModelScorerTest, MoveConstructor) {
 
   ModelScorer scorer2(std::move(scorer1));
 
-  auto scores = scorer2.score_models(0, 0.5f, models);
+  auto scores = scorer2.score_models(0, models);
   EXPECT_EQ(scores.size(), 1);
 }
 
@@ -311,7 +308,7 @@ TEST(ModelScorerTest, MoveAssignment) {
   ModelScorer scorer2;
   scorer2 = std::move(scorer1);
 
-  auto scores = scorer2.score_models(0, 0.5f, models);
+  auto scores = scorer2.score_models(0, models);
   EXPECT_EQ(scores.size(), 1);
 }
 

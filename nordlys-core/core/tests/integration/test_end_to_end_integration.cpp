@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <filesystem>
 #include <nordlys_core/checkpoint.hpp>
+#include <nordlys_core/device.hpp>
+#include <nordlys_core/embedding_view.hpp>
 #include <nordlys_core/nordlys.hpp>
 #include <vector>
 
@@ -34,7 +36,8 @@ TEST_F(EndToEndIntegrationTest, RouteLargeNumberOfEmbeddings) {
 
   size_t successful_routes = 0;
   for (const auto& emb : embeddings) {
-    auto response = router.route(emb.data(), emb.size(), 0.5f);
+    EmbeddingView<float> view{emb.data(), emb.size(), Device{CpuDevice{}}};
+    auto response = router.route(view);
     EXPECT_FALSE(response.selected_model.empty());
     EXPECT_GE(response.cluster_id, 0);
     EXPECT_LT(response.cluster_id, static_cast<int>(router.get_n_clusters()));
@@ -61,7 +64,8 @@ TEST_F(EndToEndIntegrationTest, RouteClusteredEmbeddings) {
   std::vector<int> cluster_counts(n_clusters, 0);
 
   for (const auto& emb : embeddings) {
-    auto response = router.route(emb.data(), emb.size(), 0.5f);
+    EmbeddingView<float> view{emb.data(), emb.size(), Device{CpuDevice{}}};
+    auto response = router.route(view);
     EXPECT_GE(response.cluster_id, 0);
     EXPECT_LT(response.cluster_id, static_cast<int>(n_clusters));
     ++cluster_counts[response.cluster_id];
@@ -72,7 +76,7 @@ TEST_F(EndToEndIntegrationTest, RouteClusteredEmbeddings) {
   }
 }
 
-TEST_F(EndToEndIntegrationTest, CostBiasAffectsThroughput) {
+TEST_F(EndToEndIntegrationTest, RoutingThroughput) {
   auto checkpoint_path = get_checkpoint_path("valid_checkpoint_f32.json");
   auto checkpoint = NordlysCheckpoint::from_json(checkpoint_path.string());
   auto result = Nordlys32::from_checkpoint(std::move(checkpoint));
@@ -83,21 +87,15 @@ TEST_F(EndToEndIntegrationTest, CostBiasAffectsThroughput) {
 
   auto embeddings = nordlys::testing::FixturesLoader::generate_embeddings(100, embedding_dim);
 
-  std::unordered_map<std::string, int> model_counts_cheap;
-  std::unordered_map<std::string, int> model_counts_quality;
+  std::unordered_map<std::string, int> model_counts;
 
   for (const auto& emb : embeddings) {
-    auto response_cheap = router.route(emb.data(), emb.size(), 1.0f);
-    auto response_quality = router.route(emb.data(), emb.size(), 0.0f);
-
-    ++model_counts_cheap[response_cheap.selected_model];
-    ++model_counts_quality[response_quality.selected_model];
+    EmbeddingView<float> view{emb.data(), emb.size(), Device{CpuDevice{}}};
+    auto response = router.route(view);
+    ++model_counts[response.selected_model];
   }
 
-  EXPECT_GT(model_counts_cheap.size(), 0);
-  EXPECT_GT(model_counts_quality.size(), 0);
-
-  EXPECT_NE(model_counts_cheap, model_counts_quality);
+  EXPECT_GT(model_counts.size(), 0);
 }
 
 TEST_F(EndToEndIntegrationTest, CheckpointRoundTripIntegration) {
@@ -123,8 +121,9 @@ TEST_F(EndToEndIntegrationTest, CheckpointRoundTripIntegration) {
   auto embeddings = nordlys::testing::FixturesLoader::generate_embeddings(100, embedding_dim);
 
   for (const auto& emb : embeddings) {
-    auto resp1 = router1.route(emb.data(), emb.size(), 0.5f);
-    auto resp2 = router2.route(emb.data(), emb.size(), 0.5f);
+    EmbeddingView<float> view{emb.data(), emb.size(), Device{CpuDevice{}}};
+    auto resp1 = router1.route(view);
+    auto resp2 = router2.route(view);
 
     EXPECT_EQ(resp1.cluster_id, resp2.cluster_id);
     EXPECT_NEAR(resp1.cluster_distance, resp2.cluster_distance, 1e-5f);
@@ -143,7 +142,8 @@ TEST_F(EndToEndIntegrationTest, ClusterBoundaryBehavior) {
   auto embeddings = nordlys::testing::FixturesLoader::generate_embeddings(200, embedding_dim);
 
   for (const auto& emb : embeddings) {
-    auto response = router.route(emb.data(), emb.size(), 0.5f);
+    EmbeddingView<float> view{emb.data(), emb.size(), Device{CpuDevice{}}};
+    auto response = router.route(view);
 
     EXPECT_GE(response.cluster_id, 0);
     EXPECT_LT(response.cluster_id, static_cast<int>(router.get_n_clusters()));
@@ -169,7 +169,8 @@ TEST_F(EndToEndIntegrationTest, ModelFilteringThroughput) {
   auto embeddings = nordlys::testing::FixturesLoader::generate_embeddings(100, embedding_dim);
 
   for (const auto& emb : embeddings) {
-    auto response = router.route(emb.data(), emb.size(), 0.5f, filter);
+    EmbeddingView<float> view{emb.data(), emb.size(), Device{CpuDevice{}}};
+    auto response = router.route(view, filter);
     EXPECT_EQ(response.selected_model, models[0]);
   }
 }
@@ -187,7 +188,8 @@ TEST_F(EndToEndIntegrationTest, AlternativesConsistency) {
   auto embeddings = nordlys::testing::FixturesLoader::generate_embeddings(50, embedding_dim);
 
   for (const auto& emb : embeddings) {
-    auto response = router.route(emb.data(), emb.size(), 0.5f);
+    EmbeddingView<float> view{emb.data(), emb.size(), Device{CpuDevice{}}};
+    auto response = router.route(view);
 
     EXPECT_FALSE(response.selected_model.empty());
     EXPECT_LE(response.alternatives.size(), models.size() - 1);
@@ -214,7 +216,8 @@ TEST_F(EndToEndIntegrationTest, DoublePrecisionThroughput) {
 
   size_t successful_routes = 0;
   for (const auto& emb : embeddings) {
-    auto response = router.route(emb.data(), emb.size(), 0.5f);
+    EmbeddingView<double> view{emb.data(), emb.size(), Device{CpuDevice{}}};
+    auto response = router.route(view);
     EXPECT_FALSE(response.selected_model.empty());
     EXPECT_GE(response.cluster_id, 0);
     EXPECT_LT(response.cluster_id, static_cast<int>(router.get_n_clusters()));
@@ -236,8 +239,9 @@ TEST_F(EndToEndIntegrationTest, ConsistentClusterAssignmentAcrossInvocations) {
   auto embeddings = nordlys::testing::FixturesLoader::generate_embeddings(50, embedding_dim);
 
   for (const auto& emb : embeddings) {
-    auto resp1 = router.route(emb.data(), emb.size(), 0.5f);
-    auto resp2 = router.route(emb.data(), emb.size(), 0.5f);
+    EmbeddingView<float> view{emb.data(), emb.size(), Device{CpuDevice{}}};
+    auto resp1 = router.route(view);
+    auto resp2 = router.route(view);
 
     EXPECT_EQ(resp1.cluster_id, resp2.cluster_id);
     EXPECT_FLOAT_EQ(resp1.cluster_distance, resp2.cluster_distance);
@@ -258,7 +262,8 @@ TEST_F(EndToEndIntegrationTest, CUDABackendThroughputTest) {
 
   size_t successful_routes = 0;
   for (const auto& emb : embeddings) {
-    auto response = router.route(emb.data(), emb.size(), 0.5f);
+    EmbeddingView<float> view{emb.data(), emb.size(), Device{CpuDevice{}}};
+    auto response = router.route(view);
     EXPECT_FALSE(response.selected_model.empty());
     EXPECT_GE(response.cluster_id, 0);
     ++successful_routes;

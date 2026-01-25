@@ -35,11 +35,6 @@ struct ClusteringConfig {
   std::string normalization;
 };
 
-// Routing hyperparameters
-struct RoutingConfig {
-  float cost_bias_min;
-  float cost_bias_max;
-};
 
 // Cluster centers (zero-copy variant)
 using ClusterCenters = std::variant<EmbeddingMatrix<float>, EmbeddingMatrix<double>>;
@@ -55,7 +50,6 @@ struct NordlysCheckpoint {
   // Configuration (required)
   EmbeddingConfig embedding;
   ClusteringConfig clustering;
-  RoutingConfig routing;
 
   // Training metrics (partial/optional)
   TrainingMetrics metrics;

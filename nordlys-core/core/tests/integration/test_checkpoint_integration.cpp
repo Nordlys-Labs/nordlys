@@ -144,8 +144,6 @@ TEST_F(CheckpointIntegrationTest, CheckpointPropertiesAccessible) {
   EXPECT_FLOAT_EQ(checkpoint.silhouette_score(), 0.85f);
   EXPECT_FALSE(checkpoint.allow_trust_remote_code());
 
-  EXPECT_FLOAT_EQ(checkpoint.routing.cost_bias_min, 0.0f);
-  EXPECT_FLOAT_EQ(checkpoint.routing.cost_bias_max, 1.0f);
 
   EXPECT_EQ(checkpoint.clustering.algorithm, "lloyd");
   EXPECT_EQ(checkpoint.clustering.random_state, 42);

@@ -55,10 +55,6 @@ static const char* kTestCheckpointJson = R"({
     "algorithm": "lloyd",
     "normalization": "l2"
   },
-  "routing": {
-    "cost_bias_min": 0.0,
-    "cost_bias_max": 1.0
-  },
   "metrics": {
     "silhouette_score": 0.85
   }
@@ -98,10 +94,6 @@ static const char* kTestCheckpointJsonFloat64 = R"({
     "algorithm": "lloyd",
     "normalization": "l2"
   },
-  "routing": {
-    "cost_bias_min": 0.0,
-    "cost_bias_max": 1.0
-  },
   "metrics": {
     "silhouette_score": 0.85
   }
@@ -124,8 +116,6 @@ TEST_F(ProfileTest, RoundTripJson) {
   EXPECT_EQ(loaded.clustering.max_iter, test_profile.clustering.max_iter);
   EXPECT_EQ(loaded.clustering.algorithm, test_profile.clustering.algorithm);
 
-  EXPECT_FLOAT_EQ(loaded.routing.cost_bias_min, test_profile.routing.cost_bias_min);
-  EXPECT_FLOAT_EQ(loaded.routing.cost_bias_max, test_profile.routing.cost_bias_max);
 
   std::visit(
       [&](const auto& orig_centers) {
@@ -264,8 +254,7 @@ TEST_F(ProfileTest, InvalidJsonParsing) {
     "version": "2.0",
     "cluster_centers": [[1.0]],
     "models": [{"model_id": "test/model", "cost_per_1m_input_tokens": 1.0, "cost_per_1m_output_tokens": 1.0, "error_rates": [0.1]}],
-    "clustering": {"n_clusters": 1},
-    "routing": {}
+    "clustering": {"n_clusters": 1}
   })";
   EXPECT_THROW(NordlysCheckpoint::from_json_string(missing_embedding), std::exception);
 
@@ -274,8 +263,7 @@ TEST_F(ProfileTest, InvalidJsonParsing) {
     "cluster_centers": "not_an_array",
     "models": [{"model_id": "test/model", "cost_per_1m_input_tokens": 1.0, "cost_per_1m_output_tokens": 1.0, "error_rates": [0.1]}],
     "embedding": {"model": "test"},
-    "clustering": {"n_clusters": 1},
-    "routing": {}
+    "clustering": {"n_clusters": 1}
   })";
   EXPECT_THROW(NordlysCheckpoint::from_json_string(bad_centers), std::exception);
 }
@@ -343,7 +331,6 @@ TEST_F(ProfileTest, LargeNumberOfModels) {
   }
   ss << R"(], "embedding": {"model": "test", "dtype": "float32", "trust_remote_code": false}, )"
      << R"("clustering": {"n_clusters": 1, "random_state": 42, "max_iter": 300, "n_init": 10, "algorithm": "lloyd", "normalization": "l2"}, )"
-     << R"("routing": {"cost_bias_min": 0.0, "cost_bias_max": 1.0}, )"
      << R"("metrics": {"silhouette_score": 0.5}})";
 
   NordlysCheckpoint profile = NordlysCheckpoint::from_json_string(ss.str());

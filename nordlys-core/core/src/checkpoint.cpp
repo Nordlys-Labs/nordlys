@@ -86,18 +86,6 @@ void from_json(const json& j, ClusteringConfig& c) {
   c.normalization = j.value("normalization", "l2");
 }
 
-// ============================================================================
-// JSON Serialization - RoutingConfig
-// ============================================================================
-
-void to_json(json& j, const RoutingConfig& c) {
-  j = {{"cost_bias_min", c.cost_bias_min}, {"cost_bias_max", c.cost_bias_max}};
-}
-
-void from_json(const json& j, RoutingConfig& c) {
-  c.cost_bias_min = j.value("cost_bias_min", 0.0f);
-  c.cost_bias_max = j.value("cost_bias_max", 1.0f);
-}
 
 // ============================================================================
 // JSON Serialization - ModelFeatures
@@ -182,12 +170,6 @@ NordlysCheckpoint NordlysCheckpoint::from_json_string(const std::string& json_st
   auto norm_result = clust["normalization"].get_string();
   checkpoint.clustering.normalization = norm_result.error() ? "l2" : std::string(norm_result.value());
 
-  // Routing config
-  auto rout = doc["routing"].get_object().value();
-  auto cbmin_result = rout["cost_bias_min"].get_double();
-  checkpoint.routing.cost_bias_min = cbmin_result.error() ? 0.0f : static_cast<float>(cbmin_result.value());
-  auto cbmax_result = rout["cost_bias_max"].get_double();
-  checkpoint.routing.cost_bias_max = cbmax_result.error() ? 1.0f : static_cast<float>(cbmax_result.value());
 
   // Models
   auto models_array = doc["models"].get_array().value();
@@ -293,7 +275,6 @@ std::string NordlysCheckpoint::to_json_string() const {
   // Configuration
   j["embedding"] = embedding;
   j["clustering"] = clustering;
-  j["routing"] = routing;
 
   // Models
   j["models"] = models;
@@ -419,12 +400,6 @@ NordlysCheckpoint NordlysCheckpoint::from_msgpack_string(const std::string& data
   checkpoint.clustering.normalization
       = clust.contains("normalization") ? clust.at("normalization").as<std::string>() : "l2";
 
-  // Routing config
-  auto rout = map.at("routing").as<std::map<std::string, msgpack::object>>();
-  checkpoint.routing.cost_bias_min
-      = rout.contains("cost_bias_min") ? rout.at("cost_bias_min").as<float>() : 0.0f;
-  checkpoint.routing.cost_bias_max
-      = rout.contains("cost_bias_max") ? rout.at("cost_bias_max").as<float>() : 1.0f;
 
   // Models
   auto models_arr = map.at("models").as<std::vector<msgpack::object>>();
@@ -529,8 +504,8 @@ std::string NordlysCheckpoint::to_msgpack_string() const {
   msgpack::sbuffer buffer;
   msgpack::packer<msgpack::sbuffer> pk(&buffer);
 
-  // Top-level map with 7 keys
-  pk.pack_map(7);
+  // Top-level map with 6 keys
+  pk.pack_map(6);
 
   // Version
   pk.pack("version");
@@ -562,13 +537,6 @@ std::string NordlysCheckpoint::to_msgpack_string() const {
   pk.pack("normalization");
   pk.pack(clustering.normalization);
 
-  // Routing config
-  pk.pack("routing");
-  pk.pack_map(2);
-  pk.pack("cost_bias_min");
-  pk.pack(routing.cost_bias_min);
-  pk.pack("cost_bias_max");
-  pk.pack(routing.cost_bias_max);
 
   // Models
   pk.pack("models");
