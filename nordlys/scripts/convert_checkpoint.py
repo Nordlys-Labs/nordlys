@@ -5,7 +5,7 @@ import json
 import sys
 from pathlib import Path
 
-from nordlys_core_ext import NordlysCheckpoint
+from nordlys_core import NordlysCheckpoint
 
 
 def get_output_path(input_path: Path, output: Path | None) -> Path:

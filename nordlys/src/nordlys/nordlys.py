@@ -28,7 +28,7 @@ from nordlys.clustering import (
     compute_cluster_metrics,
 )
 from nordlys.reduction import Reducer
-from nordlys_core_ext import Nordlys32, Nordlys64, NordlysCheckpoint
+from nordlys_core import Nordlys32, Nordlys64, NordlysCheckpoint
 
 
 logger = logging.getLogger(__name__)

@@ -40,7 +40,7 @@ from nordlys import reduction
 from nordlys import clustering
 
 # C++ Core types
-from nordlys_core_ext import (
+from nordlys_core import (
     NordlysCheckpoint,
     TrainingMetrics,
     EmbeddingConfig,
