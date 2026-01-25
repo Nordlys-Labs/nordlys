@@ -13,9 +13,6 @@
 
 #include "nordlys.h"
 
-// Single router type (float32)
-using Router = Nordlys;
-
 // Internal helper to convert std::string to C string
 static char* str_duplicate(const std::string& str) {
   char* result = static_cast<char*>(malloc(str.length() + 1));
@@ -43,9 +40,9 @@ static void cleanup_route_result_contents(NordlysRouteResult* result) {
   result->alternatives_count = 0;
 }
 
-// Get Router pointer from opaque handle
-static Router* get_router(NordlysRouter* router) {
-  return router ? reinterpret_cast<Router*>(router) : nullptr;
+// Get Nordlys pointer from opaque handle
+static Nordlys* get_router(NordlysRouter* router) {
+  return router ? reinterpret_cast<Nordlys*>(router) : nullptr;
 }
 
 // Helper to convert NordlysDevice to Device variant
@@ -61,7 +58,7 @@ static Device device_to_device(NordlysDevice device) {
 }
 
 // Factory: creates router from checkpoint
-static std::optional<Router> create_router(NordlysCheckpoint profile, Device device) {
+static std::optional<Nordlys> create_router(NordlysCheckpoint profile, Device device) {
   auto result = Nordlys::from_checkpoint(std::move(profile), device);
   if (!result) return std::nullopt;
   return std::move(result.value());
@@ -117,7 +114,7 @@ NordlysRouter* nordlys_router_create(const char* profile_path, NordlysDevice dev
     auto dev = device_to_device(device);
     auto router = create_router(std::move(profile), dev);
     if (!router) return nullptr;
-    return reinterpret_cast<NordlysRouter*>(new Router(std::move(*router)));
+    return reinterpret_cast<NordlysRouter*>(new Nordlys(std::move(*router)));
   } catch (...) {
     return nullptr;
   }
@@ -130,7 +127,7 @@ NordlysRouter* nordlys_router_create_from_json(const char* json_str, NordlysDevi
     auto dev = device_to_device(device);
     auto router = create_router(std::move(profile), dev);
     if (!router) return nullptr;
-    return reinterpret_cast<NordlysRouter*>(new Router(std::move(*router)));
+    return reinterpret_cast<NordlysRouter*>(new Nordlys(std::move(*router)));
   } catch (...) {
     return nullptr;
   }
@@ -143,7 +140,7 @@ NordlysRouter* nordlys_router_create_from_msgpack(const char* path, NordlysDevic
     auto dev = device_to_device(device);
     auto router = create_router(std::move(profile), dev);
     if (!router) return nullptr;
-    return reinterpret_cast<NordlysRouter*>(new Router(std::move(*router)));
+    return reinterpret_cast<NordlysRouter*>(new Nordlys(std::move(*router)));
   } catch (...) {
     return nullptr;
   }
