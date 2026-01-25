@@ -13,7 +13,7 @@ static NordlysCheckpoint LoadCheckpoint(const std::string& profile_name) {
 
 static void BM_RoutingSingle_Small(benchmark::State& state) {
   auto checkpoint = LoadCheckpoint("checkpoint_small.json");
-  auto nordlys_result = Nordlys32::from_checkpoint(std::move(checkpoint));
+  auto nordlys_result = Nordlys::from_checkpoint(std::move(checkpoint));
 
   if (!nordlys_result.has_value()) {
     state.SkipWithError(("Failed to create router: " + nordlys_result.error()).c_str());
@@ -32,7 +32,7 @@ BENCHMARK(BM_RoutingSingle_Small)->Unit(benchmark::kMicrosecond);
 
 static void BM_RoutingSingle_Medium(benchmark::State& state) {
   auto checkpoint = LoadCheckpoint("checkpoint_medium.json");
-  auto nordlys_result = Nordlys32::from_checkpoint(std::move(checkpoint));
+  auto nordlys_result = Nordlys::from_checkpoint(std::move(checkpoint));
 
   if (!nordlys_result.has_value()) {
     state.SkipWithError(("Failed to create router: " + nordlys_result.error()).c_str());
@@ -51,7 +51,7 @@ BENCHMARK(BM_RoutingSingle_Medium)->Unit(benchmark::kMicrosecond);
 
 static void BM_RoutingSingle_Large(benchmark::State& state) {
   auto checkpoint = LoadCheckpoint("checkpoint_large.json");
-  auto nordlys_result = Nordlys32::from_checkpoint(std::move(checkpoint));
+  auto nordlys_result = Nordlys::from_checkpoint(std::move(checkpoint));
 
   if (!nordlys_result.has_value()) {
     state.SkipWithError(("Failed to create router: " + nordlys_result.error()).c_str());
@@ -70,7 +70,7 @@ BENCHMARK(BM_RoutingSingle_Large)->Unit(benchmark::kMicrosecond);
 
 static void BM_RoutingSingle_XL(benchmark::State& state) {
   auto checkpoint = LoadCheckpoint("checkpoint_xl.json");
-  auto nordlys_result = Nordlys32::from_checkpoint(std::move(checkpoint));
+  auto nordlys_result = Nordlys::from_checkpoint(std::move(checkpoint));
 
   if (!nordlys_result.has_value()) {
     state.SkipWithError(("Failed to create router: " + nordlys_result.error()).c_str());
@@ -91,7 +91,7 @@ BENCHMARK(BM_RoutingSingle_XL)->Unit(benchmark::kMicrosecond);
 
 static void BM_RoutingCostBias(benchmark::State& state) {
   auto checkpoint = LoadCheckpoint("checkpoint_medium.json");
-  auto nordlys_result = Nordlys32::from_checkpoint(std::move(checkpoint));
+  auto nordlys_result = Nordlys::from_checkpoint(std::move(checkpoint));
 
   if (!nordlys_result.has_value()) {
     state.SkipWithError(("Failed to create router: " + nordlys_result.error()).c_str());
@@ -123,7 +123,7 @@ static void BM_RoutingColdStart_Small(benchmark::State& state) {
 
   for (auto _ : state) {
     auto checkpoint = LoadCheckpoint("checkpoint_small.json");
-    auto nordlys_result = Nordlys32::from_checkpoint(std::move(checkpoint));
+    auto nordlys_result = Nordlys::from_checkpoint(std::move(checkpoint));
 
     if (!nordlys_result.has_value()) {
       state.SkipWithError(("Failed to create router: " + nordlys_result.error()).c_str());
@@ -142,7 +142,7 @@ static void BM_RoutingColdStart_Medium(benchmark::State& state) {
 
   for (auto _ : state) {
     auto checkpoint = LoadCheckpoint("checkpoint_medium.json");
-    auto nordlys_result = Nordlys32::from_checkpoint(std::move(checkpoint));
+    auto nordlys_result = Nordlys::from_checkpoint(std::move(checkpoint));
 
     if (!nordlys_result.has_value()) {
       state.SkipWithError(("Failed to create router: " + nordlys_result.error()).c_str());
@@ -158,7 +158,7 @@ BENCHMARK(BM_RoutingColdStart_Medium)->Unit(benchmark::kMillisecond);
 
 static void BM_RoutingConcurrent(benchmark::State& state) {
   auto checkpoint = LoadCheckpoint("checkpoint_medium.json");
-  auto nordlys_result = Nordlys32::from_checkpoint(std::move(checkpoint));
+  auto nordlys_result = Nordlys::from_checkpoint(std::move(checkpoint));
 
   if (!nordlys_result.has_value()) {
     state.SkipWithError(("Failed to create router: " + nordlys_result.error()).c_str());
@@ -205,7 +205,7 @@ BENCHMARK(BM_RoutingConcurrent)
 
 static void BM_RouteBatch(benchmark::State& state) {
   auto checkpoint = LoadCheckpoint("checkpoint_medium.json");
-  auto nordlys_result = Nordlys32::from_checkpoint(std::move(checkpoint));
+  auto nordlys_result = Nordlys::from_checkpoint(std::move(checkpoint));
 
   if (!nordlys_result.has_value()) {
     state.SkipWithError(("Failed to create router: " + nordlys_result.error()).c_str());
