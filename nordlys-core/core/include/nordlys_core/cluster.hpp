@@ -235,7 +235,7 @@ public:
 #  ifdef _OPENMP
 #    pragma omp parallel for schedule(static)
 #  endif
-    for (size_t i = 0; i < view.count; ++i) {
+    for (int i = 0; i < static_cast<int>(view.count); ++i) {
       EmbeddingView<Scalar> single_view{
           view.data + i * view.dim,
           view.dim,
