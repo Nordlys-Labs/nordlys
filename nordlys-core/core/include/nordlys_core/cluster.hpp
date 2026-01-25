@@ -70,16 +70,19 @@ template <typename Scalar> struct MinDistanceResult {
 // Declare custom OpenMP reduction for MinDistanceResult
 // Note: We declare explicit reductions for float and double to ensure compatibility
 // Template-based reductions have limited compiler support
+// MSVC's OpenMP 2.0 doesn't support custom reductions (OpenMP 4.0+ feature)
 #  ifdef _OPENMP
+#    ifndef _MSC_VER
 // For float
-#    pragma omp declare reduction(custom_min_float:MinDistanceResult<float>: \
-      omp_out = (omp_in.dist_sq < omp_out.dist_sq) ? omp_in : omp_out) \
-      initializer(omp_priv = {std::numeric_limits<float>::max(), -1})
+#      pragma omp declare reduction(custom_min_float:MinDistanceResult<float>: \
+        omp_out = (omp_in.dist_sq < omp_out.dist_sq) ? omp_in : omp_out) \
+        initializer(omp_priv = {std::numeric_limits<float>::max(), -1})
 
 // For double  
-#    pragma omp declare reduction(custom_min_double:MinDistanceResult<double>: \
-      omp_out = (omp_in.dist_sq < omp_out.dist_sq) ? omp_in : omp_out) \
-      initializer(omp_priv = {std::numeric_limits<double>::max(), -1})
+#      pragma omp declare reduction(custom_min_double:MinDistanceResult<double>: \
+        omp_out = (omp_in.dist_sq < omp_out.dist_sq) ? omp_in : omp_out) \
+        initializer(omp_priv = {std::numeric_limits<double>::max(), -1})
+#    endif  // _MSC_VER
 #  endif
 
 template <typename Scalar> class CpuClusterBackend : public IClusterBackend<Scalar> {
@@ -125,10 +128,28 @@ public:
 
 #  ifdef _OPENMP
     if (n_clusters_ > 100) {
+#    ifdef _MSC_VER
+      // MSVC OpenMP 2.0 doesn't support custom reductions
+      // Use critical section for thread-safe min finding
+#      pragma omp parallel for
+      for (int i = 0; i < n_clusters_; ++i) {
+        const auto* centroid_bytes
+            = reinterpret_cast<const unum::usearch::byte_t*>(centroids_.data() + i * dim_);
+        auto dist_sq = static_cast<Scalar>(metric_(emb_bytes, centroid_bytes));
+
+#        pragma omp critical
+        {
+          if (dist_sq < best_dist_sq) {
+            best_dist_sq = dist_sq;
+            best_idx = i;
+          }
+        }
+      }
+#    else  // GCC/Clang: Use custom reduction (OpenMP 4.0+)
       MinDistanceResult<Scalar> result{std::numeric_limits<Scalar>::max(), -1};
 
       if constexpr (std::is_same_v<Scalar, float>) {
-#      pragma omp parallel for reduction(custom_min_float:result)
+#        pragma omp parallel for reduction(custom_min_float:result)
         for (int i = 0; i < n_clusters_; ++i) {
           const auto* centroid_bytes
               = reinterpret_cast<const unum::usearch::byte_t*>(centroids_.data() + i * dim_);
@@ -140,7 +161,7 @@ public:
           }
         }
       } else if constexpr (std::is_same_v<Scalar, double>) {
-#      pragma omp parallel for reduction(custom_min_double:result)
+#        pragma omp parallel for reduction(custom_min_double:result)
         for (int i = 0; i < n_clusters_; ++i) {
           const auto* centroid_bytes
               = reinterpret_cast<const unum::usearch::byte_t*>(centroids_.data() + i * dim_);
@@ -167,6 +188,7 @@ public:
 
       best_dist_sq = result.dist_sq;
       best_idx = result.idx;
+#    endif  // _MSC_VER
     } else {
       for (int i = 0; i < n_clusters_; ++i) {
         const auto* centroid_bytes
