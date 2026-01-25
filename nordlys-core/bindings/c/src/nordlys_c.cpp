@@ -114,7 +114,7 @@ Nordlys* nordlys_create(const char* profile_path, NordlysDevice device) {
     auto dev = device_to_device(device);
     auto nordlys = create_nordlys(std::move(profile), dev);
     if (!nordlys) return nullptr;
-    return reinterpret_cast<Nordlys*>(new Nordlys(std::move(*nordlys)));
+    return reinterpret_cast<Nordlys*>(new ::Nordlys(std::move(*nordlys)));
   } catch (...) {
     return nullptr;
   }
@@ -127,7 +127,7 @@ Nordlys* nordlys_create_from_json(const char* json_str, NordlysDevice device) {
     auto dev = device_to_device(device);
     auto nordlys = create_nordlys(std::move(profile), dev);
     if (!nordlys) return nullptr;
-    return reinterpret_cast<Nordlys*>(new Nordlys(std::move(*nordlys)));
+    return reinterpret_cast<Nordlys*>(new ::Nordlys(std::move(*nordlys)));
   } catch (...) {
     return nullptr;
   }
@@ -140,7 +140,7 @@ Nordlys* nordlys_create_from_msgpack(const char* path, NordlysDevice device) {
     auto dev = device_to_device(device);
     auto nordlys = create_nordlys(std::move(profile), dev);
     if (!nordlys) return nullptr;
-    return reinterpret_cast<Nordlys*>(new Nordlys(std::move(*nordlys)));
+    return reinterpret_cast<Nordlys*>(new ::Nordlys(std::move(*nordlys)));
   } catch (...) {
     return nullptr;
   }
