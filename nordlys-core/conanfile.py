@@ -4,7 +4,7 @@ from conan.tools.cmake import cmake_layout
 
 class NordlysCoreConan(ConanFile):
     name = "nordlys_core"
-    version = "0.2.1"
+    version = "0.2.2"
 
     settings = "os", "compiler", "build_type", "arch"
     generators = "CMakeToolchain", "CMakeDeps"
