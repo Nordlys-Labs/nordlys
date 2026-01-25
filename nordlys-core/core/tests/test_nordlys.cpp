@@ -497,7 +497,7 @@ TEST_F(Nordlysest, LargeDimensions) {
   auto result = Nordlys::from_checkpoint(std::move(checkpoint));
 
   ASSERT_TRUE(result.has_value());
-  auto& router = result.value();
+  auto& nordlys = result.value();
 
   EXPECT_EQ(nordlys.get_embedding_dim(), 4096);
   EXPECT_EQ(nordlys.get_n_clusters(), 2);
@@ -521,7 +521,7 @@ TEST_F(Nordlysest, BackendExplicitSelection) {
   auto checkpoint = NordlysCheckpoint::from_json_string(kTestCheckpointJson);
   auto result = Nordlys::from_checkpoint(std::move(checkpoint), Device{CpuDevice{}});
   ASSERT_TRUE(result);
-  auto router = std::move(result.value());
+  auto nordlys = std::move(result.value());
 
   std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
   EmbeddingView view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
