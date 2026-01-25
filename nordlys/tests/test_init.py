@@ -61,7 +61,6 @@ class TestPackageMetadata:
             "TrainingMetrics",
             "EmbeddingConfig",
             "ClusteringConfig",
-            "RoutingConfig",
             "ModelFeatures",
             "reduction",
             "clustering",

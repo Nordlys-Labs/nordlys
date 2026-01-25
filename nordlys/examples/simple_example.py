@@ -174,12 +174,8 @@ test_prompts = [
 
 for prompt, category in test_prompts:
     print(f'\nPrompt ({category}): "{prompt}"')
-
-    # Route with different cost preferences
-    for cost_bias in [0.0, 0.5, 1.0]:
-        result = router.route(prompt, cost_bias=cost_bias)
-        bias_label = {0.0: "cheapest", 0.5: "balanced", 1.0: "best quality"}[cost_bias]
-        print(f"  cost_bias={cost_bias} ({bias_label}): {result.model_id}")
+    result = router.route(prompt)
+    print(f"  Selected model: {result.model_id}")
 
 # =============================================================================
 # 6. Batch routing
@@ -194,7 +190,7 @@ batch_prompts = [
     "Convert 5 km to miles",
 ]
 
-results = router.route_batch(batch_prompts, cost_bias=0.5)
+results = router.route_batch(batch_prompts)
 for prompt, result in zip(batch_prompts, results):
     print(f'  "{prompt[:30]}..." -> {result.model_id}')
 
@@ -214,7 +210,7 @@ loaded_router = Nordlys.load("/tmp/nordlys_example.json")
 print(f"Loaded: {loaded_router}")
 
 # Verify it works
-result = loaded_router.route("Test prompt", cost_bias=0.5)
+result = loaded_router.route("Test prompt")
 print(f"Loaded router routes to: {result.model_id}")
 
 print("\n" + "=" * 60)

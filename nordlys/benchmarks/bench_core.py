@@ -65,7 +65,7 @@ def bench_route_single(benchmark, fitted_nordlys):
     prompt = "Explain quantum computing in simple terms"
 
     def _route():
-        return fitted_nordlys.route(prompt, cost_bias=0.5)
+        return fitted_nordlys.route(prompt)
 
     result = benchmark(_route)
     assert result is not None
@@ -79,7 +79,7 @@ def bench_route_batch(benchmark, fitted_nordlys, batch_size):
     prompts = [f"Explain concept {i} in detail" for i in range(batch_size)]
 
     def _route_batch():
-        return fitted_nordlys.route_batch(prompts, cost_bias=0.5)
+        return fitted_nordlys.route_batch(prompts)
 
     result = benchmark(_route_batch)
     assert result is not None

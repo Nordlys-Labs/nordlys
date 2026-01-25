@@ -19,7 +19,8 @@ dependencies = []
 [tool.scikit-build]
 minimum-version = "build-system.requires"
 build-dir = "build/{wheel_tag}"
-wheel.packages = ["src/nordlys_core"]
+wheel.packages = ["../nordlys-core/bindings/python/src/nordlys_core"]
+wheel.install-dir = "nordlys_core"
 cmake.build-type = "Release"
 cmake.version = ">=3.24"
 cmake.source-dir = "../nordlys-core"
