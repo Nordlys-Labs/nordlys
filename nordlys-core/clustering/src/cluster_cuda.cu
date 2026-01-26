@@ -1,8 +1,9 @@
 #ifdef NORDLYS_HAS_CUDA
 
+#  include <climits>
 #  include <cmath>
 #  include <cstring>
-#  include <nordlys/clustering/cluster.hpp>
+#  include <nordlys/clustering/cluster_cuda.hpp>
 #  include <nordlys/clustering/cuda/common.cuh>
 #  include <nordlys/clustering/cuda/distance.cuh>
 #  include <numeric>
@@ -127,21 +128,33 @@ void CudaClusterBackend::capture_graph() {
 }
 
 void CudaClusterBackend::load_centroids(const float* data, size_t n_clusters, size_t dim) {
-  if (n_clusters <= 0 || dim <= 0) {
-    throw std::invalid_argument("n_clusters and dim must be positive");
+  if (n_clusters == 0 || dim == 0) {
+    throw std::invalid_argument("load_centroids: n_clusters and dim must be non-zero");
   }
 
-  auto nc = static_cast<size_t>(n_clusters);
-  auto d = static_cast<size_t>(dim);
+  if (n_clusters > static_cast<size_t>(INT_MAX)) {
+    throw std::invalid_argument("load_centroids: n_clusters exceeds INT_MAX");
+  }
 
-  if (nc > SIZE_MAX / d) {
-    throw std::invalid_argument("n_clusters * dim would overflow");
+  if (dim > static_cast<size_t>(INT_MAX)) {
+    throw std::invalid_argument("load_centroids: dim exceeds INT_MAX");
+  }
+
+  if (data == nullptr) {
+    throw std::invalid_argument("load_centroids: data pointer is null");
+  }
+
+  if (n_clusters > SIZE_MAX / dim) {
+    throw std::invalid_argument("load_centroids: n_clusters * dim would overflow");
   }
 
   free_memory();
 
-  n_clusters_ = n_clusters;
-  dim_ = dim;
+  n_clusters_ = static_cast<int>(n_clusters);
+  dim_ = static_cast<int>(dim);
+
+  auto nc = static_cast<size_t>(n_clusters_);
+  auto d = static_cast<size_t>(dim_);
 
   d_centroids_.reset(nc * d);
   d_centroid_norms_.reset(nc);
@@ -173,7 +186,7 @@ std::pair<int, float> CudaClusterBackend::assign(EmbeddingView view) {
   }
 
   if (view.dim != static_cast<size_t>(dim_)) {
-    throw std::invalid_argument("dimension mismatch in assign");
+    throw std::invalid_argument("assign: dimension mismatch");
   }
 
   if (!graph_valid_ || !graph_exec_) {
@@ -248,7 +261,7 @@ std::vector<std::pair<int, float>> CudaClusterBackend::assign_batch(EmbeddingBat
     return {assign(single_view)};
   }
   if (view.dim != static_cast<size_t>(dim_)) {
-    throw std::invalid_argument("dimension mismatch");
+    throw std::invalid_argument("assign_batch: dimension mismatch");
   }
 
   return std::visit(overloaded{[&](CpuDevice) -> std::vector<std::pair<int, float>> {
@@ -421,6 +434,16 @@ std::vector<std::pair<int, float>> CudaClusterBackend::assign_batch_from_host(
   }
 
   return results;
+}
+
+// =============================================================================
+// CUDA utility function
+// =============================================================================
+
+bool cuda_available() noexcept {
+  int device_count = 0;
+  cudaError_t err = cudaGetDeviceCount(&device_count);
+  return err == cudaSuccess && device_count > 0;
 }
 
 #endif  // NORDLYS_HAS_CUDA

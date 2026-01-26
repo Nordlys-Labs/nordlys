@@ -29,7 +29,7 @@ set(USEARCH_USE_SIMSIMD ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(usearch)
 
 # Clustering library
-add_library(nordlys_clustering STATIC src/cluster.cpp)
+add_library(nordlys_clustering STATIC src/cluster_cpu.cpp src/cluster_factory.cpp)
 add_library(Nordlys::Clustering ALIAS nordlys_clustering)
 
 target_include_directories(nordlys_clustering
