@@ -6,6 +6,7 @@
 #include <nordlys/clustering/cluster.hpp>
 #include <nordlys/common/device.hpp>
 #include <nordlys/clustering/embedding_view.hpp>
+#include <nordlys/common/matrix.hpp>
 #include <random>
 #include <thread>
 #include <vector>

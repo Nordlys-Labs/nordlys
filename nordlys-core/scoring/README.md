@@ -48,7 +48,7 @@ for (const auto& score : scores) {
 
 The scoring formula combines error rate and cost:
 
-```
+```text
 score = lambda_error * normalized_error + lambda_cost * normalized_cost
 ```
 

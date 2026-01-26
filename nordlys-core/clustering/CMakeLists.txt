@@ -45,7 +45,8 @@ target_include_directories(nordlys_clustering SYSTEM PUBLIC
 target_link_libraries(nordlys_clustering
   PUBLIC
     Nordlys::Common
-    usearch
+  PRIVATE
+    $<BUILD_INTERFACE:usearch>
 )
 
 # CUDA acceleration (optional)
@@ -96,7 +97,7 @@ if(NORDLYS_BUILD_TESTS)
   add_subdirectory(tests)
 endif()
 
-install(TARGETS nordlys_clustering usearch
+install(TARGETS nordlys_clustering
   EXPORT NordlysTargets
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )

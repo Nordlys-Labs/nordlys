@@ -63,7 +63,7 @@ void CudaClusterBackend::free_memory() {
   pipeline_initialized_ = false;
 }
 
- CudaClusterBackend::CudaClusterBackend() {
+CudaClusterBackend::CudaClusterBackend() {
   try {
     NORDLYS_CUDA_CHECK(cudaStreamCreate(&stream_));
     NORDLYS_CUBLAS_CHECK(cublasCreate(&cublas_));
@@ -81,13 +81,13 @@ void CudaClusterBackend::free_memory() {
   }
 }
 
- CudaClusterBackend::~CudaClusterBackend() {
+CudaClusterBackend::~CudaClusterBackend() {
   free_memory();
   if (cublas_) cublasDestroy(cublas_);
   if (stream_) cudaStreamDestroy(stream_);
 }
 
- void CudaClusterBackend::capture_graph() {
+void CudaClusterBackend::capture_graph() {
   if (graph_exec_) {
     cudaGraphExecDestroy(graph_exec_);
     graph_exec_ = nullptr;
@@ -182,33 +182,27 @@ std::pair<int, float> CudaClusterBackend::assign(EmbeddingView view) {
 
   return std::visit(
       overloaded{[&](CpuDevice) -> std::pair<int, float> {
-                   // CPU input: copy to GPU (existing path)
                    std::memcpy(h_embedding_.get(), view.data, view.dim * sizeof(float));
                    NORDLYS_CUDA_CHECK(cudaMemcpyAsync(d_embedding_.get(), h_embedding_.get(),
                                                       view.dim * sizeof(float),
                                                       cudaMemcpyHostToDevice, stream_));
 
-                   // Use existing graph (expects data in d_embedding_)
                    NORDLYS_CUDA_CHECK(cudaGraphLaunch(graph_exec_, stream_));
                    NORDLYS_CUDA_CHECK(cudaStreamSynchronize(stream_));
 
                    return {*h_best_idx_.get(), *h_best_dist_.get()};
                  },
                  [&](CudaDevice d) -> std::pair<int, float> {
-                   // GPU input: use pointer directly
-                   // Ensure we're on the correct device
                    int current_device;
                    cudaGetDevice(&current_device);
                    if (current_device != d.id) {
                      NORDLYS_CUDA_CHECK(cudaSetDevice(d.id));
                    }
 
-                   // Copy directly from input GPU pointer to our GPU buffer
                    NORDLYS_CUDA_CHECK(cudaMemcpyAsync(d_embedding_.get(), view.data,
                                                       view.dim * sizeof(float),
                                                       cudaMemcpyDeviceToDevice, stream_));
 
-                   // Use existing graph
                    NORDLYS_CUDA_CHECK(cudaGraphLaunch(graph_exec_, stream_));
                    NORDLYS_CUDA_CHECK(cudaStreamSynchronize(stream_));
 
@@ -247,8 +241,7 @@ void CudaClusterBackend::ensure_stage_capacity(int stage_idx, int count) {
   stage.capacity = new_cap;
 }
 
-std::vector<std::pair<int, float>> CudaClusterBackend::assign_batch(
-    EmbeddingBatchView view) {
+std::vector<std::pair<int, float>> CudaClusterBackend::assign_batch(EmbeddingBatchView view) {
   if (view.count == 0) return {};
   if (view.count == 1) {
     EmbeddingView single_view{view.data, view.dim, view.device};
@@ -262,7 +255,6 @@ std::vector<std::pair<int, float>> CudaClusterBackend::assign_batch(
                                  return assign_batch_from_host(view);
                                },
                                [&](CudaDevice d) -> std::vector<std::pair<int, float>> {
-                                 // Ensure we're on the correct device
                                  int current_device;
                                  cudaGetDevice(&current_device);
                                  if (current_device != d.id) {
@@ -314,7 +306,6 @@ std::vector<std::pair<int, float>> CudaClusterBackend::assign_batch_from_device(
       }
     }
 
-    // Device-to-device copy
     NORDLYS_CUDA_CHECK(cudaMemcpyAsync(stage.d_queries.get(), src,
                                        this_count * dim_ * sizeof(float), cudaMemcpyDeviceToDevice,
                                        stage.stream));
@@ -431,6 +422,5 @@ std::vector<std::pair<int, float>> CudaClusterBackend::assign_batch_from_host(
 
   return results;
 }
-
 
 #endif  // NORDLYS_HAS_CUDA
