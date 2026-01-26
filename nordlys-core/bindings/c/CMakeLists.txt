@@ -13,7 +13,7 @@ target_include_directories(nordlys_c
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
-target_link_libraries(nordlys_c PRIVATE nordlys::core)
+target_link_libraries(nordlys_c PRIVATE Nordlys::Core)
 target_compile_definitions(nordlys_c PRIVATE NORDLYS_C_EXPORTS)
 nordlys_target_compile_options(nordlys_c)
 

@@ -3,10 +3,10 @@
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
 
-#include <nordlys_core/checkpoint.hpp>
-#include <nordlys_core/device.hpp>
-#include <nordlys_core/embedding_view.hpp>
-#include <nordlys_core/nordlys.hpp>
+#include <nordlys/checkpoint/checkpoint.hpp>
+#include <nordlys/common/device.hpp>
+#include <nordlys/clustering/embedding_view.hpp>
+#include <nordlys/routing/nordlys.hpp>
 
 #include "helpers.h"
 #include "bindings.h"

@@ -1,7 +1,7 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/string.h>
 
-#include <nordlys_core/checkpoint.hpp>
+#include <nordlys/checkpoint/checkpoint.hpp>
 
 #include "bindings.h"
 

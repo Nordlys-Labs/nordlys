@@ -14,7 +14,7 @@ nanobind_add_module(_core NB_STATIC
   src/nordlys_core/nordlys.cpp
 )
 
-target_link_libraries(_core PRIVATE nordlys::core)
+target_link_libraries(_core PRIVATE Nordlys::Core)
 target_compile_definitions(_core PRIVATE NORDLYS_VERSION="${PROJECT_VERSION}")
 
 install(TARGETS _core LIBRARY DESTINATION .)

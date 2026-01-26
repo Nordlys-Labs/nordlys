@@ -1,7 +1,7 @@
 #include <benchmark/benchmark.h>
 
 #include <mutex>
-#include <nordlys_core/nordlys.hpp>
+#include <nordlys/routing/nordlys.hpp>
 #include <random>
 #include <thread>
 
