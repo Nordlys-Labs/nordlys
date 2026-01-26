@@ -39,7 +39,7 @@ cmake --build --preset conan-release
 
 ### Build Outputs
 
-- **Core Library** (`libnordlys_core.a`) - Static C++ library
+- **Module Libraries** - Per-domain static libraries (see Architecture below)
 - **C FFI** (`libnordlys_c.so`/`.dylib`) - C-compatible API for other languages
 - **Python Extension** (`nordlys_core_ext.so`) - Python bindings via nanobind
 
@@ -93,9 +93,60 @@ Benchmarks measure:
 
 See [benchmarks/README.md](benchmarks/README.md) for detailed documentation.
 
+## Architecture
+
+Nordlys Core is organized into domain-specific modules:
+
+```
+nordlys-core/
+├── common/        # Shared types: Matrix, Device, Result
+├── scoring/       # Model scoring with cost-accuracy optimization
+├── checkpoint/    # Checkpoint serialization (JSON/MessagePack)
+├── clustering/    # K-means clustering with CPU/CUDA backends
+├── routing/       # High-level routing API (Nordlys class)
+├── bindings/      # Language bindings (Python, C FFI)
+├── benchmarks/    # Performance benchmarks
+└── test/          # Integration tests
+```
+
+### Module Dependencies
+
+```
+routing → (clustering, scoring, checkpoint)
+checkpoint → (common, scoring)
+clustering → common
+scoring → common
+common → (no dependencies)
+```
+
+### CMake Targets
+
+| Target | Type | Description |
+|--------|------|-------------|
+| `Nordlys::Common` | INTERFACE | Header-only shared types |
+| `Nordlys::Scoring` | STATIC | Model scoring library |
+| `Nordlys::Checkpoint` | STATIC | Checkpoint I/O library |
+| `Nordlys::Clustering` | STATIC | Clustering with CUDA support |
+| `Nordlys::Routing` | STATIC | High-level routing API |
+| `Nordlys::Core` | INTERFACE | Unified interface (links all modules) |
+
+### Include Paths
+
+```cpp
+#include <nordlys/common/matrix.hpp>
+#include <nordlys/scoring/scorer.hpp>
+#include <nordlys/checkpoint/checkpoint.hpp>
+#include <nordlys/clustering/cluster.hpp>
+#include <nordlys/routing/nordlys.hpp>
+```
+
 ## Module Documentation
 
-- [Core Library](core/README.md) - C++ routing engine implementation
+- [Common](common/README.md) - Shared types and utilities
+- [Scoring](scoring/README.md) - Model scoring algorithm
+- [Checkpoint](checkpoint/README.md) - Checkpoint serialization
+- [Clustering](clustering/README.md) - K-means clustering engine
+- [Routing](routing/README.md) - High-level routing API
 - [Bindings](bindings/README.md) - Language bindings overview
   - [Python](bindings/python/README.md) - Python API
   - [C FFI](bindings/c/README.md) - C API for other languages
@@ -129,20 +180,20 @@ See [benchmarks/PROFILING.md](benchmarks/PROFILING.md) for detailed guide.
 ### C++ API
 
 ```cpp
-#include <nordlys_core/nordlys.hpp>
+#include <nordlys/routing/nordlys.hpp>
 
 auto checkpoint = NordlysCheckpoint::from_json_file("checkpoint.json");
-auto router = Nordlys32::from_checkpoint(std::move(checkpoint));
+auto router = Nordlys::from_checkpoint(std::move(checkpoint));
 auto result = router.route(embedding, embedding_size, 0.5f);
 ```
 
 ### Python API
 
 ```python
-from nordlys_core import Nordlys32, NordlysCheckpoint
+from nordlys_core import Nordlys, NordlysCheckpoint
 
 checkpoint = NordlysCheckpoint.from_json_file("checkpoint.json")
-router = Nordlys32.from_checkpoint(checkpoint)
+router = Nordlys.from_checkpoint(checkpoint)
 result = router.route(embedding, cost_bias=0.5)
 ```
 
@@ -152,34 +203,28 @@ result = router.route(embedding, cost_bias=0.5)
 #include "nordlys.h"
 
 NordlysRouter* router = nordlys_router_create_from_file("checkpoint.json", ...);
-NordlysRouteResult32* result = nordlys_router_route_f32(router, embedding, ...);
+NordlysRouteResult* result = nordlys_router_route(router, embedding, ...);
 ```
 
 See module READMEs for detailed API documentation:
-- [Core Library](core/README.md) - C++ API
+- [Routing](routing/README.md) - C++ API
 - [Python Bindings](bindings/python/README.md) - Python API
 - [C FFI](bindings/c/README.md) - C API
 
-## Architecture
-
-- **UniRouter**: Cluster-based model selection algorithm
-- **K-means Clustering**: Embedding-to-cluster assignment
-- **Cost Optimization**: λ-weighted scoring for cost-accuracy trade-off
-
 ## Performance
 
-- **Routing latency**: ~50-500μs (depends on profile size)
+- **Routing latency**: ~50-500us (depends on profile size)
 - **Memory**: ~10-50MB (depends on profile size)
 - **GPU acceleration**: 10-100x speedup for batch operations
 - **Thread-safe**: Safe for concurrent routing
 
 ## Dependencies
 
-- **Eigen3** - Linear algebra
-- **Boost** - Utilities and containers
 - **nlohmann/json** - JSON parsing
-- **msgpack-cxx** - Serialization
-- **tsl-robin-map** - High-performance hash maps
+- **msgpack-cxx** - MessagePack serialization
+- **simdjson** - Fast JSON parsing
+- **USearch** - Vector search (CPU backend)
+- **SimSIMD** - SIMD-accelerated distance computations
 - **nanobind** - Python bindings (optional)
 - **CUDA Toolkit** - GPU support (optional)
 
