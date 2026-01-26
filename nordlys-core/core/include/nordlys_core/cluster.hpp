@@ -257,7 +257,6 @@ public:
 private:
   void free_memory();
   void capture_graph();
-  void ensure_batch_capacity(int count);
 
   // Helper methods for device-aware batch processing
   std::vector<std::pair<int, float>> assign_batch_from_host(EmbeddingBatchView view);
