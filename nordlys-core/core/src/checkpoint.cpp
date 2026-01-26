@@ -448,32 +448,23 @@ NordlysCheckpoint NordlysCheckpoint::from_msgpack_string(const std::string& data
 
   uint64_t total_elements = static_cast<uint64_t>(n_clusters) * static_cast<uint64_t>(feature_dim);
 
-  // Always use float32 (convert from float64 if needed)
+  // float32 only
   if (total_elements > SIZE_MAX / sizeof(float)) {
     throw std::invalid_argument(std::format(
         "cluster_centers dimensions too large: {}x{} would overflow", n_clusters, feature_dim));
   }
 
-  // Check if data is float32 or float64
-  size_t expected_size_float32 = total_elements * sizeof(float);
-  size_t expected_size_float64 = total_elements * sizeof(double);
+  size_t expected_size = total_elements * sizeof(float);
 
   EmbeddingMatrix<float> centers(n_clusters, feature_dim);
 
-  if (centers_bytes.size() == expected_size_float32) {
-    // float32 data - direct copy
-    std::memcpy(centers.data(), centers_bytes.data(), expected_size_float32);
-  } else if (centers_bytes.size() == expected_size_float64) {
-    // float64 data - convert to float32
-    const double* src = reinterpret_cast<const double*>(centers_bytes.data());
-    for (size_t i = 0; i < total_elements; ++i) {
-      centers.data()[i] = static_cast<float>(src[i]);
-    }
-  } else {
-    throw std::invalid_argument(std::format(
-        "cluster_centers data size mismatch: expected {} (float32) or {} (float64) bytes, got {}",
-        expected_size_float32, expected_size_float64, centers_bytes.size()));
+  if (centers_bytes.size() != expected_size) {
+    throw std::invalid_argument(
+        std::format("cluster_centers data size mismatch: expected {} bytes (float32 only), got {}",
+                    expected_size, centers_bytes.size()));
   }
+
+  std::memcpy(centers.data(), centers_bytes.data(), expected_size);
 
   checkpoint.cluster_centers = std::move(centers);
 

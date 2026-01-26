@@ -51,7 +51,7 @@ static const char* kTestCheckpointJson = R"({
   }
 })";
 
-class Nordlysest : public ::testing::Test {
+class NordlysTest : public ::testing::Test {
 protected:
   // Helper to create a test nordlys from JSON string
   Nordlys CreateTestNordlys() {
@@ -68,7 +68,7 @@ protected:
 // Tests for Nordlys Basic Initialization and Properties
 // ============================================================================
 
-TEST_F(Nordlysest, BasicInitialization) {
+TEST_F(NordlysTest, BasicInitialization) {
   // Verify nordlys can be created and basic properties are accessible
   auto nordlys = CreateTestNordlys();
 
@@ -80,7 +80,7 @@ TEST_F(Nordlysest, BasicInitialization) {
   EXPECT_EQ(models.size(), 2);
 }
 
-TEST_F(Nordlysest, EmbeddingDimension) {
+TEST_F(NordlysTest, EmbeddingDimension) {
   // Verify get_embedding_dim() returns correct value from checkpoint
   auto nordlys = CreateTestNordlys();
 
@@ -88,7 +88,7 @@ TEST_F(Nordlysest, EmbeddingDimension) {
   EXPECT_EQ(nordlys.get_embedding_dim(), 4);
 }
 
-TEST_F(Nordlysest, NClusters) {
+TEST_F(NordlysTest, NClusters) {
   // Verify get_n_clusters() returns correct value from checkpoint
   auto nordlys = CreateTestNordlys();
 
@@ -96,7 +96,7 @@ TEST_F(Nordlysest, NClusters) {
   EXPECT_EQ(nordlys.get_n_clusters(), 3);
 }
 
-TEST_F(Nordlysest, SupportedModels) {
+TEST_F(NordlysTest, SupportedModels) {
   // Verify get_supported_models() returns all models from checkpoint
   auto nordlys = CreateTestNordlys();
 
@@ -112,7 +112,7 @@ TEST_F(Nordlysest, SupportedModels) {
 // Tests for Nordlys Routing Functionality
 // ============================================================================
 
-TEST_F(Nordlysest, BasicRoutingWithFloat) {
+TEST_F(NordlysTest, BasicRoutingWithFloat) {
   // Verify route() works with valid float embedding and returns proper response
   auto nordlys = CreateTestNordlys();
 
@@ -129,7 +129,7 @@ TEST_F(Nordlysest, BasicRoutingWithFloat) {
   EXPECT_GE(response.alternatives.size(), 0);
 }
 
-TEST_F(Nordlysest, RoutingByErrorRate) {
+TEST_F(NordlysTest, RoutingByErrorRate) {
   // Verify routing selects models by error rate
   auto nordlys = CreateTestNordlys();
 
@@ -142,7 +142,7 @@ TEST_F(Nordlysest, RoutingByErrorRate) {
   EXPECT_EQ(response.cluster_id, 0);
 }
 
-TEST_F(Nordlysest, RoutingWithFilteredModels) {
+TEST_F(NordlysTest, RoutingWithFilteredModels) {
   // Verify routing works with model filter
   auto nordlys = CreateTestNordlys();
 
@@ -160,7 +160,7 @@ TEST_F(Nordlysest, RoutingWithFilteredModels) {
 // Tests for Error Handling
 // ============================================================================
 
-TEST_F(Nordlysest, DimensionMismatchThrows) {
+TEST_F(NordlysTest, DimensionMismatchThrows) {
   // Verify route() throws std::invalid_argument on embedding dimension mismatch
   auto nordlys = CreateTestNordlys();
 
@@ -171,7 +171,7 @@ TEST_F(Nordlysest, DimensionMismatchThrows) {
   EXPECT_THROW(nordlys.route(wrong_view), std::invalid_argument);
 }
 
-TEST_F(Nordlysest, DimensionMismatchErrorMessage) {
+TEST_F(NordlysTest, DimensionMismatchErrorMessage) {
   // Verify error message contains dimension information
   auto nordlys = CreateTestNordlys();
 
@@ -193,7 +193,7 @@ TEST_F(Nordlysest, DimensionMismatchErrorMessage) {
 // Tests for Model Filtering
 // ============================================================================
 
-TEST_F(Nordlysest, RoutingWithEmptyModelFilter) {
+TEST_F(NordlysTest, RoutingWithEmptyModelFilter) {
   // Empty filter should use all available models
   auto nordlys = CreateTestNordlys();
 
@@ -207,7 +207,7 @@ TEST_F(Nordlysest, RoutingWithEmptyModelFilter) {
   EXPECT_FALSE(response.selected_model.empty());
 }
 
-TEST_F(Nordlysest, RoutingWithSingleModelFilter) {
+TEST_F(NordlysTest, RoutingWithSingleModelFilter) {
   // Filter to only one model - should always select that model
   auto nordlys = CreateTestNordlys();
 
@@ -221,7 +221,7 @@ TEST_F(Nordlysest, RoutingWithSingleModelFilter) {
   EXPECT_EQ(response.selected_model, "provider2/llama");
 }
 
-TEST_F(Nordlysest, AlternativesReturned) {
+TEST_F(NordlysTest, AlternativesReturned) {
   // Verify that alternatives are returned (all models except selected)
   auto nordlys = CreateTestNordlys();
 
@@ -238,7 +238,7 @@ TEST_F(Nordlysest, AlternativesReturned) {
 // Tests for Cluster Assignment
 // ============================================================================
 
-TEST_F(Nordlysest, DifferentEmbeddingsAssignToDifferentClusters) {
+TEST_F(NordlysTest, DifferentEmbeddingsAssignToDifferentClusters) {
   // Verify that embeddings close to different centroids are assigned correctly
   auto nordlys = CreateTestNordlys();
 
@@ -258,7 +258,7 @@ TEST_F(Nordlysest, DifferentEmbeddingsAssignToDifferentClusters) {
   EXPECT_EQ(response3.cluster_id, 2);
 }
 
-TEST_F(Nordlysest, ClusterDistanceIsNonNegative) {
+TEST_F(NordlysTest, ClusterDistanceIsNonNegative) {
   // Verify cluster distance is always non-negative
   auto nordlys = CreateTestNordlys();
 
@@ -270,7 +270,7 @@ TEST_F(Nordlysest, ClusterDistanceIsNonNegative) {
   EXPECT_GE(response.cluster_distance, 0.0f);
 }
 
-TEST_F(Nordlysest, ExactCentroidMatchHasSmallDistance) {
+TEST_F(NordlysTest, ExactCentroidMatchHasSmallDistance) {
   // Embedding exactly matching a centroid should have very small distance
   auto nordlys = CreateTestNordlys();
 
@@ -288,7 +288,7 @@ TEST_F(Nordlysest, ExactCentroidMatchHasSmallDistance) {
 // Tests for Cost Bias Effects
 // ============================================================================
 
-TEST_F(Nordlysest, RoutingSelectsByErrorRate) {
+TEST_F(NordlysTest, RoutingSelectsByErrorRate) {
   // Routing selects models by error rate (lower is better)
   auto nordlys = CreateTestNordlys();
 
@@ -302,7 +302,7 @@ TEST_F(Nordlysest, RoutingSelectsByErrorRate) {
   EXPECT_GE(response.cluster_id, 0);
 }
 
-TEST_F(Nordlysest, RoutingWorks) {
+TEST_F(NordlysTest, RoutingWorks) {
   // Basic routing functionality
   auto nordlys = CreateTestNordlys();
 
@@ -318,7 +318,7 @@ TEST_F(Nordlysest, RoutingWorks) {
 // Tests for Response Structure
 // ============================================================================
 
-TEST_F(Nordlysest, ResponseContainsAllRequiredFields) {
+TEST_F(NordlysTest, ResponseContainsAllRequiredFields) {
   // Verify response has all required fields populated
   auto nordlys = CreateTestNordlys();
 
@@ -338,7 +338,7 @@ TEST_F(Nordlysest, ResponseContainsAllRequiredFields) {
   EXPECT_LE(response.alternatives.size(), model_count - 1u);
 }
 
-TEST_F(Nordlysest, AlternativeModelsAreDifferentFromSelected) {
+TEST_F(NordlysTest, AlternativeModelsAreDifferentFromSelected) {
   // Verify alternative models don't include the selected model
   auto nordlys = CreateTestNordlys();
 
@@ -356,7 +356,7 @@ TEST_F(Nordlysest, AlternativeModelsAreDifferentFromSelected) {
 // Tests for Nordlys Creation from Different Sources
 // ============================================================================
 
-TEST_F(Nordlysest, CreateFromJsonString) {
+TEST_F(NordlysTest, CreateFromJsonString) {
   // Test creating nordlys from JSON string
   std::string json_checkpoint = R"({
     "version": "2.0",
@@ -384,14 +384,14 @@ TEST_F(Nordlysest, CreateFromJsonString) {
   EXPECT_EQ(nordlys.get_n_clusters(), 2);
 }
 
-TEST_F(Nordlysest, CreateFromInvalidJsonStringFails) {
+TEST_F(NordlysTest, CreateFromInvalidJsonStringFails) {
   // Test that invalid JSON throws an exception
   std::string invalid_json = "{ invalid json }";
 
   EXPECT_THROW(NordlysCheckpoint::from_json_string(invalid_json), std::exception);
 }
 
-TEST_F(Nordlysest, CreateFromNonexistentFileFails) {
+TEST_F(NordlysTest, CreateFromNonexistentFileFails) {
   // Test that loading from nonexistent file throws an exception
   EXPECT_THROW(NordlysCheckpoint::from_json("nonexistent_file.json"), std::exception);
 }
@@ -400,7 +400,7 @@ TEST_F(Nordlysest, CreateFromNonexistentFileFails) {
 // Tests for Move Semantics
 // ============================================================================
 
-TEST_F(Nordlysest, MoveConstructor) {
+TEST_F(NordlysTest, MoveConstructor) {
   auto router1 = CreateTestNordlys();
   EXPECT_EQ(router1.get_embedding_dim(), 4);
   EXPECT_EQ(router1.get_n_clusters(), 3);
@@ -416,7 +416,7 @@ TEST_F(Nordlysest, MoveConstructor) {
   EXPECT_EQ(response.cluster_id, 0);
 }
 
-TEST_F(Nordlysest, MoveAssignment) {
+TEST_F(NordlysTest, MoveAssignment) {
   auto router1 = CreateTestNordlys();
   auto router2 = CreateTestNordlys();
 
@@ -437,7 +437,7 @@ TEST_F(Nordlysest, MoveAssignment) {
 // Tests for Edge Cases
 // ============================================================================
 
-TEST_F(Nordlysest, SingleCluster) {
+TEST_F(NordlysTest, SingleCluster) {
   std::string json_single_cluster = R"({
     "version": "2.0",
     "cluster_centers": [[1.0, 0.0, 0.0]],
@@ -465,7 +465,7 @@ TEST_F(Nordlysest, SingleCluster) {
   EXPECT_EQ(response.cluster_id, 0);
 }
 
-TEST_F(Nordlysest, LargeDimensions) {
+TEST_F(NordlysTest, LargeDimensions) {
   // Generate 4096-dimensional cluster centers
   std::vector<std::vector<float>> centers(2, std::vector<float>(4096));
   for (int i = 0; i < 4096; ++i) {
@@ -516,7 +516,7 @@ TEST_F(Nordlysest, LargeDimensions) {
 // Tests for Backend Selection
 // ============================================================================
 
-TEST_F(Nordlysest, BackendExplicitSelection) {
+TEST_F(NordlysTest, BackendExplicitSelection) {
   // Explicit device selection should work with CPU backend
   auto checkpoint = NordlysCheckpoint::from_json_string(kTestCheckpointJson);
   auto result = Nordlys::from_checkpoint(std::move(checkpoint), Device{CpuDevice{}});
@@ -531,7 +531,7 @@ TEST_F(Nordlysest, BackendExplicitSelection) {
   EXPECT_FALSE(response.selected_model.empty());
 }
 
-TEST_F(Nordlysest, RoutingBasic) {
+TEST_F(NordlysTest, RoutingBasic) {
   auto nordlys = CreateTestNordlys();
 
   std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
@@ -541,7 +541,7 @@ TEST_F(Nordlysest, RoutingBasic) {
   EXPECT_FALSE(response.selected_model.empty());
 }
 
-TEST_F(Nordlysest, SupportedModelsAfterInit) {
+TEST_F(NordlysTest, SupportedModelsAfterInit) {
   auto nordlys = CreateTestNordlys();
   auto models = nordlys.get_supported_models();
 
@@ -554,7 +554,7 @@ TEST_F(Nordlysest, SupportedModelsAfterInit) {
   EXPECT_EQ(models, models2);
 }
 
-TEST_F(Nordlysest, DimensionValidationComprehensive) {
+TEST_F(NordlysTest, DimensionValidationComprehensive) {
   auto nordlys = CreateTestNordlys();
 
   // Test zero dimensions
