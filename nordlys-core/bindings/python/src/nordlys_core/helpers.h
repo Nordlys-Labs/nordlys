@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nordlys_core/device.hpp>
+#include <nordlys/common/device.hpp>
 #include <string>
 
 // Helper function to convert string device to Device variant

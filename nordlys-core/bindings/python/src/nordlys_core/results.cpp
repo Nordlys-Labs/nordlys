@@ -2,7 +2,7 @@
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
 
-#include <nordlys_core/nordlys.hpp>
+#include <nordlys/routing/nordlys.hpp>
 
 #include "bindings.h"
 
