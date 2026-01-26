@@ -12,7 +12,7 @@ import warnings
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, cast
+from typing import Literal
 
 import numpy as np
 import pandas as pd
@@ -28,28 +28,14 @@ from nordlys.clustering import (
     compute_cluster_metrics,
 )
 from nordlys.reduction import Reducer
-from nordlys_core import Nordlys32, Nordlys64, NordlysCheckpoint
+from nordlys_core import Nordlys as NordlysCore, NordlysCheckpoint
 
 
 logger = logging.getLogger(__name__)
 
-# Type aliases
-Dtype = Literal["float32", "float64"]
-
 # Constants
 DEFAULT_MAX_ITER = 300
 DEFAULT_N_INIT = 10
-DEFAULT_DTYPE: Dtype = "float32"
-
-
-def _dtype_to_numpy(dtype: Dtype | str) -> type[np.floating]:
-    """Convert dtype string to numpy dtype class."""
-    if dtype == "float32" or dtype == DEFAULT_DTYPE:
-        return np.float32
-    elif dtype == "float64":
-        return np.float64
-    else:
-        raise ValueError(f"Unsupported dtype: {dtype}")
 
 
 class ModelConfig(BaseModel):
@@ -179,7 +165,7 @@ class Nordlys:
             device: Device for C++ core clustering operations ("cpu" or "cuda")
         """
         # C++ core (initialized on load or after fit) - set early to avoid __del__ errors
-        self._core_engine: Nordlys32 | Nordlys64 | None = None
+        self._core_engine: NordlysCore | None = None
 
         if not models:
             raise ValueError("At least one model configuration is required")
@@ -243,7 +229,6 @@ class Nordlys:
         self._metrics: ClusterMetrics | None = None
         self._model_accuracies: dict[int, dict[str, float]] | None = None
         self._is_fitted = False
-        self._dtype: Dtype = DEFAULT_DTYPE
 
     def _compute_embeddings(self, texts: Sequence[str]) -> np.ndarray:
         """Compute embeddings for texts in batch with caching support.
@@ -412,14 +397,9 @@ class Nordlys:
         logger.info("Initializing C++ core engine...")
         checkpoint = self._to_checkpoint()
         try:
-            if self._dtype == DEFAULT_DTYPE:
-                self._core_engine = Nordlys32.from_checkpoint(
-                    checkpoint, device=self._device
-                )
-            else:
-                self._core_engine = Nordlys64.from_checkpoint(
-                    checkpoint, device=self._device
-                )
+            self._core_engine = NordlysCore.from_checkpoint(
+                checkpoint, device=self._device
+            )
         except (ValueError, RuntimeError, AttributeError, OSError) as e:
             raise RuntimeError(
                 f"Failed to initialize C++ core engine: {e}. "
@@ -490,10 +470,9 @@ class Nordlys:
         # Compute embedding (with caching for repeated prompts)
         embedding = self.compute_embedding(prompt)
 
-        # Ensure correct dtype and C-contiguous
-        target_dtype = _dtype_to_numpy(self._dtype)
-        if embedding.dtype != target_dtype or not embedding.flags["C_CONTIGUOUS"]:
-            embedding = np.ascontiguousarray(embedding, dtype=target_dtype)
+        # Ensure float32 and C-contiguous
+        if embedding.dtype != np.float32 or not embedding.flags["C_CONTIGUOUS"]:
+            embedding = np.ascontiguousarray(embedding, dtype=np.float32)
 
         # Route using C++ core
         if models is None:
@@ -533,15 +512,12 @@ class Nordlys:
         # Compute embeddings in batch (more efficient for unique texts)
         embeddings = self._compute_embeddings(prompts)
 
-        # Ensure correct dtype and C-contiguous
-        target_dtype = _dtype_to_numpy(self._dtype)
-        if embeddings.dtype != target_dtype or not embeddings.flags["C_CONTIGUOUS"]:
-            embeddings = np.ascontiguousarray(embeddings, dtype=target_dtype)
-
-        embeddings_array = embeddings
+        # Ensure float32 and C-contiguous
+        if embeddings.dtype != np.float32 or not embeddings.flags["C_CONTIGUOUS"]:
+            embeddings = np.ascontiguousarray(embeddings, dtype=np.float32)
 
         # Route using C++ core engine's route_batch
-        responses = core_engine.route_batch(embeddings_array, models)
+        responses = core_engine.route_batch(embeddings, models)
 
         # Convert responses to RouteResult objects
         return [
@@ -604,7 +580,7 @@ class Nordlys:
             )
         return self._metrics
 
-    def _ensure_core_engine(self) -> Nordlys32 | Nordlys64:
+    def _ensure_core_engine(self) -> NordlysCore:
         """Ensure core engine is available and return it."""
         self._check_is_fitted()
         if self._core_engine is None:
@@ -780,7 +756,6 @@ class Nordlys:
             "models": models,
             "embedding": {
                 "model": self._embedding_model_name,
-                "dtype": self._dtype,
                 "trust_remote_code": self._allow_trust_remote_code,
             },
             "clustering": {
@@ -857,17 +832,12 @@ class Nordlys:
         )
 
         # Initialize C++ core - this is the source of truth for all routing
-        checkpoint_dtype: Dtype = cast(Dtype, checkpoint.embedding.dtype)
-        if checkpoint_dtype == DEFAULT_DTYPE:
-            instance._core_engine = Nordlys32.from_checkpoint(checkpoint, device=device)
-        else:
-            instance._core_engine = Nordlys64.from_checkpoint(checkpoint, device=device)
+        instance._core_engine = NordlysCore.from_checkpoint(checkpoint, device=device)
 
-        # Populate Python-side fitted state from checkpoint
-        instance._dtype = checkpoint_dtype
+        # Populate Python-side fitted state from checkpoint (always float32)
         instance._centroids = np.asarray(
             checkpoint.cluster_centers,
-            dtype=_dtype_to_numpy(checkpoint_dtype),
+            dtype=np.float32,
         )
 
         # Build model_accuracies from checkpoint.models error_rates
@@ -896,7 +866,7 @@ class Nordlys:
 
         instance._is_fitted = True
 
-        logger.info(f"Loaded checkpoint with C++ core ({checkpoint.embedding.dtype})")
+        logger.info("Loaded checkpoint with C++ core (float32)")
         return instance
 
     def __repr__(self) -> str:
