@@ -18,7 +18,7 @@ jobs:
   # ============================================
   validate:
     name: Validate Version
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
@@ -47,7 +47,7 @@ jobs:
   publish:
     name: Publish to PyPI
     needs: [test, validate]
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     permissions:
       contents: write
       id-token: write
