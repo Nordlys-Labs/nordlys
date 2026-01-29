@@ -18,7 +18,7 @@ jobs:
       matrix:
         include:
           - { os: linux-intel, runs-on: ubuntu-latest }
-          - { os: windows-intel, runs-on: windows-latest }
+          - { os: windows-intel, runs-on: blacksmith-4vcpu-windows-2025 }
           - { os: macos-intel, runs-on: macos-15-intel }
           - { os: macos-arm, runs-on: macos-latest }
 

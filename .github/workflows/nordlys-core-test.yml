@@ -15,7 +15,7 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - { os: linux, runner: ubuntu-24.04 }
+          - { os: linux, runner: blacksmith-4vcpu-ubuntu-2404 }
           - { os: macos, runner: macos-15 }
 
     steps:
@@ -76,7 +76,7 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - { os: linux, runner: ubuntu-24.04 }
+          - { os: linux, runner: blacksmith-4vcpu-ubuntu-2404 }
           - { os: macos, runner: macos-15 }
 
     steps:

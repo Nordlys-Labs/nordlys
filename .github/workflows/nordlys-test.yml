@@ -18,9 +18,9 @@ jobs:
           - { os: macos, runner: macos-latest, python: "3.11" }
           - { os: macos, runner: macos-latest, python: "3.12" }
           - { os: macos, runner: macos-latest, python: "3.13" }
-          - { os: windows, runner: windows-latest, python: "3.11" }
-          - { os: windows, runner: windows-latest, python: "3.12" }
-          - { os: windows, runner: windows-latest, python: "3.13" }
+          - { os: windows, runner: blacksmith-4vcpu-windows-2025, python: "3.11" }
+          - { os: windows, runner: blacksmith-4vcpu-windows-2025, python: "3.12" }
+          - { os: windows, runner: blacksmith-4vcpu-windows-2025, python: "3.13" }
 
     steps:
       - uses: actions/checkout@v6
