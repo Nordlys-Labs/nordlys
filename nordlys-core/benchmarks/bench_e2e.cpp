@@ -106,7 +106,7 @@ static void BM_RouteSingle_Small(benchmark::State& state) {
   auto& router = result.value();
 
   auto embedding = generate_embedding(router.get_embedding_dim());
-  EmbeddingView view{embedding.data(), embedding.size(), CpuDevice{}};
+  EmbeddingView view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
 
   for (auto _ : state) {
     auto route_result = router.route(view);
@@ -126,7 +126,7 @@ static void BM_RouteSingle_Medium(benchmark::State& state) {
   auto& router = result.value();
 
   auto embedding = generate_embedding(router.get_embedding_dim());
-  EmbeddingView view{embedding.data(), embedding.size(), CpuDevice{}};
+  EmbeddingView view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
 
   for (auto _ : state) {
     auto route_result = router.route(view);
@@ -146,7 +146,7 @@ static void BM_RouteSingle_Large(benchmark::State& state) {
   auto& router = result.value();
 
   auto embedding = generate_embedding(router.get_embedding_dim());
-  EmbeddingView view{embedding.data(), embedding.size(), CpuDevice{}};
+  EmbeddingView view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
 
   for (auto _ : state) {
     auto route_result = router.route(view);
@@ -179,7 +179,7 @@ static void BM_RouteBatch(benchmark::State& state) {
     v = dist(rng);
   }
 
-  EmbeddingBatchView view{embeddings.data(), batch_size, dim, CpuDevice{}};
+  EmbeddingBatchView view{embeddings.data(), batch_size, dim, Device{CpuDevice{}}};
 
   for (auto _ : state) {
     auto results = router.route_batch(view);
@@ -227,7 +227,7 @@ static void BM_RouteConcurrent(benchmark::State& state) {
     threads.reserve(num_threads);
     for (int i = 0; i < num_threads; ++i) {
       threads.emplace_back([&router, &thread_embeddings, i]() {
-        EmbeddingView view{thread_embeddings[i].data(), thread_embeddings[i].size(), CpuDevice{}};
+        EmbeddingView view{thread_embeddings[i].data(), thread_embeddings[i].size(), Device{CpuDevice{}}};
         auto route_result = router.route(view);
         benchmark::DoNotOptimize(route_result);
       });
@@ -258,7 +258,7 @@ static void BM_ColdStart_Medium(benchmark::State& state) {
     auto& router = result.value();
 
     auto embedding = generate_embedding(router.get_embedding_dim());
-    EmbeddingView view{embedding.data(), embedding.size(), CpuDevice{}};
+    EmbeddingView view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
     auto route_result = router.route(view);
     benchmark::DoNotOptimize(route_result);
   }

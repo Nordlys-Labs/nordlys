@@ -705,9 +705,15 @@ TEST(BackendComparisonTest, GPUBufferConsistency) {
 
   // Allocate and copy to device
   float* d_queries = nullptr;
-  cudaMalloc(&d_queries, host_queries.size() * sizeof(float));
-  cudaMemcpy(d_queries, host_queries.data(), host_queries.size() * sizeof(float), 
-             cudaMemcpyHostToDevice);
+  cudaError_t err = cudaMalloc(&d_queries, host_queries.size() * sizeof(float));
+  ASSERT_EQ(err, cudaSuccess) << "cudaMalloc failed: " << cudaGetErrorString(err);
+
+  err = cudaMemcpy(d_queries, host_queries.data(), host_queries.size() * sizeof(float), 
+                   cudaMemcpyHostToDevice);
+  if (err != cudaSuccess) {
+    cudaFree(d_queries);
+    FAIL() << "cudaMemcpy failed: " << cudaGetErrorString(err);
+  }
 
   int mismatch_count = 0;
   for (int q = 0; q < N_QUERIES; ++q) {
@@ -726,7 +732,8 @@ TEST(BackendComparisonTest, GPUBufferConsistency) {
     EXPECT_NEAR(cpu_dist, cuda_dist, 1e-4f) << "GPU buffer distance mismatch at query " << q;
   }
 
-  cudaFree(d_queries);
+  err = cudaFree(d_queries);
+  EXPECT_EQ(err, cudaSuccess) << "cudaFree failed: " << cudaGetErrorString(err);
 
   EXPECT_LE(mismatch_count, N_QUERIES / 10) << "Too many cluster assignment mismatches with GPU buffer";
 }

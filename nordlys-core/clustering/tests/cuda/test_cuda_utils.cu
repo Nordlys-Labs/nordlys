@@ -35,7 +35,6 @@ TEST_F(UtilsTest, ToColMajor3x2) {
   ASSERT_EQ(col.size(), 6);
   EXPECT_EQ(col[0], 1);
   EXPECT_EQ(col[1], 3);
-  EXPECT_EQ(col[1], 3);
   EXPECT_EQ(col[2], 5);
   EXPECT_EQ(col[3], 2);
   EXPECT_EQ(col[4], 4);
