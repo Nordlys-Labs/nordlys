@@ -5,19 +5,24 @@
 #include <usearch/index_dense.hpp>
 #include <vector>
 
+namespace nordlys::clustering {
+
 class CpuClusterBackend : public IClusterBackend {
 public:
   void load_centroids(const float* data, size_t n_clusters, size_t dim) override;
 
-  [[nodiscard]] std::pair<int, float> assign(EmbeddingView view) override;
+  [[nodiscard]] auto assign(EmbeddingView view) -> std::pair<int, float> override;
 
-  [[nodiscard]] std::vector<std::pair<int, float>> assign_batch(EmbeddingBatchView view) override;
+  [[nodiscard]] auto assign_batch(EmbeddingBatchView view)
+    -> std::vector<std::pair<int, float>> override;
 
-  [[nodiscard]] size_t n_clusters() const noexcept override {
+  [[nodiscard]] auto n_clusters() const noexcept -> size_t override {
     return static_cast<size_t>(n_clusters_);
   }
 
-  [[nodiscard]] size_t dim() const noexcept override { return static_cast<size_t>(dim_); }
+  [[nodiscard]] auto dim() const noexcept -> size_t override { 
+    return static_cast<size_t>(dim_); 
+  }
 
 private:
   std::vector<float> centroids_;
@@ -25,3 +30,5 @@ private:
   int n_clusters_ = 0;
   int dim_ = 0;
 };
+
+} // namespace nordlys::clustering

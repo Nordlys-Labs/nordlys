@@ -1,14 +1,8 @@
 # Benchmarks
 
-Performance benchmarks for nordlys-core routing algorithms.
-
-## Overview
-
-Measures routing performance across different profile sizes and usage patterns using [Google Benchmark](https://github.com/google/benchmark). Benchmarks run automatically in CI.
+Performance benchmarks for nordlys-core clustering and routing using [Google Benchmark](https://github.com/google/benchmark).
 
 ## Building
-
-To build benchmarks, enable the `NORDLYS_BUILD_BENCHMARKS` option:
 
 ```bash
 cd nordlys-core
@@ -17,173 +11,170 @@ cd nordlys-core
 conan install . --build=missing -of=build -s compiler.cppstd=20
 
 # Configure with benchmarks enabled
-cmake --preset conan-release -DNORDLYS_BUILD_BENCHMARKS=ON
+cmake -B build -DNORDLYS_BUILD_BENCHMARKS=ON -DNORDLYS_ENABLE_CUDA=ON
 
-# Build
-cmake --build --preset conan-release
+# Build all benchmarks
+cmake --build build --target bench_cluster_cpu bench_cluster_cuda bench_e2e
 ```
 
-This creates the benchmark executables:
-- `build/Release/benchmarks/bench_nordlys_core` - CPU benchmarks
-- `build/Release/benchmarks/bench_nordlys_cuda` - GPU benchmarks (if CUDA enabled)
+**Executables:**
+- `build/benchmarks/bench_cluster_cpu` - CPU clustering benchmarks
+- `build/benchmarks/bench_cluster_cuda` - CUDA clustering benchmarks (requires CUDA)
+- `build/benchmarks/bench_e2e` - End-to-end routing and checkpoint benchmarks
+
+## Benchmark Suite
+
+### CPU Clustering (`bench_cluster_cpu.cpp`)
+
+Benchmarks for CPU-based clustering backend:
+
+- `BM_ClusterAssign_CPU/<clusters>/<dim>` - Single embedding assignment
+- `BM_ClusterLoadCentroids_CPU/<clusters>/<dim>` - Centroid loading performance
+- `BM_ClusterBatchAssign_CPU/<batch>/<clusters>/<dim>` - Batch assignment
+
+**Configurations:**
+- Clusters: 10, 50, 100, 500, 1000
+- Dimensions: 768, 1024, 1536, 3072, 4096
+
+### CUDA Clustering (`bench_cluster_cuda.cu`)
+
+Benchmarks for CUDA clustering backend with **CPU buffer** (includes H2D transfer) and **GPU buffer** (production scenario, pure compute):
+
+**Single Assignment:**
+- `BM_ClusterAssign_CPUBuffer/<clusters>/<dim>` - CPU memory input (includes transfer)
+- `BM_ClusterAssign_GPUBuffer/<clusters>/<dim>` - GPU memory input **[PROD]**
+
+**Batch Assignment:**
+- `BM_ClusterBatchAssign_CPUBuffer/<batch>/<clusters>/<dim>` - Batch CPU memory
+- `BM_ClusterBatchAssign_GPUBuffer/<batch>/<clusters>/<dim>` - Batch GPU memory **[PROD]**
+
+**Configurations:**
+- Clusters: 10, 50, 100, 500, 1000
+- Dimensions: 768, 1024, 1536, 3072, 4096
+- Batch sizes: 1, 8, 16, 32, 64, 128, 256, 512, 1024
+
+### End-to-End (`bench_e2e.cpp`)
+
+Full pipeline benchmarks including checkpoint loading and routing:
+
+**Checkpoint:**
+- `BM_CheckpointLoad_<size>` - JSON loading (Small/Medium/Large)
+- `BM_RouterInit_<size>` - Router initialization from checkpoint
+
+**Routing:**
+- `BM_RouteSingle_<size>` - Single embedding routing
+- `BM_RouteBatch/<batch>` - Batch routing (1-1024)
+- `BM_RouteConcurrent/<threads>` - Multi-threaded routing (2/4/8 threads)
+- `BM_ColdStart_Medium` - Full cold start (load + init + first route)
 
 ## Running Benchmarks
 
-### Run All Benchmarks
+### Run All
 
 ```bash
-cd nordlys-core
-./build/Release/benchmarks/bench_nordlys_core
+./build/benchmarks/bench_cluster_cpu
+./build/benchmarks/bench_cluster_cuda
+./build/benchmarks/bench_e2e
 ```
 
 ### Filter Specific Benchmarks
 
 ```bash
-# Run only single routing benchmarks
-./build/Release/benchmarks/bench_nordlys_core --benchmark_filter=RoutingSingle
+# Compare CPU vs GPU buffer overhead
+./build/benchmarks/bench_cluster_cuda --benchmark_filter="ClusterAssign.*/100/1536"
 
-# Run only medium profile benchmarks
-./build/Release/benchmarks/bench_nordlys_core --benchmark_filter=Medium
+# GPU buffer only (production scenario)
+./build/benchmarks/bench_cluster_cuda --benchmark_filter="GPUBuffer"
 
-# Run benchmarks matching a pattern
-./build/Release/benchmarks/bench_nordlys_core --benchmark_filter="Routing.*Small"
+# Batch routing
+./build/benchmarks/bench_e2e --benchmark_filter="RouteBatch"
 ```
 
-### Save Results to JSON
+### Save Results
 
 ```bash
-./build/Release/benchmarks/bench_nordlys_core \
+./build/benchmarks/bench_cluster_cuda \
   --benchmark_format=json \
-  --benchmark_out=results.json
+  --benchmark_out=cluster_cuda.json
 ```
 
-### Other Useful Options
+### Other Options
 
 ```bash
-# Run benchmarks with more iterations for stability
-./build/Release/benchmarks/bench_nordlys_core --benchmark_repetitions=10
+# More iterations for stability
+./build/benchmarks/bench_cluster_cuda --benchmark_repetitions=10
 
 # Set minimum benchmark time
-./build/Release/benchmarks/bench_nordlys_core --benchmark_min_time=1.0
+./build/benchmarks/bench_cluster_cuda --benchmark_min_time=1.0s
 
-# Display counters as rates
-./build/Release/benchmarks/bench_nordlys_core --benchmark_counters_tabular=true
+# Display counters as table
+./build/benchmarks/bench_cluster_cuda --benchmark_counters_tabular=true
 ```
 
-See `--help` for all available options.
+## Profiling with Wafer CLI
 
-## Benchmark Suite
+Profile CUDA kernels using [Wafer CLI](https://wafer.ai):
 
-### Routing Performance (`bench_routing_e2e.cpp`)
-- `BM_RoutingSingle_*` - Single embedding routing (Small/Medium/Large/XL)
-- `BM_RoutingBatch` - Batch routing (10/100/1000 embeddings)
-- `BM_RoutingCostBias` - Performance at different cost bias values
-- `BM_RoutingColdStart_*` - Router initialization + first route
-- `BM_RoutingConcurrent` - Multi-threaded routing (2/4/8 threads)
+### Prerequisites
 
-### Checkpoint Operations (`bench_checkpoint_e2e.cpp`)
-- `BM_CheckpointLoadJSON_*` - JSON file loading and parsing
-- `BM_RouterInitialization_*` - Router creation from checkpoint
-- `BM_CheckpointValidation_*` - Validation overhead
+```bash
+uv tool install wafer-cli
+wafer login
+```
 
-### GPU Benchmarks (`bench_routing_cuda.cpp`)
-- `BM_RoutingGPU_Single_*` - GPU single embedding routing
-- `BM_RoutingGPU_Batch` - GPU batch routing
-- `BM_GPUTransferOverhead_*` - Host ↔ Device transfer overhead
+### NSight Compute (Kernel Analysis)
 
-**Note:** CUDA benchmarks require `NORDLYS_ENABLE_CUDA=ON` and are not run in CI.
+```bash
+# Profile GPU buffer benchmark (production scenario)
+ncu --set full -o cluster_profile.ncu-rep \
+  ./build/benchmarks/bench_cluster_cuda \
+  --benchmark_filter="ClusterAssign_GPUBuffer/100/1536" \
+  --benchmark_min_warmup_time=0.1
+
+# Analyze with Wafer
+wafer nvidia ncu analyze cluster_profile.ncu-rep
+
+# AI-assisted analysis
+wafer wevin -t trace-analyze \
+  --args trace=./cluster_profile.ncu-rep \
+  "Analyze kernel performance and suggest optimizations"
+```
+
+### NSight Systems (Timeline)
+
+```bash
+nsys profile -o batch_timeline.nsys-rep --force-overwrite=true \
+  --trace=cuda,nvtx --cuda-memory-usage=true \
+  ./build/benchmarks/bench_cluster_cuda \
+  --benchmark_filter="ClusterBatchAssign_GPUBuffer/512/100/1536"
+
+wafer nvidia nsys analyze batch_timeline.nsys-rep
+```
+
+## Expected Results
+
+### CPU Clustering
+- Single (100c/1536d): ~15-30 us
+- Batch 64 (100c/1536d): ~500-1000 us
+
+### CUDA Clustering (GPU Buffer - Production)
+- Single (100c/1536d): ~20-40 us
+- Batch 64 (100c/1536d): ~100-200 us
+
+### End-to-End Routing
+- Single route (Medium): ~0.3-1 us
+- Batch 64: ~20-50 us
+- Cold start (Medium): ~5-20 ms
+
+*Performance varies with hardware, system load, and checkpoint size.*
 
 ## Fixtures
 
-Synthetic routing profiles used for reproducible benchmarks:
+Synthetic checkpoints for reproducible benchmarks:
 
-| Profile | Clusters | Models | Embedding Dim | Size | Use Case |
-|---------|----------|--------|---------------|------|----------|
-| `profile_small.json` | 10 | 3 | 128 | ~9KB | Quick iteration, unit tests |
-| `profile_medium.json` | 100 | 10 | 512 | ~790KB | Representative workload |
-| `profile_large.json` | 1000 | 10 | 1536 | ~23MB | Stress testing |
-| `profile_xl.json` | 2000 | 10 | 1536 | ~46MB | Extreme scale |
-
-All fixtures use the same schema as production routing profiles with realistic:
-- Model providers (OpenAI, Anthropic, Meta, Google)
-- Cost structures
-- Error rates per cluster
-
-## Interpreting Results
-
-**Example Output:**
-```
-BM_RoutingSingle_Small    42.3 us    42.2 us    16574
-BM_RoutingSingle_Medium    156 us     156 us     4489
-BM_RoutingBatch/10        1.58 ms   1.58 ms      443
-```
-
-**Columns:** Time (wall clock), CPU time, Iterations
-
-**Performance Tips:**
-- Routing latency scales with cluster count O(n_clusters)
-- Batch processing amortizes initialization overhead
-- Cost bias has minimal performance impact
-- Router is thread-safe for concurrent operations
-- Cold start dominated by checkpoint loading
-
-## CI Integration
-
-Benchmarks run automatically on every commit:
-- All CPU benchmarks run on Ubuntu and macOS
-- Results compared against previous runs
-- PR comments when performance regresses >10%
-- Results stored for 90 days (non-blocking)
-
-## Performance Baselines
-
-Expected performance:
-- **Single routing**: ~50-500μs (depends on profile size)
-- **Batch routing**: ~0.1-1ms per 100 embeddings
-- **Cold start**: ~1-50ms (depends on profile size)
-- **Checkpoint loading**: ~1-200ms (depends on profile size)
-
-Performance varies with hardware, system load, and profile characteristics.
-
-## Profiling
-
-Profile benchmarks using headless tools (no GUI required).
-
-**Quick Start (macOS):**
-```bash
-bash benchmarks/scripts/profile.sh
-```
-
-**Quick Start (Linux):**
-```bash
-perf record ./build/Release/benchmarks/bench_nordlys_core --benchmark_filter=RoutingSingle_Medium
-perf report
-```
-
-**Tools:**
-- `sample` (macOS) - Built-in, use provided script
-- `perf` (Linux) - Recommended
-- `gprof` (All) - Requires `-pg` flag
-
-**Expected Results:**
-- 60-90% in SIMD distance calculation (expected bottleneck)
-- <1% in model scoring
-- <0.5% in memory allocations
-- 0% string copy operations
-
-See [PROFILING.md](./PROFILING.md) for detailed guide.
-
-## Contributing
-
-When adding benchmarks:
-1. Follow naming: `BM_<Component>_<Operation>_<Variant>`
-2. Use appropriate units (`kMicrosecond`/`kMillisecond`)
-3. Document purpose with comments
-4. Use fixtures from `fixtures/`
-5. Test locally before PR
-
-## See Also
-
-- [Profiling Guide](./PROFILING.md) - Detailed profiling docs
-- [Google Benchmark Guide](https://github.com/google/benchmark/blob/main/docs/user_guide.md)
-- [Main README](../README.md)
+| File | Clusters | Dim | Size |
+|------|----------|-----|------|
+| `checkpoint_small.json` | 10 | 128 | ~17KB |
+| `checkpoint_medium.json` | 100 | 512 | ~700KB |
+| `checkpoint_large.json` | 1000 | 1536 | ~21MB |
+| `checkpoint_xl.json` | 2000 | 1536 | ~41MB |

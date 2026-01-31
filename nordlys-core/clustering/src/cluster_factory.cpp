@@ -4,10 +4,14 @@
 #ifdef NORDLYS_HAS_CUDA
 #  include <nordlys/clustering/cluster_cuda.hpp>
 #else
+namespace nordlys::clustering {
 bool cuda_available() noexcept { return false; }
+} // namespace nordlys::clustering
 #endif
 
-std::unique_ptr<IClusterBackend> create_backend(Device device) {
+namespace nordlys::clustering {
+
+auto create_backend(Device device) -> std::unique_ptr<IClusterBackend> {
   return std::visit(overloaded{[](CpuDevice) -> std::unique_ptr<IClusterBackend> {
                                  return std::make_unique<CpuClusterBackend>();
                                },
@@ -23,3 +27,5 @@ std::unique_ptr<IClusterBackend> create_backend(Device device) {
                                }},
                     device);
 }
+
+} // namespace nordlys::clustering

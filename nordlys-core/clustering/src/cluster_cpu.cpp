@@ -10,12 +10,14 @@
 
 #include <usearch/index_dense.hpp>
 
+namespace nordlys::clustering {
+
 namespace {
 
-  struct MinDistanceResult {
-    float dist_sq;
-    int idx;
-  };
+struct MinDistanceResult {
+  float dist_sq;
+  int idx;
+};
 
 #ifdef _OPENMP
 #  ifndef _MSC_VER
@@ -168,3 +170,5 @@ std::vector<std::pair<int, float>> CpuClusterBackend::assign_batch(EmbeddingBatc
 
   return results;
 }
+
+} // namespace nordlys::clustering
