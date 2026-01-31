@@ -129,9 +129,6 @@ static void BM_ClusterBatchAssign_CPUBuffer(benchmark::State& state) {
   }
 
   state.SetItemsProcessed(state.iterations() * batch_size);
-  double throughput = (state.iterations() * batch_size) / (state.iterations() * state.counters["time"] * 1e-6);
-  state.counters["throughput_eps"] = benchmark::Counter(throughput, benchmark::Counter::kIsRate);
-  
   state.SetLabel(std::to_string(batch_size) + "b/" + std::to_string(n_clusters) + "c/" +
                  std::to_string(dim) + "d");
 }
@@ -175,9 +172,6 @@ static void BM_ClusterBatchAssign_GPUBuffer(benchmark::State& state) {
   cudaFree(d_queries);
 
   state.SetItemsProcessed(state.iterations() * batch_size);
-  double throughput = (state.iterations() * batch_size) / (state.iterations() * state.counters["time"] * 1e-6);
-  state.counters["throughput_eps"] = benchmark::Counter(throughput, benchmark::Counter::kIsRate);
-  
   state.SetLabel(std::to_string(batch_size) + "b/" + std::to_string(n_clusters) + "c/" +
                  std::to_string(dim) + "d [PROD]");
 }
