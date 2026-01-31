@@ -9,6 +9,7 @@
 #include <vector>
 
 namespace fs = std::filesystem;
+using nordlys::clustering::EmbeddingView;
 
 class NordlysIntegrationTest : public ::testing::Test {
 protected:

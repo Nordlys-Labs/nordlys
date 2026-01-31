@@ -1,28 +1,115 @@
 #pragma once
 #ifdef NORDLYS_HAS_CUDA
 
-#  include <cstddef>
-#  include <nordlys/clustering/cuda/common.cuh>
-#  include <utility>
+#include <cstddef>
+#include <iostream>
+#include <utility>
 
-template <typename T> class CudaDevicePtr {
+#include <nordlys/clustering/cuda/common.cuh>
+
+namespace nordlys::clustering::cuda {
+
+template <typename T>
+class DevicePtr {
 public:
-  CudaDevicePtr() = default;
+  DevicePtr() = default;
 
-  explicit CudaDevicePtr(size_t count) : count_(count) {
+  explicit DevicePtr(size_t count, cudaStream_t stream = cudaStreamPerThread) : count_(count) {
     if (count > 0) {
-      NORDLYS_CUDA_CHECK(cudaMalloc(&ptr_, count * sizeof(T)));
+      NORDLYS_CUDA_CHECK(cudaMallocAsync(&ptr_, count * sizeof(T), stream));
     }
   }
 
-  ~CudaDevicePtr() { free(); }
+  ~DevicePtr() noexcept {
+    if (ptr_) {
+      // Don't throw in destructor - just log error if free fails
+      auto err = cudaFree(ptr_);
+      if (err != cudaSuccess) [[unlikely]] {
+        std::cerr << "DevicePtr::~DevicePtr() cudaFree failed: " 
+                  << cudaGetErrorString(err) << "\n";
+      }
+      ptr_ = nullptr;
+      count_ = 0;
+    }
+  }
 
-  CudaDevicePtr(CudaDevicePtr&& other) noexcept : ptr_(other.ptr_), count_(other.count_) {
+  DevicePtr(DevicePtr&& other) noexcept : ptr_(other.ptr_), count_(other.count_) {
     other.ptr_ = nullptr;
     other.count_ = 0;
   }
 
-  CudaDevicePtr& operator=(CudaDevicePtr&& other) noexcept {
+  auto operator=(DevicePtr&& other) noexcept -> DevicePtr& {
+    if (this != &other) {
+      free_async(nullptr);  // Use async free for consistency
+      ptr_ = other.ptr_;
+      count_ = other.count_;
+      other.ptr_ = nullptr;
+      other.count_ = 0;
+    }
+    return *this;
+  }
+
+  DevicePtr(const DevicePtr&) = delete;
+  auto operator=(const DevicePtr&) = delete;
+
+  [[nodiscard]] auto get() const noexcept -> T* { return ptr_; }
+  [[nodiscard]] auto size() const noexcept -> size_t { return count_; }
+  [[nodiscard]] auto empty() const noexcept -> bool { return ptr_ == nullptr; }
+
+  void reset(size_t count = 0, cudaStream_t stream = cudaStreamPerThread) {
+    free_async(stream);
+    count_ = count;
+    if (count > 0) {
+      NORDLYS_CUDA_CHECK(cudaMallocAsync(&ptr_, count * sizeof(T), stream));
+    }
+  }
+
+  void free_async(cudaStream_t stream) noexcept {
+    if (ptr_) {
+      auto err = cudaFreeAsync(ptr_, stream);
+      if (err != cudaSuccess) [[unlikely]] {
+        std::cerr << "DevicePtr::free_async() failed: " 
+                  << cudaGetErrorString(err) << "\n";
+      }
+      ptr_ = nullptr;
+      count_ = 0;
+    }
+  }
+
+private:
+  T* ptr_ = nullptr;
+  size_t count_ = 0;
+};
+
+template <typename T>
+class PinnedPtr {
+public:
+  PinnedPtr() = default;
+
+  explicit PinnedPtr(size_t count) : count_(count) {
+    if (count > 0) {
+      NORDLYS_CUDA_CHECK(cudaMallocHost(&ptr_, count * sizeof(T)));
+    }
+  }
+
+  ~PinnedPtr() noexcept {
+    if (ptr_) {
+      auto err = cudaFreeHost(ptr_);
+      if (err != cudaSuccess) [[unlikely]] {
+        std::cerr << "PinnedPtr::~PinnedPtr() cudaFreeHost failed: " 
+                  << cudaGetErrorString(err) << "\n";
+      }
+      ptr_ = nullptr;
+      count_ = 0;
+    }
+  }
+
+  PinnedPtr(PinnedPtr&& other) noexcept : ptr_(other.ptr_), count_(other.count_) {
+    other.ptr_ = nullptr;
+    other.count_ = 0;
+  }
+
+  auto operator=(PinnedPtr&& other) noexcept -> PinnedPtr& {
     if (this != &other) {
       free();
       ptr_ = other.ptr_;
@@ -33,68 +120,12 @@ public:
     return *this;
   }
 
-  CudaDevicePtr(const CudaDevicePtr&) = delete;
-  CudaDevicePtr& operator=(const CudaDevicePtr&) = delete;
+  PinnedPtr(const PinnedPtr&) = delete;
+  auto operator=(const PinnedPtr&) = delete;
 
-  T* get() const { return ptr_; }
-  size_t size() const { return count_; }
-  bool empty() const { return ptr_ == nullptr; }
-
-  void reset(size_t count = 0) {
-    free();
-    count_ = count;
-    if (count > 0) {
-      NORDLYS_CUDA_CHECK(cudaMalloc(&ptr_, count * sizeof(T)));
-    }
-  }
-
-private:
-  void free() {
-    if (ptr_) {
-      cudaFree(ptr_);
-      ptr_ = nullptr;
-      count_ = 0;
-    }
-  }
-
-  T* ptr_ = nullptr;
-  size_t count_ = 0;
-};
-
-template <typename T> class CudaPinnedPtr {
-public:
-  CudaPinnedPtr() = default;
-
-  explicit CudaPinnedPtr(size_t count) : count_(count) {
-    if (count > 0) {
-      NORDLYS_CUDA_CHECK(cudaMallocHost(&ptr_, count * sizeof(T)));
-    }
-  }
-
-  ~CudaPinnedPtr() { free(); }
-
-  CudaPinnedPtr(CudaPinnedPtr&& other) noexcept : ptr_(other.ptr_), count_(other.count_) {
-    other.ptr_ = nullptr;
-    other.count_ = 0;
-  }
-
-  CudaPinnedPtr& operator=(CudaPinnedPtr&& other) noexcept {
-    if (this != &other) {
-      free();
-      ptr_ = other.ptr_;
-      count_ = other.count_;
-      other.ptr_ = nullptr;
-      other.count_ = 0;
-    }
-    return *this;
-  }
-
-  CudaPinnedPtr(const CudaPinnedPtr&) = delete;
-  CudaPinnedPtr& operator=(const CudaPinnedPtr&) = delete;
-
-  T* get() const { return ptr_; }
-  size_t size() const { return count_; }
-  bool empty() const { return ptr_ == nullptr; }
+  [[nodiscard]] auto get() const noexcept -> T* { return ptr_; }
+  [[nodiscard]] auto size() const noexcept -> size_t { return count_; }
+  [[nodiscard]] auto empty() const noexcept -> bool { return ptr_ == nullptr; }
 
   void reset(size_t count = 0) {
     free();
@@ -105,9 +136,13 @@ public:
   }
 
 private:
-  void free() {
+  void free() noexcept {
     if (ptr_) {
-      cudaFreeHost(ptr_);
+      auto err = cudaFreeHost(ptr_);
+      if (err != cudaSuccess) [[unlikely]] {
+        std::cerr << "PinnedPtr::free() cudaFreeHost failed: " 
+                  << cudaGetErrorString(err) << "\n";
+      }
       ptr_ = nullptr;
       count_ = 0;
     }
@@ -116,5 +151,7 @@ private:
   T* ptr_ = nullptr;
   size_t count_ = 0;
 };
+
+} // namespace nordlys::clustering::cuda
 
 #endif

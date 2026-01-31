@@ -11,6 +11,7 @@
 #include "../fixtures/fixtures_loader.hpp"
 
 namespace fs = std::filesystem;
+using nordlys::clustering::EmbeddingView;
 
 class EndToEndIntegrationTest : public ::testing::Test {
 protected:

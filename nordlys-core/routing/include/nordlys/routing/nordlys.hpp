@@ -21,6 +21,11 @@
 #include <nordlys/common/result.hpp>
 #include <nordlys/scoring/scorer.hpp>
 
+using nordlys::clustering::create_backend;
+using nordlys::clustering::EmbeddingBatchView;
+using nordlys::clustering::EmbeddingView;
+using nordlys::clustering::IClusterBackend;
+
 inline void init_threading() {
 #ifdef _OPENMP
   static std::once_flag flag;
