@@ -19,11 +19,6 @@ API_TIMEOUT_MS=3000000
 # Model override defaults (can be overridden by environment variables)
 # Use nordlys/hypernova to enable Nordlys model for optimal cost/performance
 DEFAULT_PRIMARY_MODEL="nordlys/hypernova"
-DEFAULT_FAST_MODEL="nordlys/hypernova"
-DEFAULT_OPUS_MODEL="nordlys/hypernova"
-DEFAULT_SONNET_MODEL="nordlys/hypernova"
-DEFAULT_HAIKU_MODEL="nordlys/hypernova"
-DEFAULT_CLAUDE_CODE_SUBAGENT="nordlys/hypernova"
 
 # ========================
 #       Utility Functions
@@ -52,11 +47,6 @@ Options:
 Environment Variables:
   NORDLYS_API_KEY                API key (fallback if --api-key not provided)
   NORDLYS_PRIMARY_MODEL          Primary model override
-  NORDLYS_FAST_MODEL             Fast model override
-  NORDLYS_DEFAULT_OPUS_MODEL     Opus model override
-  NORDLYS_DEFAULT_SONNET_MODEL   Sonnet model override
-  NORDLYS_DEFAULT_HAIKU_MODEL    Haiku model override
-  NORDLYS_CLAUDE_CODE_SUBAGENT   Claude Code subagent model override
 
 Examples:
   # Interactive setup
@@ -239,25 +229,12 @@ configure_claude() {
 
   # Check for model overrides
   local primary_model="${NORDLYS_PRIMARY_MODEL:-$DEFAULT_PRIMARY_MODEL}"
-  local fast_model="${NORDLYS_FAST_MODEL:-$DEFAULT_FAST_MODEL}"
-  local opus_model="${NORDLYS_DEFAULT_OPUS_MODEL:-$DEFAULT_OPUS_MODEL}"
-  local sonnet_model="${NORDLYS_DEFAULT_SONNET_MODEL:-$DEFAULT_SONNET_MODEL}"
-  local haiku_model="${NORDLYS_DEFAULT_HAIKU_MODEL:-$DEFAULT_HAIKU_MODEL}"
-  local claude_code_subagent="${NORDLYS_CLAUDE_CODE_SUBAGENT:-$DEFAULT_CLAUDE_CODE_SUBAGENT}"
 
   # Validate model overrides if provided
   if [ "$primary_model" != "$DEFAULT_PRIMARY_MODEL" ]; then
     log_info "Using custom primary model: $primary_model"
     if ! validate_model_override "$primary_model"; then
       log_error "Invalid primary model format in NORDLYS_PRIMARY_MODEL"
-      exit 1
-    fi
-  fi
-
-  if [ "$fast_model" != "$DEFAULT_FAST_MODEL" ]; then
-    log_info "Using custom fast model: $fast_model"
-    if ! validate_model_override "$fast_model"; then
-      log_error "Invalid fast model format in NORDLYS_FAST_MODEL"
       exit 1
     fi
   fi
@@ -288,24 +265,19 @@ configure_claude() {
     echo "🎯 Option 4: Customize models (Advanced)"
     echo "   export NORDLYS_API_KEY='your-api-key-here'"
     echo "   export NORDLYS_PRIMARY_MODEL='nordlys/hypernova'"
-    echo "   export NORDLYS_FAST_MODEL='nordlys/hypernova'"
     echo "   curl -fsSL https://raw.githubusercontent.com/Egham-7/nordlys/main/scripts/installers/unix/claude-code.sh | bash"
     echo ""
      echo "⚙️  Option 5: Manual configuration (Advanced users)"
      echo "   mkdir -p ~/.claude"
      echo "   cat > ~/.claude/settings.json << 'EOF'"
      echo "{"
+     echo '  "model": "nordlys/hypernova",'
      echo '  "env": {'
      echo '    "ANTHROPIC_AUTH_TOKEN": "your_api_key_here",'
      echo '    "ANTHROPIC_BASE_URL": "https://api.nordlyslabs.com/api",'
-     echo '    "API_TIMEOUT_MS": "3000000",'
-     echo '    "ANTHROPIC_MODEL": "nordlys/hypernova",'
-     echo '    "ANTHROPIC_SMALL_FAST_MODEL": "nordlys/hypernova",'
-      echo '    "ANTHROPIC_DEFAULT_OPUS_MODEL": "'"$opus_model"'",'
-      echo '    "ANTHROPIC_DEFAULT_SONNET_MODEL": "'"$sonnet_model"'",'
-      echo '    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "'"$haiku_model"'",'
-      echo '    "CLAUDE_CODE_SUBAGENT_MODEL": "'"$claude_code_subagent"'"'
+     echo '    "API_TIMEOUT_MS": "3000000"'
      echo "  }"
+
      echo "}"
      echo "EOF"
     echo ""
@@ -359,11 +331,6 @@ configure_claude() {
         const filePath = path.join(homeDir, ".claude", "settings.json");
         const apiKey = "'"$api_key"'";
         const primaryModel = "'"$primary_model"'";
-        const fastModel = "'"$fast_model"'";
-        const opusModel = "'"$opus_model"'";
-        const sonnetModel = "'"$sonnet_model"'";
-        const haikuModel = "'"$haiku_model"'";
-        const claudeCodeSubagent = "'"$claude_code_subagent"'";
 
         const content = fs.existsSync(filePath)
             ? JSON.parse(fs.readFileSync(filePath, "utf-8"))
@@ -371,16 +338,11 @@ configure_claude() {
 
         fs.writeFileSync(filePath, JSON.stringify({
             ...content,
+            model: primaryModel,
             env: {
                 ANTHROPIC_AUTH_TOKEN: apiKey,
                 ANTHROPIC_BASE_URL: "'"$API_BASE_URL"'",
-                API_TIMEOUT_MS: "'"$API_TIMEOUT_MS"'",
-                ANTHROPIC_MODEL: primaryModel,
-                ANTHROPIC_SMALL_FAST_MODEL: fastModel,
-                ANTHROPIC_DEFAULT_OPUS_MODEL: opusModel,
-                ANTHROPIC_DEFAULT_SONNET_MODEL: sonnetModel,
-                ANTHROPIC_DEFAULT_HAIKU_MODEL: haikuModel,
-                CLAUDE_CODE_SUBAGENT_MODEL: claudeCodeSubagent,
+                API_TIMEOUT_MS: "'"$API_TIMEOUT_MS"'"
             }
         }, null, 2), "utf-8");
     ' || {
@@ -506,7 +468,7 @@ main() {
      echo ""
      echo "💡 Pro Tips:"
      echo "   • Nordlys model enabled by default"
-     echo "   • Override models: NORDLYS_PRIMARY_MODEL, NORDLYS_FAST_MODEL env vars"
+     echo "   • Override models: NORDLYS_PRIMARY_MODEL env var"
      echo "   • Use author/model_id format (e.g., nordlys/hypernova)"
      echo ""
      echo "📖 Full Documentation: https://docs.nordlyslabs.com/developer-tools/claude-code"
