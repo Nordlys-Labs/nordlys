@@ -21,6 +21,12 @@ dependencies = [
     # Routing benchmark
     "boto3>=1.35.0",
     "tqdm>=4.66.0",
+    # SWE-smith evaluation
+    "swesmith>=0.0.8",
+    # Doubleword batch API (OpenAI-compatible)
+    "openai>=1.0.0",
+    # Doubleword autobatcher SDK (auto-batches async requests)
+    "autobatcher>=0.1.0",
 ]
 
 [project.optional-dependencies]
@@ -40,7 +46,7 @@ build-backend = "hatchling.build"
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["swe-bench/profiling/clustering", "swe-bench/swe-bench/src"]
+packages = ["swe-bench/profiling/clustering", "swe-bench/swe-bench/src", "swe_smith"]
 
 [tool.ruff]
 line-length = 100
