@@ -63,7 +63,7 @@ jobs:
           package-dir: ./nordlys-core/bindings/python
           extras: uv
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: cibw-wheels-cpu-${{ matrix.os }}
           path: ./wheelhouse/*.whl
