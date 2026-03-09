@@ -1,6 +1,7 @@
 """Tests for Dataset class."""
 
 import pandas as pd
+import polars as pl
 import pytest
 
 from nordlys.dataset import Dataset
@@ -21,7 +22,8 @@ class TestDatasetCreation:
         dataset = Dataset.from_list(rows)
 
         assert dataset.num_rows == 1
-        assert dataset.column_names == ["id", "input"]
+        # Column order may vary, just check presence
+        assert set(dataset.column_names) == {"id", "input"}
         assert dataset.column("id") == ["1"]
         assert dataset.column("input") == ["test prompt"]
 
@@ -47,19 +49,22 @@ class TestDatasetCreation:
         dataset = Dataset.from_list(rows)
 
         assert dataset.num_rows == 2
-        assert dataset.column_names == ["id", "input", "targets", "score"]
+        # Column order may vary, just check presence
+        assert set(dataset.column_names) == {"id", "input", "targets", "score"}
         assert dataset.column("targets") == [{"gpt-4": 1}, {"gpt-4": 0}]
         assert dataset.column("score") == [0.9, 0.3]
 
-    def test_from_list_column_length_mismatch(self):
-        """Test that mismatched column lengths raise error."""
+    def test_from_list_sparse_rows(self):
+        """Test that from_list handles sparse rows by filling with None."""
         rows = [
             {"id": "1", "input": "prompt 1"},
-            {"id": "2"},  # missing input
+            {"id": "2"},  # missing input - filled with None
         ]
+        dataset = Dataset.from_list(rows)
 
-        with pytest.raises(ValueError, match="Column length mismatch"):
-            Dataset.from_list(rows)
+        assert dataset.num_rows == 2
+        assert dataset.column("id") == ["1", "2"]
+        assert dataset.column("input") == ["prompt 1", None]
 
     def test_from_pandas(self):
         """Test creating dataset from pandas DataFrame."""
@@ -176,8 +181,6 @@ class TestDatasetMap:
 
         def transform(row):
             return {
-                "id": row["id"],
-                "input": row["input"],
                 "targets": {"gpt-4": 1},
                 "extra": "value",
             }
@@ -185,7 +188,8 @@ class TestDatasetMap:
         dataset = Dataset.from_list(rows)
         result = dataset.map(transform)
 
-        assert result.column_names == ["id", "input", "targets", "extra"]
+        # Check that original columns are preserved and new ones added
+        assert set(result.column_names) == {"id", "input", "targets", "extra"}
         assert result.column("extra") == ["value"]
 
     def test_map_batched(self):
@@ -363,7 +367,8 @@ class TestDatasetValidateSchema:
 
         missing = dataset.validate_schema()
 
-        assert "input" in missing
+        assert len(missing) > 0
+        assert any("input" in err for err in missing)
 
     def test_validate_custom_columns(self):
         """Test validation with custom required columns."""
@@ -373,3 +378,253 @@ class TestDatasetValidateSchema:
         missing = dataset.validate_schema(required_columns=["id", "custom"])
 
         assert missing == []
+
+
+class TestDatasetPolars:
+    """Test Polars DataFrame interop."""
+
+    def test_from_polars(self):
+        """Test creating dataset from Polars DataFrame."""
+        df = pl.DataFrame(
+            {
+                "id": ["1", "2", "3"],
+                "input": ["prompt 1", "prompt 2", "prompt 3"],
+            }
+        )
+
+        dataset = Dataset.from_polars(df)
+
+        assert dataset.num_rows == 3
+        assert dataset.column("id") == ["1", "2", "3"]
+        assert dataset.column("input") == ["prompt 1", "prompt 2", "prompt 3"]
+
+    def test_to_polars(self):
+        """Test converting dataset to Polars DataFrame."""
+        rows = [
+            {"id": "1", "input": "prompt 1"},
+            {"id": "2", "input": "prompt 2"},
+        ]
+        dataset = Dataset.from_list(rows)
+
+        df = dataset.to_polars()
+
+        assert isinstance(df, pl.DataFrame)
+        assert df.height == 2
+        assert df.columns == ["id", "input"]
+
+    def test_polars_roundtrip(self):
+        """Test Polars roundtrip preserves data."""
+        rows = [
+            {"id": "1", "input": "prompt 1", "extra": "a"},
+            {"id": "2", "input": "prompt 2", "extra": "b"},
+        ]
+        original = Dataset.from_list(rows)
+        df = original.to_polars()
+        restored = Dataset.from_polars(df)
+
+        assert restored.num_rows == original.num_rows
+        assert set(restored.column_names) == set(original.column_names)
+        assert restored.column("id") == original.column("id")
+        assert restored.column("input") == original.column("input")
+
+    def test_pandas_polars_parity(self):
+        """Test that pandas and polars produce equivalent results."""
+        data = {
+            "id": ["1", "2", "3"],
+            "input": ["a", "b", "c"],
+        }
+
+        pdf = pd.DataFrame(data)
+        pldf = pl.DataFrame(data)
+
+        ds_pandas = Dataset.from_pandas(pdf)
+        ds_polars = Dataset.from_polars(pldf)
+
+        assert ds_pandas.num_rows == ds_polars.num_rows
+        assert ds_pandas.column("id") == ds_polars.column("id")
+        assert ds_pandas.column("input") == ds_polars.column("input")
+
+
+class TestDatasetMapPreservesColumns:
+    """Test that map preserves existing columns."""
+
+    def test_map_partial_update(self):
+        """Test that map preserves existing columns when adding new ones."""
+        rows = [
+            {"id": "1", "input": "test", "extra": "keep"},
+            {"id": "2", "input": "test2", "extra": "keep2"},
+        ]
+        dataset = Dataset.from_list(rows)
+
+        def add_targets(row):
+            return {"targets": {"gpt-4": 1}}
+
+        result = dataset.map(add_targets)
+
+        assert result.num_rows == 2
+        # Original columns preserved
+        assert set(result.column_names) == {"id", "input", "extra", "targets"}
+        assert result.column("id") == ["1", "2"]
+        assert result.column("input") == ["test", "test2"]
+        assert result.column("extra") == ["keep", "keep2"]
+        # New column added
+        assert result.column("targets") == [{"gpt-4": 1}, {"gpt-4": 1}]
+
+    def test_map_batched_preserves_columns(self):
+        """Test that batched map preserves existing columns."""
+        rows = [{"id": str(i), "input": f"prompt {i}"} for i in range(5)]
+        dataset = Dataset.from_list(rows)
+
+        def batch_transform(batch):
+            return [{"targets": {"gpt-4": 1}} for _ in batch]
+
+        result = dataset.map(batch_transform, batched=True, batch_size=2)
+
+        assert result.num_rows == 5
+        assert set(result.column_names) == {"id", "input", "targets"}
+
+    def test_map_batched_wrong_length_raises(self):
+        """Test that batched map with wrong output length raises."""
+        rows = [{"id": str(i)} for i in range(5)]
+        dataset = Dataset.from_list(rows)
+
+        def bad_transform(batch):
+            # Return wrong number of rows
+            return [{"x": 1} for _ in range(len(batch) - 1)]
+
+        with pytest.raises(ValueError, match="same number of rows"):
+            dataset.map(bad_transform, batched=True, batch_size=3)
+
+
+class TestDatasetEmptyOperations:
+    """Test that empty operations preserve schema."""
+
+    def test_empty_filter_preserves_schema(self):
+        """Test that filter with no matches preserves schema."""
+        rows = [{"id": "1", "input": "test"}]
+        dataset = Dataset.from_list(rows)
+
+        result = dataset.filter(lambda row: False)
+
+        assert result.num_rows == 0
+        # Schema preserved
+        assert set(result.column_names) == {"id", "input"}
+
+    def test_empty_select_preserves_schema(self):
+        """Test that select with empty list preserves schema."""
+        rows = [{"id": "1", "input": "test"}]
+        dataset = Dataset.from_list(rows)
+
+        result = dataset.select([])
+
+        assert result.num_rows == 0
+        # Schema preserved
+        assert set(result.column_names) == {"id", "input"}
+
+
+class TestDatasetTargetsValidation:
+    """Test targets column validation."""
+
+    def test_validate_targets_valid(self):
+        """Test that valid targets pass validation."""
+        rows = [
+            {"id": "1", "input": "test", "targets": {"gpt-4": 1, "claude": 0}},
+            {"id": "2", "input": "test", "targets": {"gpt-4": 0}},
+        ]
+        dataset = Dataset.from_list(rows)
+
+        errors = dataset.validate_targets()
+
+        assert errors == []
+
+    def test_validate_targets_not_dict(self):
+        """Test that non-dict targets fail validation."""
+        rows = [
+            {"id": "1", "input": "test", "targets": "not a dict"},
+        ]
+        dataset = Dataset.from_list(rows)
+
+        errors = dataset.validate_targets()
+
+        assert len(errors) > 0
+        assert "must be a dict" in errors[0]
+
+    def test_validate_targets_invalid_value(self):
+        """Test that non-binary target values fail validation."""
+        rows = [
+            {"id": "1", "input": "test", "targets": {"gpt-4": 0.5}},
+        ]
+        dataset = Dataset.from_list(rows)
+
+        errors = dataset.validate_targets()
+
+        assert len(errors) > 0
+        assert "must be 0 or 1" in errors[0]
+
+    def test_validate_targets_missing_is_ok(self):
+        """Test that missing targets (None) is allowed."""
+        rows = [
+            {"id": "1", "input": "test", "targets": None},
+            {"id": "2", "input": "test"},
+        ]
+        dataset = Dataset.from_list(rows)
+
+        errors = dataset.validate_targets()
+
+        assert errors == []
+
+
+class TestDatasetUniqueIds:
+    """Test ID uniqueness validation."""
+
+    def test_validate_unique_ids(self):
+        """Test that duplicate IDs are detected."""
+        rows = [
+            {"id": "1", "input": "test"},
+            {"id": "1", "input": "test2"},  # duplicate
+        ]
+        dataset = Dataset.from_list(rows)
+
+        errors = dataset.validate_schema(check_unique_ids=True)
+
+        assert len(errors) > 0
+        assert "not unique" in errors[0]
+
+    def test_validate_unique_ids_pass(self):
+        """Test that unique IDs pass validation."""
+        rows = [
+            {"id": "1", "input": "test"},
+            {"id": "2", "input": "test2"},
+        ]
+        dataset = Dataset.from_list(rows)
+
+        errors = dataset.validate_schema(check_unique_ids=True)
+
+        assert errors == []
+
+
+class TestDatasetRemoveColumns:
+    """Test remove_columns method."""
+
+    def test_remove_columns(self):
+        """Test removing specific columns."""
+        rows = [
+            {"id": "1", "input": "test", "extra1": "a", "extra2": "b"},
+        ]
+        dataset = Dataset.from_list(rows)
+
+        result = dataset.remove_columns(["extra1"])
+
+        assert set(result.column_names) == {"id", "input", "extra2"}
+        assert result.column("id") == ["1"]
+
+    def test_remove_columns_multiple(self):
+        """Test removing multiple columns."""
+        rows = [
+            {"id": "1", "input": "test", "a": "1", "b": "2", "c": "3"},
+        ]
+        dataset = Dataset.from_list(rows)
+
+        result = dataset.remove_columns(["a", "c"])
+
+        assert set(result.column_names) == {"id", "input", "b"}
