@@ -1,13 +1,13 @@
 """Pytest fixtures for nordlys tests."""
 
-import json
+from nordlys import ModelConfig
+from nordlys_core import NordlysCheckpoint
 
 import numpy as np
 import pandas as pd
 import pytest
 
-from nordlys import ModelConfig
-from nordlys_core import NordlysCheckpoint
+import json
 
 
 @pytest.fixture

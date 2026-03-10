@@ -1,59 +1,11 @@
 """Unit tests for Router embedding cache functionality."""
 
-import json
-from unittest.mock import MagicMock
-
 import numpy as np
 import pytest
+from unittest.mock import MagicMock
 
-from nordlys import ModelConfig, Router
+from nordlys import Router
 from nordlys_core import NordlysCheckpoint
-
-
-@pytest.fixture
-def sample_models() -> list[ModelConfig]:
-    """Return sample model configurations for testing."""
-    return [
-        ModelConfig(id="openai/gpt-4", cost_input=30.0, cost_output=60.0),
-        ModelConfig(id="anthropic/claude-3-sonnet", cost_input=15.0, cost_output=75.0),
-    ]
-
-
-@pytest.fixture
-def sample_checkpoint(sample_models: list[ModelConfig]) -> NordlysCheckpoint:
-    models = [
-        {
-            "model_id": m.id,
-            "cost_per_1m_input_tokens": m.cost_input,
-            "cost_per_1m_output_tokens": m.cost_output,
-            "error_rates": [0.2, 0.4],
-        }
-        for m in sample_models
-    ]
-    payload = {
-        "version": "2.0",
-        "cluster_centers": [[1.0, 0.0], [0.0, 1.0]],
-        "models": models,
-        "embedding": {
-            "model": "sentence-transformers/all-MiniLM-L6-v2",
-            "trust_remote_code": False,
-        },
-        "clustering": {
-            "n_clusters": 2,
-            "random_state": 42,
-            "max_iter": 300,
-            "n_init": 10,
-            "algorithm": "lloyd",
-            "normalization": "l2",
-        },
-        "metrics": {
-            "n_samples": 2,
-            "cluster_sizes": [1, 1],
-            "silhouette_score": None,
-            "inertia": None,
-        },
-    }
-    return NordlysCheckpoint.from_json_string(json.dumps(payload))
 
 
 class TestEmbeddingCacheInitialization:

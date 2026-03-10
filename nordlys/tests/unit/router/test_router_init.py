@@ -15,7 +15,7 @@ class TestRouterInitialization:
 
     def test_create_with_invalid_checkpoint_path_fails(self):
         """Test that creating Router with bad checkpoint path fails."""
-        with pytest.raises(Exception):
+        with pytest.raises(RuntimeError, match="Failed to open checkpoint file"):
             Router(checkpoint="missing-checkpoint.json")
 
 
@@ -59,7 +59,7 @@ class TestRouterState:
     def test_router_is_ready_after_constructor_load(self, sample_checkpoint):
         """Test that Router is initialized after constructor checkpoint load."""
         nordlys = Router(checkpoint=sample_checkpoint)
-        assert nordlys._is_fitted is True
+        assert nordlys._core_engine is not None
 
     def test_router_has_no_training_methods(self, sample_checkpoint):
         """Test that Router exposes runtime-only API."""

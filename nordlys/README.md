@@ -1,6 +1,6 @@
 # Nordlys
 
-Smart LLM model router. Picks the best model for each prompt based on cost and quality.
+Smart LLM model routing with a checkpoint-based runtime.
 
 ## Install
 
@@ -11,28 +11,34 @@ uv pip install -e .
 ## Quick Start
 
 ```python
-from nordlys import Nordlys, ModelConfig
-import pandas as pd
+from nordlys import Dataset, Trainer, Router, ModelConfig
 
-# 1. Define your models
+# 1. Define models
 models = [
     ModelConfig(id="openai/gpt-4", cost_input=30.0, cost_output=60.0),
-    ModelConfig(id="openai/gpt-3.5-turbo", cost_input=0.5, cost_output=1.5),
+    ModelConfig(id="openai/gpt-4o-mini", cost_input=0.15, cost_output=0.6),
 ]
 
-# 2. Training data: questions + accuracy scores per model
-df = pd.DataFrame({
-    "questions": ["Write code", "What is 2+2?", "Explain quantum physics"],
-    "openai/gpt-4": [0.95, 0.99, 0.92],
-    "openai/gpt-3.5-turbo": [0.70, 0.99, 0.60],
-})
+# 2. Build training dataset with binary targets per model
+dataset = Dataset.from_list([
+    {
+        "id": "1",
+        "input": "Design a database schema for this app",
+        "targets": {"openai/gpt-4": 1, "openai/gpt-4o-mini": 0},
+    },
+    {
+        "id": "2",
+        "input": "Summarize this short changelog",
+        "targets": {"openai/gpt-4": 0, "openai/gpt-4o-mini": 1},
+    },
+])
 
-# 3. Fit and route
-router = Nordlys(models=models)
-router.fit(df)
+# 3. Train checkpoint, then create runtime router
+checkpoint = Trainer(models=models).fit(dataset)
+router = Router(checkpoint=checkpoint)
 
-result = router.route("Write a sorting algorithm", cost_bias=0.5)
-print(result.model_id)  # Best model for this prompt
+result = router.route("Implement this parser")
+print(result.model_id)
 ```
 
 ## How It Works
@@ -41,24 +47,17 @@ print(result.model_id)  # Best model for this prompt
 2. **Learns** which model performs best per cluster
 3. **Routes** new prompts to the optimal model
 
-## Cost Bias
+## Runtime API
+
+- `router.route(prompt, models=None)` routes one prompt.
+- `router.route_batch(prompts, models=None)` routes a list of prompts.
+- Optional `models` filter restricts candidates to specific model IDs.
+
+## Checkpoint I/O
 
 ```python
-# cost_bias=0.0 → Always cheapest
-router.route("prompt", cost_bias=0.0)
-
-# cost_bias=1.0 → Always best quality
-router.route("prompt", cost_bias=1.0)
-
-# cost_bias=0.5 → Balanced
-router.route("prompt", cost_bias=0.5)
-```
-
-## Save & Load
-
-```python
-router.save("router.json")
-loaded = Nordlys.load("router.json")
+checkpoint.to_json_file("router.json")
+loaded = Router(checkpoint="router.json")
 ```
 
 ## Links

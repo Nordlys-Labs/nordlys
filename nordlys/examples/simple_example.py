@@ -8,12 +8,11 @@ This example shows how to:
 5. Inspect clusters and metrics
 """
 
-import pandas as pd
-import numpy as np
-
-# Import the new API
 from nordlys import Dataset, ModelConfig, Router, Trainer
 from nordlys.clustering import KMeansClusterer
+
+import numpy as np
+import pandas as pd
 
 # =============================================================================
 # 1. Define models with costs
@@ -207,17 +206,17 @@ for prompt, result in zip(batch_prompts, results):
     print(f'  "{prompt[:30]}..." -> {result.model_id}')
 
 # =============================================================================
-# 7. Save and load
+# 7. Checkpoint I/O
 # =============================================================================
 print("\n" + "=" * 60)
-print("Save and Load")
+print("Checkpoint I/O")
 print("=" * 60)
 
-# Save to JSON
-router.save("/tmp/nordlys_example.json")
-print("Saved to /tmp/nordlys_example.json")
+# Save checkpoint to JSON directly
+checkpoint.to_json_file("/tmp/nordlys_example.json")
+print("Checkpoint saved to /tmp/nordlys_example.json")
 
-# Load it back
+# Load router from checkpoint path
 loaded_router = Router(checkpoint="/tmp/nordlys_example.json")
 print(f"Loaded: {loaded_router}")
 

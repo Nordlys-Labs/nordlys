@@ -11,7 +11,7 @@ import warnings
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 import numpy as np
 from cachetools import LRUCache
@@ -22,7 +22,6 @@ from nordlys.clustering import (
     ClusterInfo,
     ClusterMetrics,
 )
-from nordlys.checkpoint import build_checkpoint
 from nordlys_core import Nordlys as NordlysCore, NordlysCheckpoint
 
 
@@ -85,23 +84,6 @@ class RouteResult:
     cluster_id: int
     cluster_distance: float
     alternatives: list[str] = field(default_factory=list)
-
-
-def _get_device() -> str:
-    """Get the best available device for embedding computation."""
-    try:
-        import torch
-
-        if torch.cuda.is_available():
-            return "cuda"
-        try:
-            if torch.backends.mps.is_available():
-                return "mps"
-        except AttributeError:
-            pass
-    except ImportError:
-        pass
-    return "cpu"
 
 
 class Router:
@@ -215,8 +197,8 @@ class Router:
         self._centroids: np.ndarray | None = None
         self._metrics: ClusterMetrics | None = None
         self._model_accuracies: dict[int, dict[str, float]] | None = None
-        self._is_fitted = False
 
+        self._checkpoint = resolved_checkpoint
         self._load_checkpoint_state(resolved_checkpoint)
 
     def _compute_embeddings(self, texts: Sequence[str]) -> np.ndarray:
@@ -328,8 +310,7 @@ class Router:
         Returns:
             RouteResult with selected model and alternatives
         """
-        self._check_is_fitted()
-        core_engine = self._ensure_core_engine()
+        core_engine = cast(NordlysCore, self._core_engine)
 
         # Compute embedding (with caching for repeated prompts)
         embedding = self.compute_embedding(prompt)
@@ -339,9 +320,7 @@ class Router:
             embedding = np.ascontiguousarray(embedding, dtype=np.float32)
 
         # Route using C++ core
-        if models is None:
-            models = []
-        response = core_engine.route(embedding, models)
+        response = core_engine.route(embedding, [] if models is None else models)
 
         return RouteResult(
             model_id=response.selected_model,
@@ -364,14 +343,10 @@ class Router:
         Returns:
             List of RouteResults
         """
-        self._check_is_fitted()
-        core_engine = self._ensure_core_engine()
+        core_engine = cast(NordlysCore, self._core_engine)
 
         if not prompts:
             return []
-
-        if models is None:
-            models = []
 
         # Compute embeddings in batch (more efficient for unique texts)
         embeddings = self._compute_embeddings(prompts)
@@ -381,7 +356,9 @@ class Router:
             embeddings = np.ascontiguousarray(embeddings, dtype=np.float32)
 
         # Route using C++ core engine's route_batch
-        responses = core_engine.route_batch(embeddings, models)
+        responses = core_engine.route_batch(
+            embeddings, [] if models is None else models
+        )
 
         # Convert responses to RouteResult objects
         return [
@@ -393,50 +370,6 @@ class Router:
             )
             for response in responses
         ]
-
-    def _check_is_fitted(self) -> None:
-        """Check if runtime state has been loaded from a checkpoint."""
-        if not self._is_fitted:
-            raise RuntimeError(
-                "Router runtime is not initialized. "
-                "Construct Router(checkpoint=...) first."
-            )
-
-    def _ensure_centroids(self) -> np.ndarray:
-        """Ensure centroids are available and return them."""
-        self._check_is_fitted()
-        if self._centroids is None:
-            raise RuntimeError(
-                "Centroids are not available. This should not happen after loading a checkpoint."
-            )
-        return self._centroids
-
-    def _ensure_model_accuracies(self) -> dict[int, dict[str, float]]:
-        """Ensure model accuracies are available and return them."""
-        self._check_is_fitted()
-        if self._model_accuracies is None:
-            raise RuntimeError(
-                "Model accuracies are not available. This should not happen after loading a checkpoint."
-            )
-        return self._model_accuracies
-
-    def _ensure_metrics(self) -> ClusterMetrics:
-        """Ensure metrics are available and return them."""
-        self._check_is_fitted()
-        if self._metrics is None:
-            raise RuntimeError(
-                "Metrics are not available. This should not happen after loading a checkpoint."
-            )
-        return self._metrics
-
-    def _ensure_core_engine(self) -> NordlysCore:
-        """Ensure core engine is available and return it."""
-        self._check_is_fitted()
-        if self._core_engine is None:
-            raise RuntimeError(
-                "Core engine is not initialized. This should not happen after loading a checkpoint."
-            )
-        return self._core_engine
 
     # =========================================================================
     # Introspection methods
@@ -451,10 +384,9 @@ class Router:
         Returns:
             ClusterInfo with cluster details
         """
-        self._check_is_fitted()
-        centroids = self._ensure_centroids()
-        model_accuracies = self._ensure_model_accuracies()
-        metrics = self._ensure_metrics()
+        centroids = cast(np.ndarray, self._centroids)
+        model_accuracies = cast(dict[int, dict[str, float]], self._model_accuracies)
+        metrics = cast(ClusterMetrics, self._metrics)
 
         if cluster_id < 0 or cluster_id >= len(centroids):
             raise ValueError(f"Invalid cluster_id: {cluster_id}")
@@ -478,8 +410,7 @@ class Router:
         Returns:
             List of ClusterInfo objects
         """
-        self._check_is_fitted()
-        centroids = self._ensure_centroids()
+        centroids = cast(np.ndarray, self._centroids)
 
         return [
             self.get_cluster_info(cluster_id) for cluster_id in range(len(centroids))
@@ -491,7 +422,7 @@ class Router:
         Returns:
             ClusterMetrics object
         """
-        return self._ensure_metrics()
+        return cast(ClusterMetrics, self._metrics)
 
     # =========================================================================
     # Embedding cache management
@@ -519,12 +450,12 @@ class Router:
     @property
     def centroids_(self) -> np.ndarray:
         """Cluster centroids of shape (n_clusters, n_features)."""
-        return self._ensure_centroids()
+        return cast(np.ndarray, self._centroids)
 
     @property
     def metrics_(self) -> ClusterMetrics:
         """Clustering metrics restored from checkpoint."""
-        return self._ensure_metrics()
+        return cast(ClusterMetrics, self._metrics)
 
     @property
     def model_accuracies_(self) -> dict[int, dict[str, float]]:
@@ -533,96 +464,12 @@ class Router:
         Returns:
             Dict mapping cluster_id -> {model_id: accuracy}
         """
-        return self._ensure_model_accuracies()
+        return cast(dict[int, dict[str, float]], self._model_accuracies)
 
     @property
     def n_clusters_(self) -> int:
         """Number of clusters."""
-        return len(self._ensure_centroids())
-
-    # =========================================================================
-    # Persistence
-    # =========================================================================
-
-    def save(self, path: str | Path) -> None:
-        """Save the fitted model to a file.
-
-        Supports both JSON (.json) and MessagePack (.msgpack) formats.
-
-        Args:
-            path: Output path (extension determines format)
-        """
-        self._check_is_fitted()
-
-        path = Path(path)
-        checkpoint = self._to_checkpoint()
-
-        if path.suffix.lower() == ".msgpack":
-            checkpoint.to_msgpack_file(str(path))
-        else:
-            checkpoint.to_json_file(str(path))
-
-        logger.info(f"Saved Router model to {path}")
-
-    def _to_checkpoint(self) -> NordlysCheckpoint:
-        """Convert fitted state to NordlysCheckpoint."""
-        centroids = self._ensure_centroids()
-        model_accuracies = self._ensure_model_accuracies()
-        metrics = self._ensure_metrics()
-        n_clusters = len(centroids)
-
-        # Build models list with error rates (only model_id, no provider/model_name split)
-        models = []
-        for model_config in self._models:
-            error_rates = []
-            for cluster_id in range(n_clusters):
-                cluster_acc = model_accuracies.get(cluster_id)
-                if cluster_acc is None or model_config.id not in cluster_acc:
-                    raise ValueError(
-                        f"Missing accuracy for model '{model_config.id}' in cluster {cluster_id}"
-                    )
-                error_rates.append(1.0 - float(cluster_acc[model_config.id]))
-
-            models.append(
-                {
-                    "model_id": model_config.id,
-                    "cost_per_1m_input_tokens": model_config.cost_input,
-                    "cost_per_1m_output_tokens": model_config.cost_output,
-                    "error_rates": error_rates,
-                }
-            )
-
-        return build_checkpoint(
-            cluster_centers=centroids,
-            models=models,
-            embedding={
-                "model": self._embedding_model_name,
-                "trust_remote_code": self._allow_trust_remote_code,
-            },
-            clustering={
-                "n_clusters": n_clusters,
-                "random_state": self._random_state,
-                "max_iter": DEFAULT_MAX_ITER,
-                "n_init": DEFAULT_N_INIT,
-                "algorithm": "lloyd",
-                "normalization": "l2",
-            },
-            metrics={
-                "n_samples": metrics.n_samples,
-                "cluster_sizes": metrics.cluster_sizes,
-                "silhouette_score": metrics.silhouette_score,
-                "inertia": metrics.inertia,
-            },
-        )
-
-    @classmethod
-    def _from_checkpoint(
-        cls,
-        checkpoint: NordlysCheckpoint,
-        device: Literal["cpu", "cuda"] = "cpu",
-    ) -> "Router":
-        """Create Router instance from checkpoint (internal convenience)."""
-        return cls(checkpoint=checkpoint, device=device)
+        return len(cast(np.ndarray, self._centroids))
 
     def _load_checkpoint_state(self, checkpoint: NordlysCheckpoint) -> None:
         """Populate runtime fields from checkpoint data."""
@@ -648,13 +495,11 @@ class Router:
             inertia=checkpoint.metrics.inertia,
         )
 
-        self._is_fitted = True
         logger.info("Loaded checkpoint with C++ core (float32)")
 
     def __repr__(self) -> str:
-        status = "fitted" if self._is_fitted else "not fitted"
         return (
             f"Router(models={len(self._models)}, "
             f"nr_clusters={self._nr_clusters}, "
-            f"status={status})"
+            "status=ready)"
         )

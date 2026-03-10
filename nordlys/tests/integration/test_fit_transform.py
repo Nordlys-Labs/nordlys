@@ -6,16 +6,8 @@ from nordlys import Router
 
 
 class TestRouterRuntimeOnly:
-    def test_router_has_no_training_methods(self):
-        with pytest.raises(AttributeError):
-            Router.fit  # type: ignore[attr-defined]
-        with pytest.raises(AttributeError):
-            Router.fit_transform  # type: ignore[attr-defined]
-        with pytest.raises(AttributeError):
-            Router.transform  # type: ignore[attr-defined]
-
     def test_constructor_rejects_missing_checkpoint_file(self):
-        with pytest.raises(Exception):
+        with pytest.raises(RuntimeError, match="Failed to open checkpoint file"):
             Router(checkpoint="missing-checkpoint.json")
 
 
