@@ -84,15 +84,11 @@ public:
     return route_impl(view, std::nullopt);
   }
 
-  RouteResult route(EmbeddingView view, const std::vector<std::string>& model_filter) {
+  RouteResult route(EmbeddingView view, std::optional<std::vector<std::string>> model_filter) {
     if (!backend_) [[unlikely]] {
       throw std::runtime_error("Nordlys not initialized; call from_checkpoint() or init()");
     }
-    return route_impl(
-        view,
-        model_filter.empty()
-            ? std::nullopt
-            : std::optional<std::reference_wrapper<const std::vector<std::string>>>(model_filter));
+    return route_impl(view, model_filter);
   }
 
   std::vector<RouteResult> route_batch(EmbeddingBatchView view) {
@@ -103,15 +99,11 @@ public:
   }
 
   std::vector<RouteResult> route_batch(EmbeddingBatchView view,
-                                       const std::vector<std::string>& model_filter) {
+                                       std::optional<std::vector<std::string>> model_filter) {
     if (!backend_) [[unlikely]] {
       throw std::runtime_error("Nordlys not initialized; call from_checkpoint() or init()");
     }
-    return route_batch_impl(
-        view,
-        model_filter.empty()
-            ? std::nullopt
-            : std::optional<std::reference_wrapper<const std::vector<std::string>>>(model_filter));
+    return route_batch_impl(view, model_filter);
   }
 
   std::vector<std::string> get_supported_models() const {
@@ -130,7 +122,7 @@ public:
 private:
   RouteResult route_impl(
       EmbeddingView view,
-      std::optional<std::reference_wrapper<const std::vector<std::string>>> model_filter) {
+      const std::optional<std::vector<std::string>>& model_filter) {
     if (view.dim != dim_) [[unlikely]] {
       throw std::invalid_argument(std::format("dimension mismatch: {} vs {}", dim_, view.dim));
     }
@@ -160,7 +152,7 @@ private:
 
   std::vector<RouteResult> route_batch_impl(
       EmbeddingBatchView view,
-      std::optional<std::reference_wrapper<const std::vector<std::string>>> model_filter) {
+      const std::optional<std::vector<std::string>>& model_filter) {
     if (view.dim != dim_) [[unlikely]] {
       throw std::invalid_argument(std::format("dimension mismatch: {} vs {}", dim_, view.dim));
     }
@@ -208,12 +200,15 @@ private:
   }
 
   std::span<const ModelFeatures> get_models_to_score(
-      std::optional<std::reference_wrapper<const std::vector<std::string>>> model_filter) {
+      const std::optional<std::vector<std::string>>& model_filter) {
     if (!model_filter.has_value()) {
       return checkpoint_.models;
     }
 
-    const auto& filter = model_filter->get();
+    const auto& filter = *model_filter;
+    if (filter.empty()) {
+      throw std::invalid_argument("model_filter cannot be empty; use nullopt for no filtering");
+    }
     std::unordered_set<std::string> filter_set(filter.begin(), filter.end());
     auto matching = checkpoint_.models | std::views::filter([&](const ModelFeatures& m) {
                       return filter_set.contains(m.model_id);

@@ -1,5 +1,6 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
+#include <nanobind/stl/optional.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
 
@@ -43,7 +44,7 @@ void register_nordlys(nb::module_& m) {
       .def(
           "route",
           [](Nordlys& self, nb::ndarray<float, nb::ndim<1>> embedding,
-             const std::vector<std::string>& models) {
+             std::optional<std::vector<std::string>> models) {
             Device device;
             if (embedding.device_type() == nb::device::cuda::value) {
               device = Device{CudaDevice{embedding.device_id()}};
@@ -57,9 +58,9 @@ void register_nordlys(nb::module_& m) {
                 device
             };
             
-            return self.route(view, models);
+            return self.route(view, std::move(models));
           },
-          "embedding"_a, "models"_a = std::vector<std::string>{},
+          "embedding"_a, "models"_a = nb::none(),
           "Route an embedding to the best model\n\n"
           "Args:\n"
           "    embedding: 1D numpy array of float32 (CPU or GPU)\n"
@@ -69,7 +70,7 @@ void register_nordlys(nb::module_& m) {
       .def(
           "route_batch",
           [](Nordlys& self, nb::ndarray<float, nb::ndim<2>> embeddings,
-             const std::vector<std::string>& models) {
+             std::optional<std::vector<std::string>> models) {
             Device device;
             if (embeddings.device_type() == nb::device::cuda::value) {
               device = Device{CudaDevice{embeddings.device_id()}};
@@ -84,9 +85,9 @@ void register_nordlys(nb::module_& m) {
                 device
             };
             
-            return self.route_batch(view, models);
+            return self.route_batch(view, std::move(models));
           },
-          "embeddings"_a, "models"_a = std::vector<std::string>{},
+          "embeddings"_a, "models"_a = nb::none(),
           "Batch route multiple embeddings\n\n"
           "Args:\n"
           "    embeddings: 2D numpy array of float32, shape (n_samples, embedding_dim) (CPU or GPU)\n"
