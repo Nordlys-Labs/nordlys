@@ -2,58 +2,50 @@
 
 import pytest
 
-from nordlys import Router
+from nordlys import Trainer
+from nordlys.clustering import KMeansClusterer
 
 
 @pytest.mark.benchmark
-def bench_fit_small(benchmark, benchmark_models, small_training_data):
-    """Benchmark fit() with small dataset (~100 samples)."""
-    router = Router(
-        models=benchmark_models,
-        nr_clusters=10,
-        random_state=42,
-        embedding_cache_size=1000,
-    )
+def bench_fit_small(benchmark, benchmark_models, small_dataset):
+    """Benchmark Trainer.fit() with small dataset (~100 samples)."""
 
     def _fit():
-        router.fit(small_training_data)
-        return router
+        trainer = Trainer(
+            models=benchmark_models,
+            clusterer=KMeansClusterer(n_clusters=10, random_state=42),
+        )
+        return trainer.fit(small_dataset)
 
     result = benchmark(_fit)
     assert result is not None
 
 
 @pytest.mark.benchmark
-def bench_fit_medium(benchmark, benchmark_models, medium_training_data):
-    """Benchmark fit() with medium dataset (~1000 samples)."""
-    router = Router(
-        models=benchmark_models,
-        nr_clusters=20,
-        random_state=42,
-        embedding_cache_size=1000,
-    )
+def bench_fit_medium(benchmark, benchmark_models, medium_dataset):
+    """Benchmark Trainer.fit() with medium dataset (~1000 samples)."""
 
     def _fit():
-        router.fit(medium_training_data)
-        return router
+        trainer = Trainer(
+            models=benchmark_models,
+            clusterer=KMeansClusterer(n_clusters=20, random_state=42),
+        )
+        return trainer.fit(medium_dataset)
 
     result = benchmark(_fit)
     assert result is not None
 
 
 @pytest.mark.benchmark
-def bench_fit_large(benchmark, benchmark_models, large_training_data):
-    """Benchmark fit() with large dataset (~10000 samples)."""
-    router = Router(
-        models=benchmark_models,
-        nr_clusters=30,
-        random_state=42,
-        embedding_cache_size=1000,
-    )
+def bench_fit_large(benchmark, benchmark_models, large_dataset):
+    """Benchmark Trainer.fit() with large dataset (~10000 samples)."""
 
     def _fit():
-        router.fit(large_training_data)
-        return router
+        trainer = Trainer(
+            models=benchmark_models,
+            clusterer=KMeansClusterer(n_clusters=30, random_state=42),
+        )
+        return trainer.fit(large_dataset)
 
     result = benchmark(_fit)
     assert result is not None

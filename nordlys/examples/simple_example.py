@@ -12,7 +12,8 @@ import pandas as pd
 import numpy as np
 
 # Import the new API
-from nordlys import Router, ModelConfig
+from nordlys import Dataset, ModelConfig, Router, Trainer
+from nordlys.clustering import KMeansClusterer
 
 # =============================================================================
 # 1. Define models with costs
@@ -121,20 +122,31 @@ print(f"\nTraining data: {len(df)} samples")
 print(df.head())
 
 # =============================================================================
-# 3. Create and fit Router router
+# 3. Train checkpoint and load Router runtime
 # =============================================================================
 print("\n" + "=" * 60)
-print("Fitting Router router...")
+print("Training checkpoint...")
 print("=" * 60)
 
-# Basic usage with defaults
-router = Router(
-    models=models,
-    nr_clusters=3,  # We expect ~3 clusters based on our data
-)
+rows = []
+model_ids = [m.id for m in models]
+for idx, row in df.iterrows():
+    best_model = max(model_ids, key=lambda mid: float(row[mid]))
+    rows.append(
+        {
+            "id": str(idx),
+            "input": str(row["questions"]),
+            "targets": {mid: int(mid == best_model) for mid in model_ids},
+        }
+    )
 
-# Fit on the training data
-router.fit(df)
+dataset = Dataset.from_list(rows)
+trainer = Trainer(
+    models=models,
+    clusterer=KMeansClusterer(n_clusters=3, random_state=42),
+)
+checkpoint = trainer.fit(dataset)
+router = Router(checkpoint=checkpoint)
 
 print(f"\nFitted! {router}")
 
@@ -206,7 +218,7 @@ router.save("/tmp/nordlys_example.json")
 print("Saved to /tmp/nordlys_example.json")
 
 # Load it back
-loaded_router = Router.load("/tmp/nordlys_example.json")
+loaded_router = Router(checkpoint="/tmp/nordlys_example.json")
 print(f"Loaded: {loaded_router}")
 
 # Verify it works

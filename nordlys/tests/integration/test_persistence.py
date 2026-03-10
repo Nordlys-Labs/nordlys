@@ -26,39 +26,37 @@ class TestSaveLoad:
         assert save_path.exists()
         assert save_path.suffix == ".msgpack"
 
-    def test_load_json(self, fitted_nordlys, tmp_path, three_models):
+    def test_load_json(self, fitted_nordlys, tmp_path):
         """Test loading from JSON format."""
         save_path = tmp_path / "nordlys.json"
         fitted_nordlys.save(save_path)
 
-        loaded = Router.load(save_path, models=three_models)
+        loaded = Router(checkpoint=save_path)
 
         assert loaded is not None
         assert loaded._is_fitted is True
 
-    def test_load_msgpack(self, fitted_nordlys, tmp_path, three_models):
+    def test_load_msgpack(self, fitted_nordlys, tmp_path):
         """Test loading from MessagePack format."""
         save_path = tmp_path / "nordlys.msgpack"
         fitted_nordlys.save(save_path)
 
-        loaded = Router.load(save_path, models=three_models)
+        loaded = Router(checkpoint=save_path)
 
         assert loaded is not None
         assert loaded._is_fitted is True
 
-    def test_loaded_nordlys_is_fitted(self, fitted_nordlys, tmp_path, three_models):
+    def test_loaded_nordlys_is_fitted(self, fitted_nordlys, tmp_path):
         """Test that loaded Router is in fitted state."""
         save_path = tmp_path / "nordlys.json"
         fitted_nordlys.save(save_path)
 
-        loaded = Router.load(save_path, models=three_models)
+        loaded = Router(checkpoint=save_path)
 
         assert loaded._is_fitted is True
         assert loaded._core_engine is not None
 
-    def test_loaded_nordlys_routes_identically(
-        self, fitted_nordlys, tmp_path, three_models
-    ):
+    def test_loaded_nordlys_routes_identically(self, fitted_nordlys, tmp_path):
         """Test that loaded model routes identically."""
         save_path = tmp_path / "nordlys.json"
 
@@ -68,7 +66,7 @@ class TestSaveLoad:
 
         # Save and load
         fitted_nordlys.save(save_path)
-        loaded = Router.load(save_path, models=three_models)
+        loaded = Router(checkpoint=save_path)
 
         # Route after load
         result_after = loaded.route(prompt)
@@ -82,7 +80,7 @@ class TestSaveLoad:
         save_path = tmp_path / "nordlys.json"
         fitted_nordlys.save(save_path)
 
-        loaded = Router.load(save_path)  # No models argument
+        loaded = Router(checkpoint=save_path)  # No models argument
 
         assert loaded is not None
         assert loaded._is_fitted is True
@@ -141,39 +139,13 @@ class TestCheckpointFormat:
         assert "metrics" in data
 
 
-class TestLoadWithModelOverride:
-    """Test loading with custom model configurations."""
-
-    def test_load_with_custom_models(self, fitted_nordlys, tmp_path):
-        """Test loading with different model configurations."""
-        from nordlys import ModelConfig
-
-        save_path = tmp_path / "nordlys.json"
-        fitted_nordlys.save(save_path)
-
-        # Load with different costs
-        custom_models = [
-            ModelConfig(id="openai/gpt-4", cost_input=35.0, cost_output=70.0),
-            ModelConfig(id="openai/gpt-3.5-turbo", cost_input=0.6, cost_output=1.8),
-            ModelConfig(
-                id="anthropic/claude-3-sonnet", cost_input=18.0, cost_output=80.0
-            ),
-        ]
-
-        loaded = Router.load(save_path, models=custom_models)
-
-        assert loaded is not None
-        # Costs should be overridden
-        assert loaded._models[0].cost_input == 35.0
-
-
 class TestPersistenceErrors:
     """Test error handling in persistence."""
 
     def test_load_nonexistent_file_raises(self):
         """Test that loading nonexistent file raises error."""
         with pytest.raises(Exception):  # FileNotFoundError or similar
-            Router.load("nonexistent_file.json")
+            Router(checkpoint="nonexistent_file.json")
 
     def test_load_corrupted_json_raises(self, tmp_path):
         """Test that loading corrupted JSON raises error."""
@@ -181,21 +153,30 @@ class TestPersistenceErrors:
         save_path.write_text("{ invalid json")
 
         with pytest.raises(Exception):  # JSON decode error
-            Router.load(save_path)
+            Router(checkpoint=save_path)
 
     def test_save_before_fit_raises(self, three_models, tmp_path):
-        """Test that saving before fit raises RuntimeError."""
+        """Test that saving before checkpoint load raises RuntimeError."""
         nordlys = Router(models=three_models)
         save_path = tmp_path / "nordlys.json"
 
-        with pytest.raises(RuntimeError, match="must be fitted"):
+        with pytest.raises(RuntimeError, match="runtime is not initialized"):
             nordlys.save(save_path)
+
+    def test_save_raises_when_accuracy_missing(self, fitted_nordlys, tmp_path):
+        """Test checkpoint creation fails when per-cluster accuracy is missing."""
+        model_id = fitted_nordlys._models[0].id
+        fitted_nordlys._model_accuracies[0].pop(model_id)
+
+        save_path = tmp_path / "nordlys.json"
+        with pytest.raises(ValueError, match="Missing accuracy"):
+            fitted_nordlys.save(save_path)
 
 
 class TestPersistenceConsistency:
     """Test consistency across save/load cycles."""
 
-    def test_multiple_save_load_cycles(self, fitted_nordlys, tmp_path, three_models):
+    def test_multiple_save_load_cycles(self, fitted_nordlys, tmp_path):
         """Test multiple save/load cycles preserve behavior."""
         prompt = "Explain neural networks"
 
@@ -205,33 +186,33 @@ class TestPersistenceConsistency:
         # Cycle 1
         path1 = tmp_path / "cycle1.json"
         fitted_nordlys.save(path1)
-        loaded1 = Router.load(path1, models=three_models)
+        loaded1 = Router(checkpoint=path1)
         result2 = loaded1.route(prompt)
 
         # Cycle 2
         path2 = tmp_path / "cycle2.json"
         loaded1.save(path2)
-        loaded2 = Router.load(path2, models=three_models)
+        loaded2 = Router(checkpoint=path2)
         result3 = loaded2.route(prompt)
 
         # All should be identical
         assert result1.model_id == result2.model_id == result3.model_id
         assert result1.cluster_id == result2.cluster_id == result3.cluster_id
 
-    def test_json_and_msgpack_equivalent(self, fitted_nordlys, tmp_path, three_models):
+    def test_json_and_msgpack_equivalent(self, fitted_nordlys, tmp_path):
         """Test that JSON and MessagePack produce equivalent results."""
         prompt = "Test prompt"
 
         # Save as JSON
         json_path = tmp_path / "nordlys.json"
         fitted_nordlys.save(json_path)
-        loaded_json = Router.load(json_path, models=three_models)
+        loaded_json = Router(checkpoint=json_path)
         result_json = loaded_json.route(prompt)
 
         # Save as MessagePack
         msgpack_path = tmp_path / "nordlys.msgpack"
         fitted_nordlys.save(msgpack_path)
-        loaded_msgpack = Router.load(msgpack_path, models=three_models)
+        loaded_msgpack = Router(checkpoint=msgpack_path)
         result_msgpack = loaded_msgpack.route(prompt)
 
         # Results should be identical

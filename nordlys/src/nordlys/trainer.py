@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from typing import Literal
 
 import numpy as np
 
+from nordlys.checkpoint import build_checkpoint
 from nordlys.clustering import Clusterer, KMeansClusterer, compute_cluster_metrics
 from nordlys.dataset import Dataset
 from nordlys.embeddings import Embedder, SentenceTransformers
@@ -87,22 +87,23 @@ class Trainer:
             inertia,
         )
 
-        payload = {
-            "version": "2.0",
-            "cluster_centers": np.asarray(centroids, dtype=np.float32).tolist(),
-            "models": [
-                {
-                    "model_id": m.id,
-                    "cost_per_1m_input_tokens": m.cost_input,
-                    "cost_per_1m_output_tokens": m.cost_output,
-                    "error_rates": error_rates[m.id],
-                }
-                for m in self.models
-            ],
-            "embedding": {
+        models_payload = [
+            {
+                "model_id": m.id,
+                "cost_per_1m_input_tokens": m.cost_input,
+                "cost_per_1m_output_tokens": m.cost_output,
+                "error_rates": error_rates[m.id],
+            }
+            for m in self.models
+        ]
+
+        return build_checkpoint(
+            cluster_centers=np.asarray(centroids, dtype=np.float32),
+            models=models_payload,
+            embedding={
                 **embedder.checkpoint_config(),
             },
-            "clustering": {
+            clustering={
                 "n_clusters": n_clusters,
                 "random_state": self.random_state,
                 "max_iter": 300,
@@ -110,14 +111,13 @@ class Trainer:
                 "algorithm": "lloyd",
                 "normalization": "l2" if self.embedding_normalize else "none",
             },
-            "metrics": {
+            metrics={
                 "n_samples": metrics.n_samples,
                 "cluster_sizes": metrics.cluster_sizes,
                 "silhouette_score": metrics.silhouette_score,
                 "inertia": metrics.inertia,
             },
-        }
-        return NordlysCheckpoint.from_json_string(json.dumps(payload))
+        )
 
     def _validate(self, dataset: Dataset) -> None:
         if not self.models:

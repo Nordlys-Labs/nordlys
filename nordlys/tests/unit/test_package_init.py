@@ -48,8 +48,8 @@ class TestPackageMetadata:
 
     def test_version_exists(self):
         """Test that __version__ is defined."""
-        assert hasattr(nordlys, "__version__")
-        assert isinstance(nordlys.__version__, str)
+        version = nordlys.__version__
+        assert isinstance(version, str)
 
     def test_version_format(self):
         """Test that version follows semantic versioning."""
@@ -74,5 +74,5 @@ class TestPackageMetadata:
             "clustering",
             "embeddings",
         }
-        assert hasattr(nordlys, "__all__")
-        assert set(nordlys.__all__) == expected_exports
+        exports = nordlys.__all__
+        assert set(exports) == expected_exports

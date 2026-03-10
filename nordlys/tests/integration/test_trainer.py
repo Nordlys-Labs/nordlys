@@ -235,9 +235,7 @@ class TestTrainerRouterIntegration:
     ) -> None:
         trainer = Trainer(models=trainer_models, clusterer=test_hdbscan_clusterer)
         checkpoint = trainer.fit(medium_dataset)
-        router = Router._from_checkpoint(
-            checkpoint, models=trainer_models, device="cpu"
-        )
+        router = Router(checkpoint=checkpoint, device="cpu")
         result = router.route("Explain backtracking with example")
         assert result.model_id in {m.id for m in trainer_models}
 
@@ -249,9 +247,7 @@ class TestTrainerRouterIntegration:
             clusterer=KMeansClusterer(n_clusters=10, random_state=42),
         )
         checkpoint = trainer.fit(large_dataset)
-        router = Router._from_checkpoint(
-            checkpoint, models=trainer_models, device="cpu"
-        )
+        router = Router(checkpoint=checkpoint, device="cpu")
         prompts = ["Explain quantum", "Write code", "What is ML?"]
         results = router.route_batch(prompts)
         assert len(results) == 3

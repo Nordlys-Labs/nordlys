@@ -21,35 +21,31 @@ class TestNordlysRoute:
     def test_route_result_has_model_id(self, fitted_nordlys):
         """Test that RouteResult has model_id."""
         result = fitted_nordlys.route("Test prompt")
-        assert hasattr(result, "model_id")
         assert isinstance(result.model_id, str)
         assert len(result.model_id) > 0
 
     def test_route_result_has_cluster_id(self, fitted_nordlys):
         """Test that RouteResult has cluster_id."""
         result = fitted_nordlys.route("Test prompt")
-        assert hasattr(result, "cluster_id")
         assert isinstance(result.cluster_id, int)
         assert result.cluster_id >= 0
 
     def test_route_result_has_cluster_distance(self, fitted_nordlys):
         """Test that RouteResult has cluster_distance."""
         result = fitted_nordlys.route("Test prompt")
-        assert hasattr(result, "cluster_distance")
         assert isinstance(result.cluster_distance, float)
         assert result.cluster_distance >= 0
 
     def test_route_result_has_alternatives(self, fitted_nordlys):
         """Test that RouteResult has alternatives."""
         result = fitted_nordlys.route("Test prompt")
-        assert hasattr(result, "alternatives")
         assert isinstance(result.alternatives, list)
 
-    def test_route_before_fit_raises(self, three_models):
-        """Test that routing before fit raises RuntimeError."""
+    def test_route_before_load_raises(self, three_models):
+        """Test that routing before checkpoint load raises RuntimeError."""
         nordlys = Router(models=three_models)
 
-        with pytest.raises(RuntimeError, match="must be fitted before use"):
+        with pytest.raises(RuntimeError, match="runtime is not initialized"):
             nordlys.route("Test prompt")
 
 
