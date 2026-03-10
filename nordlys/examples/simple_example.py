@@ -8,11 +8,11 @@ This example shows how to:
 5. Inspect clusters and metrics
 """
 
-import pandas as pd
-import numpy as np
+from nordlys import Dataset, ModelConfig, Router, Trainer
+from nordlys.clustering import KMeansClusterer
 
-# Import the new API
-from nordlys import Router, ModelConfig
+import numpy as np
+import pandas as pd
 
 # =============================================================================
 # 1. Define models with costs
@@ -121,20 +121,31 @@ print(f"\nTraining data: {len(df)} samples")
 print(df.head())
 
 # =============================================================================
-# 3. Create and fit Router router
+# 3. Train checkpoint and load Router runtime
 # =============================================================================
 print("\n" + "=" * 60)
-print("Fitting Router router...")
+print("Training checkpoint...")
 print("=" * 60)
 
-# Basic usage with defaults
-router = Router(
-    models=models,
-    nr_clusters=3,  # We expect ~3 clusters based on our data
-)
+rows = []
+model_ids = [m.id for m in models]
+for idx, row in df.iterrows():
+    best_model = max(model_ids, key=lambda mid: float(row[mid]))
+    rows.append(
+        {
+            "id": str(idx),
+            "input": str(row["questions"]),
+            "targets": {mid: int(mid == best_model) for mid in model_ids},
+        }
+    )
 
-# Fit on the training data
-router.fit(df)
+dataset = Dataset.from_list(rows)
+trainer = Trainer(
+    models=models,
+    clusterer=KMeansClusterer(n_clusters=3, random_state=42),
+)
+checkpoint = trainer.fit(dataset)
+router = Router(checkpoint=checkpoint)
 
 print(f"\nFitted! {router}")
 
@@ -195,18 +206,18 @@ for prompt, result in zip(batch_prompts, results):
     print(f'  "{prompt[:30]}..." -> {result.model_id}')
 
 # =============================================================================
-# 7. Save and load
+# 7. Checkpoint I/O
 # =============================================================================
 print("\n" + "=" * 60)
-print("Save and Load")
+print("Checkpoint I/O")
 print("=" * 60)
 
-# Save to JSON
-router.save("/tmp/nordlys_example.json")
-print("Saved to /tmp/nordlys_example.json")
+# Save checkpoint to JSON directly
+checkpoint.to_json_file("/tmp/nordlys_example.json")
+print("Checkpoint saved to /tmp/nordlys_example.json")
 
-# Load it back
-loaded_router = Router.load("/tmp/nordlys_example.json")
+# Load router from checkpoint path
+loaded_router = Router(checkpoint="/tmp/nordlys_example.json")
 print(f"Loaded: {loaded_router}")
 
 # Verify it works

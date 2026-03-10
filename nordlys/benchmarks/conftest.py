@@ -4,7 +4,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from nordlys import ModelConfig, Router
+from nordlys import Dataset, ModelConfig, Router, Trainer
+from nordlys.clustering import KMeansClusterer
+from tests.utils.fake_embedder import FakeEmbedder, _to_dataset
 
 
 @pytest.fixture
@@ -184,11 +186,31 @@ def fitted_nordlys(
     small_training_data: pd.DataFrame,
 ) -> Router:
     """Pre-fitted Router instance for routing benchmarks."""
-    nordlys = Router(
+    trainer = Trainer(
         models=benchmark_models,
-        nr_clusters=10,
-        random_state=42,
-        embedding_cache_size=1000,
+        embedder=FakeEmbedder(),
+        clusterer=KMeansClusterer(n_clusters=10, random_state=42),
     )
-    nordlys.fit(small_training_data)
-    return nordlys
+    checkpoint = trainer.fit(_to_dataset(small_training_data, benchmark_models))
+    return Router(checkpoint=checkpoint)
+
+
+@pytest.fixture
+def small_dataset(
+    benchmark_models: list[ModelConfig], small_training_data: pd.DataFrame
+) -> Dataset:
+    return _to_dataset(small_training_data, benchmark_models)
+
+
+@pytest.fixture
+def medium_dataset(
+    benchmark_models: list[ModelConfig], medium_training_data: pd.DataFrame
+) -> Dataset:
+    return _to_dataset(medium_training_data, benchmark_models)
+
+
+@pytest.fixture
+def large_dataset(
+    benchmark_models: list[ModelConfig], large_training_data: pd.DataFrame
+) -> Dataset:
+    return _to_dataset(large_training_data, benchmark_models)

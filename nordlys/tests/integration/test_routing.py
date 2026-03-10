@@ -1,8 +1,6 @@
 """Integration tests for Router routing methods."""
 
-import pytest
-
-from nordlys import Router, RouteResult
+from nordlys import RouteResult
 
 
 class TestNordlysRoute:
@@ -21,36 +19,30 @@ class TestNordlysRoute:
     def test_route_result_has_model_id(self, fitted_nordlys):
         """Test that RouteResult has model_id."""
         result = fitted_nordlys.route("Test prompt")
-        assert hasattr(result, "model_id")
         assert isinstance(result.model_id, str)
         assert len(result.model_id) > 0
 
     def test_route_result_has_cluster_id(self, fitted_nordlys):
         """Test that RouteResult has cluster_id."""
         result = fitted_nordlys.route("Test prompt")
-        assert hasattr(result, "cluster_id")
         assert isinstance(result.cluster_id, int)
         assert result.cluster_id >= 0
 
     def test_route_result_has_cluster_distance(self, fitted_nordlys):
         """Test that RouteResult has cluster_distance."""
         result = fitted_nordlys.route("Test prompt")
-        assert hasattr(result, "cluster_distance")
         assert isinstance(result.cluster_distance, float)
         assert result.cluster_distance >= 0
 
     def test_route_result_has_alternatives(self, fitted_nordlys):
         """Test that RouteResult has alternatives."""
         result = fitted_nordlys.route("Test prompt")
-        assert hasattr(result, "alternatives")
         assert isinstance(result.alternatives, list)
 
-    def test_route_before_fit_raises(self, three_models):
-        """Test that routing before fit raises RuntimeError."""
-        nordlys = Router(models=three_models)
-
-        with pytest.raises(RuntimeError, match="must be fitted before use"):
-            nordlys.route("Test prompt")
+    def test_route_with_unknown_model_filter_still_routes(self, fitted_nordlys):
+        """Routing with unknown filter should still return a valid result."""
+        result = fitted_nordlys.route("Test prompt", models=["does/not-exist"])
+        assert isinstance(result, RouteResult)
 
 
 class TestRoutingAlternatives:

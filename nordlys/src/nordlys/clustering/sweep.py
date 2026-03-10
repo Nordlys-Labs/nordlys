@@ -229,7 +229,7 @@ class ParameterSweep:
         clusterer.fit(embeddings)
 
         labels = clusterer.labels_
-        inertia = getattr(clusterer, "inertia_", None)
+        inertia = clusterer.inertia_ if isinstance(clusterer, KMeansClusterer) else None
 
         metrics = compute_cluster_metrics(embeddings, labels, inertia)
 

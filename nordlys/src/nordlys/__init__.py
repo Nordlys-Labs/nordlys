@@ -4,8 +4,7 @@ This package provides intelligent model routing using cluster-based selection
 with per-cluster error rates, cost optimization, and model capability matching.
 
 Usage:
-    >>> from nordlys import Router, ModelConfig
-    >>> import pandas as pd
+    >>> from nordlys import Dataset, Trainer, Router, ModelConfig
     >>>
     >>> # Define models
     >>> models = [
@@ -13,18 +12,13 @@ Usage:
     ...     ModelConfig(id="anthropic/claude-3-sonnet", cost_input=15.0, cost_output=75.0),
     ... ]
     >>>
-    >>> # Training data
-    >>> df = pd.DataFrame({
-    ...     "questions": ["What is ML?", "Write code", ...],
-    ...     "openai/gpt-4": [0.92, 0.85, ...],
-    ...     "anthropic/claude-3-sonnet": [0.88, 0.91, ...],
-    ... })
-    >>>
-     >>> # Fit and route
-     >>> model = Router(models=models)
-     >>> model.fit(df)
-     >>> result = model.route("Explain quantum computing")
-     >>> print(f"Selected: {result.model_id}")
+    >>> dataset = Dataset.from_list([
+    ...     {"id": "1", "input": "What is ML?", "targets": {"openai/gpt-4": 1, "anthropic/claude-3-sonnet": 0}},
+    ... ])
+    >>> checkpoint = Trainer(models=models).fit(dataset)
+    >>> router = Router(checkpoint=checkpoint)
+    >>> result = router.route("Explain quantum computing")
+    >>> print(f"Selected: {result.model_id}")
 """
 
 # ============================================================================

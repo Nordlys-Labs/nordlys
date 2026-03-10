@@ -1,77 +1,70 @@
 """Unit tests for Router embedding cache functionality."""
 
-from unittest.mock import MagicMock
-
 import numpy as np
 import pytest
+from unittest.mock import MagicMock
 
-from nordlys import ModelConfig, Router
-
-
-@pytest.fixture
-def sample_models() -> list[ModelConfig]:
-    """Return sample model configurations for testing."""
-    return [
-        ModelConfig(id="openai/gpt-4", cost_input=30.0, cost_output=60.0),
-        ModelConfig(id="anthropic/claude-3-sonnet", cost_input=15.0, cost_output=75.0),
-    ]
+from nordlys import Router
+from nordlys_core import NordlysCheckpoint
 
 
 class TestEmbeddingCacheInitialization:
     """Test embedding cache initialization."""
 
-    def test_default_cache_size(self, sample_models: list[ModelConfig]) -> None:
+    def test_default_cache_size(self, sample_checkpoint: NordlysCheckpoint) -> None:
         """Test that default cache size is 1000."""
-        nordlys = Router(models=sample_models)
+        nordlys = Router(checkpoint=sample_checkpoint)
         assert nordlys._embedding_cache_size == 1000
         assert nordlys._embedding_cache.maxsize == 1000
 
-    def test_custom_cache_size(self, sample_models: list[ModelConfig]) -> None:
+    def test_custom_cache_size(self, sample_checkpoint: NordlysCheckpoint) -> None:
         """Test creating Router with custom cache size."""
-        nordlys = Router(models=sample_models, embedding_cache_size=500)
+        nordlys = Router(checkpoint=sample_checkpoint, embedding_cache_size=500)
         assert nordlys._embedding_cache_size == 500
         assert nordlys._embedding_cache.maxsize == 500
 
     def test_cache_size_zero_raises_error(
-        self, sample_models: list[ModelConfig]
+        self, sample_checkpoint: NordlysCheckpoint
     ) -> None:
         """Test that cache size 0 raises ValueError."""
         with pytest.raises(
             ValueError, match="embedding_cache_size must be greater than 0"
         ):
-            Router(models=sample_models, embedding_cache_size=0)
+            Router(checkpoint=sample_checkpoint, embedding_cache_size=0)
 
     def test_cache_size_negative_raises_error(
-        self, sample_models: list[ModelConfig]
+        self, sample_checkpoint: NordlysCheckpoint
     ) -> None:
         """Test that negative cache size raises ValueError."""
         with pytest.raises(
             ValueError, match="embedding_cache_size must be greater than 0"
         ):
-            Router(models=sample_models, embedding_cache_size=-1)
+            Router(checkpoint=sample_checkpoint, embedding_cache_size=-1)
 
-    def test_initial_cache_empty(self, sample_models: list[ModelConfig]) -> None:
+    def test_initial_cache_empty(self, sample_checkpoint: NordlysCheckpoint) -> None:
         """Test that cache is empty initially."""
-        nordlys = Router(models=sample_models)
+        nordlys = Router(checkpoint=sample_checkpoint)
         assert len(nordlys._embedding_cache) == 0
 
 
 class TestEmbeddingCacheInfo:
     """Test embedding_cache_info() method."""
 
-    def test_cache_info_initial_state(self, sample_models: list[ModelConfig]) -> None:
+    def test_cache_info_initial_state(
+        self, sample_checkpoint: NordlysCheckpoint
+    ) -> None:
         """Test cache info returns correct initial state."""
-        nordlys = Router(models=sample_models, embedding_cache_size=100)
+        nordlys = Router(checkpoint=sample_checkpoint, embedding_cache_size=100)
         info = nordlys.embedding_cache_info()
 
         assert info["size"] == 0
         assert info["maxsize"] == 100
 
     def test_cache_info_after_adding_entries(
-        self, sample_models: list[ModelConfig]
+        self, sample_checkpoint: NordlysCheckpoint
     ) -> None:
         """Test cache info reflects size correctly."""
-        nordlys = Router(models=sample_models, embedding_cache_size=100)
+        nordlys = Router(checkpoint=sample_checkpoint, embedding_cache_size=100)
 
         nordlys._embedding_cache["test_prompt"] = np.zeros(384)
         info = nordlys.embedding_cache_info()
@@ -83,9 +76,9 @@ class TestEmbeddingCacheInfo:
 class TestClearEmbeddingCache:
     """Test clear_embedding_cache() method."""
 
-    def test_clear_removes_entries(self, sample_models: list[ModelConfig]) -> None:
+    def test_clear_removes_entries(self, sample_checkpoint: NordlysCheckpoint) -> None:
         """Test that clear removes all cached entries."""
-        nordlys = Router(models=sample_models)
+        nordlys = Router(checkpoint=sample_checkpoint)
 
         # Add entries to cache
         nordlys._embedding_cache["prompt1"] = np.zeros(384)
@@ -101,10 +94,10 @@ class TestComputeEmbedding:
     """Test compute_embedding() method."""
 
     def test_cache_miss_computes_embedding(
-        self, sample_models: list[ModelConfig]
+        self, sample_checkpoint: NordlysCheckpoint
     ) -> None:
         """Test that cache miss triggers embedding computation."""
-        nordlys = Router(models=sample_models, embedding_cache_size=100)
+        nordlys = Router(checkpoint=sample_checkpoint, embedding_cache_size=100)
 
         mock_embedding = np.random.randn(384).astype(np.float32)
         mock_model = MagicMock()
@@ -121,9 +114,11 @@ class TestComputeEmbedding:
         np.testing.assert_array_equal(result, mock_embedding)
         assert "test prompt" in nordlys._embedding_cache
 
-    def test_cache_hit_returns_cached(self, sample_models: list[ModelConfig]) -> None:
+    def test_cache_hit_returns_cached(
+        self, sample_checkpoint: NordlysCheckpoint
+    ) -> None:
         """Test that cache hit returns cached embedding without recomputing."""
-        nordlys = Router(models=sample_models, embedding_cache_size=100)
+        nordlys = Router(checkpoint=sample_checkpoint, embedding_cache_size=100)
 
         # Pre-populate cache
         cached_embedding = np.random.randn(384).astype(np.float32)
@@ -143,9 +138,11 @@ class TestComputeEmbedding:
 class TestCacheLRUEviction:
     """Test LRU eviction behavior."""
 
-    def test_lru_eviction_on_full_cache(self, sample_models: list[ModelConfig]) -> None:
+    def test_lru_eviction_on_full_cache(
+        self, sample_checkpoint: NordlysCheckpoint
+    ) -> None:
         """Test that oldest entries are evicted when cache is full."""
-        nordlys = Router(models=sample_models, embedding_cache_size=3)
+        nordlys = Router(checkpoint=sample_checkpoint, embedding_cache_size=3)
 
         # Fill cache
         nordlys._embedding_cache["prompt1"] = np.zeros(384)
@@ -167,10 +164,10 @@ class TestComputeEmbeddingsBatch:
     """Test _compute_embeddings() batch method with caching."""
 
     def test_compute_embeddings_all_cache_hits(
-        self, sample_models: list[ModelConfig]
+        self, sample_checkpoint: NordlysCheckpoint
     ) -> None:
         """Test that _compute_embeddings uses cache for all texts."""
-        nordlys = Router(models=sample_models, embedding_cache_size=100)
+        nordlys = Router(checkpoint=sample_checkpoint, embedding_cache_size=100)
 
         # Pre-populate cache
         texts = ["text1", "text2", "text3"]
@@ -195,10 +192,10 @@ class TestComputeEmbeddingsBatch:
         np.testing.assert_array_equal(result[2], cached_embeddings["text3"])
 
     def test_compute_embeddings_all_cache_misses(
-        self, sample_models: list[ModelConfig]
+        self, sample_checkpoint: NordlysCheckpoint
     ) -> None:
         """Test that _compute_embeddings computes all texts in batch on cache miss."""
-        nordlys = Router(models=sample_models, embedding_cache_size=100)
+        nordlys = Router(checkpoint=sample_checkpoint, embedding_cache_size=100)
 
         texts = ["text1", "text2", "text3"]
         mock_embeddings = np.random.randn(3, 384).astype(np.float32)
@@ -220,10 +217,10 @@ class TestComputeEmbeddingsBatch:
             assert text in nordlys._embedding_cache
 
     def test_compute_embeddings_mixed_cache_hits_misses(
-        self, sample_models: list[ModelConfig]
+        self, sample_checkpoint: NordlysCheckpoint
     ) -> None:
         """Test that _compute_embeddings handles mixed cache hits and misses."""
-        nordlys = Router(models=sample_models, embedding_cache_size=100)
+        nordlys = Router(checkpoint=sample_checkpoint, embedding_cache_size=100)
 
         # Pre-populate cache for some texts
         cached_emb = np.random.randn(384).astype(np.float32)
@@ -256,10 +253,10 @@ class TestComputeEmbeddingsBatch:
         assert "text4" in nordlys._embedding_cache
 
     def test_compute_embeddings_empty_list(
-        self, sample_models: list[ModelConfig]
+        self, sample_checkpoint: NordlysCheckpoint
     ) -> None:
         """Test that _compute_embeddings handles empty list."""
-        nordlys = Router(models=sample_models, embedding_cache_size=100)
+        nordlys = Router(checkpoint=sample_checkpoint, embedding_cache_size=100)
         result = nordlys._compute_embeddings([])
         assert result.shape == (0,)
         assert len(result) == 0
