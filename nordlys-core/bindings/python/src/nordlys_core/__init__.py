@@ -7,6 +7,7 @@ from ._core import (
     TrainingMetrics,
     EmbeddingConfig,
     ClusteringConfig,
+    ReductionConfig,
     ModelFeatures,
     load_checkpoint,
 )
@@ -18,6 +19,7 @@ __all__ = [
     "TrainingMetrics",
     "EmbeddingConfig",
     "ClusteringConfig",
+    "ReductionConfig",
     "ModelFeatures",
     "load_checkpoint",
 ]

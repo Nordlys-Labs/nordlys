@@ -1,7 +1,6 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
 #include <nanobind/stl/optional.h>
-#include <nanobind/stl/map.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
 
@@ -76,14 +75,9 @@ void register_checkpoint(nb::module_& m) {
             if (!c.reduction) {
               return nb::none();
             }
-            nb::object json_loads = nb::module_::import_("json").attr("loads");
-            nb::dict payload;
-            payload["kind"] = nb::cast(c.reduction->kind);
-            payload["config"] = json_loads(c.reduction->config_json);
-            payload["state"] = json_loads(c.reduction->state_json);
-            return std::move(payload);
+            return nb::cast(*c.reduction);
           },
-          "Optional reduction configuration")
+          "Required reduction field. Null means no reducer was used.")
       .def_ro("metrics", &NordlysCheckpoint::metrics, "Training metrics (optional fields)")
 
       // Computed properties
