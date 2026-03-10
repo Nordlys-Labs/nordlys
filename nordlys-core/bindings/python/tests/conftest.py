@@ -8,9 +8,9 @@ import numpy as np
 import pytest
 
 
-# Sample checkpoint for testing (v2.0 format)
+# Sample checkpoint for testing (v3.0 format)
 SAMPLE_CHECKPOINT = {
-    "version": "2.0",
+    "version": "3.0",
     "cluster_centers": [
         [1.0, 0.0, 0.0, 0.0],
         [0.0, 1.0, 0.0, 0.0],
@@ -42,6 +42,7 @@ SAMPLE_CHECKPOINT = {
         "algorithm": "lloyd",
         "normalization": "l2",
     },
+    "reduction": None,
     "metrics": {
         "silhouette_score": 0.85,
     },

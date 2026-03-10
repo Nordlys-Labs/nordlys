@@ -1,5 +1,5 @@
 {
-  "version": "2.0",
+  "version": "3.0",
   "cluster_centers": [[1.0, 0.0], [0.0, 1.0]],
   "models": [],
   "embedding": {
@@ -14,5 +14,6 @@
     "algorithm": "lloyd",
     "normalization": "l2"
   },
+  "reduction": null,
   "metrics": {}
 }

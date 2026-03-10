@@ -6,7 +6,7 @@
 #include <nordlys/common/matrix.hpp>
 #include <nordlys/scoring/scorer.hpp>
 
-inline constexpr const char* CHECKPOINT_VERSION = "2.0";
+inline constexpr const char* CHECKPOINT_VERSION = "3.0";
 
 struct TrainingMetrics {
   std::optional<int> n_samples;
@@ -29,6 +29,12 @@ struct ClusteringConfig {
   std::string normalization;
 };
 
+struct ReductionConfig {
+  std::string kind;
+  std::string config_json;
+  std::string state_json;
+};
+
 struct NordlysCheckpoint {
   std::string version;
 
@@ -37,6 +43,7 @@ struct NordlysCheckpoint {
 
   EmbeddingConfig embedding;
   ClusteringConfig clustering;
+  std::optional<ReductionConfig> reduction;
 
   TrainingMetrics metrics;
 

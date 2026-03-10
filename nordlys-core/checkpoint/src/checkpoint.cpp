@@ -9,8 +9,6 @@
 #  include <unistd.h>
 #endif
 
-#include <simdjson.h>
-
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
@@ -25,12 +23,20 @@
 #include <stdexcept>
 
 using json = nlohmann::json;
-namespace sj = simdjson;
 
 namespace {
   nordlys::LruCache<NordlysCheckpoint>& checkpoint_cache() {
     static nordlys::LruCache<NordlysCheckpoint> cache;
     return cache;
+  }
+
+  json parse_json_or_throw(const std::string& raw, const char* field_name) {
+    try {
+      return json::parse(raw);
+    } catch (const json::exception& e) {
+      throw std::invalid_argument(
+          std::format("Failed to parse {} JSON payload: {}", field_name, e.what()));
+    }
   }
 }  // namespace
 
@@ -74,6 +80,18 @@ void from_json(const json& j, ClusteringConfig& c) {
   c.normalization = j.value("normalization", "l2");
 }
 
+void to_json(json& j, const ReductionConfig& c) {
+  j = {{"kind", c.kind},
+       {"config", parse_json_or_throw(c.config_json, "reduction.config")},
+       {"state", parse_json_or_throw(c.state_json, "reduction.state")}};
+}
+
+void from_json(const json& j, ReductionConfig& c) {
+  j.at("kind").get_to(c.kind);
+  c.config_json = j.contains("config") ? j.at("config").dump() : "{}";
+  c.state_json = j.contains("state") ? j.at("state").dump() : "{}";
+}
+
 void to_json(json& j, const ModelFeatures& f) {
   j = {{"model_id", f.model_id},
        {"cost_per_1m_input_tokens", f.cost_per_1m_input_tokens},
@@ -112,101 +130,54 @@ NordlysCheckpoint NordlysCheckpoint::from_json(const std::string& path) {
 }
 
 NordlysCheckpoint NordlysCheckpoint::from_json_string(const std::string& json_str) {
-  sj::ondemand::parser parser;
-  sj::padded_string padded(json_str);
-  auto doc_result = parser.iterate(padded);
-  if (doc_result.error()) {
-    throw std::invalid_argument(
-        std::format("Failed to parse JSON: {}", sj::error_message(doc_result.error())));
+  json doc;
+  try {
+    doc = json::parse(json_str);
+  } catch (const json::exception& e) {
+    throw std::invalid_argument(std::format("Failed to parse JSON: {}", e.what()));
   }
-  auto doc = std::move(doc_result.value());
 
   NordlysCheckpoint checkpoint;
+  checkpoint.version = doc.value("version", std::string(CHECKPOINT_VERSION));
+  doc.at("embedding").get_to(checkpoint.embedding);
+  doc.at("clustering").get_to(checkpoint.clustering);
+  doc.at("models").get_to(checkpoint.models);
 
-  auto version_result = doc["version"].get_string();
-  checkpoint.version = version_result.error() ? "2.0" : std::string(version_result.value());
-
-  auto emb = doc["embedding"].get_object().value();
-  checkpoint.embedding.model = std::string(emb["model"].get_string().value());
-  auto trust_result = emb["trust_remote_code"].get_bool();
-  checkpoint.embedding.trust_remote_code = trust_result.error() ? false : trust_result.value();
-
-  auto clust = doc["clustering"].get_object().value();
-  checkpoint.clustering.n_clusters = static_cast<int>(clust["n_clusters"].get_int64().value());
-  auto rs_result = clust["random_state"].get_int64();
-  checkpoint.clustering.random_state = rs_result.error() ? 42 : static_cast<int>(rs_result.value());
-  auto mi_result = clust["max_iter"].get_int64();
-  checkpoint.clustering.max_iter = mi_result.error() ? 300 : static_cast<int>(mi_result.value());
-  auto ni_result = clust["n_init"].get_int64();
-  checkpoint.clustering.n_init = ni_result.error() ? 10 : static_cast<int>(ni_result.value());
-  auto alg_result = clust["algorithm"].get_string();
-  checkpoint.clustering.algorithm = alg_result.error() ? "lloyd" : std::string(alg_result.value());
-  auto norm_result = clust["normalization"].get_string();
-  checkpoint.clustering.normalization
-      = norm_result.error() ? "l2" : std::string(norm_result.value());
-
-  auto models_array = doc["models"].get_array().value();
-  for (auto model_obj : models_array) {
-    auto m = model_obj.get_object().value();
-    ModelFeatures model;
-    model.model_id = std::string(m["model_id"].get_string().value());
-    model.cost_per_1m_input_tokens
-        = static_cast<float>(m["cost_per_1m_input_tokens"].get_double().value());
-    model.cost_per_1m_output_tokens
-        = static_cast<float>(m["cost_per_1m_output_tokens"].get_double().value());
-    auto error_rates_array = m["error_rates"].get_array().value();
-    for (auto err : error_rates_array) {
-      model.error_rates.push_back(static_cast<float>(err.get_double().value()));
-    }
-    checkpoint.models.push_back(std::move(model));
+  if (!doc.contains("reduction")) {
+    throw std::invalid_argument("Missing required field: reduction");
+  }
+  if (!doc["reduction"].is_null()) {
+    checkpoint.reduction = doc["reduction"].get<ReductionConfig>();
   }
 
-  auto metrics_result = doc["metrics"].get_object();
-  if (!metrics_result.error()) {
-    auto met = metrics_result.value();
-    auto ns_result = met["n_samples"].get_int64();
-    if (!ns_result.error()) checkpoint.metrics.n_samples = static_cast<int>(ns_result.value());
-    auto cs_result = met["cluster_sizes"].get_array();
-    if (!cs_result.error()) {
-      std::vector<int> sizes;
-      for (auto s : cs_result.value()) {
-        sizes.push_back(static_cast<int>(s.get_int64().value()));
-      }
-      checkpoint.metrics.cluster_sizes = std::move(sizes);
-    }
-    auto ss_result = met["silhouette_score"].get_double();
-    if (!ss_result.error())
-      checkpoint.metrics.silhouette_score = static_cast<float>(ss_result.value());
-    auto in_result = met["inertia"].get_double();
-    if (!in_result.error()) checkpoint.metrics.inertia = static_cast<float>(in_result.value());
+  if (doc.contains("metrics") && !doc["metrics"].is_null()) {
+    doc["metrics"].get_to(checkpoint.metrics);
   }
 
-  if (checkpoint.clustering.n_clusters <= 0) {
-    throw std::invalid_argument(
-        std::format("n_clusters must be positive, got {}", checkpoint.clustering.n_clusters));
+  auto centers_arr = doc.at("cluster_centers");
+  if (!centers_arr.is_array()) {
+    throw std::invalid_argument("cluster_centers must be an array");
   }
 
-  auto n_clusters = static_cast<size_t>(checkpoint.clustering.n_clusters);
-  auto centers_arr = doc["cluster_centers"].get_array().value();
-
-  std::vector<double> all_values;
-  all_values.reserve(n_clusters * 768);
-
+  const auto n_clusters = static_cast<size_t>(checkpoint.clustering.n_clusters);
+  std::vector<float> all_values;
   size_t feature_dim = 0;
   size_t row_count = 0;
-  for (auto row : centers_arr) {
-    size_t col_count = 0;
-    auto row_array = row.get_array().value();
-    for (auto val : row_array) {
-      all_values.push_back(val.get_double().value());
-      ++col_count;
+  for (const auto& row : centers_arr) {
+    if (!row.is_array()) {
+      throw std::invalid_argument("cluster_centers rows must be arrays");
     }
+    const auto col_count = row.size();
     if (row_count == 0) {
       feature_dim = col_count;
+      all_values.reserve(n_clusters * feature_dim);
     } else if (col_count != feature_dim) {
       throw std::invalid_argument(
           std::format("cluster_centers row {} has {} columns but expected {} (from first row)",
                       row_count, col_count, feature_dim));
+    }
+    for (const auto& value : row) {
+      all_values.push_back(value.get<float>());
     }
     ++row_count;
   }
@@ -217,15 +188,9 @@ NordlysCheckpoint NordlysCheckpoint::from_json_string(const std::string& json_st
   }
 
   EmbeddingMatrix<float> centers(n_clusters, feature_dim);
-  for (size_t i = 0; i < n_clusters; ++i) {
-    for (size_t j = 0; j < feature_dim; ++j) {
-      centers(i, j) = static_cast<float>(all_values[i * feature_dim + j]);
-    }
-  }
+  std::memcpy(centers.data(), all_values.data(), all_values.size() * sizeof(float));
   checkpoint.cluster_centers = std::move(centers);
-
   checkpoint.validate();
-
   return checkpoint;
 }
 
@@ -236,6 +201,7 @@ std::string NordlysCheckpoint::to_json_string() const {
 
   j["embedding"] = embedding;
   j["clustering"] = clustering;
+  j["reduction"] = reduction ? json(*reduction) : json(nullptr);
 
   j["models"] = models;
 
@@ -324,7 +290,8 @@ NordlysCheckpoint NordlysCheckpoint::from_msgpack_string(const std::string& data
 
   NordlysCheckpoint checkpoint;
 
-  checkpoint.version = map.contains("version") ? map.at("version").as<std::string>() : "2.0";
+  checkpoint.version
+      = map.contains("version") ? map.at("version").as<std::string>() : std::string(CHECKPOINT_VERSION);
 
   auto emb = map.at("embedding").as<std::map<std::string, msgpack::object>>();
   checkpoint.embedding.model = emb.at("model").as<std::string>();
@@ -342,6 +309,20 @@ NordlysCheckpoint NordlysCheckpoint::from_msgpack_string(const std::string& data
       = clust.contains("algorithm") ? clust.at("algorithm").as<std::string>() : "lloyd";
   checkpoint.clustering.normalization
       = clust.contains("normalization") ? clust.at("normalization").as<std::string>() : "l2";
+
+  if (!map.contains("reduction")) {
+    throw std::invalid_argument("Missing required field: reduction");
+  }
+  if (map.at("reduction").type != msgpack::type::NIL) {
+    auto reduction_map = map.at("reduction").as<std::map<std::string, msgpack::object>>();
+    ReductionConfig reduction;
+    reduction.kind = reduction_map.at("kind").as<std::string>();
+    reduction.config_json
+        = reduction_map.contains("config") ? reduction_map.at("config").as<std::string>() : "{}";
+    reduction.state_json
+        = reduction_map.contains("state") ? reduction_map.at("state").as<std::string>() : "{}";
+    checkpoint.reduction = std::move(reduction);
+  }
 
   auto models_arr = map.at("models").as<std::vector<msgpack::object>>();
   checkpoint.models.reserve(models_arr.size());
@@ -427,7 +408,7 @@ std::string NordlysCheckpoint::to_msgpack_string() const {
   msgpack::sbuffer buffer;
   msgpack::packer<msgpack::sbuffer> pk(&buffer);
 
-  pk.pack_map(6);
+  pk.pack_map(7);
 
   pk.pack("version");
   pk.pack(version);
@@ -453,6 +434,19 @@ std::string NordlysCheckpoint::to_msgpack_string() const {
   pk.pack(clustering.algorithm);
   pk.pack("normalization");
   pk.pack(clustering.normalization);
+
+  pk.pack("reduction");
+  if (reduction) {
+    pk.pack_map(3);
+    pk.pack("kind");
+    pk.pack(reduction->kind);
+    pk.pack("config");
+    pk.pack(reduction->config_json);
+    pk.pack("state");
+    pk.pack(reduction->state_json);
+  } else {
+    pk.pack_nil();
+  }
 
   pk.pack("models");
   pk.pack_array(static_cast<uint32_t>(models.size()));
@@ -522,6 +516,11 @@ void NordlysCheckpoint::to_msgpack(const std::string& path) const {
 }
 
 void NordlysCheckpoint::validate() const {
+  if (version != CHECKPOINT_VERSION) {
+    throw std::invalid_argument(
+        std::format("Unsupported checkpoint version '{}'; expected {}", version, CHECKPOINT_VERSION));
+  }
+
   if (clustering.n_clusters <= 0) {
     throw std::invalid_argument(
         std::format("n_clusters must be positive, got {}", clustering.n_clusters));
@@ -540,6 +539,14 @@ void NordlysCheckpoint::validate() const {
 
   if (models.empty()) {
     throw std::invalid_argument("models array cannot be empty");
+  }
+
+  if (reduction) {
+    if (reduction->kind.empty()) {
+      throw std::invalid_argument("reduction.kind must be non-empty");
+    }
+    parse_json_or_throw(reduction->config_json, "reduction.config");
+    parse_json_or_throw(reduction->state_json, "reduction.state");
   }
 
   for (size_t i = 0; i < models.size(); ++i) {

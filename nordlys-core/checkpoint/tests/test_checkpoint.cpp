@@ -16,7 +16,7 @@
 #pragma GCC diagnostic ignored "-Wunused-result"
 
 static const char* kTestCheckpointJson = R"({
-  "version": "2.0",
+  "version": "3.0",
   "cluster_centers": [
     [1.0, 0.0, 0.0, 0.0],
     [0.0, 1.0, 0.0, 0.0],
@@ -54,6 +54,7 @@ static const char* kTestCheckpointJson = R"({
     "algorithm": "lloyd",
     "normalization": "l2"
   },
+  "reduction": null,
   "metrics": {
     "silhouette_score": 0.85
   }
@@ -168,7 +169,7 @@ TEST_F(ProfileTest, InvalidJsonParsing) {
   EXPECT_THROW(NordlysCheckpoint::from_json_string(invalid_json), std::exception);
 
   std::string missing_embedding = R"({
-    "version": "2.0",
+    "version": "3.0",
     "cluster_centers": [[1.0]],
     "models": [{"model_id": "test/model", "cost_per_1m_input_tokens": 1.0, "cost_per_1m_output_tokens": 1.0, "error_rates": [0.1]}],
     "clustering": {"n_clusters": 1}
@@ -176,7 +177,7 @@ TEST_F(ProfileTest, InvalidJsonParsing) {
   EXPECT_THROW(NordlysCheckpoint::from_json_string(missing_embedding), std::exception);
 
   std::string bad_centers = R"({
-    "version": "2.0",
+    "version": "3.0",
     "cluster_centers": "not_an_array",
     "models": [{"model_id": "test/model", "cost_per_1m_input_tokens": 1.0, "cost_per_1m_output_tokens": 1.0, "error_rates": [0.1]}],
     "embedding": {"model": "test"},
@@ -237,7 +238,7 @@ TEST_F(ProfileTest, MoveAssignment) {
 
 TEST_F(ProfileTest, LargeNumberOfModels) {
   std::stringstream ss;
-  ss << R"({"version": "2.0", "cluster_centers": [[1.0, 0.0]], "models": [)";
+  ss << R"({"version": "3.0", "cluster_centers": [[1.0, 0.0]], "models": [)";
   for (int i = 0; i < 100; ++i) {
     if (i > 0) ss << ",";
     ss << R"({"model_id": "provider/model)" << i << R"(", "cost_per_1m_input_tokens": )" << i
@@ -245,6 +246,7 @@ TEST_F(ProfileTest, LargeNumberOfModels) {
   }
   ss << R"(], "embedding": {"model": "test", "trust_remote_code": false}, )"
      << R"("clustering": {"n_clusters": 1, "random_state": 42, "max_iter": 300, "n_init": 10, "algorithm": "lloyd", "normalization": "l2"}, )"
+     << R"("reduction": null, )"
      << R"("metrics": {"silhouette_score": 0.5}})";
 
   NordlysCheckpoint profile = NordlysCheckpoint::from_json_string(ss.str());

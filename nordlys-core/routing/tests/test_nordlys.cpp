@@ -12,9 +12,9 @@
 // Test Fixture for Nordlys Tests
 // ============================================================================
 
-// Test checkpoint JSON for creating valid routers (v2.0 format)
+// Test checkpoint JSON for creating valid routers (v3.0 format)
 static const char* kTestCheckpointJson = R"({
-  "version": "2.0",
+  "version": "3.0",
   "cluster_centers": [
     [1.0, 0.0, 0.0, 0.0],
     [0.0, 1.0, 0.0, 0.0],
@@ -46,6 +46,7 @@ static const char* kTestCheckpointJson = R"({
     "algorithm": "lloyd",
     "normalization": "l2"
   },
+  "reduction": null,
   "metrics": {
     "silhouette_score": 0.85
   }
@@ -399,7 +400,7 @@ TEST_F(NordlysTest, AlternativeModelsAreDifferentFromSelected) {
 TEST_F(NordlysTest, CreateFromJsonString) {
   // Test creating nordlys from JSON string
   std::string json_checkpoint = R"({
-    "version": "2.0",
+    "version": "3.0",
     "cluster_centers": [[1.0, 0.0], [0.0, 1.0]],
     "models": [
       {
@@ -411,6 +412,7 @@ TEST_F(NordlysTest, CreateFromJsonString) {
     ],
     "embedding": {"model": "test", "trust_remote_code": false},
     "clustering": {"n_clusters": 2, "random_state": 42, "max_iter": 300, "n_init": 10, "algorithm": "lloyd", "normalization": "l2"},
+    "reduction": null,
     "metrics": {"silhouette_score": 0.8}
   })";
 
@@ -479,13 +481,14 @@ TEST_F(NordlysTest, MoveAssignment) {
 
 TEST_F(NordlysTest, SingleCluster) {
   std::string json_single_cluster = R"({
-    "version": "2.0",
+    "version": "3.0",
     "cluster_centers": [[1.0, 0.0, 0.0]],
     "models": [
       {"model_id": "test/model", "cost_per_1m_input_tokens": 1.0, "cost_per_1m_output_tokens": 2.0, "error_rates": [0.01]}
     ],
     "embedding": {"model": "test", "trust_remote_code": false},
     "clustering": {"n_clusters": 1, "random_state": 42, "max_iter": 300, "n_init": 10, "algorithm": "lloyd", "normalization": "l2"},
+    "reduction": null,
     "metrics": {"silhouette_score": 0.0}
   })";
 
@@ -515,7 +518,7 @@ TEST_F(NordlysTest, LargeDimensions) {
 
   // Build JSON manually
   std::stringstream ss;
-  ss << R"({"version": "2.0", "cluster_centers": [)";
+  ss << R"({"version": "3.0", "cluster_centers": [)";
   for (size_t c = 0; c < centers.size(); ++c) {
     ss << "[";
     for (size_t d = 0; d < centers[c].size(); ++d) {
@@ -530,6 +533,7 @@ TEST_F(NordlysTest, LargeDimensions) {
     ],
     "embedding": {"model": "test", "trust_remote_code": false},
     "clustering": {"n_clusters": 2, "random_state": 42, "max_iter": 300, "n_init": 10, "algorithm": "lloyd", "normalization": "l2"},
+    "reduction": null,
     "metrics": {"silhouette_score": 0.5}
   })";
 

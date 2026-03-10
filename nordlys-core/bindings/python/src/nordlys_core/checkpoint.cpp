@@ -1,5 +1,6 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
+#include <nanobind/stl/optional.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
 
@@ -68,6 +69,15 @@ void register_checkpoint(nb::module_& m) {
       // Configuration structs
       .def_ro("embedding", &NordlysCheckpoint::embedding, "Embedding configuration")
       .def_ro("clustering", &NordlysCheckpoint::clustering, "Clustering configuration")
+      .def_prop_ro(
+          "reduction",
+          [](const NordlysCheckpoint& c) -> nb::object {
+            if (!c.reduction) {
+              return nb::none();
+            }
+            return nb::cast(*c.reduction);
+          },
+          "Required reduction field. Null means no reducer was used.")
       .def_ro("metrics", &NordlysCheckpoint::metrics, "Training metrics (optional fields)")
 
       // Computed properties

@@ -53,6 +53,18 @@ class ClusteringConfig:
     normalization: str
     """Normalization strategy."""
 
+class ReductionConfig:
+    """Serialized reduction payload."""
+
+    kind: str
+    """Reducer kind identifier."""
+
+    config_json: str
+    """Reducer config serialized as JSON."""
+
+    state_json: str
+    """Reducer fitted state serialized as JSON."""
+
 class ModelFeatures:
     """Model configuration with error rates."""
 
@@ -108,6 +120,9 @@ class NordlysCheckpoint:
 
     clustering: ClusteringConfig
     """Clustering configuration."""
+
+    reduction: ReductionConfig | None
+    """Required reduction field. Null means no reducer was used."""
 
     metrics: TrainingMetrics
     """Training metrics (optional fields)."""

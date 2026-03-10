@@ -44,6 +44,13 @@ void register_types(nb::module_& m) {
       .def_ro("algorithm", &ClusteringConfig::algorithm, "Clustering algorithm")
       .def_ro("normalization", &ClusteringConfig::normalization, "Normalization strategy");
 
+  nb::class_<ReductionConfig>(m, "ReductionConfig", "Serialized reduction payload")
+      .def_ro("kind", &ReductionConfig::kind, "Reducer kind identifier")
+      .def_ro("config_json", &ReductionConfig::config_json,
+              "Reducer config serialized as JSON")
+      .def_ro("state_json", &ReductionConfig::state_json,
+              "Reducer fitted state serialized as JSON");
+
   // ModelFeatures type
   nb::class_<ModelFeatures>(m, "ModelFeatures", "Model configuration with error rates")
       .def_ro("model_id", &ModelFeatures::model_id, "Full model ID (e.g., 'openai/gpt-4')")
