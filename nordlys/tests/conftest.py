@@ -1,10 +1,13 @@
 """Pytest fixtures for nordlys tests."""
 
+import json
+
 import numpy as np
 import pandas as pd
 import pytest
 
 from nordlys import ModelConfig
+from nordlys_core import NordlysCheckpoint
 
 
 @pytest.fixture
@@ -80,3 +83,43 @@ def synthetic_embeddings() -> np.ndarray:
     """Generate synthetic embeddings (50 samples, 384 dimensions)."""
     np.random.seed(42)
     return np.random.randn(50, 384).astype(np.float32)
+
+
+@pytest.fixture
+def sample_checkpoint(sample_models: list[ModelConfig]) -> NordlysCheckpoint:
+    """Return a small valid checkpoint for Router runtime tests."""
+    model_payload = []
+    for model in sample_models:
+        model_payload.append(
+            {
+                "model_id": model.id,
+                "cost_per_1m_input_tokens": model.cost_input,
+                "cost_per_1m_output_tokens": model.cost_output,
+                "error_rates": [0.2, 0.4],
+            }
+        )
+
+    payload = {
+        "version": "2.0",
+        "cluster_centers": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+        "models": model_payload,
+        "embedding": {
+            "model": "sentence-transformers/all-MiniLM-L6-v2",
+            "trust_remote_code": False,
+        },
+        "clustering": {
+            "n_clusters": 2,
+            "random_state": 42,
+            "max_iter": 300,
+            "n_init": 10,
+            "algorithm": "lloyd",
+            "normalization": "l2",
+        },
+        "metrics": {
+            "n_samples": 2,
+            "cluster_sizes": [1, 1],
+            "silhouette_score": None,
+            "inertia": None,
+        },
+    }
+    return NordlysCheckpoint.from_json_string(json.dumps(payload))

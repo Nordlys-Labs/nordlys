@@ -137,52 +137,38 @@ class Router:
 
     def __init__(
         self,
-        models: list[ModelConfig] | None = None,
-        embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2",
-        allow_trust_remote_code: bool = False,
+        checkpoint: NordlysCheckpoint | str | Path,
         embedding_cache_size: int = 1000,
         device: Literal["cpu", "cuda"] = "cpu",
-        checkpoint: NordlysCheckpoint | str | Path | None = None,
     ) -> None:
         """Initialize Router router.
 
         Args:
-            models: List of model configurations with costs
-            embedding_model: Hugging Face model ID (e.g., "sentence-transformers/all-MiniLM-L6-v2")
-            allow_trust_remote_code: Allow remote code execution for embedding model
+            checkpoint: Checkpoint input (in-memory object or file path)
             embedding_cache_size: Maximum number of embeddings to cache (must be > 0)
             device: Device for C++ core clustering operations ("cpu" or "cuda")
-            checkpoint: Optional checkpoint input (in-memory object or file path)
         """
         # C++ core (initialized on load or after fit) - set early to avoid __del__ errors
         self._core_engine: NordlysCore | None = None
-
-        resolved_checkpoint: NordlysCheckpoint | None = None
-        if checkpoint is not None:
-            if isinstance(checkpoint, NordlysCheckpoint):
-                resolved_checkpoint = checkpoint
+        resolved_checkpoint: NordlysCheckpoint
+        if isinstance(checkpoint, NordlysCheckpoint):
+            resolved_checkpoint = checkpoint
+        else:
+            path = Path(checkpoint)
+            if path.suffix.lower() == ".msgpack":
+                resolved_checkpoint = NordlysCheckpoint.from_msgpack_file(str(path))
             else:
-                path = Path(checkpoint)
-                if path.suffix.lower() == ".msgpack":
-                    resolved_checkpoint = NordlysCheckpoint.from_msgpack_file(str(path))
-                else:
-                    resolved_checkpoint = NordlysCheckpoint.from_json_file(str(path))
-
-            if models is not None:
-                raise ValueError("Do not pass models when checkpoint is provided")
-            models = [
-                ModelConfig(
-                    id=m.model_id,
-                    cost_input=m.cost_per_1m_input_tokens,
-                    cost_output=m.cost_per_1m_output_tokens,
-                )
-                for m in resolved_checkpoint.models
-            ]
-            embedding_model = resolved_checkpoint.embedding.model
-            allow_trust_remote_code = resolved_checkpoint.embedding.trust_remote_code
-
-        if not models:
-            raise ValueError("At least one model configuration is required")
+                resolved_checkpoint = NordlysCheckpoint.from_json_file(str(path))
+        models = [
+            ModelConfig(
+                id=m.model_id,
+                cost_input=m.cost_per_1m_input_tokens,
+                cost_output=m.cost_per_1m_output_tokens,
+            )
+            for m in resolved_checkpoint.models
+        ]
+        embedding_model = resolved_checkpoint.embedding.model
+        allow_trust_remote_code = resolved_checkpoint.embedding.trust_remote_code
 
         if embedding_cache_size <= 0:
             raise ValueError("embedding_cache_size must be greater than 0")
@@ -231,8 +217,7 @@ class Router:
         self._model_accuracies: dict[int, dict[str, float]] | None = None
         self._is_fitted = False
 
-        if resolved_checkpoint is not None:
-            self._load_checkpoint_state(resolved_checkpoint)
+        self._load_checkpoint_state(resolved_checkpoint)
 
     def _compute_embeddings(self, texts: Sequence[str]) -> np.ndarray:
         """Compute embeddings for texts in batch with caching support.

@@ -14,15 +14,9 @@ class TestRouterRuntimeOnly:
         with pytest.raises(AttributeError):
             Router.transform  # type: ignore[attr-defined]
 
-    def test_route_before_load_raises(self, three_models):
-        router = Router(models=three_models)
-        with pytest.raises(RuntimeError, match="runtime is not initialized"):
-            router.route("test")
-
-    def test_route_batch_before_load_raises(self, three_models):
-        router = Router(models=three_models)
-        with pytest.raises(RuntimeError, match="runtime is not initialized"):
-            router.route_batch(["a", "b"])
+    def test_constructor_rejects_missing_checkpoint_file(self):
+        with pytest.raises(Exception):
+            Router(checkpoint="missing-checkpoint.json")
 
 
 class TestRouterRuntimeAttributes:

@@ -8,51 +8,43 @@ from nordlys import Router
 class TestRouterInitialization:
     """Test Router class initialization."""
 
-    def test_create_with_valid_models(self, sample_models):
-        """Test creating Router with valid model configurations."""
-        nordlys = Router(models=sample_models)
+    def test_create_with_checkpoint(self, sample_checkpoint):
+        """Test creating Router from checkpoint."""
+        nordlys = Router(checkpoint=sample_checkpoint)
         assert nordlys is not None
 
-    def test_create_with_empty_models_fails(self):
-        """Test that creating Router with empty models list fails."""
-        with pytest.raises(ValueError, match="At least one model"):
-            Router(models=[])
+    def test_create_with_invalid_checkpoint_path_fails(self):
+        """Test that creating Router with bad checkpoint path fails."""
+        with pytest.raises(Exception):
+            Router(checkpoint="missing-checkpoint.json")
 
 
 class TestRouterAttributes:
     """Test Router instance attributes."""
 
-    def test_router_stores_models(self, sample_models):
+    def test_router_stores_models(self, sample_models, sample_checkpoint):
         """Test that Router stores model configurations."""
-        nordlys = Router(models=sample_models)
+        nordlys = Router(checkpoint=sample_checkpoint)
         # Access private attribute for testing
         assert len(nordlys._models) == len(sample_models)
         assert len(nordlys._model_ids) == len(sample_models)
 
-    def test_router_default_embedding_model(self, sample_models):
+    def test_router_embedding_model_from_checkpoint(self, sample_checkpoint):
         """Test that Router has default embedding model."""
-        nordlys = Router(models=sample_models)
+        nordlys = Router(checkpoint=sample_checkpoint)
         # Check default embedding model name
         assert nordlys._embedding_model_name is not None
         assert "MiniLM" in nordlys._embedding_model_name
 
-    def test_router_default_runtime_metadata(self, sample_models):
-        """Test runtime metadata defaults before loading checkpoint."""
-        nordlys = Router(models=sample_models)
-        assert nordlys._nr_clusters == 0
-        assert nordlys._random_state == 0
+    def test_router_runtime_metadata_from_checkpoint(self, sample_checkpoint):
+        """Test runtime metadata is loaded from checkpoint."""
+        nordlys = Router(checkpoint=sample_checkpoint)
+        assert nordlys._nr_clusters == 2
+        assert nordlys._random_state == 42
 
-    def test_router_custom_embedding_model(self, sample_models):
-        """Test Router with custom embedding model name."""
-        nordlys = Router(
-            models=sample_models,
-            embedding_model="sentence-transformers/paraphrase-MiniLM-L3-v2",
-        )
-        assert "paraphrase" in nordlys._embedding_model_name
-
-    def test_router_embedding_model_loaded_at_init(self, sample_models):
+    def test_router_embedding_model_loaded_at_init(self, sample_checkpoint):
         """Test that embedding model is loaded at initialization."""
-        nordlys = Router(models=sample_models)
+        nordlys = Router(checkpoint=sample_checkpoint)
         # Embedding model should be loaded (not None)
         assert nordlys._embedding_model is not None
         # Should be a SentenceTransformer instance
@@ -64,14 +56,14 @@ class TestRouterAttributes:
 class TestRouterState:
     """Test Router fitted state."""
 
-    def test_router_not_fitted_initially(self, sample_models):
-        """Test that Router is not fitted initially."""
-        nordlys = Router(models=sample_models)
-        assert nordlys._is_fitted is False
+    def test_router_is_ready_after_constructor_load(self, sample_checkpoint):
+        """Test that Router is initialized after constructor checkpoint load."""
+        nordlys = Router(checkpoint=sample_checkpoint)
+        assert nordlys._is_fitted is True
 
-    def test_router_has_no_training_methods(self, sample_models):
+    def test_router_has_no_training_methods(self, sample_checkpoint):
         """Test that Router exposes runtime-only API."""
-        nordlys = Router(models=sample_models)
+        nordlys = Router(checkpoint=sample_checkpoint)
         with pytest.raises(AttributeError):
             nordlys.fit  # type: ignore[attr-defined]
         with pytest.raises(AttributeError):

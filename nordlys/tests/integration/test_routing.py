@@ -1,8 +1,6 @@
 """Integration tests for Router routing methods."""
 
-import pytest
-
-from nordlys import Router, RouteResult
+from nordlys import RouteResult
 
 
 class TestNordlysRoute:
@@ -41,12 +39,10 @@ class TestNordlysRoute:
         result = fitted_nordlys.route("Test prompt")
         assert isinstance(result.alternatives, list)
 
-    def test_route_before_load_raises(self, three_models):
-        """Test that routing before checkpoint load raises RuntimeError."""
-        nordlys = Router(models=three_models)
-
-        with pytest.raises(RuntimeError, match="runtime is not initialized"):
-            nordlys.route("Test prompt")
+    def test_route_with_unknown_model_filter_still_routes(self, fitted_nordlys):
+        """Routing with unknown filter should still return a valid result."""
+        result = fitted_nordlys.route("Test prompt", models=["does/not-exist"])
+        assert isinstance(result, RouteResult)
 
 
 class TestRoutingAlternatives:

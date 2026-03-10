@@ -155,14 +155,6 @@ class TestPersistenceErrors:
         with pytest.raises(Exception):  # JSON decode error
             Router(checkpoint=save_path)
 
-    def test_save_before_fit_raises(self, three_models, tmp_path):
-        """Test that saving before checkpoint load raises RuntimeError."""
-        nordlys = Router(models=three_models)
-        save_path = tmp_path / "nordlys.json"
-
-        with pytest.raises(RuntimeError, match="runtime is not initialized"):
-            nordlys.save(save_path)
-
     def test_save_raises_when_accuracy_missing(self, fitted_nordlys, tmp_path):
         """Test checkpoint creation fails when per-cluster accuracy is missing."""
         model_id = fitted_nordlys._models[0].id
