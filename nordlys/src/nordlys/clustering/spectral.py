@@ -5,8 +5,10 @@ from __future__ import annotations
 import numpy as np
 from sklearn.cluster import SpectralClustering
 
+from nordlys.clustering.base import Clusterer
 
-class SpectralClusterer:
+
+class SpectralClusterer(Clusterer):
     """Spectral clustering wrapper.
 
     Thin wrapper over sklearn.cluster.SpectralClustering.

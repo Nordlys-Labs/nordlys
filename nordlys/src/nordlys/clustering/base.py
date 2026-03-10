@@ -1,20 +1,20 @@
-"""Clusterer protocol for clustering algorithms."""
+"""Clusterer base class for clustering algorithms."""
 
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable
+from abc import ABC, abstractmethod
 
 import numpy as np
 
 
-@runtime_checkable
-class Clusterer(Protocol):
-    """Protocol for clustering components.
+class Clusterer(ABC):
+    """Abstract base class for clustering components.
 
-    Implementations should provide sklearn-like fit/predict methods
+    Implementations must provide sklearn-like fit/predict methods
     and expose cluster centers and labels as properties.
     """
 
+    @abstractmethod
     def fit(self, embeddings: np.ndarray) -> "Clusterer":
         """Fit the clusterer on embeddings.
 
@@ -26,6 +26,7 @@ class Clusterer(Protocol):
         """
         ...
 
+    @abstractmethod
     def predict(self, embeddings: np.ndarray) -> np.ndarray:
         """Predict cluster assignments for embeddings.
 
@@ -38,16 +39,19 @@ class Clusterer(Protocol):
         ...
 
     @property
+    @abstractmethod
     def cluster_centers_(self) -> np.ndarray:
         """Cluster centers of shape (n_clusters, n_features)."""
         ...
 
     @property
+    @abstractmethod
     def labels_(self) -> np.ndarray:
         """Labels assigned during fit() of shape (n_samples,)."""
         ...
 
     @property
+    @abstractmethod
     def n_clusters_(self) -> int:
         """Number of clusters found."""
         ...

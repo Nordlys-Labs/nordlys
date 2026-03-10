@@ -7,10 +7,12 @@ import logging
 import numpy as np
 from hdbscan import HDBSCAN
 
+from nordlys.clustering.base import Clusterer
+
 logger = logging.getLogger(__name__)
 
 
-class HDBSCANClusterer:
+class HDBSCANClusterer(Clusterer):
     """HDBSCAN clustering wrapper.
 
     Thin wrapper over hdbscan.HDBSCAN with sensible defaults.

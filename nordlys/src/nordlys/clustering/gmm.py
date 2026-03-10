@@ -5,8 +5,10 @@ from __future__ import annotations
 import numpy as np
 from sklearn.mixture import GaussianMixture
 
+from nordlys.clustering.base import Clusterer
 
-class GMMClusterer:
+
+class GMMClusterer(Clusterer):
     """Gaussian Mixture Model clustering wrapper.
 
     Thin wrapper over sklearn.mixture.GaussianMixture with sensible defaults.
