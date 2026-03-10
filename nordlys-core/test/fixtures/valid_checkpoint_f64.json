@@ -1,5 +1,5 @@
 {
-  "version": "2.0",
+  "version": "3.0",
   "cluster_centers": [
     [1.0, 0.0, 0.0, 0.0],
     [0.0, 1.0, 0.0, 0.0],
@@ -37,6 +37,7 @@
     "algorithm": "lloyd",
     "normalization": "l2"
   },
+  "reduction": null,
   "metrics": {
     "silhouette_score": 0.85
   }

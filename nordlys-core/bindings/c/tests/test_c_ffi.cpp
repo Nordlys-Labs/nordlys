@@ -5,9 +5,9 @@
 
 #include "nordlys.h"
 
-// Test profile JSON for creating valid nordlys instances (v2.0 format)
+// Test profile JSON for creating valid nordlys instances (v3.0 format)
 static const char* kTestProfileJson = R"({
-  "version": "2.0",
+  "version": "3.0",
   "cluster_centers": [
     [1.0, 0.0, 0.0, 0.0],
     [0.0, 1.0, 0.0, 0.0],
@@ -39,6 +39,7 @@ static const char* kTestProfileJson = R"({
     "algorithm": "lloyd",
     "normalization": "l2"
   },
+  "reduction": null,
   "routing": {
     "cost_bias_min": 0.0,
     "cost_bias_max": 1.0

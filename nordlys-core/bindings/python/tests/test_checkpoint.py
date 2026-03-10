@@ -53,7 +53,7 @@ class TestNordlysCheckpointCreation:
         """Test that invalid JSON raises an error."""
         from nordlys_core import NordlysCheckpoint
 
-        with pytest.raises(RuntimeError):
+        with pytest.raises(ValueError):
             NordlysCheckpoint.from_json_string("not valid json")
 
 
