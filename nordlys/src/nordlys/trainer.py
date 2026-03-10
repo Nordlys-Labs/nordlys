@@ -7,10 +7,10 @@ from dataclasses import dataclass
 from typing import Literal
 
 import numpy as np
-from sentence_transformers import SentenceTransformer
 
 from nordlys.clustering import Clusterer, KMeansClusterer, compute_cluster_metrics
 from nordlys.dataset import Dataset
+from nordlys.embeddings import Embedder, SentenceTransformers
 from nordlys.nordlys import ModelConfig
 from nordlys.reduction import Reducer
 from nordlys_core import NordlysCheckpoint
@@ -43,6 +43,7 @@ class Trainer:
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     embedding_batch_size: int = 64
     embedding_normalize: bool = True
+    embedder: Embedder | None = None
 
     clusterer: Clusterer | None = None
     n_clusters: int = 20
@@ -58,7 +59,8 @@ class Trainer:
         self._validate(dataset)
 
         model_ids = [m.id for m in self.models]
-        embeddings = self._embed(dataset.column(self.input_col))
+        embedder = self._make_embedder()
+        embeddings = embedder.encode(dataset.column(self.input_col))
         cluster_input = self._reduce_or_pass(embeddings)
 
         clusterer = self._make_clusterer()
@@ -98,8 +100,7 @@ class Trainer:
                 for m in self.models
             ],
             "embedding": {
-                "model": self.embedding_model,
-                "trust_remote_code": self.allow_trust_remote_code,
+                **embedder.checkpoint_config(),
             },
             "clustering": {
                 "n_clusters": n_clusters,
@@ -164,20 +165,16 @@ class Trainer:
         if target_errors:
             raise ValueError(f"Dataset validation failed: {target_errors}")
 
-    def _embed(self, texts: list[str]) -> np.ndarray:
-        encoder = SentenceTransformer(
-            self.embedding_model,
-            device=self.device,
-            trust_remote_code=self.allow_trust_remote_code,
-        )
-        encoder.tokenizer.clean_up_tokenization_spaces = False
+    def _make_embedder(self) -> Embedder:
+        if self.embedder is not None:
+            return self.embedder
 
-        return encoder.encode(
-            texts,
-            convert_to_numpy=True,
-            show_progress_bar=False,
+        return SentenceTransformers(
+            model=self.embedding_model,
             batch_size=self.embedding_batch_size,
-            normalize_embeddings=self.embedding_normalize,
+            normalize=self.embedding_normalize,
+            trust_remote_code=self.allow_trust_remote_code,
+            device=self.device,
         )
 
     def _reduce_or_pass(self, embeddings: np.ndarray) -> np.ndarray:
