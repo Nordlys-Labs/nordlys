@@ -1,4 +1,4 @@
-"""Clustering components for Nordlys."""
+"""Clustering components for Router."""
 
 from nordlys.clustering.agglomerative import AgglomerativeClusterer
 from nordlys.clustering.base import Clusterer

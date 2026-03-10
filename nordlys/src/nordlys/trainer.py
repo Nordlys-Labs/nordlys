@@ -11,7 +11,7 @@ import numpy as np
 from nordlys.clustering import Clusterer, KMeansClusterer, compute_cluster_metrics
 from nordlys.dataset import Dataset
 from nordlys.embeddings import Embedder, SentenceTransformers
-from nordlys.nordlys import ModelConfig
+from nordlys.router import ModelConfig
 from nordlys.reduction import Reducer
 from nordlys_core import NordlysCheckpoint
 
@@ -182,7 +182,7 @@ class Trainer:
             raise ValueError(
                 "Reducer is not supported for checkpoints. "
                 "The checkpoint stores centroids in reduced space, but "
-                "Nordlys._from_checkpoint cannot restore the reducer, causing "
+                "Router._from_checkpoint cannot restore the reducer, causing "
                 "mismatched comparisons during inference. "
                 "Set reducer=None to use full embedding space."
             )

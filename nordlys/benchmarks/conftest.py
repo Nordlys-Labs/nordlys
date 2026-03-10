@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from nordlys import ModelConfig, Nordlys
+from nordlys import ModelConfig, Router
 
 
 @pytest.fixture
@@ -182,9 +182,9 @@ def synthetic_embeddings() -> np.ndarray:
 def fitted_nordlys(
     benchmark_models: list[ModelConfig],
     small_training_data: pd.DataFrame,
-) -> Nordlys:
-    """Pre-fitted Nordlys instance for routing benchmarks."""
-    nordlys = Nordlys(
+) -> Router:
+    """Pre-fitted Router instance for routing benchmarks."""
+    nordlys = Router(
         models=benchmark_models,
         nr_clusters=10,
         random_state=42,

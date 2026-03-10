@@ -1,9 +1,9 @@
-"""Simple example demonstrating the new Nordlys API.
+"""Simple example demonstrating the new Router API.
 
 This example shows how to:
 1. Define model configurations
 2. Create training data
-3. Fit a Nordlys router
+3. Fit a Router router
 4. Route prompts to optimal models
 5. Inspect clusters and metrics
 """
@@ -12,7 +12,7 @@ import pandas as pd
 import numpy as np
 
 # Import the new API
-from nordlys import Nordlys, ModelConfig
+from nordlys import Router, ModelConfig
 
 # =============================================================================
 # 1. Define models with costs
@@ -121,14 +121,14 @@ print(f"\nTraining data: {len(df)} samples")
 print(df.head())
 
 # =============================================================================
-# 3. Create and fit Nordlys router
+# 3. Create and fit Router router
 # =============================================================================
 print("\n" + "=" * 60)
-print("Fitting Nordlys router...")
+print("Fitting Router router...")
 print("=" * 60)
 
 # Basic usage with defaults
-router = Nordlys(
+router = Router(
     models=models,
     nr_clusters=3,  # We expect ~3 clusters based on our data
 )
@@ -206,7 +206,7 @@ router.save("/tmp/nordlys_example.json")
 print("Saved to /tmp/nordlys_example.json")
 
 # Load it back
-loaded_router = Nordlys.load("/tmp/nordlys_example.json")
+loaded_router = Router.load("/tmp/nordlys_example.json")
 print(f"Loaded: {loaded_router}")
 
 # Verify it works

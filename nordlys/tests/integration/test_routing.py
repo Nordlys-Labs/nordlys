@@ -1,12 +1,12 @@
-"""Integration tests for Nordlys routing methods."""
+"""Integration tests for Router routing methods."""
 
 import pytest
 
-from nordlys import Nordlys, RouteResult
+from nordlys import Router, RouteResult
 
 
 class TestNordlysRoute:
-    """Test Nordlys route method."""
+    """Test Router route method."""
 
     def test_route_single_prompt(self, fitted_nordlys):
         """Test routing a single prompt."""
@@ -47,7 +47,7 @@ class TestNordlysRoute:
 
     def test_route_before_fit_raises(self, three_models):
         """Test that routing before fit raises RuntimeError."""
-        nordlys = Nordlys(models=three_models)
+        nordlys = Router(models=three_models)
 
         with pytest.raises(RuntimeError, match="must be fitted before use"):
             nordlys.route("Test prompt")

@@ -1,6 +1,6 @@
-"""Main Nordlys orchestrator class with sklearn-like API.
+"""Main Router orchestrator class with sklearn-like API.
 
-This module provides the unified Nordlys class that orchestrates
+This module provides the unified Router class that orchestrates
 clustering, routing, and model selection with a simple BERTopic-style API.
 """
 
@@ -39,9 +39,9 @@ DEFAULT_N_INIT = 10
 
 
 class ModelConfig(BaseModel):
-    """Model configuration with costs for Nordlys router.
+    """Model configuration with costs for Router router.
 
-    This is a simplified version for the new Nordlys API.
+    This is a simplified version for the new Router API.
     For the legacy API, use nordlys.models.config.ModelConfig.
 
     Attributes:
@@ -106,15 +106,15 @@ def _get_device() -> str:
     return "cpu"
 
 
-class Nordlys:
+class Router:
     """Unified model routing with sklearn-like API.
 
-    Nordlys provides intelligent model selection based on prompt clustering.
+    Router provides intelligent model selection based on prompt clustering.
     It follows BERTopic's design patterns: dependency injection, sensible defaults,
     and sklearn-compatible fit/transform/predict methods.
 
     Example:
-        >>> from nordlys import Nordlys, ModelConfig
+        >>> from nordlys import Router, ModelConfig
         >>> import pandas as pd
         >>>
         >>> # Define models with costs
@@ -131,7 +131,7 @@ class Nordlys:
         ... })
         >>>
         >>> # Create and fit
-        >>> model = Nordlys(models=models, nr_clusters=10)
+        >>> model = Router(models=models, nr_clusters=10)
         >>> model.fit(df)
         >>>
          >>> # Route prompts
@@ -151,7 +151,7 @@ class Nordlys:
         embedding_cache_size: int = 1000,
         device: Literal["cpu", "cuda"] = "cpu",
     ) -> None:
-        """Initialize Nordlys router.
+        """Initialize Router router.
 
         Args:
             models: List of model configurations with costs
@@ -325,7 +325,7 @@ class Nordlys:
 
         return embedding
 
-    def fit(self, df: pd.DataFrame, questions_col: str = "questions") -> "Nordlys":
+    def fit(self, df: pd.DataFrame, questions_col: str = "questions") -> "Router":
         """Fit the router on training data.
 
         Args:
@@ -340,7 +340,7 @@ class Nordlys:
         Raises:
             ValueError: If required columns are missing
         """
-        logger.info(f"Fitting Nordlys on {len(df)} samples")
+        logger.info(f"Fitting Router on {len(df)} samples")
 
         # Validate DataFrame
         if questions_col not in df.columns:
@@ -406,7 +406,7 @@ class Nordlys:
                 "This may indicate invalid checkpoint data or a compatibility issue."
             ) from e
 
-        logger.info("Nordlys fitting complete")
+        logger.info("Router fitting complete")
         return self
 
     def fit_transform(
@@ -533,7 +533,7 @@ class Nordlys:
     def _check_is_fitted(self) -> None:
         """Check if model is fitted."""
         if not self._is_fitted:
-            raise RuntimeError("Nordlys must be fitted before use. Call fit() first.")
+            raise RuntimeError("Router must be fitted before use. Call fit() first.")
 
     def _ensure_embeddings(self) -> np.ndarray:
         """Ensure embeddings are available and return them."""
@@ -726,7 +726,7 @@ class Nordlys:
         else:
             checkpoint.to_json_file(str(path))
 
-        logger.info(f"Saved Nordlys model to {path}")
+        logger.info(f"Saved Router model to {path}")
 
     def _to_checkpoint(self) -> NordlysCheckpoint:
         """Convert fitted state to NordlysCheckpoint."""
@@ -782,7 +782,7 @@ class Nordlys:
         path: str | Path,
         models: list[ModelConfig] | None = None,
         device: Literal["cpu", "cuda"] = "cpu",
-    ) -> "Nordlys":
+    ) -> "Router":
         """Load a fitted model from a file.
 
         Args:
@@ -791,7 +791,7 @@ class Nordlys:
             device: Device for C++ core clustering operations ("cpu" or "cuda")
 
         Returns:
-            Loaded Nordlys instance
+            Loaded Router instance
         """
         path = Path(path)
 
@@ -808,8 +808,8 @@ class Nordlys:
         checkpoint: NordlysCheckpoint,
         models: list[ModelConfig] | None = None,
         device: Literal["cpu", "cuda"] = "cpu",
-    ) -> "Nordlys":
-        """Create Nordlys instance from NordlysCheckpoint."""
+    ) -> "Router":
+        """Create Router instance from NordlysCheckpoint."""
         # Extract model configs from checkpoint if not provided
         if models is None:
             models = [
@@ -872,7 +872,7 @@ class Nordlys:
     def __repr__(self) -> str:
         status = "fitted" if self._is_fitted else "not fitted"
         return (
-            f"Nordlys(models={len(self._models)}, "
+            f"Router(models={len(self._models)}, "
             f"nr_clusters={self._nr_clusters}, "
             f"reducer={self._reducer}, "
             f"clusterer={self._clusterer}, "

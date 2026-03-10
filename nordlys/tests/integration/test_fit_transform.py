@@ -1,18 +1,18 @@
-"""Integration tests for Nordlys fit and transform methods."""
+"""Integration tests for Router fit and transform methods."""
 
 import numpy as np
 import pandas as pd
 import pytest
 
-from nordlys import Nordlys
+from nordlys import Router
 
 
 class TestNordlysFit:
-    """Test Nordlys fit method."""
+    """Test Router fit method."""
 
     def test_basic_fit(self, three_models, training_data_100):
-        """Test fitting Nordlys on sample data."""
-        nordlys = Nordlys(models=three_models, nr_clusters=10)
+        """Test fitting Router on sample data."""
+        nordlys = Router(models=three_models, nr_clusters=10)
         result = nordlys.fit(training_data_100)
 
         assert result is nordlys  # Chaining
@@ -20,7 +20,7 @@ class TestNordlysFit:
 
     def test_fit_sets_is_fitted_flag(self, three_models, training_data_100):
         """Test that fit sets _is_fitted flag."""
-        nordlys = Nordlys(models=three_models)
+        nordlys = Router(models=three_models)
         assert nordlys._is_fitted is False
 
         nordlys.fit(training_data_100)
@@ -28,7 +28,7 @@ class TestNordlysFit:
 
     def test_fit_initializes_core_engine(self, three_models, training_data_100):
         """Test that fit initializes C++ core engine."""
-        nordlys = Nordlys(models=three_models)
+        nordlys = Router(models=three_models)
         assert nordlys._core_engine is None
 
         nordlys.fit(training_data_100)
@@ -36,7 +36,7 @@ class TestNordlysFit:
 
     def test_fit_computes_embeddings(self, three_models, training_data_100):
         """Test that fit computes embeddings."""
-        nordlys = Nordlys(models=three_models)
+        nordlys = Router(models=three_models)
         nordlys.fit(training_data_100)
 
         assert nordlys._embeddings is not None
@@ -45,7 +45,7 @@ class TestNordlysFit:
 
     def test_fit_computes_clusters(self, three_models, training_data_100):
         """Test that fit computes cluster labels."""
-        nordlys = Nordlys(models=three_models, nr_clusters=10)
+        nordlys = Router(models=three_models, nr_clusters=10)
         nordlys.fit(training_data_100)
 
         assert nordlys._labels is not None
@@ -54,7 +54,7 @@ class TestNordlysFit:
 
     def test_fit_computes_centroids(self, three_models, training_data_100):
         """Test that fit computes cluster centroids."""
-        nordlys = Nordlys(models=three_models, nr_clusters=10)
+        nordlys = Router(models=three_models, nr_clusters=10)
         nordlys.fit(training_data_100)
 
         assert nordlys._centroids is not None
@@ -63,7 +63,7 @@ class TestNordlysFit:
 
     def test_fit_computes_model_accuracies(self, three_models, training_data_100):
         """Test that fit computes per-cluster model accuracies."""
-        nordlys = Nordlys(models=three_models, nr_clusters=10)
+        nordlys = Router(models=three_models, nr_clusters=10)
         nordlys.fit(training_data_100)
 
         assert nordlys._model_accuracies is not None
@@ -79,7 +79,7 @@ class TestNordlysFit:
 
     def test_fit_computes_metrics(self, three_models, training_data_100):
         """Test that fit computes clustering metrics."""
-        nordlys = Nordlys(models=three_models)
+        nordlys = Router(models=three_models)
         nordlys.fit(training_data_100)
 
         assert nordlys._metrics is not None
@@ -88,17 +88,17 @@ class TestNordlysFit:
 
     def test_fit_returns_self(self, three_models, training_data_100):
         """Test that fit returns self for method chaining."""
-        nordlys = Nordlys(models=three_models)
+        nordlys = Router(models=three_models)
         result = nordlys.fit(training_data_100)
         assert result is nordlys
 
 
 class TestNordlysFitTransform:
-    """Test Nordlys fit_transform method."""
+    """Test Router fit_transform method."""
 
     def test_fit_transform_returns_tuple(self, three_models, training_data_100):
         """Test that fit_transform returns (embeddings, labels)."""
-        nordlys = Nordlys(models=three_models)
+        nordlys = Router(models=three_models)
         result = nordlys.fit_transform(training_data_100)
 
         assert isinstance(result, tuple)
@@ -106,7 +106,7 @@ class TestNordlysFitTransform:
 
     def test_fit_transform_embeddings_shape(self, three_models, training_data_100):
         """Test that embeddings have correct shape."""
-        nordlys = Nordlys(models=three_models)
+        nordlys = Router(models=three_models)
         embeddings, labels = nordlys.fit_transform(training_data_100)
 
         assert embeddings.shape[0] == 100
@@ -114,7 +114,7 @@ class TestNordlysFitTransform:
 
     def test_fit_transform_labels_shape(self, three_models, training_data_100):
         """Test that labels have correct shape."""
-        nordlys = Nordlys(models=three_models, nr_clusters=10)
+        nordlys = Router(models=three_models, nr_clusters=10)
         embeddings, labels = nordlys.fit_transform(training_data_100)
 
         assert labels.shape == (100,)
@@ -122,7 +122,7 @@ class TestNordlysFitTransform:
 
     def test_fit_transform_sets_fitted_state(self, three_models, training_data_100):
         """Test that fit_transform sets fitted state."""
-        nordlys = Nordlys(models=three_models)
+        nordlys = Router(models=three_models)
         assert nordlys._is_fitted is False
 
         nordlys.fit_transform(training_data_100)
@@ -130,7 +130,7 @@ class TestNordlysFitTransform:
 
 
 class TestNordlysTransform:
-    """Test Nordlys transform method."""
+    """Test Router transform method."""
 
     def test_transform_new_prompts(self, fitted_nordlys):
         """Test transforming new prompts after fitting."""
@@ -163,18 +163,18 @@ class TestNordlysTransform:
 
     def test_transform_before_fit_raises(self, three_models):
         """Test that transform before fit raises RuntimeError."""
-        nordlys = Nordlys(models=three_models)
+        nordlys = Router(models=three_models)
 
         with pytest.raises(RuntimeError, match="must be fitted before use"):
             nordlys.transform(["Test prompt"])
 
 
 class TestNordlysFitValidation:
-    """Test Nordlys fit validation."""
+    """Test Router fit validation."""
 
     def test_fit_missing_questions_column_raises(self, three_models):
         """Test that fit fails when questions column is missing."""
-        nordlys = Nordlys(models=three_models)
+        nordlys = Router(models=three_models)
         df = pd.DataFrame(
             {
                 "prompts": ["Test"],  # Wrong column name
@@ -189,7 +189,7 @@ class TestNordlysFitValidation:
 
     def test_fit_missing_model_columns_raises(self, three_models):
         """Test that fit fails when model columns are missing."""
-        nordlys = Nordlys(models=three_models)
+        nordlys = Router(models=three_models)
         df = pd.DataFrame(
             {
                 "questions": ["Test"],
@@ -203,7 +203,7 @@ class TestNordlysFitValidation:
 
     def test_fit_empty_dataframe_raises(self, three_models):
         """Test that fit on empty DataFrame raises error."""
-        nordlys = Nordlys(models=three_models)
+        nordlys = Router(models=three_models)
         df = pd.DataFrame(
             {
                 "questions": [],
@@ -219,7 +219,7 @@ class TestNordlysFitValidation:
 
     def test_fit_with_wrong_column_names_raises(self, three_models):
         """Test that fit validates model column names."""
-        nordlys = Nordlys(models=three_models)
+        nordlys = Router(models=three_models)
         df = pd.DataFrame(
             {
                 "questions": ["Test"],
@@ -234,7 +234,7 @@ class TestNordlysFitValidation:
 
 
 class TestNordlysFittedAttributes:
-    """Test Nordlys fitted attribute accessors."""
+    """Test Router fitted attribute accessors."""
 
     def test_centroids_property(self, fitted_nordlys):
         """Test centroids_ property."""
@@ -277,7 +277,7 @@ class TestNordlysFittedAttributes:
 
     def test_properties_before_fit_raise(self, three_models):
         """Test that properties raise error before fit."""
-        nordlys = Nordlys(models=three_models)
+        nordlys = Router(models=three_models)
 
         with pytest.raises(RuntimeError):
             _ = nordlys.centroids_

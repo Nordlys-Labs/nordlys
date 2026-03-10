@@ -1,10 +1,10 @@
-"""Nordlys - Intelligent LLM model selection library.
+"""Router - Intelligent LLM model selection library.
 
 This package provides intelligent model routing using cluster-based selection
 with per-cluster error rates, cost optimization, and model capability matching.
 
 Usage:
-    >>> from nordlys import Nordlys, ModelConfig
+    >>> from nordlys import Router, ModelConfig
     >>> import pandas as pd
     >>>
     >>> # Define models
@@ -21,7 +21,7 @@ Usage:
     ... })
     >>>
      >>> # Fit and route
-     >>> model = Nordlys(models=models)
+     >>> model = Router(models=models)
      >>> model.fit(df)
      >>> result = model.route("Explain quantum computing")
      >>> print(f"Selected: {result.model_id}")
@@ -32,7 +32,7 @@ Usage:
 # ============================================================================
 
 from nordlys.dataset import Dataset
-from nordlys.nordlys import Nordlys, ModelConfig, RouteResult
+from nordlys.router import Router, ModelConfig, RouteResult
 from nordlys.trainer import Trainer
 
 # Reduction components
@@ -63,7 +63,7 @@ __all__ = [
     # Main API
     "Dataset",
     "Trainer",
-    "Nordlys",
+    "Router",
     "ModelConfig",
     "RouteResult",
     # C++ Core types

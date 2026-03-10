@@ -7,10 +7,10 @@ class TestPackageImports:
     """Test that all public API imports work correctly."""
 
     def test_import_nordlys(self):
-        """Test importing the main Nordlys class."""
-        from nordlys import Nordlys
+        """Test importing the main Router class."""
+        from nordlys import Router
 
-        assert Nordlys is not None
+        assert Router is not None
 
     def test_import_model_config(self):
         """Test importing ModelConfig."""
@@ -60,7 +60,7 @@ class TestPackageMetadata:
     def test_all_exports(self):
         """Test that __all__ contains expected exports."""
         expected_exports = {
-            "Nordlys",
+            "Router",
             "Dataset",
             "Trainer",
             "ModelConfig",
