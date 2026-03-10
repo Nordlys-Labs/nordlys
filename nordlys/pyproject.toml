@@ -30,7 +30,7 @@ dependencies = [
   "pandas>=2.0.0",
   "polars>=1.0.0",
   # ML
-  "scikit-learn>=1.5.0,<2.0.0",
+  "scikit-learn>=1.5.0,<1.7.0",
   # Clustering
   "hdbscan>=0.8.33,<=0.8.40",
   "umap-learn>=0.5.0",
