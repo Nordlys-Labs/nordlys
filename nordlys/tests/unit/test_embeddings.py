@@ -23,7 +23,7 @@ class TestSentenceTransformers:
                 return np.ones((len(texts), 3), dtype=np.float64)
 
         monkeypatch.setattr(
-            "nordlys.embeddings.sentence_transformers_backend.SentenceTransformer",
+            "nordlys.embeddings.sentence_transformers.SentenceTransformer",
             FakeEncoder,
         )
 
