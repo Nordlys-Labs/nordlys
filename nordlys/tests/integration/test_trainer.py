@@ -235,9 +235,10 @@ class TestTrainerHyperparameters:
         checkpoint = trainer.fit(large_dataset)
         assert len(checkpoint.cluster_centers) == 15
 
-    def test_reducer_support(
+    def test_reducer_rejected(
         self, trainer_models: list[ModelConfig], large_dataset: Dataset
     ) -> None:
+        """Test that using a reducer raises an error (not supported for checkpoints)."""
         from nordlys.reduction import UMAPReducer
 
         trainer = Trainer(
@@ -246,8 +247,8 @@ class TestTrainerHyperparameters:
             n_clusters=8,
             reducer=UMAPReducer(n_components=8, random_state=42),
         )
-        checkpoint = trainer.fit(large_dataset)
-        assert checkpoint is not None
+        with pytest.raises(ValueError, match="Reducer is not supported"):
+            trainer.fit(large_dataset)
 
 
 class TestTrainerDeterminism:
