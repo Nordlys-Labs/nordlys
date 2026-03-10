@@ -1,6 +1,6 @@
 """Type stubs for the _core native module."""
 
-from typing import Optional
+from typing import Any, Optional
 from collections.abc import Sequence
 
 # Type definitions
@@ -108,6 +108,9 @@ class NordlysCheckpoint:
 
     clustering: ClusteringConfig
     """Clustering configuration."""
+
+    reduction: dict[str, Any] | None
+    """Required reduction field. Null means no reducer was used."""
 
     metrics: TrainingMetrics
     """Training metrics (optional fields)."""
