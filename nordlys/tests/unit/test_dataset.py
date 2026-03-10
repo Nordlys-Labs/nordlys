@@ -1,10 +1,10 @@
 """Tests for Dataset class."""
 
+from nordlys.dataset import Dataset
+
 import pandas as pd
 import polars as pl
 import pytest
-
-from nordlys.dataset import Dataset
 
 
 class TestDatasetCreation:
@@ -297,6 +297,14 @@ class TestDatasetSelect:
         result = dataset.select([])
 
         assert result.num_rows == 0
+
+    def test_select_out_of_range(self):
+        """Test that selecting out-of-range indices raises IndexError."""
+        rows = [{"id": "1"}, {"id": "2"}, {"id": "3"}]
+        dataset = Dataset.from_list(rows)
+
+        with pytest.raises(IndexError, match="out of range"):
+            dataset.select([0, 10])
 
 
 class TestDatasetShuffle:

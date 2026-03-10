@@ -5,8 +5,10 @@ from __future__ import annotations
 import numpy as np
 from sklearn.cluster import KMeans
 
+from nordlys.clustering.base import Clusterer
 
-class KMeansClusterer:
+
+class KMeansClusterer(Clusterer):
     """K-Means clustering wrapper.
 
     Thin wrapper over sklearn.cluster.KMeans with sensible defaults.

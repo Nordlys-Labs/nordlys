@@ -5,8 +5,10 @@ from __future__ import annotations
 import numpy as np
 from sklearn.cluster import AgglomerativeClustering
 
+from nordlys.clustering.base import Clusterer
 
-class AgglomerativeClusterer:
+
+class AgglomerativeClusterer(Clusterer):
     """Agglomerative (hierarchical) clustering wrapper.
 
     Thin wrapper over sklearn.cluster.AgglomerativeClustering.

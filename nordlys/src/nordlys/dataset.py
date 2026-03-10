@@ -6,13 +6,13 @@ but focused on the minimal functionality needed for routing workflows.
 
 from __future__ import annotations
 
+import pandas as pd
+import polars as pl
+
 import random
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, TypeVar, cast
-
-import pandas as pd
-import polars as pl
 
 T = TypeVar("T")
 
@@ -364,6 +364,18 @@ class Dataset:
             # Return empty dataset with schema preserved
             return Dataset(_columns={col: [] for col in self._columns}, _num_rows=0)
 
+        # Validate all indices are in range
+        min_idx = min(indices)
+        max_idx = max(indices)
+        if min_idx < 0:
+            raise IndexError(
+                f"Index {min_idx} out of range for Dataset with {self._num_rows} rows"
+            )
+        if max_idx >= self._num_rows:
+            raise IndexError(
+                f"Index {max_idx} out of range for Dataset with {self._num_rows} rows"
+            )
+
         new_columns = {
             col: [self._columns[col][i] for i in indices] for col in self._columns
         }
@@ -518,12 +530,18 @@ class Dataset:
     def __getitem__(self, index: int) -> dict[str, Any]:
         """Get a single row by index.
 
+        Supports negative indices like -1 for the last row.
+
         Args:
-            index: Row index.
+            index: Row index (supports negative indices).
 
         Returns:
             Dictionary representing the row.
         """
+        # Normalize negative indices
+        if index < 0:
+            index += self._num_rows
+
         if index < 0 or index >= self._num_rows:
             msg = f"Index {index} out of range for dataset with {self._num_rows} rows"
             raise IndexError(msg)
