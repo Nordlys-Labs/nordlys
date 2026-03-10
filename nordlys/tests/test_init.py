@@ -55,6 +55,7 @@ class TestPackageMetadata:
         """Test that __all__ contains expected exports."""
         expected_exports = {
             "Nordlys",
+            "Dataset",
             "ModelConfig",
             "RouteResult",
             "NordlysCheckpoint",

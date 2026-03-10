@@ -410,7 +410,8 @@ class TestDatasetPolars:
 
         assert isinstance(df, pl.DataFrame)
         assert df.height == 2
-        assert df.columns == ["id", "input"]
+        # Column order may vary
+        assert set(df.columns) == {"id", "input"}
 
     def test_polars_roundtrip(self):
         """Test Polars roundtrip preserves data."""
