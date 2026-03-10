@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from nordlys import Dataset, ModelConfig, Nordlys, Trainer
+from nordlys import Dataset, ModelConfig, Router, Trainer
 from nordlys.clustering import HDBSCANClusterer, KMeansClusterer
 
 
@@ -235,7 +235,7 @@ class TestTrainerRouterIntegration:
     ) -> None:
         trainer = Trainer(models=trainer_models, clusterer=test_hdbscan_clusterer)
         checkpoint = trainer.fit(medium_dataset)
-        router = Nordlys._from_checkpoint(
+        router = Router._from_checkpoint(
             checkpoint, models=trainer_models, device="cpu"
         )
         result = router.route("Explain backtracking with example")
@@ -249,7 +249,7 @@ class TestTrainerRouterIntegration:
             clusterer=KMeansClusterer(n_clusters=10, random_state=42),
         )
         checkpoint = trainer.fit(large_dataset)
-        router = Nordlys._from_checkpoint(
+        router = Router._from_checkpoint(
             checkpoint, models=trainer_models, device="cpu"
         )
         prompts = ["Explain quantum", "Write code", "What is ML?"]

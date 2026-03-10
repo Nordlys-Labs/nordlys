@@ -1,4 +1,4 @@
-"""Dimensionality reduction components for Nordlys."""
+"""Dimensionality reduction components for Router."""
 
 from nordlys.reduction.base import Reducer
 from nordlys.reduction.pca import PCAReducer

@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from nordlys import ModelConfig, Nordlys
+from nordlys import ModelConfig, Router
 
 
 @pytest.fixture
@@ -131,8 +131,8 @@ def training_data_100(three_models: list[ModelConfig]) -> pd.DataFrame:
 @pytest.fixture
 def fitted_nordlys(
     three_models: list[ModelConfig], training_data_100: pd.DataFrame
-) -> Nordlys:
-    """Pre-fitted Nordlys instance for testing."""
-    nordlys = Nordlys(models=three_models, nr_clusters=10)
+) -> Router:
+    """Pre-fitted Router instance for testing."""
+    nordlys = Router(models=three_models, nr_clusters=10)
     nordlys.fit(training_data_100)
     return nordlys

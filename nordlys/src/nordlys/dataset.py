@@ -1,4 +1,4 @@
-"""Dataset abstraction for Nordlys.
+"""Dataset abstraction for Router.
 
 A lightweight, column-oriented dataset similar to HuggingFace datasets,
 but focused on the minimal functionality needed for routing workflows.

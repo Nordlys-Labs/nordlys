@@ -1,1 +1,1 @@
-"""Benchmarking suite for Nordlys library."""
+"""Benchmarking suite for Router library."""

@@ -1,14 +1,14 @@
-"""Integration tests for Nordlys persistence (save/load)."""
+"""Integration tests for Router persistence (save/load)."""
 
 import json
 
 import pytest
 
-from nordlys import Nordlys
+from nordlys import Router
 
 
 class TestSaveLoad:
-    """Test Nordlys save and load methods."""
+    """Test Router save and load methods."""
 
     def test_save_json(self, fitted_nordlys, tmp_path):
         """Test saving to JSON format."""
@@ -31,7 +31,7 @@ class TestSaveLoad:
         save_path = tmp_path / "nordlys.json"
         fitted_nordlys.save(save_path)
 
-        loaded = Nordlys.load(save_path, models=three_models)
+        loaded = Router.load(save_path, models=three_models)
 
         assert loaded is not None
         assert loaded._is_fitted is True
@@ -41,17 +41,17 @@ class TestSaveLoad:
         save_path = tmp_path / "nordlys.msgpack"
         fitted_nordlys.save(save_path)
 
-        loaded = Nordlys.load(save_path, models=three_models)
+        loaded = Router.load(save_path, models=three_models)
 
         assert loaded is not None
         assert loaded._is_fitted is True
 
     def test_loaded_nordlys_is_fitted(self, fitted_nordlys, tmp_path, three_models):
-        """Test that loaded Nordlys is in fitted state."""
+        """Test that loaded Router is in fitted state."""
         save_path = tmp_path / "nordlys.json"
         fitted_nordlys.save(save_path)
 
-        loaded = Nordlys.load(save_path, models=three_models)
+        loaded = Router.load(save_path, models=three_models)
 
         assert loaded._is_fitted is True
         assert loaded._core_engine is not None
@@ -68,7 +68,7 @@ class TestSaveLoad:
 
         # Save and load
         fitted_nordlys.save(save_path)
-        loaded = Nordlys.load(save_path, models=three_models)
+        loaded = Router.load(save_path, models=three_models)
 
         # Route after load
         result_after = loaded.route(prompt)
@@ -82,7 +82,7 @@ class TestSaveLoad:
         save_path = tmp_path / "nordlys.json"
         fitted_nordlys.save(save_path)
 
-        loaded = Nordlys.load(save_path)  # No models argument
+        loaded = Router.load(save_path)  # No models argument
 
         assert loaded is not None
         assert loaded._is_fitted is True
@@ -160,7 +160,7 @@ class TestLoadWithModelOverride:
             ),
         ]
 
-        loaded = Nordlys.load(save_path, models=custom_models)
+        loaded = Router.load(save_path, models=custom_models)
 
         assert loaded is not None
         # Costs should be overridden
@@ -173,7 +173,7 @@ class TestPersistenceErrors:
     def test_load_nonexistent_file_raises(self):
         """Test that loading nonexistent file raises error."""
         with pytest.raises(Exception):  # FileNotFoundError or similar
-            Nordlys.load("nonexistent_file.json")
+            Router.load("nonexistent_file.json")
 
     def test_load_corrupted_json_raises(self, tmp_path):
         """Test that loading corrupted JSON raises error."""
@@ -181,11 +181,11 @@ class TestPersistenceErrors:
         save_path.write_text("{ invalid json")
 
         with pytest.raises(Exception):  # JSON decode error
-            Nordlys.load(save_path)
+            Router.load(save_path)
 
     def test_save_before_fit_raises(self, three_models, tmp_path):
         """Test that saving before fit raises RuntimeError."""
-        nordlys = Nordlys(models=three_models)
+        nordlys = Router(models=three_models)
         save_path = tmp_path / "nordlys.json"
 
         with pytest.raises(RuntimeError, match="must be fitted"):
@@ -205,13 +205,13 @@ class TestPersistenceConsistency:
         # Cycle 1
         path1 = tmp_path / "cycle1.json"
         fitted_nordlys.save(path1)
-        loaded1 = Nordlys.load(path1, models=three_models)
+        loaded1 = Router.load(path1, models=three_models)
         result2 = loaded1.route(prompt)
 
         # Cycle 2
         path2 = tmp_path / "cycle2.json"
         loaded1.save(path2)
-        loaded2 = Nordlys.load(path2, models=three_models)
+        loaded2 = Router.load(path2, models=three_models)
         result3 = loaded2.route(prompt)
 
         # All should be identical
@@ -225,13 +225,13 @@ class TestPersistenceConsistency:
         # Save as JSON
         json_path = tmp_path / "nordlys.json"
         fitted_nordlys.save(json_path)
-        loaded_json = Nordlys.load(json_path, models=three_models)
+        loaded_json = Router.load(json_path, models=three_models)
         result_json = loaded_json.route(prompt)
 
         # Save as MessagePack
         msgpack_path = tmp_path / "nordlys.msgpack"
         fitted_nordlys.save(msgpack_path)
-        loaded_msgpack = Nordlys.load(msgpack_path, models=three_models)
+        loaded_msgpack = Router.load(msgpack_path, models=three_models)
         result_msgpack = loaded_msgpack.route(prompt)
 
         # Results should be identical
