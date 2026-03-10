@@ -31,6 +31,7 @@ Usage:
 # Main API
 # ============================================================================
 
+from nordlys.dataset import Dataset
 from nordlys.nordlys import Nordlys, ModelConfig, RouteResult
 
 # Reduction components
@@ -56,6 +57,7 @@ __version__ = "0.2.4"
 
 __all__ = [
     # Main API
+    "Dataset",
     "Nordlys",
     "ModelConfig",
     "RouteResult",
