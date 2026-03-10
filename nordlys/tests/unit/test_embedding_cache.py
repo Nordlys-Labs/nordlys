@@ -98,7 +98,9 @@ class TestEmbeddingCacheInitialization:
 class TestEmbeddingCacheInfo:
     """Test embedding_cache_info() method."""
 
-    def test_cache_info_initial_state(self, sample_checkpoint: NordlysCheckpoint) -> None:
+    def test_cache_info_initial_state(
+        self, sample_checkpoint: NordlysCheckpoint
+    ) -> None:
         """Test cache info returns correct initial state."""
         nordlys = Router(checkpoint=sample_checkpoint, embedding_cache_size=100)
         info = nordlys.embedding_cache_info()
@@ -160,7 +162,9 @@ class TestComputeEmbedding:
         np.testing.assert_array_equal(result, mock_embedding)
         assert "test prompt" in nordlys._embedding_cache
 
-    def test_cache_hit_returns_cached(self, sample_checkpoint: NordlysCheckpoint) -> None:
+    def test_cache_hit_returns_cached(
+        self, sample_checkpoint: NordlysCheckpoint
+    ) -> None:
         """Test that cache hit returns cached embedding without recomputing."""
         nordlys = Router(checkpoint=sample_checkpoint, embedding_cache_size=100)
 
@@ -182,7 +186,9 @@ class TestComputeEmbedding:
 class TestCacheLRUEviction:
     """Test LRU eviction behavior."""
 
-    def test_lru_eviction_on_full_cache(self, sample_checkpoint: NordlysCheckpoint) -> None:
+    def test_lru_eviction_on_full_cache(
+        self, sample_checkpoint: NordlysCheckpoint
+    ) -> None:
         """Test that oldest entries are evicted when cache is full."""
         nordlys = Router(checkpoint=sample_checkpoint, embedding_cache_size=3)
 
