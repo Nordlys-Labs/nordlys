@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from typing import Literal
 
 import numpy as np
-from sentence_transformers import SentenceTransformer
 
 from nordlys.clustering import Clusterer, KMeansClusterer, compute_cluster_metrics
 from nordlys.clustering.hdbscan_clusterer import HDBSCANClusterer
@@ -63,8 +62,6 @@ class Trainer:
     hdbscan_metric: str = "euclidean"
     hdbscan_cluster_selection_epsilon: float = 0.0
     hdbscan_cluster_selection_method: str = "eom"
-
-    default_error_rate: float = 0.5
 
     def fit(self, dataset: Dataset) -> NordlysCheckpoint:
         """Fit clustering pipeline and return a checkpoint."""
@@ -131,6 +128,8 @@ class Trainer:
         if not self.models:
             raise ValueError("At least one model is required")
 
+        allowed_model_ids = {m.id for m in self.models}
+
         errors = dataset.validate_schema(
             required_columns=["id", self.input_col, self.target_col],
             check_unique_ids=True,
@@ -150,13 +149,22 @@ class Trainer:
         for idx, value in enumerate(targets):
             if value is None:
                 continue
+            if not isinstance(value, dict):
+                continue  # Already caught above
             for model_id, score in value.items():
+                if model_id not in allowed_model_ids:
+                    raise ValueError(
+                        f"Row {idx}: unknown model_id '{model_id}'. "
+                        f"Allowed model IDs: {sorted(allowed_model_ids)}"
+                    )
                 if not isinstance(model_id, str):
                     raise ValueError(f"Row {idx}: model_id must be str")
                 if score not in (0, 1):
                     raise ValueError(f"Row {idx}: target for {model_id} must be 0 or 1")
 
     def _embed(self, texts: list[str]) -> np.ndarray:
+        from sentence_transformers import SentenceTransformer
+
         encoder = SentenceTransformer(
             self.embedding_model,
             device=self.device,
@@ -173,7 +181,15 @@ class Trainer:
         )
 
     def _reduce_or_pass(self, embeddings: np.ndarray) -> np.ndarray:
-        return self.reducer.fit_transform(embeddings) if self.reducer else embeddings
+        if self.reducer is not None:
+            raise ValueError(
+                "Reducer is not supported for checkpoints. "
+                "The checkpoint stores centroids in reduced space, but "
+                "Nordlys._from_checkpoint cannot restore the reducer, causing "
+                "mismatched comparisons during inference. "
+                "Set reducer=None to use full embedding space."
+            )
+        return embeddings
 
     def _make_clusterer(self) -> Clusterer:
         if self.clusterer is None:
@@ -217,6 +233,19 @@ class Trainer:
         model_ids: list[str],
         n_clusters: int,
     ) -> dict[str, list[float]]:
+        allowed_model_ids = set(model_ids)
+
+        # Validate all targets are from allowed model IDs
+        for row_targets in targets:
+            if row_targets is None:
+                continue
+            for model_id in row_targets.keys():
+                if model_id not in allowed_model_ids:
+                    raise ValueError(
+                        f"Unknown model_id '{model_id}' in targets. "
+                        f"Allowed: {sorted(allowed_model_ids)}"
+                    )
+
         # Use numpy for faster computation
         valid_mask = labels >= 0
         valid_labels = np.unique(labels[valid_mask])
@@ -248,13 +277,15 @@ class Trainer:
                     sums[model_idx, cluster_idx] += float(score)
                     counts[model_idx, cluster_idx] += 1
 
-        # Compute error rates with default fallback
-        default = self.default_error_rate
-        with np.errstate(divide="ignore", invalid="ignore"):
-            accuracies = np.where(counts > 0, sums / counts, default)
-            error_rates = 1.0 - accuracies
+        # Compute error rates - raise if any cluster has no data
+        if np.any(counts == 0):
+            zero_count = int(np.sum(counts == 0))
+            raise ValueError(
+                f"No training data for {zero_count} cluster-model combination(s). "
+                "Consider increasing cluster size or reducing n_clusters."
+            )
 
-        # Handle zero-count clusters
-        error_rates = np.where(counts == 0, default, error_rates)
+        accuracies = sums / counts
+        error_rates = 1.0 - accuracies
 
         return {mid: error_rates[i].tolist() for i, mid in enumerate(model_ids)}
