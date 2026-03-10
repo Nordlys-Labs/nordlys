@@ -36,6 +36,12 @@ class TestPackageImports:
 
         assert clustering is not None
 
+    def test_import_embeddings_module(self):
+        """Test importing embeddings module."""
+        from nordlys import embeddings
+
+        assert embeddings is not None
+
 
 class TestPackageMetadata:
     """Test package metadata."""
@@ -66,6 +72,7 @@ class TestPackageMetadata:
             "ModelFeatures",
             "reduction",
             "clustering",
+            "embeddings",
         }
         assert hasattr(nordlys, "__all__")
         assert set(nordlys.__all__) == expected_exports

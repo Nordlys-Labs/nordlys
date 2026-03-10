@@ -41,6 +41,9 @@ from nordlys import reduction
 # Clustering components
 from nordlys import clustering
 
+# Embedding components
+from nordlys import embeddings
+
 # C++ Core types
 from nordlys_core import (
     NordlysCheckpoint,
@@ -72,4 +75,5 @@ __all__ = [
     # Modules
     "reduction",
     "clustering",
+    "embeddings",
 ]

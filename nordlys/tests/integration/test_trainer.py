@@ -11,19 +11,26 @@ from nordlys.clustering import HDBSCANClusterer, KMeansClusterer
 
 @pytest.fixture(autouse=True)
 def mock_trainer_embed(monkeypatch: pytest.MonkeyPatch) -> None:
-    def _embed(self: Trainer, texts: list[str]) -> np.ndarray:
-        vectors = []
-        for text in texts:
-            seed = sum(ord(ch) for ch in text) % (2**32)
-            rng = np.random.default_rng(seed)
-            group = seed % 8
-            center = np.zeros(384, dtype=np.float32)
-            center[group] = 10.0
-            noise = rng.normal(0.0, 0.05, size=384).astype(np.float32)
-            vectors.append(center + noise)
-        return np.asarray(vectors, dtype=np.float32)
+    class FakeEmbedder:
+        def encode(self, texts: list[str]) -> np.ndarray:
+            vectors = []
+            for text in texts:
+                seed = sum(ord(ch) for ch in text) % (2**32)
+                rng = np.random.default_rng(seed)
+                group = seed % 8
+                center = np.zeros(384, dtype=np.float32)
+                center[group] = 10.0
+                noise = rng.normal(0.0, 0.05, size=384).astype(np.float32)
+                vectors.append(center + noise)
+            return np.asarray(vectors, dtype=np.float32)
 
-    monkeypatch.setattr(Trainer, "_embed", _embed)
+        def checkpoint_config(self) -> dict[str, str | bool]:
+            return {
+                "model": "sentence-transformers/all-MiniLM-L6-v2",
+                "trust_remote_code": False,
+            }
+
+    monkeypatch.setattr(Trainer, "_make_embedder", lambda self: FakeEmbedder())
 
 
 @pytest.fixture
