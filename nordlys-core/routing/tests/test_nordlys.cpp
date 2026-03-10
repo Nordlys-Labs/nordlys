@@ -156,6 +156,20 @@ TEST_F(NordlysTest, RoutingWithFilteredModels) {
   EXPECT_EQ(response.selected_model, "provider1/gpt-4");
 }
 
+TEST_F(NordlysTest, RoutingWithOptionalModelFilterUsesAllModels) {
+  // Null optional means no filter and should use all models.
+  auto nordlys = CreateTestNordlys();
+
+  std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
+
+  EmbeddingView view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
+  auto response = nordlys.route(view, std::nullopt);
+
+  EXPECT_EQ(response.cluster_id, 0);
+  EXPECT_EQ(response.selected_model, "provider1/gpt-4");
+  EXPECT_EQ(response.alternatives.size(), 1);
+}
+
 // ============================================================================
 // Tests for Error Handling
 // ============================================================================
@@ -194,17 +208,14 @@ TEST_F(NordlysTest, DimensionMismatchErrorMessage) {
 // ============================================================================
 
 TEST_F(NordlysTest, RoutingWithEmptyModelFilter) {
-  // Empty filter should use all available models
+  // Explicit empty filter should be rejected.
   auto nordlys = CreateTestNordlys();
 
   std::vector<float> embedding = {0.95f, 0.05f, 0.0f, 0.0f};
   std::vector<std::string> empty_filter;
 
   EmbeddingView view{embedding.data(), embedding.size(), Device{CpuDevice{}}};
-  auto response = nordlys.route(view, empty_filter);
-
-  EXPECT_EQ(response.cluster_id, 0);
-  EXPECT_FALSE(response.selected_model.empty());
+  EXPECT_THROW(nordlys.route(view, empty_filter), std::invalid_argument);
 }
 
 TEST_F(NordlysTest, RoutingWithSingleModelFilter) {
@@ -232,6 +243,35 @@ TEST_F(NordlysTest, AlternativesReturned) {
 
   // With 2 models, alternatives should have at most 1 (all except selected)
   EXPECT_LE(response.alternatives.size(), 1);
+}
+
+TEST_F(NordlysTest, BatchRoutingWithOptionalModelFilterUsesAllModels) {
+  auto nordlys = CreateTestNordlys();
+
+  std::vector<float> embeddings = {
+      1.0f, 0.0f, 0.0f, 0.0f,
+      0.0f, 1.0f, 0.0f, 0.0f,
+  };
+
+  EmbeddingBatchView view{embeddings.data(), 2, 4, Device{CpuDevice{}}};
+  auto responses = nordlys.route_batch(view, std::nullopt);
+
+  ASSERT_EQ(responses.size(), 2);
+  EXPECT_EQ(responses[0].selected_model, "provider1/gpt-4");
+  EXPECT_EQ(responses[1].selected_model, "provider1/gpt-4");
+}
+
+TEST_F(NordlysTest, BatchRoutingWithEmptyModelFilterThrows) {
+  auto nordlys = CreateTestNordlys();
+
+  std::vector<float> embeddings = {
+      1.0f, 0.0f, 0.0f, 0.0f,
+      0.0f, 1.0f, 0.0f, 0.0f,
+  };
+  std::vector<std::string> empty_filter;
+
+  EmbeddingBatchView view{embeddings.data(), 2, 4, Device{CpuDevice{}}};
+  EXPECT_THROW(nordlys.route_batch(view, empty_filter), std::invalid_argument);
 }
 
 // ============================================================================

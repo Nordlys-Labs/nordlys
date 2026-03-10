@@ -67,6 +67,18 @@ class TestRouting:
             assert all(isinstance(alt, str) for alt in response.alternatives)
             assert response.selected_model not in response.alternatives
 
+    def test_route_with_models_none_uses_all_models(self, nordlys, sample_embedding):
+        """Test routing with models=None keeps the no-filter semantics."""
+        response = nordlys.route(sample_embedding, models=None)
+
+        assert response.selected_model == "openai/gpt-4"
+        assert response.alternatives == ["anthropic/claude-3"]
+
+    def test_route_with_empty_model_filter_raises(self, nordlys, sample_embedding):
+        """Test routing with models=[] is rejected."""
+        with pytest.raises(ValueError, match="model_filter cannot be empty"):
+            nordlys.route(sample_embedding, models=[])
+
 
 class TestBatchRouting:
     """Test batch routing functionality."""
@@ -121,6 +133,35 @@ class TestBatchRouting:
         for response in responses:
             assert response.selected_model == "openai/gpt-4"
 
+    def test_batch_with_models_none_uses_all_models(self, nordlys):
+        """Test batch routing with models=None keeps the no-filter semantics."""
+        embeddings = np.array(
+            [
+                [1.0, 0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0, 0.0],
+            ],
+            dtype=np.float32,
+        )
+
+        responses = nordlys.route_batch(embeddings, models=None)
+
+        assert len(responses) == 2
+        assert responses[0].selected_model == "openai/gpt-4"
+        assert responses[1].selected_model == "anthropic/claude-3"
+
+    def test_batch_with_empty_model_filter_raises(self, nordlys):
+        """Test batch routing with models=[] is rejected."""
+        embeddings = np.array(
+            [
+                [1.0, 0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0, 0.0],
+            ],
+            dtype=np.float32,
+        )
+
+        with pytest.raises(ValueError, match="model_filter cannot be empty"):
+            nordlys.route_batch(embeddings, models=[])
+
     def test_batch_dimension_mismatch_raises(self, nordlys):
         """Test that wrong embedding dimension raises error."""
         wrong_dim = np.array([[1.0, 0.0]], dtype=np.float32)  # 2-dim instead of 4
@@ -167,11 +208,10 @@ class TestErrorHandling:
 
     def test_route_with_invalid_model_filter(self, nordlys, sample_embedding):
         """Test routing with invalid model filter."""
-        # Empty filter should work (no filtering)
-        response = nordlys.route(sample_embedding, models=[])
-        assert response.selected_model is not None
+        with pytest.raises(ValueError, match="model_filter cannot be empty"):
+            nordlys.route(sample_embedding, models=[])
 
         # Invalid model ID should still work (just won't match anything)
         response = nordlys.route(sample_embedding, models=["invalid/model"])
-        # Should still return a valid response (may be empty model if no match)
-        assert isinstance(response.selected_model, str)
+        assert response.selected_model == ""
+        assert response.alternatives == []
