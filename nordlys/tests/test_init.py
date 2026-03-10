@@ -56,6 +56,7 @@ class TestPackageMetadata:
         expected_exports = {
             "Nordlys",
             "Dataset",
+            "Trainer",
             "ModelConfig",
             "RouteResult",
             "NordlysCheckpoint",

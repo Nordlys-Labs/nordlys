@@ -33,6 +33,7 @@ Usage:
 
 from nordlys.dataset import Dataset
 from nordlys.nordlys import Nordlys, ModelConfig, RouteResult
+from nordlys.trainer import Trainer
 
 # Reduction components
 from nordlys import reduction
@@ -58,6 +59,7 @@ __version__ = "0.2.4"
 __all__ = [
     # Main API
     "Dataset",
+    "Trainer",
     "Nordlys",
     "ModelConfig",
     "RouteResult",
