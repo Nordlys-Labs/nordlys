@@ -6,7 +6,24 @@ import numpy as np
 import pytest
 
 from nordlys import Dataset, ModelConfig, Nordlys, Trainer
-from nordlys.clustering import KMeansClusterer
+from nordlys.clustering import HDBSCANClusterer, KMeansClusterer
+
+
+@pytest.fixture(autouse=True)
+def mock_trainer_embed(monkeypatch: pytest.MonkeyPatch) -> None:
+    def _embed(self: Trainer, texts: list[str]) -> np.ndarray:
+        vectors = []
+        for text in texts:
+            seed = sum(ord(ch) for ch in text) % (2**32)
+            rng = np.random.default_rng(seed)
+            group = seed % 8
+            center = np.zeros(384, dtype=np.float32)
+            center[group] = 10.0
+            noise = rng.normal(0.0, 0.05, size=384).astype(np.float32)
+            vectors.append(center + noise)
+        return np.asarray(vectors, dtype=np.float32)
+
+    monkeypatch.setattr(Trainer, "_embed", _embed)
 
 
 @pytest.fixture
@@ -89,6 +106,11 @@ def large_dataset() -> Dataset:
     return Dataset.from_list(rows)
 
 
+@pytest.fixture
+def test_hdbscan_clusterer() -> HDBSCANClusterer:
+    return HDBSCANClusterer(min_cluster_size=2, min_samples=1)
+
+
 class TestTrainerInitialization:
     def test_default_initialization(self, trainer_models: list[ModelConfig]) -> None:
         trainer = Trainer(models=trainer_models)
@@ -109,10 +131,13 @@ class TestTrainerInitialization:
 
 class TestTrainerFit:
     def test_fit_with_hdbscan_medium(
-        self, trainer_models: list[ModelConfig], medium_dataset: Dataset
+        self,
+        trainer_models: list[ModelConfig],
+        medium_dataset: Dataset,
+        test_hdbscan_clusterer: HDBSCANClusterer,
     ) -> None:
         """HDBSCAN on medium dataset."""
-        trainer = Trainer(models=trainer_models, clusterer="hdbscan")
+        trainer = Trainer(models=trainer_models, clusterer=test_hdbscan_clusterer)
         checkpoint = trainer.fit(medium_dataset)
         assert checkpoint is not None
         assert len(checkpoint.cluster_centers) > 0
@@ -121,7 +146,10 @@ class TestTrainerFit:
         self, trainer_models: list[ModelConfig], large_dataset: Dataset
     ) -> None:
         """KMeans on large dataset with many clusters."""
-        trainer = Trainer(models=trainer_models, clusterer="kmeans", n_clusters=10)
+        trainer = Trainer(
+            models=trainer_models,
+            clusterer=KMeansClusterer(n_clusters=10, random_state=42),
+        )
         checkpoint = trainer.fit(large_dataset)
         assert len(checkpoint.cluster_centers) == 10
 
@@ -159,23 +187,32 @@ class TestTrainerValidation:
 
 class TestTrainerCheckpoint:
     def test_checkpoint_has_cluster_centers(
-        self, trainer_models: list[ModelConfig], medium_dataset: Dataset
+        self,
+        trainer_models: list[ModelConfig],
+        medium_dataset: Dataset,
+        test_hdbscan_clusterer: HDBSCANClusterer,
     ) -> None:
-        trainer = Trainer(models=trainer_models, clusterer="hdbscan")
+        trainer = Trainer(models=trainer_models, clusterer=test_hdbscan_clusterer)
         checkpoint = trainer.fit(medium_dataset)
         assert len(checkpoint.cluster_centers) > 0
 
     def test_checkpoint_has_models(
-        self, trainer_models: list[ModelConfig], medium_dataset: Dataset
+        self,
+        trainer_models: list[ModelConfig],
+        medium_dataset: Dataset,
+        test_hdbscan_clusterer: HDBSCANClusterer,
     ) -> None:
-        trainer = Trainer(models=trainer_models, clusterer="hdbscan")
+        trainer = Trainer(models=trainer_models, clusterer=test_hdbscan_clusterer)
         checkpoint = trainer.fit(medium_dataset)
         assert len(checkpoint.models) == len(trainer_models)
 
     def test_checkpoint_error_rates_shape(
-        self, trainer_models: list[ModelConfig], medium_dataset: Dataset
+        self,
+        trainer_models: list[ModelConfig],
+        medium_dataset: Dataset,
+        test_hdbscan_clusterer: HDBSCANClusterer,
     ) -> None:
-        trainer = Trainer(models=trainer_models, clusterer="hdbscan")
+        trainer = Trainer(models=trainer_models, clusterer=test_hdbscan_clusterer)
         checkpoint = trainer.fit(medium_dataset)
         n_clusters = len(checkpoint.cluster_centers)
         for model in checkpoint.models:
@@ -184,9 +221,12 @@ class TestTrainerCheckpoint:
 
 class TestTrainerRouterIntegration:
     def test_checkpoint_loadable_by_router(
-        self, trainer_models: list[ModelConfig], medium_dataset: Dataset
+        self,
+        trainer_models: list[ModelConfig],
+        medium_dataset: Dataset,
+        test_hdbscan_clusterer: HDBSCANClusterer,
     ) -> None:
-        trainer = Trainer(models=trainer_models, clusterer="hdbscan")
+        trainer = Trainer(models=trainer_models, clusterer=test_hdbscan_clusterer)
         checkpoint = trainer.fit(medium_dataset)
         router = Nordlys._from_checkpoint(
             checkpoint, models=trainer_models, device="cpu"
@@ -197,7 +237,10 @@ class TestTrainerRouterIntegration:
     def test_router_route_batch(
         self, trainer_models: list[ModelConfig], large_dataset: Dataset
     ) -> None:
-        trainer = Trainer(models=trainer_models, clusterer="kmeans", n_clusters=10)
+        trainer = Trainer(
+            models=trainer_models,
+            clusterer=KMeansClusterer(n_clusters=10, random_state=42),
+        )
         checkpoint = trainer.fit(large_dataset)
         router = Nordlys._from_checkpoint(
             checkpoint, models=trainer_models, device="cpu"
@@ -215,9 +258,7 @@ class TestTrainerHyperparameters:
     ) -> None:
         trainer = Trainer(
             models=trainer_models,
-            clusterer="hdbscan",
-            hdbscan_min_cluster_size=10,
-            hdbscan_min_samples=3,
+            clusterer=HDBSCANClusterer(min_cluster_size=10, min_samples=3),
         )
         checkpoint = trainer.fit(medium_dataset)
         assert checkpoint is not None
@@ -227,10 +268,12 @@ class TestTrainerHyperparameters:
     ) -> None:
         trainer = Trainer(
             models=trainer_models,
-            clusterer="kmeans",
-            n_clusters=15,
-            kmeans_max_iter=200,
-            kmeans_n_init=5,
+            clusterer=KMeansClusterer(
+                n_clusters=15,
+                max_iter=200,
+                n_init=5,
+                random_state=42,
+            ),
         )
         checkpoint = trainer.fit(large_dataset)
         assert len(checkpoint.cluster_centers) == 15
@@ -243,8 +286,7 @@ class TestTrainerHyperparameters:
 
         trainer = Trainer(
             models=trainer_models,
-            clusterer="kmeans",
-            n_clusters=8,
+            clusterer=KMeansClusterer(n_clusters=8, random_state=42),
             reducer=UMAPReducer(n_components=8, random_state=42),
         )
         with pytest.raises(ValueError, match="Reducer is not supported"):
@@ -257,14 +299,12 @@ class TestTrainerDeterminism:
     ) -> None:
         trainer1 = Trainer(
             models=trainer_models,
-            clusterer="kmeans",
-            n_clusters=10,
+            clusterer=KMeansClusterer(n_clusters=10, random_state=42),
             random_state=42,
         )
         trainer2 = Trainer(
             models=trainer_models,
-            clusterer="kmeans",
-            n_clusters=10,
+            clusterer=KMeansClusterer(n_clusters=10, random_state=42),
             random_state=42,
         )
         cp1 = trainer1.fit(large_dataset)

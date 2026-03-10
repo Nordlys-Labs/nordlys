@@ -7,9 +7,9 @@ from dataclasses import dataclass
 from typing import Literal
 
 import numpy as np
+from sentence_transformers import SentenceTransformer
 
 from nordlys.clustering import Clusterer, KMeansClusterer, compute_cluster_metrics
-from nordlys.clustering.hdbscan_clusterer import HDBSCANClusterer
 from nordlys.dataset import Dataset
 from nordlys.nordlys import ModelConfig
 from nordlys.reduction import Reducer
@@ -44,7 +44,7 @@ class Trainer:
     embedding_batch_size: int = 64
     embedding_normalize: bool = True
 
-    clusterer: Clusterer | str | None = None
+    clusterer: Clusterer | None = None
     n_clusters: int = 20
 
     reducer: Reducer | None = None
@@ -52,16 +52,6 @@ class Trainer:
     random_state: int = 42
     allow_trust_remote_code: bool = False
     device: Literal["cpu", "cuda"] = "cpu"
-
-    kmeans_max_iter: int = 300
-    kmeans_n_init: int = 10
-    kmeans_algorithm: str = "lloyd"
-
-    hdbscan_min_cluster_size: int = 5
-    hdbscan_min_samples: int | None = None
-    hdbscan_metric: str = "euclidean"
-    hdbscan_cluster_selection_epsilon: float = 0.0
-    hdbscan_cluster_selection_method: str = "eom"
 
     def fit(self, dataset: Dataset) -> NordlysCheckpoint:
         """Fit clustering pipeline and return a checkpoint."""
@@ -85,10 +75,14 @@ class Trainer:
             n_clusters,
         )
 
+        inertia: float | None = None
+        if isinstance(clusterer, KMeansClusterer):
+            inertia = clusterer.inertia_
+
         metrics = compute_cluster_metrics(
             cluster_input,
             labels,
-            getattr(clusterer, "inertia_", None),
+            inertia,
         )
 
         payload = {
@@ -110,9 +104,9 @@ class Trainer:
             "clustering": {
                 "n_clusters": n_clusters,
                 "random_state": self.random_state,
-                "max_iter": self.kmeans_max_iter,
-                "n_init": self.kmeans_n_init,
-                "algorithm": self.kmeans_algorithm,
+                "max_iter": 300,
+                "n_init": 10,
+                "algorithm": "lloyd",
                 "normalization": "l2" if self.embedding_normalize else "none",
             },
             "metrics": {
@@ -145,7 +139,10 @@ class Trainer:
                 if value is not None and not isinstance(value, dict)
             ]
         )
+        if errors:
+            raise ValueError(f"Dataset validation failed: {errors}")
 
+        target_errors: list[str] = []
         for idx, value in enumerate(targets):
             if value is None:
                 continue
@@ -153,18 +150,21 @@ class Trainer:
                 continue  # Already caught above
             for model_id, score in value.items():
                 if model_id not in allowed_model_ids:
-                    raise ValueError(
+                    target_errors.append(
                         f"Row {idx}: unknown model_id '{model_id}'. "
                         f"Allowed model IDs: {sorted(allowed_model_ids)}"
                     )
                 if not isinstance(model_id, str):
-                    raise ValueError(f"Row {idx}: model_id must be str")
+                    target_errors.append(f"Row {idx}: model_id must be str")
                 if score not in (0, 1):
-                    raise ValueError(f"Row {idx}: target for {model_id} must be 0 or 1")
+                    target_errors.append(
+                        f"Row {idx}: target for {model_id} must be 0 or 1"
+                    )
+
+        if target_errors:
+            raise ValueError(f"Dataset validation failed: {target_errors}")
 
     def _embed(self, texts: list[str]) -> np.ndarray:
-        from sentence_transformers import SentenceTransformer
-
         encoder = SentenceTransformer(
             self.embedding_model,
             device=self.device,
@@ -195,36 +195,10 @@ class Trainer:
         if self.clusterer is None:
             return KMeansClusterer(
                 n_clusters=self.n_clusters,
-                max_iter=self.kmeans_max_iter,
-                n_init=self.kmeans_n_init,
                 random_state=self.random_state,
-                algorithm=self.kmeans_algorithm,
             )
 
-        if isinstance(self.clusterer, Clusterer):
-            return self.clusterer
-
-        clusterer_creators = {
-            "kmeans": lambda: KMeansClusterer(
-                n_clusters=self.n_clusters,
-                max_iter=self.kmeans_max_iter,
-                n_init=self.kmeans_n_init,
-                random_state=self.random_state,
-                algorithm=self.kmeans_algorithm,
-            ),
-            "hdbscan": lambda: HDBSCANClusterer(
-                min_cluster_size=self.hdbscan_min_cluster_size,
-                min_samples=self.hdbscan_min_samples,
-                metric=self.hdbscan_metric,
-                cluster_selection_epsilon=self.hdbscan_cluster_selection_epsilon,
-                cluster_selection_method=self.hdbscan_cluster_selection_method,
-            ),
-        }
-
-        creator = clusterer_creators.get(self.clusterer)
-        if creator is None:
-            raise ValueError(f"Unknown clusterer: {self.clusterer}")
-        return creator()
+        return self.clusterer
 
     def _calc_error_rates(
         self,
