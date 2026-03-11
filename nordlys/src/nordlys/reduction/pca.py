@@ -2,11 +2,37 @@
 
 from __future__ import annotations
 
+import base64
+import pickle
+
 import numpy as np
+from pydantic import Field, JsonValue
 from sklearn.decomposition import PCA
 
+from nordlys.reduction.base import (
+    Reducer,
+    ReducerConfigModel,
+    ReducerStateModel,
+    register_reducer,
+)
 
-class PCAReducer:
+
+class PCAConfig(ReducerConfigModel):
+    """Strict checkpoint schema for PCA constructor config."""
+
+    n_components: int | float = 50
+    random_state: int = 42
+    kwargs: dict[str, JsonValue] = Field(default_factory=dict)
+
+
+class PCAState(ReducerStateModel):
+    """Strict checkpoint schema for PCA fitted state."""
+
+    pickle_b64: str = Field(min_length=1)
+
+
+@register_reducer
+class PCAReducer(Reducer):
     """PCA dimensionality reduction wrapper.
 
     Thin wrapper over sklearn.decomposition.PCA.
@@ -15,6 +41,10 @@ class PCAReducer:
         >>> reducer = PCAReducer(n_components=50)
         >>> reduced = reducer.fit_transform(embeddings)
     """
+
+    kind = "pca"
+    config_model = PCAConfig
+    state_model = PCAState
 
     def __init__(
         self,
@@ -82,6 +112,37 @@ class PCAReducer:
         """
         self._model = self._create_model()
         return self._model.fit_transform(embeddings)
+
+    def checkpoint_config(self) -> PCAConfig:
+        return PCAConfig(
+            n_components=self.n_components,
+            random_state=self.random_state,
+            kwargs=self._kwargs,
+        )
+
+    def checkpoint_state(self) -> PCAState:
+        if self._model is None:
+            raise RuntimeError(
+                "Reducer must be fitted before checkpoint serialization."
+            )
+        payload = pickle.dumps(self._model, protocol=pickle.HIGHEST_PROTOCOL)
+        return PCAState(pickle_b64=base64.b64encode(payload).decode("ascii"))
+
+    @classmethod
+    def from_checkpoint_models(
+        cls, config: ReducerConfigModel, state: ReducerStateModel
+    ) -> "PCAReducer":
+        if not isinstance(config, PCAConfig) or not isinstance(state, PCAState):
+            raise TypeError("PCAReducer requires PCAConfig and PCAState payloads")
+        reducer = cls(
+            n_components=config.n_components,
+            random_state=config.random_state,
+            **dict(config.kwargs),
+        )
+        reducer._model = pickle.loads(
+            base64.b64decode(state.pickle_b64.encode("ascii"))
+        )
+        return reducer
 
     @property
     def explained_variance_ratio_(self) -> np.ndarray | None:

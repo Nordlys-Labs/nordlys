@@ -31,6 +31,7 @@ def test_build_checkpoint_success() -> None:
             "algorithm": "lloyd",
             "normalization": "l2",
         },
+        reduction=None,
         metrics={
             "n_samples": 2,
             "cluster_sizes": [1, 1],
@@ -39,7 +40,8 @@ def test_build_checkpoint_success() -> None:
         },
     )
 
-    assert checkpoint.version == "2.0"
+    assert checkpoint.version == "3.0"
+    assert checkpoint.reduction is None
     assert checkpoint.clustering.n_clusters == 2
 
 
@@ -57,6 +59,7 @@ def test_build_checkpoint_rejects_missing_models() -> None:
                 "algorithm": "lloyd",
                 "normalization": "l2",
             },
+            reduction=None,
             metrics={
                 "n_samples": 1,
                 "cluster_sizes": [1],
@@ -87,6 +90,7 @@ def test_build_checkpoint_rejects_error_rate_length_mismatch() -> None:
                 "algorithm": "lloyd",
                 "normalization": "l2",
             },
+            reduction=None,
             metrics={
                 "n_samples": 2,
                 "cluster_sizes": [1, 1],
@@ -116,6 +120,7 @@ def test_build_checkpoint_rejects_missing_error_rates() -> None:
                 "algorithm": "lloyd",
                 "normalization": "l2",
             },
+            reduction=None,
             metrics={
                 "n_samples": 1,
                 "cluster_sizes": [1],

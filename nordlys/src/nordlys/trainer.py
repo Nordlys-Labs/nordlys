@@ -13,6 +13,7 @@ from nordlys.dataset import Dataset
 from nordlys.embeddings import Embedder, SentenceTransformers
 from nordlys.router import ModelConfig
 from nordlys.reduction import Reducer
+from nordlys.reduction.base import ReductionPayload
 from nordlys_core import NordlysCheckpoint
 
 
@@ -61,7 +62,7 @@ class Trainer:
         model_ids = [m.id for m in self.models]
         embedder = self._make_embedder()
         embeddings = embedder.encode(dataset.column(self.input_col))
-        cluster_input = self._reduce_or_pass(embeddings)
+        cluster_input, reduction_payload = self._reduce_or_pass(embeddings)
 
         clusterer = self._make_clusterer()
         clusterer.fit(cluster_input)
@@ -111,6 +112,7 @@ class Trainer:
                 "algorithm": "lloyd",
                 "normalization": "l2" if self.embedding_normalize else "none",
             },
+            reduction=reduction_payload,
             metrics={
                 "n_samples": metrics.n_samples,
                 "cluster_sizes": metrics.cluster_sizes,
@@ -177,16 +179,14 @@ class Trainer:
             device=self.device,
         )
 
-    def _reduce_or_pass(self, embeddings: np.ndarray) -> np.ndarray:
-        if self.reducer is not None:
-            raise ValueError(
-                "Reducer is not supported for checkpoints. "
-                "The checkpoint stores centroids in reduced space, but "
-                "Router._from_checkpoint cannot restore the reducer, causing "
-                "mismatched comparisons during inference. "
-                "Set reducer=None to use full embedding space."
-            )
-        return embeddings
+    def _reduce_or_pass(
+        self, embeddings: np.ndarray
+    ) -> tuple[np.ndarray, ReductionPayload | None]:
+        if self.reducer is None:
+            return embeddings, None
+
+        reduced = self.reducer.fit_transform(embeddings)
+        return reduced, self.reducer.checkpoint_payload()
 
     def _make_clusterer(self) -> Clusterer:
         if self.clusterer is None:
