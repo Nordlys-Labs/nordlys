@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Mapping
 from typing import ClassVar
 
 import numpy as np
@@ -81,43 +80,25 @@ class Reducer(ABC):
         )
 
 
-def register_reducer(
-    reducer_cls: type[Reducer] | None = None, /, *, kind: str | None = None
-) -> type[Reducer] | Callable[[type[Reducer]], type[Reducer]]:
+def register_reducer(reducer_cls: type[Reducer]) -> type[Reducer]:
     """Register a reducer class for checkpoint restoration."""
-
-    def _register(cls: type[Reducer]) -> type[Reducer]:
-        reducer_kind = kind or getattr(cls, "kind", "")
-        if not reducer_kind:
-            raise ValueError(
-                f"Reducer class {cls.__name__} must define a non-empty kind"
-            )
-        _REDUCER_REGISTRY[reducer_kind] = cls
-        return cls
-
-    if reducer_cls is None:
-        return _register
-    return _register(reducer_cls)
+    if not reducer_cls.kind:
+        raise ValueError(
+            f"Reducer class {reducer_cls.__name__} must define a non-empty kind"
+        )
+    _REDUCER_REGISTRY[reducer_cls.kind] = reducer_cls
+    return reducer_cls
 
 
-def restore_reducer(
-    payload: ReductionPayload | Mapping[str, object] | None,
-) -> Reducer | None:
+def restore_reducer(payload: ReductionPayload | None) -> Reducer | None:
     """Restore a reducer from a checkpoint payload."""
     if payload is None:
         return None
 
-    if isinstance(payload, ReductionPayload):
-        reduction_payload = payload
-    else:
-        reduction_payload = ReductionPayload.model_validate(dict(payload))
-
-    reducer_cls = _REDUCER_REGISTRY.get(reduction_payload.kind)
+    reducer_cls = _REDUCER_REGISTRY.get(payload.kind)
     if reducer_cls is None:
-        raise ValueError(
-            f"Unknown reducer kind '{reduction_payload.kind}' in checkpoint"
-        )
+        raise ValueError(f"Unknown reducer kind '{payload.kind}' in checkpoint")
 
-    config = reducer_cls.config_model.model_validate(reduction_payload.config)
-    state = reducer_cls.state_model.model_validate(reduction_payload.state)
+    config = reducer_cls.config_model.model_validate(payload.config)
+    state = reducer_cls.state_model.model_validate(payload.state)
     return reducer_cls.from_checkpoint_models(config, state)
