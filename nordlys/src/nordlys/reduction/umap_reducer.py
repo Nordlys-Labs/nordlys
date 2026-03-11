@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-import base64
-import pickle
+from typing import Literal, cast
 
 import numpy as np
-from pydantic import Field, JsonValue
+from numba.core.registry import CPUDispatcher
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter, ValidationError
+from scipy.sparse import csr_matrix, issparse
 from umap import UMAP
 
 from nordlys.reduction.base import (
@@ -31,7 +32,125 @@ class UMAPConfig(ReducerConfigModel):
 class UMAPState(ReducerStateModel):
     """Strict checkpoint schema for UMAP fitted state."""
 
-    pickle_b64: str = Field(min_length=1)
+    model_state: dict[str, JsonValue] = Field(default_factory=dict)
+
+
+class SerializedNdArray(BaseModel):
+    """Safe ndarray checkpoint payload."""
+
+    kind: Literal["ndarray"]
+    dtype: str = Field(min_length=1)
+    data: JsonValue
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class SerializedCSRMatrix(BaseModel):
+    """Safe CSR matrix checkpoint payload."""
+
+    kind: Literal["csr_matrix"]
+    dtype: str = Field(min_length=1)
+    data: list[float]
+    indices: list[int]
+    indptr: list[int]
+    shape: tuple[int, int]
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class SerializedTuple(BaseModel):
+    """Safe tuple checkpoint payload."""
+
+    kind: Literal["tuple"]
+    items: list[JsonValue]
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+_JSON_VALUE_ADAPTER = TypeAdapter(JsonValue)
+_IGNORED_UMAP_STATE_KEYS = {
+    "_input_distance_func",
+    "_inverse_distance_func",
+    "_output_distance_func",
+}
+
+
+def _validate_json_kwargs(kwargs: dict[str, object]) -> None:
+    invalid_keys: list[str] = []
+    for key, value in kwargs.items():
+        try:
+            _JSON_VALUE_ADAPTER.validate_python(value)
+        except ValidationError:
+            invalid_keys.append(key)
+
+    if invalid_keys:
+        invalid_list = ", ".join(sorted(invalid_keys))
+        raise ValueError(
+            "UMAPReducer kwargs must be JSON-serializable for checkpoints. "
+            f"Invalid keys: {invalid_list}"
+        )
+
+
+def _serialize_umap_state_value(value: object) -> JsonValue:
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return cast(JsonValue, value)
+    if isinstance(value, np.generic):
+        return cast(JsonValue, value.item())
+    if isinstance(value, np.ndarray):
+        return SerializedNdArray(
+            kind="ndarray",
+            dtype=str(value.dtype),
+            data=cast(JsonValue, np.asarray(value).tolist()),
+        ).model_dump(mode="json")
+    if issparse(value):
+        matrix = cast(csr_matrix, value).tocsr()
+        return SerializedCSRMatrix(
+            kind="csr_matrix",
+            dtype=str(matrix.dtype),
+            data=matrix.data.tolist(),
+            indices=matrix.indices.tolist(),
+            indptr=matrix.indptr.tolist(),
+            shape=matrix.shape,
+        ).model_dump(mode="json")
+    if isinstance(value, tuple):
+        return SerializedTuple(
+            kind="tuple",
+            items=[_serialize_umap_state_value(item) for item in value],
+        ).model_dump(mode="json")
+    if isinstance(value, list):
+        return [_serialize_umap_state_value(item) for item in value]
+    if isinstance(value, dict):
+        if not all(isinstance(key, str) for key in value):
+            raise ValueError("UMAP state dict keys must be strings")
+        return {
+            str(key): _serialize_umap_state_value(item) for key, item in value.items()
+        }
+    if isinstance(value, CPUDispatcher):
+        raise ValueError("CPUDispatcher values must be filtered before serialization")
+
+    raise ValueError(f"Unsupported UMAP state value type: {type(value).__name__}")
+
+
+def _deserialize_umap_state_value(value: JsonValue) -> object:
+    if isinstance(value, list):
+        return [_deserialize_umap_state_value(item) for item in value]
+    if isinstance(value, dict):
+        kind = value.get("kind")
+        if kind == "ndarray":
+            array_value = SerializedNdArray.model_validate(value)
+            return np.asarray(array_value.data, dtype=np.dtype(array_value.dtype))
+        if kind == "csr_matrix":
+            matrix_value = SerializedCSRMatrix.model_validate(value)
+            data = np.asarray(matrix_value.data, dtype=np.dtype(matrix_value.dtype))
+            indices = np.asarray(matrix_value.indices, dtype=np.int32)
+            indptr = np.asarray(matrix_value.indptr, dtype=np.int32)
+            rows, cols = matrix_value.shape
+            return csr_matrix((data, indices, indptr), shape=(rows, cols))
+        if kind == "tuple":
+            tuple_value = SerializedTuple.model_validate(value)
+            return tuple(_deserialize_umap_state_value(item) for item in tuple_value.items)
+        return {key: _deserialize_umap_state_value(item) for key, item in value.items()}
+    return value
 
 
 @register_reducer
@@ -68,6 +187,7 @@ class UMAPReducer(Reducer):
             random_state: Random seed for reproducibility (default: 42)
             **kwargs: Additional arguments passed to UMAP
         """
+        _validate_json_kwargs(kwargs)
         self.n_components = n_components
         self.n_neighbors = n_neighbors
         self.min_dist = min_dist
@@ -142,8 +262,16 @@ class UMAPReducer(Reducer):
             raise RuntimeError(
                 "Reducer must be fitted before checkpoint serialization."
             )
-        payload = pickle.dumps(self._model, protocol=pickle.HIGHEST_PROTOCOL)
-        return UMAPState(pickle_b64=base64.b64encode(payload).decode("ascii"))
+        model_state = {
+            key: _serialize_umap_state_value(value)
+            for key, value in self._model.__getstate__().items()
+            if key not in _IGNORED_UMAP_STATE_KEYS
+        }
+        validated_state = {
+            key: _JSON_VALUE_ADAPTER.validate_python(value)
+            for key, value in model_state.items()
+        }
+        return UMAPState(model_state=validated_state)
 
     @classmethod
     def from_checkpoint_models(
@@ -159,9 +287,16 @@ class UMAPReducer(Reducer):
             random_state=config.random_state,
             **dict(config.kwargs),
         )
-        reducer._model = pickle.loads(
-            base64.b64decode(state.pickle_b64.encode("ascii"))
+        model = reducer._create_model()
+        restored_state = model.__getstate__()
+        restored_state.update(
+            {
+                key: _deserialize_umap_state_value(value)
+                for key, value in state.model_state.items()
+            }
         )
+        model.__setstate__(restored_state)
+        reducer._model = model
         return reducer
 
     @property

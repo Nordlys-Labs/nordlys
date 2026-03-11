@@ -114,6 +114,7 @@ python_functions = ["test_*", "bench_*"]
 filterwarnings = [
   "ignore::sklearn.exceptions.ConvergenceWarning",
   "ignore:Graph is not fully connected:UserWarning",
+  "ignore:n_jobs value 1 overridden to 1 by setting random_state\\. Use no seed for parallelism\\.:UserWarning",
   "ignore::DeprecationWarning",
   "ignore:invalid escape sequence:SyntaxWarning",
   "ignore::FutureWarning",

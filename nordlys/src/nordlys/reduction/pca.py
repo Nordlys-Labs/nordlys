@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-import base64
-import pickle
-
 import numpy as np
-from pydantic import Field, JsonValue
+from pydantic import Field, JsonValue, TypeAdapter, ValidationError
 from sklearn.decomposition import PCA
 
 from nordlys.reduction.base import (
@@ -28,7 +25,34 @@ class PCAConfig(ReducerConfigModel):
 class PCAState(ReducerStateModel):
     """Strict checkpoint schema for PCA fitted state."""
 
-    pickle_b64: str = Field(min_length=1)
+    components: list[list[float]]
+    mean: list[float]
+    explained_variance: list[float]
+    explained_variance_ratio: list[float]
+    singular_values: list[float]
+    n_components_fitted: int
+    n_features_in: int
+    n_samples: int
+    noise_variance: float
+
+
+_JSON_VALUE_ADAPTER = TypeAdapter(JsonValue)
+
+
+def _validate_json_kwargs(kwargs: dict[str, object]) -> None:
+    invalid_keys: list[str] = []
+    for key, value in kwargs.items():
+        try:
+            _JSON_VALUE_ADAPTER.validate_python(value)
+        except ValidationError:
+            invalid_keys.append(key)
+
+    if invalid_keys:
+        invalid_list = ", ".join(sorted(invalid_keys))
+        raise ValueError(
+            "PCAReducer kwargs must be JSON-serializable for checkpoints. "
+            f"Invalid keys: {invalid_list}"
+        )
 
 
 @register_reducer
@@ -60,6 +84,7 @@ class PCAReducer(Reducer):
             random_state: Random seed for reproducibility (default: 42)
             **kwargs: Additional arguments passed to PCA
         """
+        _validate_json_kwargs(kwargs)
         self.n_components = n_components
         self.random_state = random_state
         self._kwargs = kwargs
@@ -125,8 +150,23 @@ class PCAReducer(Reducer):
             raise RuntimeError(
                 "Reducer must be fitted before checkpoint serialization."
             )
-        payload = pickle.dumps(self._model, protocol=pickle.HIGHEST_PROTOCOL)
-        return PCAState(pickle_b64=base64.b64encode(payload).decode("ascii"))
+        return PCAState(
+            components=np.asarray(self._model.components_, dtype=np.float64).tolist(),
+            mean=np.asarray(self._model.mean_, dtype=np.float64).tolist(),
+            explained_variance=np.asarray(
+                self._model.explained_variance_, dtype=np.float64
+            ).tolist(),
+            explained_variance_ratio=np.asarray(
+                self._model.explained_variance_ratio_, dtype=np.float64
+            ).tolist(),
+            singular_values=np.asarray(
+                self._model.singular_values_, dtype=np.float64
+            ).tolist(),
+            n_components_fitted=int(self._model.n_components_),
+            n_features_in=int(self._model.components_.shape[1]),
+            n_samples=int(self._model.n_samples_),
+            noise_variance=float(self._model.noise_variance_),
+        )
 
     @classmethod
     def from_checkpoint_models(
@@ -139,9 +179,21 @@ class PCAReducer(Reducer):
             random_state=config.random_state,
             **dict(config.kwargs),
         )
-        reducer._model = pickle.loads(
-            base64.b64decode(state.pickle_b64.encode("ascii"))
+        model = reducer._create_model()
+        model.components_ = np.asarray(state.components, dtype=np.float64)
+        model.mean_ = np.asarray(state.mean, dtype=np.float64)
+        model.explained_variance_ = np.asarray(
+            state.explained_variance, dtype=np.float64
         )
+        model.explained_variance_ratio_ = np.asarray(
+            state.explained_variance_ratio, dtype=np.float64
+        )
+        model.singular_values_ = np.asarray(state.singular_values, dtype=np.float64)
+        model.n_components_ = state.n_components_fitted
+        model.n_features_in_ = state.n_features_in  # ty: ignore[unresolved-attribute]
+        model.n_samples_ = state.n_samples
+        model.noise_variance_ = state.noise_variance
+        reducer._model = model
         return reducer
 
     @property

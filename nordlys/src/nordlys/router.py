@@ -475,7 +475,11 @@ class Router:
                 return NordlysCheckpoint.from_msgpack_file(str(path))
             return NordlysCheckpoint.from_json_file(str(path))
         except ValueError as exc:
-            raise RuntimeError(str(exc)) from exc
+            logger.error(
+                "Failed to load checkpoint",
+                extra={"checkpoint_path": str(path), "error": str(exc)},
+            )
+            raise
 
     @staticmethod
     def _reduction_payload_from_checkpoint(
@@ -524,7 +528,16 @@ class Router:
 
         reduced = reducer.transform(embeddings)
         if reduced.dtype != np.float32 or not reduced.flags["C_CONTIGUOUS"]:
-            return np.ascontiguousarray(reduced, dtype=np.float32)
+            reduced = np.ascontiguousarray(reduced, dtype=np.float32)
+
+        expected_width = self._centroids.shape[1]
+        actual_width = reduced.shape[1]
+        if actual_width != expected_width:
+            raise ValueError(
+                "_reduce_for_routing produced embeddings with width "
+                f"{actual_width}, expected {expected_width} from centroids "
+                f"{self._centroids.shape}; reducer={type(reducer).__name__}"
+            )
         return reduced
 
     def __repr__(self) -> str:

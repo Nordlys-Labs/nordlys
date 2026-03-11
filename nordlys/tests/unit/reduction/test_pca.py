@@ -36,6 +36,11 @@ class TestPCAInitialization:
         assert "whiten" in reducer._kwargs
         assert reducer._kwargs["whiten"] is True
 
+    def test_non_json_kwargs_raise(self):
+        """Test that non-JSON kwargs are rejected up front."""
+        with pytest.raises(ValueError, match="JSON-serializable"):
+            PCAReducer(metadata=object())
+
 
 class TestPCAFit:
     """Tests for PCAReducer fit method."""

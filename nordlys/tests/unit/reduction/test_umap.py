@@ -49,6 +49,11 @@ class TestUMAPInitialization:
         assert "verbose" in reducer._kwargs
         assert reducer._kwargs["verbose"] is True
 
+    def test_non_json_kwargs_raise(self):
+        """Test that non-JSON kwargs are rejected up front."""
+        with pytest.raises(ValueError, match="JSON-serializable"):
+            UMAPReducer(output_metric_kwds=object())
+
 
 class TestUMAPFit:
     """Tests for UMAPReducer fit method."""

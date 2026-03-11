@@ -82,11 +82,18 @@ class Reducer(ABC):
 
 def register_reducer(reducer_cls: type[Reducer]) -> type[Reducer]:
     """Register a reducer class for checkpoint restoration."""
-    if not reducer_cls.kind:
+    reducer_kind = reducer_cls.kind
+    if not reducer_kind:
         raise ValueError(
             f"Reducer class {reducer_cls.__name__} must define a non-empty kind"
         )
-    _REDUCER_REGISTRY[reducer_cls.kind] = reducer_cls
+    existing = _REDUCER_REGISTRY.get(reducer_kind)
+    if existing is not None and existing is not reducer_cls:
+        raise ValueError(
+            f"Reducer kind '{reducer_kind}' is already registered to "
+            f"{existing.__name__}; cannot register {reducer_cls.__name__}"
+        )
+    _REDUCER_REGISTRY[reducer_kind] = reducer_cls
     return reducer_cls
 
 

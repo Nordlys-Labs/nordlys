@@ -46,14 +46,14 @@ class TestCheckpointLoadErrors:
         path = tmp_path / "corrupted.json"
         path.write_text("{ invalid json")
 
-        with pytest.raises(RuntimeError):
+        with pytest.raises(ValueError):
             Router(checkpoint=path)
 
     def test_load_corrupted_json_is_not_jsondecodeerror(self, tmp_path):
         path = tmp_path / "corrupted.json"
         path.write_text("{ invalid json")
 
-        with pytest.raises(RuntimeError):
+        with pytest.raises(ValueError):
             try:
                 Router(checkpoint=path)
             except JSONDecodeError:
