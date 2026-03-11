@@ -213,9 +213,9 @@ See module READMEs for detailed API documentation:
 
 ## Performance
 
-- **Routing latency**: ~50-500us (depends on profile size)
-- **Memory**: ~10-50MB (depends on profile size)
-- **GPU acceleration**: 10-100x speedup for batch operations
+- **Single-route latency**: ~0.29 us (small fixture), ~10 us (medium), ~38 us (large) on the current `bench_e2e` suite
+- **Batch routing (CPU)**: `BM_RouteBatch/64` runs in ~116 us on the medium fixture, or about 552k routes/sec
+- **GPU clustering**: batch-heavy, GPU-resident workloads improve substantially; `BM_ClusterBatchAssign_GPUBuffer/64/100/1536` runs in ~30 us, or about 2.13M embeddings/sec
 - **Thread-safe**: Safe for concurrent routing
 
 ## Dependencies

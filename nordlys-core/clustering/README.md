@@ -91,12 +91,16 @@ cudaMemcpy(d_data.get(), h_data.get(), 1024 * sizeof(float), cudaMemcpyHostToDev
 
 ## Performance
 
-| Backend | Single (128-dim) | Batch 1000 (128-dim) |
-|---------|------------------|----------------------|
-| CPU     | ~5us             | ~500us               |
-| CUDA    | ~50us (overhead) | ~50us (amortized)    |
+Reference measurements from the current `Release` benchmark build on an **Intel Core i9-10900K + RTX 3070**:
 
-CUDA provides significant speedup for batch operations where kernel launch overhead is amortized.
+| Benchmark | Result |
+|-----------|--------|
+| CPU single assign, `100c/1536d` | ~31 us |
+| CUDA single assign, GPU-resident, `100c/1536d` | ~38 us |
+| CUDA batch assign, GPU-resident, `64/100c/1536d` | ~30 us (~2.13M embeddings/sec) |
+| CUDA batch assign, GPU-resident, `256/100c/1536d` | ~78 us (~3.27M embeddings/sec) |
+
+Single-query workloads are often still faster on CPU. CUDA becomes attractive when embeddings are already GPU-resident and processed in batches large enough to amortize launch overhead.
 
 ## Dependencies
 

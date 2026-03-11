@@ -153,20 +153,27 @@ wafer nvidia nsys analyze batch_timeline.nsys-rep
 
 ## Expected Results
 
+Reference measurements below are from the current `Release` build on an **Intel Core i9-10900K + RTX 3070**. Expect variation across machines, drivers, CPU scaling states, and benchmark noise.
+
 ### CPU Clustering
-- Single (100c/1536d): ~15-30 us
-- Batch 64 (100c/1536d): ~500-1000 us
+- Single (100c/1536d): ~31 us (`BM_ClusterAssign_CPU/100/1536`)
+- Batch 64 (100c/1536d): noisy on this machine; use repeated runs and throughput counters before drawing conclusions
 
 ### CUDA Clustering (GPU Buffer - Production)
-- Single (100c/1536d): ~20-40 us
-- Batch 64 (100c/1536d): ~100-200 us
+- Single (100c/1536d): ~38 us (`BM_ClusterAssign_GPUBuffer/100/1536`)
+- Batch 64 (100c/1536d): ~30 us, or about 2.13M embeddings/sec (`BM_ClusterBatchAssign_GPUBuffer/64/100/1536`)
+- Batch 256 (100c/1536d): ~78 us, or about 3.27M embeddings/sec (`BM_ClusterBatchAssign_GPUBuffer/256/100/1536`)
 
 ### End-to-End Routing
-- Single route (Medium): ~0.3-1 us
-- Batch 64: ~20-50 us
-- Cold start (Medium): ~5-20 ms
+- Single route (Small): ~0.29 us (`BM_RouteSingle_Small`)
+- Single route (Medium): ~10 us (`BM_RouteSingle_Medium`)
+- Single route (Large): ~38 us CPU (`BM_RouteSingle_Large`)
+- Batch 64 (Medium): ~116 us, or about 552k routes/sec (`BM_RouteBatch/64`)
+- Checkpoint load (Medium): ~12 us (`BM_CheckpointLoad_Medium`)
+- Router init (Medium): ~23 us (`BM_RouterInit_Medium`)
+- In-process cold start (Medium): ~34 us (`BM_ColdStart_Medium`)
 
-*Performance varies with hardware, system load, and checkpoint size.*
+`BM_ColdStart_Medium` is an in-process benchmark. It is useful for comparing code changes, but it is not the same as a full process cold start with uncached I/O.
 
 ## Fixtures
 
