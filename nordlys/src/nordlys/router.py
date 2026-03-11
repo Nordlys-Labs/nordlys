@@ -6,12 +6,13 @@ Training is handled by ``Dataset`` + ``Trainer``.
 
 from __future__ import annotations
 
+import json
 import logging
 import warnings
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, cast
+from typing import Literal
 
 import numpy as np
 from cachetools import LRUCache
@@ -22,6 +23,8 @@ from nordlys.clustering import (
     ClusterInfo,
     ClusterMetrics,
 )
+from nordlys.reduction import restore_reducer
+from nordlys.reduction.base import ReductionPayload
 from nordlys_core import Nordlys as NordlysCore, NordlysCheckpoint
 
 
@@ -130,17 +133,7 @@ class Router:
             embedding_cache_size: Maximum number of embeddings to cache (must be > 0)
             device: Device for C++ core clustering operations ("cpu" or "cuda")
         """
-        # C++ core (initialized on load or after fit) - set early to avoid __del__ errors
-        self._core_engine: NordlysCore | None = None
-        resolved_checkpoint: NordlysCheckpoint
-        if isinstance(checkpoint, NordlysCheckpoint):
-            resolved_checkpoint = checkpoint
-        else:
-            path = Path(checkpoint)
-            if path.suffix.lower() == ".msgpack":
-                resolved_checkpoint = NordlysCheckpoint.from_msgpack_file(str(path))
-            else:
-                resolved_checkpoint = NordlysCheckpoint.from_json_file(str(path))
+        resolved_checkpoint = self._resolve_checkpoint(checkpoint)
         models = [
             ModelConfig(
                 id=m.model_id,
@@ -188,15 +181,6 @@ class Router:
         self._embedding_cache: LRUCache[str, np.ndarray] = LRUCache(
             maxsize=embedding_cache_size
         )
-
-        # Checkpoint-derived metadata (populated on load)
-        self._nr_clusters = 0
-        self._random_state = 0
-
-        # Runtime state (populated on load/from-checkpoint)
-        self._centroids: np.ndarray | None = None
-        self._metrics: ClusterMetrics | None = None
-        self._model_accuracies: dict[int, dict[str, float]] | None = None
 
         self._checkpoint = resolved_checkpoint
         self._load_checkpoint_state(resolved_checkpoint)
@@ -310,7 +294,7 @@ class Router:
         Returns:
             RouteResult with selected model and alternatives
         """
-        core_engine = cast(NordlysCore, self._core_engine)
+        core_engine = self._core_engine
 
         # Compute embedding (with caching for repeated prompts)
         embedding = self.compute_embedding(prompt)
@@ -319,8 +303,12 @@ class Router:
         if embedding.dtype != np.float32 or not embedding.flags["C_CONTIGUOUS"]:
             embedding = np.ascontiguousarray(embedding, dtype=np.float32)
 
+        embedding = np.ascontiguousarray(
+            self._reduce_for_routing(embedding.reshape(1, -1))[0], dtype=np.float32
+        )
+
         # Route using C++ core
-        response = core_engine.route(embedding, [] if models is None else models)
+        response = core_engine.route(embedding, None if models is None else models)
 
         return RouteResult(
             model_id=response.selected_model,
@@ -343,7 +331,7 @@ class Router:
         Returns:
             List of RouteResults
         """
-        core_engine = cast(NordlysCore, self._core_engine)
+        core_engine = self._core_engine
 
         if not prompts:
             return []
@@ -355,9 +343,11 @@ class Router:
         if embeddings.dtype != np.float32 or not embeddings.flags["C_CONTIGUOUS"]:
             embeddings = np.ascontiguousarray(embeddings, dtype=np.float32)
 
+        embeddings = self._reduce_for_routing(embeddings)
+
         # Route using C++ core engine's route_batch
         responses = core_engine.route_batch(
-            embeddings, [] if models is None else models
+            embeddings, None if models is None else models
         )
 
         # Convert responses to RouteResult objects
@@ -384,9 +374,9 @@ class Router:
         Returns:
             ClusterInfo with cluster details
         """
-        centroids = cast(np.ndarray, self._centroids)
-        model_accuracies = cast(dict[int, dict[str, float]], self._model_accuracies)
-        metrics = cast(ClusterMetrics, self._metrics)
+        centroids = self._centroids
+        model_accuracies = self._model_accuracies
+        metrics = self._metrics
 
         if cluster_id < 0 or cluster_id >= len(centroids):
             raise ValueError(f"Invalid cluster_id: {cluster_id}")
@@ -410,7 +400,7 @@ class Router:
         Returns:
             List of ClusterInfo objects
         """
-        centroids = cast(np.ndarray, self._centroids)
+        centroids = self._centroids
 
         return [
             self.get_cluster_info(cluster_id) for cluster_id in range(len(centroids))
@@ -422,7 +412,7 @@ class Router:
         Returns:
             ClusterMetrics object
         """
-        return cast(ClusterMetrics, self._metrics)
+        return self._metrics
 
     # =========================================================================
     # Embedding cache management
@@ -450,12 +440,12 @@ class Router:
     @property
     def centroids_(self) -> np.ndarray:
         """Cluster centroids of shape (n_clusters, n_features)."""
-        return cast(np.ndarray, self._centroids)
+        return self._centroids
 
     @property
     def metrics_(self) -> ClusterMetrics:
         """Clustering metrics restored from checkpoint."""
-        return cast(ClusterMetrics, self._metrics)
+        return self._metrics
 
     @property
     def model_accuracies_(self) -> dict[int, dict[str, float]]:
@@ -464,21 +454,57 @@ class Router:
         Returns:
             Dict mapping cluster_id -> {model_id: accuracy}
         """
-        return cast(dict[int, dict[str, float]], self._model_accuracies)
+        return self._model_accuracies
 
     @property
     def n_clusters_(self) -> int:
         """Number of clusters."""
-        return len(cast(np.ndarray, self._centroids))
+        return len(self._centroids)
+
+    @staticmethod
+    def _resolve_checkpoint(
+        checkpoint: NordlysCheckpoint | str | Path,
+    ) -> NordlysCheckpoint:
+        """Resolve checkpoint inputs into an in-memory checkpoint object."""
+        if isinstance(checkpoint, NordlysCheckpoint):
+            return checkpoint
+
+        path = Path(checkpoint)
+        try:
+            if path.suffix.lower() == ".msgpack":
+                return NordlysCheckpoint.from_msgpack_file(str(path))
+            return NordlysCheckpoint.from_json_file(str(path))
+        except ValueError as exc:
+            logger.error(
+                "Failed to load checkpoint",
+                extra={"checkpoint_path": str(path), "error": str(exc)},
+            )
+            raise
+
+    @staticmethod
+    def _reduction_payload_from_checkpoint(
+        checkpoint: NordlysCheckpoint,
+    ) -> ReductionPayload | None:
+        """Convert core reduction metadata into the validated Python payload type."""
+        reduction = checkpoint.reduction
+        if reduction is None:
+            return None
+
+        return ReductionPayload(
+            kind=reduction.kind,
+            config=json.loads(reduction.config_json),
+            state=json.loads(reduction.state_json),
+        )
 
     def _load_checkpoint_state(self, checkpoint: NordlysCheckpoint) -> None:
         """Populate runtime fields from checkpoint data."""
         self._nr_clusters = checkpoint.clustering.n_clusters
         self._random_state = checkpoint.clustering.random_state
-
+        self._reducer = restore_reducer(
+            self._reduction_payload_from_checkpoint(checkpoint)
+        )
         self._core_engine = NordlysCore.from_checkpoint(checkpoint, device=self._device)
         self._centroids = np.asarray(checkpoint.cluster_centers, dtype=np.float32)
-
         self._model_accuracies = {
             cluster_id: {
                 model.model_id: 1.0 - model.error_rates[cluster_id]
@@ -486,7 +512,6 @@ class Router:
             }
             for cluster_id in range(checkpoint.clustering.n_clusters)
         }
-
         self._metrics = ClusterMetrics(
             silhouette_score=checkpoint.metrics.silhouette_score,
             n_clusters=checkpoint.clustering.n_clusters,
@@ -494,8 +519,26 @@ class Router:
             cluster_sizes=checkpoint.metrics.cluster_sizes,
             inertia=checkpoint.metrics.inertia,
         )
-
         logger.info("Loaded checkpoint with C++ core (float32)")
+
+    def _reduce_for_routing(self, embeddings: np.ndarray) -> np.ndarray:
+        reducer = self._reducer
+        if reducer is None:
+            return embeddings
+
+        reduced = reducer.transform(embeddings)
+        if reduced.dtype != np.float32 or not reduced.flags["C_CONTIGUOUS"]:
+            reduced = np.ascontiguousarray(reduced, dtype=np.float32)
+
+        expected_width = self._centroids.shape[1]
+        actual_width = reduced.shape[1]
+        if actual_width != expected_width:
+            raise ValueError(
+                "_reduce_for_routing produced embeddings with width "
+                f"{actual_width}, expected {expected_width} from centroids "
+                f"{self._centroids.shape}; reducer={type(reducer).__name__}"
+            )
+        return reduced
 
     def __repr__(self) -> str:
         return (

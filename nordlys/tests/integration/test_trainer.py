@@ -33,6 +33,42 @@ def mock_trainer_embed(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(Trainer, "_make_embedder", lambda self: FakeEmbedder())
 
 
+@pytest.fixture(autouse=True)
+def mock_router_embed(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeSentenceTransformer:
+        def __init__(
+            self,
+            model: str,
+            device: str = "cpu",
+            trust_remote_code: bool = False,
+        ) -> None:
+            self.model = model
+            self.device = device
+            self.trust_remote_code = trust_remote_code
+            self.tokenizer = type(
+                "Tokenizer", (), {"clean_up_tokenization_spaces": True}
+            )()
+
+        def encode(
+            self,
+            texts: list[str],
+            convert_to_numpy: bool = True,
+            show_progress_bar: bool = False,
+        ) -> np.ndarray:
+            vectors = []
+            for text in texts:
+                seed = sum(ord(ch) for ch in text) % (2**32)
+                rng = np.random.default_rng(seed)
+                group = seed % 8
+                center = np.zeros(384, dtype=np.float32)
+                center[group] = 10.0
+                noise = rng.normal(0.0, 0.05, size=384).astype(np.float32)
+                vectors.append(center + noise)
+            return np.asarray(vectors, dtype=np.float32)
+
+    monkeypatch.setattr("nordlys.router.SentenceTransformer", FakeSentenceTransformer)
+
+
 @pytest.fixture
 def trainer_models() -> list[ModelConfig]:
     return [
@@ -281,19 +317,41 @@ class TestTrainerHyperparameters:
         checkpoint = trainer.fit(large_dataset)
         assert len(checkpoint.cluster_centers) == 15
 
-    def test_reducer_rejected(
+    def test_reducer_serialized(
         self, trainer_models: list[ModelConfig], large_dataset: Dataset
     ) -> None:
-        """Test that using a reducer raises an error (not supported for checkpoints)."""
-        from nordlys.reduction import UMAPReducer
+        """Test that reducer-backed checkpoints persist reduction metadata."""
+        from nordlys.reduction import PCAReducer
 
         trainer = Trainer(
             models=trainer_models,
             clusterer=KMeansClusterer(n_clusters=8, random_state=42),
-            reducer=UMAPReducer(n_components=8, random_state=42),
+            reducer=PCAReducer(n_components=8, random_state=42),
         )
-        with pytest.raises(ValueError, match="Reducer is not supported"):
-            trainer.fit(large_dataset)
+        checkpoint = trainer.fit(large_dataset)
+
+        assert checkpoint.reduction is not None
+        assert checkpoint.reduction.kind == "pca"
+        assert checkpoint.feature_dim == 8
+
+    def test_router_restores_reducer(
+        self, trainer_models: list[ModelConfig], large_dataset: Dataset
+    ) -> None:
+        """Test that router restores a serialized reducer before routing."""
+        from nordlys.reduction import PCAReducer
+
+        trainer = Trainer(
+            models=trainer_models,
+            clusterer=KMeansClusterer(n_clusters=8, random_state=42),
+            reducer=PCAReducer(n_components=8, random_state=42),
+        )
+        checkpoint = trainer.fit(large_dataset)
+
+        router = Router(checkpoint=checkpoint, device="cpu")
+        result = router.route("Explain backtracking with example")
+
+        assert checkpoint.reduction is not None
+        assert result.model_id in {m.id for m in trainer_models}
 
 
 class TestTrainerDeterminism:

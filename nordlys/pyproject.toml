@@ -51,12 +51,12 @@ Documentation = "https://docs.nordlyslabs.com"
 
 [project.optional-dependencies]
 cpu = [
-  "nordlys-core>=0.2.8,<1",
+  "nordlys-core>=0.2.9,<1",
   "torch>=2.2.0",
   "sentence-transformers>=5.2.0,<6",
 ]
 cu12 = [
-  "nordlys-core-cu12>=0.2.8,<1 ; sys_platform == 'linux'",
+  "nordlys-core-cu12>=0.2.9,<1 ; sys_platform == 'linux'",
   "torch>=2.2.0",
   "sentence-transformers>=5.2.0,<6",
 ]
@@ -114,6 +114,7 @@ python_functions = ["test_*", "bench_*"]
 filterwarnings = [
   "ignore::sklearn.exceptions.ConvergenceWarning",
   "ignore:Graph is not fully connected:UserWarning",
+  "ignore:n_jobs value 1 overridden to 1 by setting random_state\\. Use no seed for parallelism\\.:UserWarning",
   "ignore::DeprecationWarning",
   "ignore:invalid escape sequence:SyntaxWarning",
   "ignore::FutureWarning",

@@ -100,7 +100,7 @@ def sample_checkpoint(sample_models: list[ModelConfig]) -> NordlysCheckpoint:
         )
 
     payload = {
-        "version": "2.0",
+        "version": "3.0",
         "cluster_centers": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
         "models": model_payload,
         "embedding": {
@@ -115,6 +115,7 @@ def sample_checkpoint(sample_models: list[ModelConfig]) -> NordlysCheckpoint:
             "algorithm": "lloyd",
             "normalization": "l2",
         },
+        "reduction": None,
         "metrics": {
             "n_samples": 2,
             "cluster_sizes": [1, 1],

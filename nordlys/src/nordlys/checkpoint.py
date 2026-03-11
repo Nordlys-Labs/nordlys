@@ -11,6 +11,7 @@ from typing import Any
 
 import numpy as np
 
+from nordlys.reduction.base import ReductionPayload
 from nordlys_core import NordlysCheckpoint
 
 
@@ -20,8 +21,9 @@ def build_checkpoint(
     models: list[dict[str, Any]],
     embedding: dict[str, Any],
     clustering: dict[str, Any],
+    reduction: ReductionPayload | None,
     metrics: dict[str, Any],
-    version: str = "2.0",
+    version: str = "3.0",
 ) -> NordlysCheckpoint:
     """Build a validated ``NordlysCheckpoint`` from normalized sections."""
     n_clusters = int(cluster_centers.shape[0])
@@ -33,6 +35,7 @@ def build_checkpoint(
         "models": models,
         "embedding": embedding,
         "clustering": clustering,
+        "reduction": None if reduction is None else reduction.model_dump(mode="json"),
         "metrics": metrics,
     }
     return NordlysCheckpoint.from_json_string(json.dumps(payload))
