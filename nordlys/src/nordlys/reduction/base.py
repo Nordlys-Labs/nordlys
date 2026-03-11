@@ -40,8 +40,6 @@ class Reducer(ABC):
     """Abstract base class for checkpointable reducers."""
 
     kind: ClassVar[str]
-    config_model: ClassVar[type[ReducerConfigModel]]
-    state_model: ClassVar[type[ReducerStateModel]]
 
     @abstractmethod
     def fit(self, embeddings: np.ndarray) -> "Reducer":
@@ -57,27 +55,15 @@ class Reducer(ABC):
         return self.transform(embeddings)
 
     @abstractmethod
-    def checkpoint_config(self) -> ReducerConfigModel:
-        """Return constructor-time reducer config."""
-
-    @abstractmethod
-    def checkpoint_state(self) -> ReducerStateModel:
-        """Return fitted reducer state."""
+    def checkpoint_payload(self) -> ReductionPayload:
+        """Return serialized reducer payload for checkpoints."""
 
     @classmethod
     @abstractmethod
-    def from_checkpoint_models(
-        cls, config: ReducerConfigModel, state: ReducerStateModel
+    def from_checkpoint_payload(
+        cls, payload: ReductionPayload
     ) -> "Reducer":
-        """Restore a fitted reducer from validated checkpoint models."""
-
-    def checkpoint_payload(self) -> ReductionPayload:
-        """Return serialized reducer payload for checkpoints."""
-        return ReductionPayload(
-            kind=self.kind,
-            config=self.checkpoint_config().model_dump(mode="json"),
-            state=self.checkpoint_state().model_dump(mode="json"),
-        )
+        """Restore a fitted reducer from a validated checkpoint payload."""
 
 
 def register_reducer(reducer_cls: type[Reducer]) -> type[Reducer]:
@@ -106,6 +92,4 @@ def restore_reducer(payload: ReductionPayload | None) -> Reducer | None:
     if reducer_cls is None:
         raise ValueError(f"Unknown reducer kind '{payload.kind}' in checkpoint")
 
-    config = reducer_cls.config_model.model_validate(payload.config)
-    state = reducer_cls.state_model.model_validate(payload.state)
-    return reducer_cls.from_checkpoint_models(config, state)
+    return reducer_cls.from_checkpoint_payload(payload)

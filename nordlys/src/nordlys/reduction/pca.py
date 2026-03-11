@@ -10,6 +10,7 @@ from nordlys.reduction.base import (
     Reducer,
     ReducerConfigModel,
     ReducerStateModel,
+    ReductionPayload,
     register_reducer,
 )
 
@@ -67,8 +68,6 @@ class PCAReducer(Reducer):
     """
 
     kind = "pca"
-    config_model = PCAConfig
-    state_model = PCAState
 
     def __init__(
         self,
@@ -138,19 +137,17 @@ class PCAReducer(Reducer):
         self._model = self._create_model()
         return self._model.fit_transform(embeddings)
 
-    def checkpoint_config(self) -> PCAConfig:
-        return PCAConfig(
+    def checkpoint_payload(self) -> ReductionPayload:
+        config = PCAConfig(
             n_components=self.n_components,
             random_state=self.random_state,
             kwargs=self._kwargs,
         )
-
-    def checkpoint_state(self) -> PCAState:
         if self._model is None:
             raise RuntimeError(
                 "Reducer must be fitted before checkpoint serialization."
             )
-        return PCAState(
+        state = PCAState(
             components=np.asarray(self._model.components_, dtype=np.float64).tolist(),
             mean=np.asarray(self._model.mean_, dtype=np.float64).tolist(),
             explained_variance=np.asarray(
@@ -167,13 +164,16 @@ class PCAReducer(Reducer):
             n_samples=int(self._model.n_samples_),
             noise_variance=float(self._model.noise_variance_),
         )
+        return ReductionPayload(
+            kind=self.kind,
+            config=config.model_dump(mode="json"),
+            state=state.model_dump(mode="json"),
+        )
 
     @classmethod
-    def from_checkpoint_models(
-        cls, config: ReducerConfigModel, state: ReducerStateModel
-    ) -> "PCAReducer":
-        if not isinstance(config, PCAConfig) or not isinstance(state, PCAState):
-            raise TypeError("PCAReducer requires PCAConfig and PCAState payloads")
+    def from_checkpoint_payload(cls, payload: ReductionPayload) -> "PCAReducer":
+        config = PCAConfig.model_validate(payload.config)
+        state = PCAState.model_validate(payload.state)
         reducer = cls(
             n_components=config.n_components,
             random_state=config.random_state,

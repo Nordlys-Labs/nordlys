@@ -9,6 +9,7 @@ from nordlys.reduction.base import (
     Reducer,
     ReducerConfigModel,
     ReducerStateModel,
+    ReductionPayload,
     register_reducer,
 )
 
@@ -24,8 +25,6 @@ class _State(ReducerStateModel):
 @register_reducer
 class _BaseTestReducer(Reducer):
     kind = "base-test-reducer"
-    config_model = _Config
-    state_model = _State
 
     def fit(self, embeddings: np.ndarray) -> "_BaseTestReducer":
         return self
@@ -33,24 +32,21 @@ class _BaseTestReducer(Reducer):
     def transform(self, embeddings: np.ndarray) -> np.ndarray:
         return embeddings
 
-    def checkpoint_config(self) -> ReducerConfigModel:
-        return _Config(value=1)
-
-    def checkpoint_state(self) -> ReducerStateModel:
-        return _State(value=1)
+    def checkpoint_payload(self) -> ReductionPayload:
+        return ReductionPayload(
+            kind=self.kind,
+            config=_Config(value=1).model_dump(mode="json"),
+            state=_State(value=1).model_dump(mode="json"),
+        )
 
     @classmethod
-    def from_checkpoint_models(
-        cls, config: ReducerConfigModel, state: ReducerStateModel
-    ) -> "_BaseTestReducer":
+    def from_checkpoint_payload(cls, payload: ReductionPayload) -> "_BaseTestReducer":
         return cls()
 
 
 def test_register_reducer_rejects_duplicate_kind() -> None:
     class DuplicateReducer(Reducer):
         kind = "base-test-reducer"
-        config_model = _Config
-        state_model = _State
 
         def fit(self, embeddings: np.ndarray) -> "DuplicateReducer":
             return self
@@ -58,15 +54,16 @@ def test_register_reducer_rejects_duplicate_kind() -> None:
         def transform(self, embeddings: np.ndarray) -> np.ndarray:
             return embeddings
 
-        def checkpoint_config(self) -> ReducerConfigModel:
-            return _Config(value=1)
-
-        def checkpoint_state(self) -> ReducerStateModel:
-            return _State(value=1)
+        def checkpoint_payload(self) -> ReductionPayload:
+            return ReductionPayload(
+                kind=self.kind,
+                config=_Config(value=1).model_dump(mode="json"),
+                state=_State(value=1).model_dump(mode="json"),
+            )
 
         @classmethod
-        def from_checkpoint_models(
-            cls, config: ReducerConfigModel, state: ReducerStateModel
+        def from_checkpoint_payload(
+            cls, payload: ReductionPayload
         ) -> "DuplicateReducer":
             return cls()
 

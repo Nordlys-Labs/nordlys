@@ -14,6 +14,7 @@ from nordlys.reduction.base import (
     Reducer,
     ReducerConfigModel,
     ReducerStateModel,
+    ReductionPayload,
     register_reducer,
 )
 
@@ -165,8 +166,6 @@ class UMAPReducer(Reducer):
     """
 
     kind = "umap"
-    config_model = UMAPConfig
-    state_model = UMAPState
 
     def __init__(
         self,
@@ -247,8 +246,8 @@ class UMAPReducer(Reducer):
         self._model = self._create_model()
         return self._model.fit_transform(embeddings)
 
-    def checkpoint_config(self) -> UMAPConfig:
-        return UMAPConfig(
+    def checkpoint_payload(self) -> ReductionPayload:
+        config = UMAPConfig(
             n_components=self.n_components,
             n_neighbors=self.n_neighbors,
             min_dist=self.min_dist,
@@ -256,8 +255,6 @@ class UMAPReducer(Reducer):
             random_state=self.random_state,
             kwargs=self._kwargs,
         )
-
-    def checkpoint_state(self) -> UMAPState:
         if self._model is None:
             raise RuntimeError(
                 "Reducer must be fitted before checkpoint serialization."
@@ -271,14 +268,17 @@ class UMAPReducer(Reducer):
             key: _JSON_VALUE_ADAPTER.validate_python(value)
             for key, value in model_state.items()
         }
-        return UMAPState(model_state=validated_state)
+        state = UMAPState(model_state=validated_state)
+        return ReductionPayload(
+            kind=self.kind,
+            config=config.model_dump(mode="json"),
+            state=state.model_dump(mode="json"),
+        )
 
     @classmethod
-    def from_checkpoint_models(
-        cls, config: ReducerConfigModel, state: ReducerStateModel
-    ) -> "UMAPReducer":
-        if not isinstance(config, UMAPConfig) or not isinstance(state, UMAPState):
-            raise TypeError("UMAPReducer requires UMAPConfig and UMAPState payloads")
+    def from_checkpoint_payload(cls, payload: ReductionPayload) -> "UMAPReducer":
+        config = UMAPConfig.model_validate(payload.config)
+        state = UMAPState.model_validate(payload.state)
         reducer = cls(
             n_components=config.n_components,
             n_neighbors=config.n_neighbors,
