@@ -60,9 +60,7 @@ class Reducer(ABC):
 
     @classmethod
     @abstractmethod
-    def from_checkpoint_payload(
-        cls, payload: ReductionPayload
-    ) -> "Reducer":
+    def from_checkpoint_payload(cls, payload: ReductionPayload) -> "Reducer":
         """Restore a fitted reducer from a validated checkpoint payload."""
 
 

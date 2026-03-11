@@ -6,7 +6,14 @@ from typing import Literal, cast
 
 import numpy as np
 from numba.core.registry import CPUDispatcher
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter, ValidationError
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    JsonValue,
+    TypeAdapter,
+    ValidationError,
+)
 from scipy.sparse import csr_matrix, issparse
 from umap import UMAP
 
@@ -149,7 +156,9 @@ def _deserialize_umap_state_value(value: JsonValue) -> object:
             return csr_matrix((data, indices, indptr), shape=(rows, cols))
         if kind == "tuple":
             tuple_value = SerializedTuple.model_validate(value)
-            return tuple(_deserialize_umap_state_value(item) for item in tuple_value.items)
+            return tuple(
+                _deserialize_umap_state_value(item) for item in tuple_value.items
+            )
         return {key: _deserialize_umap_state_value(item) for key, item in value.items()}
     return value
 
