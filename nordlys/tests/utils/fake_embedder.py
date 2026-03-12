@@ -3,7 +3,7 @@
 import numpy as np
 import pandas as pd
 
-from nordlys import Dataset, ModelConfig
+from nordlys import Dataset
 from nordlys.embeddings import Embedder
 
 
@@ -27,12 +27,11 @@ class FakeEmbedder(Embedder):
         }
 
 
-def _to_dataset(df: pd.DataFrame, models: list[ModelConfig]) -> Dataset:
-    model_ids = [m.id for m in models]
+def _to_dataset(df: pd.DataFrame, models: list[str]) -> Dataset:
     rows = []
     for idx, row in df.iterrows():
-        best_model = max(model_ids, key=lambda mid: float(row[mid]))
-        targets = {mid: int(mid == best_model) for mid in model_ids}
+        best_model = max(models, key=lambda mid: float(row[mid]))
+        targets = {mid: int(mid == best_model) for mid in models}
         rows.append(
             {"id": str(idx), "input": str(row["questions"]), "targets": targets}
         )
