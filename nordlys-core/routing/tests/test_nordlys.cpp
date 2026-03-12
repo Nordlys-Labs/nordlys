@@ -14,7 +14,6 @@
 
 // Test checkpoint JSON for creating valid routers (v3.0 format)
 static const char* kTestCheckpointJson = R"({
-  "version": "3.0",
   "cluster_centers": [
     [1.0, 0.0, 0.0, 0.0],
     [0.0, 1.0, 0.0, 0.0],
@@ -23,15 +22,11 @@ static const char* kTestCheckpointJson = R"({
   "models": [
     {
       "model_id": "provider1/gpt-4",
-      "cost_per_1m_input_tokens": 30.0,
-      "cost_per_1m_output_tokens": 60.0,
-      "error_rates": [0.01, 0.02, 0.015]
+      "scores": [0.01, 0.02, 0.015]
     },
     {
       "model_id": "provider2/llama",
-      "cost_per_1m_input_tokens": 0.3,
-      "cost_per_1m_output_tokens": 0.6,
-      "error_rates": [0.05, 0.06, 0.055]
+      "scores": [0.05, 0.06, 0.055]
     }
   ],
   "embedding": {
@@ -400,14 +395,11 @@ TEST_F(NordlysTest, AlternativeModelsAreDifferentFromSelected) {
 TEST_F(NordlysTest, CreateFromJsonString) {
   // Test creating nordlys from JSON string
   std::string json_checkpoint = R"({
-    "version": "3.0",
     "cluster_centers": [[1.0, 0.0], [0.0, 1.0]],
     "models": [
       {
         "model_id": "test/model1",
-        "cost_per_1m_input_tokens": 1.0,
-        "cost_per_1m_output_tokens": 2.0,
-        "error_rates": [0.01, 0.02]
+        "scores": [0.01, 0.02]
       }
     ],
     "embedding": {"model": "test", "trust_remote_code": false},
@@ -481,10 +473,9 @@ TEST_F(NordlysTest, MoveAssignment) {
 
 TEST_F(NordlysTest, SingleCluster) {
   std::string json_single_cluster = R"({
-    "version": "3.0",
     "cluster_centers": [[1.0, 0.0, 0.0]],
     "models": [
-      {"model_id": "test/model", "cost_per_1m_input_tokens": 1.0, "cost_per_1m_output_tokens": 2.0, "error_rates": [0.01]}
+      {"model_id": "test/model", "scores": [0.01]}
     ],
     "embedding": {"model": "test", "trust_remote_code": false},
     "clustering": {"n_clusters": 1, "random_state": 42, "max_iter": 300, "n_init": 10, "algorithm": "lloyd", "normalization": "l2"},
@@ -518,7 +509,7 @@ TEST_F(NordlysTest, LargeDimensions) {
 
   // Build JSON manually
   std::stringstream ss;
-  ss << R"({"version": "3.0", "cluster_centers": [)";
+  ss << R"({"cluster_centers": [)";
   for (size_t c = 0; c < centers.size(); ++c) {
     ss << "[";
     for (size_t d = 0; d < centers[c].size(); ++d) {
@@ -529,7 +520,7 @@ TEST_F(NordlysTest, LargeDimensions) {
     if (c < centers.size() - 1) ss << ",";
   }
   ss << R"(], "models": [
-      {"model_id": "test/model", "cost_per_1m_input_tokens": 1.0, "cost_per_1m_output_tokens": 2.0, "error_rates": [0.01, 0.02]}
+      {"model_id": "test/model", "scores": [0.01, 0.02]}
     ],
     "embedding": {"model": "test", "trust_remote_code": false},
     "clustering": {"n_clusters": 2, "random_state": 42, "max_iter": 300, "n_init": 10, "algorithm": "lloyd", "normalization": "l2"},

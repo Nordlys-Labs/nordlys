@@ -7,7 +7,6 @@
 
 // Test profile JSON for creating valid nordlys instances (v3.0 format)
 static const char* kTestProfileJson = R"({
-  "version": "3.0",
   "cluster_centers": [
     [1.0, 0.0, 0.0, 0.0],
     [0.0, 1.0, 0.0, 0.0],
@@ -16,15 +15,11 @@ static const char* kTestProfileJson = R"({
   "models": [
     {
       "model_id": "provider1/gpt-4",
-      "cost_per_1m_input_tokens": 30.0,
-      "cost_per_1m_output_tokens": 60.0,
-      "error_rates": [0.01, 0.02, 0.015]
+      "scores": [0.99, 0.98, 0.985]
     },
     {
       "model_id": "provider2/llama",
-      "cost_per_1m_input_tokens": 0.3,
-      "cost_per_1m_output_tokens": 0.6,
-      "error_rates": [0.05, 0.06, 0.055]
+      "scores": [0.95, 0.94, 0.945]
     }
   ],
   "embedding": {
@@ -40,10 +35,6 @@ static const char* kTestProfileJson = R"({
     "normalization": "l2"
   },
   "reduction": null,
-  "routing": {
-    "cost_bias_min": 0.0,
-    "cost_bias_max": 1.0
-  },
   "metrics": {
     "silhouette_score": 0.85
   }

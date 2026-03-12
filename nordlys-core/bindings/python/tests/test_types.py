@@ -15,43 +15,39 @@ class TestModelFeatures:
 
         # Test basic properties
         assert isinstance(model.model_id, str)
-        assert isinstance(model.cost_per_1m_input_tokens, float)
-        assert model.cost_per_1m_input_tokens > 0
-        assert isinstance(model.cost_per_1m_output_tokens, float)
-        assert model.cost_per_1m_output_tokens > 0
 
-        # Test error_rates vector - this will fail if vector.h is missing in types.cpp
-        error_rates = model.error_rates
-        assert isinstance(error_rates, list) or hasattr(error_rates, "__iter__")
-        error_rates_list = list(error_rates)
-        assert len(error_rates_list) == checkpoint.n_clusters
-        assert all(isinstance(rate, float) for rate in error_rates_list)
-        assert all(0.0 <= rate <= 1.0 for rate in error_rates_list)
+        # Test scores vector - this will fail if vector.h is missing in types.cpp
+        scores = model.scores
+        assert isinstance(scores, list) or hasattr(scores, "__iter__")
+        scores_list = list(scores)
+        assert len(scores_list) == checkpoint.n_clusters
+        assert all(isinstance(score, float) for score in scores_list)
+        assert all(0.0 <= score <= 1.0 for score in scores_list)
 
-    def test_error_rates_vector_operations(self, sample_checkpoint_json: str):
-        """Test that error_rates vector supports list operations."""
+    def test_scores_vector_operations(self, sample_checkpoint_json: str):
+        """Test that scores vector supports list operations."""
         from nordlys_core import NordlysCheckpoint
 
         checkpoint = NordlysCheckpoint.from_json_string(sample_checkpoint_json)
         model = checkpoint.models[0]
 
         # Test list conversion
-        error_rates_list = list(model.error_rates)
-        assert isinstance(error_rates_list, list)
+        scores_list = list(model.scores)
+        assert isinstance(scores_list, list)
 
         # Test iteration
-        for rate in model.error_rates:
-            assert isinstance(rate, float)
-            assert 0.0 <= rate <= 1.0
+        for score in model.scores:
+            assert isinstance(score, float)
+            assert 0.0 <= score <= 1.0
 
         # Test indexing
-        assert isinstance(model.error_rates[0], float)
-        assert len(model.error_rates) == checkpoint.n_clusters
+        assert isinstance(model.scores[0], float)
+        assert len(model.scores) == checkpoint.n_clusters
 
         # Test membership (if applicable)
-        if model.error_rates:
-            first_rate = model.error_rates[0]
-            assert first_rate in model.error_rates
+        if model.scores:
+            first_score = model.scores[0]
+            assert first_score in model.scores
 
     def test_model_features_methods(self, sample_checkpoint_json: str):
         """Test ModelFeatures utility methods."""
@@ -72,17 +68,6 @@ class TestModelFeatures:
         assert model_name in model.model_id
         assert model.model_id == f"{provider}/{model_name}"
 
-        # Test cost calculation
-        avg_cost = model.cost_per_1m_tokens()
-        assert isinstance(avg_cost, float)
-        assert avg_cost > 0
-        # Average should be between input and output costs
-        assert (
-            min(model.cost_per_1m_input_tokens, model.cost_per_1m_output_tokens)
-            <= avg_cost
-            <= max(model.cost_per_1m_input_tokens, model.cost_per_1m_output_tokens)
-        )
-
     def test_all_model_features(self, sample_checkpoint_json: str):
         """Test accessing all ModelFeatures in checkpoint."""
         from nordlys_core import NordlysCheckpoint
@@ -92,10 +77,8 @@ class TestModelFeatures:
         # Test all models
         for model in checkpoint.models:
             assert isinstance(model.model_id, str)
-            assert isinstance(model.error_rates, list) or hasattr(model.error_rates, "__iter__")
-            assert len(list(model.error_rates)) == checkpoint.n_clusters
-            assert isinstance(model.cost_per_1m_input_tokens, float)
-            assert isinstance(model.cost_per_1m_output_tokens, float)
+            assert isinstance(model.scores, list) or hasattr(model.scores, "__iter__")
+            assert len(list(model.scores)) == checkpoint.n_clusters
 
 
 class TestTrainingMetrics:

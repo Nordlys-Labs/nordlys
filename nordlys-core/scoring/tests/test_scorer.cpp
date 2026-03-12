@@ -16,9 +16,7 @@ TEST(ModelScorerTest, SingleModel) {
   std::vector<ModelFeatures> models;
   ModelFeatures m1;
   m1.model_id = "only_model";
-  m1.cost_per_1m_input_tokens = 10.0f;
-  m1.cost_per_1m_output_tokens = 10.0f;
-  m1.error_rates = {0.1f};
+  m1.scores = {0.1f};
 
   models.push_back(m1);
 
@@ -34,15 +32,11 @@ TEST(ModelScorerTest, ScoringByErrorRate) {
 
   ModelFeatures m1;
   m1.model_id = "expensive/accurate";
-  m1.cost_per_1m_input_tokens = 100.0f;
-  m1.cost_per_1m_output_tokens = 100.0f;
-  m1.error_rates = {0.01f};
+  m1.scores = {0.01f};
 
   ModelFeatures m2;
   m2.model_id = "cheap/less_accurate";
-  m2.cost_per_1m_input_tokens = 1.0f;
-  m2.cost_per_1m_output_tokens = 1.0f;
-  m2.error_rates = {0.10f};
+  m2.scores = {0.10f};
 
   models.push_back(m1);
   models.push_back(m2);
@@ -60,15 +54,11 @@ TEST(ModelScorerTest, ZeroCostRange) {
   std::vector<ModelFeatures> models;
   ModelFeatures m1;
   m1.model_id = "model1";
-  m1.cost_per_1m_input_tokens = 10.0f;
-  m1.cost_per_1m_output_tokens = 10.0f;
-  m1.error_rates = {0.1f};
+  m1.scores = {0.1f};
 
   ModelFeatures m2;
   m2.model_id = "model2";
-  m2.cost_per_1m_input_tokens = 10.0f;
-  m2.cost_per_1m_output_tokens = 10.0f;
-  m2.error_rates = {0.2f};
+  m2.scores = {0.2f};
 
   models.push_back(m1);
   models.push_back(m2);
@@ -84,9 +74,8 @@ TEST(ModelScorerTest, CustomLambdaParams) {
   std::vector<ModelFeatures> models;
   ModelFeatures m1;
   m1.model_id = "model1";
-  m1.cost_per_1m_input_tokens = 10.0f;
-  m1.cost_per_1m_output_tokens = 10.0f;
-  m1.error_rates = {0.1f};
+
+  m1.scores = {0.1f};
 
   models.push_back(m1);
 
@@ -100,9 +89,8 @@ TEST(ModelScorerTest, NegativeClusterIdThrows) {
   std::vector<ModelFeatures> models;
   ModelFeatures m1;
   m1.model_id = "model1";
-  m1.cost_per_1m_input_tokens = 10.0f;
-  m1.cost_per_1m_output_tokens = 10.0f;
-  m1.error_rates = {0.1f};
+
+  m1.scores = {0.1f};
 
   models.push_back(m1);
 
@@ -115,9 +103,8 @@ TEST(ModelScorerTest, ClusterIdOutOfBoundsThrows) {
   std::vector<ModelFeatures> models;
   ModelFeatures m1;
   m1.model_id = "model1";
-  m1.cost_per_1m_input_tokens = 10.0f;
-  m1.cost_per_1m_output_tokens = 10.0f;
-  m1.error_rates = {0.1f, 0.2f};
+
+  m1.scores = {0.1f, 0.2f};
 
   models.push_back(m1);
 
@@ -131,9 +118,8 @@ TEST(ModelScorerTest, ManyModels) {
   for (int i = 0; i < 50; ++i) {
     ModelFeatures m;
     m.model_id = "model" + std::to_string(i);
-    m.cost_per_1m_input_tokens = 10.0f + i;
-    m.cost_per_1m_output_tokens = 10.0f + i;
-    m.error_rates = {0.01f * i};
+
+    m.scores = {0.01f * i};
     models.push_back(m);
   }
 
@@ -147,15 +133,10 @@ TEST(ModelScorerTest, ExtremeCostValues) {
   std::vector<ModelFeatures> models;
   ModelFeatures m1;
   m1.model_id = "very_cheap";
-  m1.cost_per_1m_input_tokens = 0.001f;
-  m1.cost_per_1m_output_tokens = 0.001f;
-  m1.error_rates = {0.5f};
+  m1.scores = {0.5f};
 
-  ModelFeatures m2;
-  m2.model_id = "very_expensive";
-  m2.cost_per_1m_input_tokens = 1000.0f;
-  m2.cost_per_1m_output_tokens = 1000.0f;
-  m2.error_rates = {0.01f};
+  m2.model_id = "model2";
+  m2.scores = {0.01f};
 
   models.push_back(m1);
   models.push_back(m2);
@@ -170,9 +151,8 @@ TEST(ModelScorerTest, ScoringWorks) {
   std::vector<ModelFeatures> models;
   ModelFeatures m1;
   m1.model_id = "model1";
-  m1.cost_per_1m_input_tokens = 10.0f;
-  m1.cost_per_1m_output_tokens = 10.0f;
-  m1.error_rates = {0.1f};
+
+  m1.scores = {0.1f};
 
   models.push_back(m1);
 
@@ -189,15 +169,11 @@ TEST(ModelScorerTest, ErrorRateBoundaries) {
   std::vector<ModelFeatures> models;
   ModelFeatures m1;
   m1.model_id = "perfect";
-  m1.cost_per_1m_input_tokens = 10.0f;
-  m1.cost_per_1m_output_tokens = 10.0f;
-  m1.error_rates = {0.0f};
+  m1.scores = {0.0f};
 
   ModelFeatures m2;
   m2.model_id = "worst";
-  m2.cost_per_1m_input_tokens = 10.0f;
-  m2.cost_per_1m_output_tokens = 10.0f;
-  m2.error_rates = {1.0f};
+  m2.scores = {1.0f};
 
   models.push_back(m1);
   models.push_back(m2);
@@ -217,13 +193,13 @@ TEST(ModelScorerTest, SameErrorRateOrdering) {
   m1.model_id = "cheap";
   m1.cost_per_1m_input_tokens = 1.0f;
   m1.cost_per_1m_output_tokens = 1.0f;
-  m1.error_rates = {0.1f};
+  m1.scores = {0.1f};
 
   ModelFeatures m2;
   m2.model_id = "expensive";
   m2.cost_per_1m_input_tokens = 100.0f;
   m2.cost_per_1m_output_tokens = 100.0f;
-  m2.error_rates = {0.1f};
+  m2.scores = {0.1f};
 
   models.push_back(m1);
   models.push_back(m2);
@@ -241,9 +217,8 @@ TEST(ModelScorerTest, AccuracyFieldCalculation) {
   std::vector<ModelFeatures> models;
   ModelFeatures m1;
   m1.model_id = "model1";
-  m1.cost_per_1m_input_tokens = 10.0f;
-  m1.cost_per_1m_output_tokens = 10.0f;
-  m1.error_rates = {0.25f};
+
+  m1.scores = {0.25f};
 
   models.push_back(m1);
 
@@ -262,7 +237,7 @@ TEST(ModelScorerTest, SortingOrderVerification) {
     m.model_id = "model" + std::to_string(i);
     m.cost_per_1m_input_tokens = 10.0f;
     m.cost_per_1m_output_tokens = 10.0f;
-    m.error_rates = {0.1f * (10 - i)};
+    m.scores = {0.1f * (10 - i)};
     models.push_back(m);
   }
 
@@ -281,9 +256,8 @@ TEST(ModelScorerTest, MoveConstructor) {
   std::vector<ModelFeatures> models;
   ModelFeatures m1;
   m1.model_id = "model1";
-  m1.cost_per_1m_input_tokens = 10.0f;
-  m1.cost_per_1m_output_tokens = 10.0f;
-  m1.error_rates = {0.1f};
+
+  m1.scores = {0.1f};
 
   models.push_back(m1);
 
@@ -299,9 +273,8 @@ TEST(ModelScorerTest, MoveAssignment) {
   std::vector<ModelFeatures> models;
   ModelFeatures m1;
   m1.model_id = "model1";
-  m1.cost_per_1m_input_tokens = 10.0f;
-  m1.cost_per_1m_output_tokens = 10.0f;
-  m1.error_rates = {0.1f};
+
+  m1.scores = {0.1f};
 
   models.push_back(m1);
 
