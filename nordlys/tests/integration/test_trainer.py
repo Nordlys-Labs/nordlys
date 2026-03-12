@@ -247,7 +247,7 @@ class TestTrainerCheckpoint:
         checkpoint = trainer.fit(medium_dataset)
         assert len(checkpoint.models) == len(trainer_models)
 
-    def test_checkpoint_error_rates_shape(
+    def test_checkpoint_scores_shape(
         self,
         trainer_models: list[str],
         medium_dataset: Dataset,
@@ -257,7 +257,7 @@ class TestTrainerCheckpoint:
         checkpoint = trainer.fit(medium_dataset)
         n_clusters = len(checkpoint.cluster_centers)
         for model in checkpoint.models:
-            assert len(model.error_rates) == n_clusters
+            assert len(model.scores) == n_clusters
 
 
 class TestTrainerRouterIntegration:
