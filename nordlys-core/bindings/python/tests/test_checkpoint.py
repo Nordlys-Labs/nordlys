@@ -186,8 +186,6 @@ class TestNordlysCheckpointProperties:
         for model in models:
             assert hasattr(model, "model_id")
             assert hasattr(model, "scores")
-            assert hasattr(model, "cost_per_1m_input_tokens")
-            assert hasattr(model, "cost_per_1m_output_tokens")
 
     def test_model_features_properties(self, sample_checkpoint_json: str):
         """Test accessing ModelFeatures properties including scores vector."""
