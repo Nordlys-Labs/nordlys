@@ -1,16 +1,13 @@
 """Router - Intelligent LLM model selection library.
 
 This package provides intelligent model routing using cluster-based selection
-with per-cluster error rates, cost optimization, and model capability matching.
+with per-cluster scores.
 
 Usage:
-    >>> from nordlys import Dataset, Trainer, Router, ModelConfig
+    >>> from nordlys import Dataset, Trainer, Router
     >>>
-    >>> # Define models
-    >>> models = [
-    ...     ModelConfig(id="openai/gpt-4", cost_input=30.0, cost_output=60.0),
-    ...     ModelConfig(id="anthropic/claude-3-sonnet", cost_input=15.0, cost_output=75.0),
-    ... ]
+    >>> # Define models (just model IDs)
+    >>> models = ["openai/gpt-4", "anthropic/claude-3-sonnet"]
     >>>
     >>> dataset = Dataset.from_list([
     ...     {"id": "1", "input": "What is ML?", "targets": {"openai/gpt-4": 1, "anthropic/claude-3-sonnet": 0}},
@@ -26,7 +23,7 @@ Usage:
 # ============================================================================
 
 from nordlys.dataset import Dataset
-from nordlys.router import Router, ModelConfig, RouteResult
+from nordlys.router import Router, RouteResult
 from nordlys.trainer import Trainer
 
 # Reduction components
@@ -58,7 +55,6 @@ __all__ = [
     "Dataset",
     "Trainer",
     "Router",
-    "ModelConfig",
     "RouteResult",
     # C++ Core types
     "NordlysCheckpoint",

@@ -11,7 +11,6 @@ from nordlys.checkpoint import build_checkpoint
 from nordlys.clustering import Clusterer, KMeansClusterer, compute_cluster_metrics
 from nordlys.dataset import Dataset
 from nordlys.embeddings import Embedder, SentenceTransformers
-from nordlys.router import ModelConfig
 from nordlys.reduction import Reducer
 from nordlys.reduction.base import ReductionPayload
 from nordlys_core import NordlysCheckpoint
@@ -24,20 +23,20 @@ class Trainer:
     Canonical path: ``Dataset -> Trainer.fit() -> NordlysCheckpoint``.
 
     Example:
-        >>> from nordlys import Dataset, Trainer, ModelConfig
+        >>> from nordlys import Dataset, Trainer
         >>> from nordlys.clustering import KMeansClusterer
         >>> dataset = Dataset.from_list([
         ...     {"id": "1", "input": "Fix the parser", "targets": {"gpt-4": 1}},
         ... ])
         >>> # Pass your own clusterer
         >>> trainer = Trainer(
-        ...     models=[ModelConfig(id="gpt-4", cost_input=30.0, cost_output=60.0)],
+        ...     models=["gpt-4"],
         ...     clusterer=KMeansClusterer(n_clusters=10),
         ... )
         >>> checkpoint = trainer.fit(dataset)
     """
 
-    models: list[ModelConfig]
+    models: list[str]
     input_col: str = "input"
     target_col: str = "targets"
 
@@ -59,7 +58,6 @@ class Trainer:
         """Fit clustering pipeline and return a checkpoint."""
         self._validate(dataset)
 
-        model_ids = [m.id for m in self.models]
         embedder = self._make_embedder()
         embeddings = embedder.encode(dataset.column(self.input_col))
         cluster_input, reduction_payload = self._reduce_or_pass(embeddings)
@@ -71,10 +69,10 @@ class Trainer:
         labels = clusterer.labels_
         n_clusters = len(centroids)
 
-        error_rates = self._calc_error_rates(
+        scores = self._calc_scores(
             labels,
             dataset.column(self.target_col),
-            model_ids,
+            self.models,
             n_clusters,
         )
 
@@ -90,12 +88,10 @@ class Trainer:
 
         models_payload = [
             {
-                "model_id": m.id,
-                "cost_per_1m_input_tokens": m.cost_input,
-                "cost_per_1m_output_tokens": m.cost_output,
-                "error_rates": error_rates[m.id],
+                "model_id": model_id,
+                "scores": scores[model_id],
             }
-            for m in self.models
+            for model_id in self.models
         ]
 
         return build_checkpoint(
@@ -125,7 +121,7 @@ class Trainer:
         if not self.models:
             raise ValueError("At least one model is required")
 
-        allowed_model_ids = {m.id for m in self.models}
+        allowed_model_ids = set(self.models)
 
         errors = dataset.validate_schema(
             required_columns=["id", self.input_col, self.target_col],
@@ -197,7 +193,7 @@ class Trainer:
 
         return self.clusterer
 
-    def _calc_error_rates(
+    def _calc_scores(
         self,
         labels: np.ndarray,
         targets: list[dict[str, int] | None],
@@ -248,7 +244,7 @@ class Trainer:
                     sums[model_idx, cluster_idx] += float(score)
                     counts[model_idx, cluster_idx] += 1
 
-        # Compute error rates - raise if any cluster has no data
+        # Raise if any cluster has no data
         if np.any(counts == 0):
             zero_count = int(np.sum(counts == 0))
             raise ValueError(
@@ -256,7 +252,7 @@ class Trainer:
                 "Consider increasing cluster size or reducing n_clusters."
             )
 
-        accuracies = sums / counts
-        error_rates = 1.0 - accuracies
+        # Return scores (higher is better) - already in 0-1 range
+        scores = sums / counts
 
-        return {mid: error_rates[i].tolist() for i, mid in enumerate(model_ids)}
+        return {mid: scores[i].tolist() for i, mid in enumerate(model_ids)}

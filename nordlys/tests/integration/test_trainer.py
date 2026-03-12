@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from nordlys import Dataset, ModelConfig, Router, Trainer
+from nordlys import Dataset, Router, Trainer
 from nordlys.clustering import HDBSCANClusterer, KMeansClusterer
 
 
@@ -70,10 +70,10 @@ def mock_router_embed(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture
-def trainer_models() -> list[ModelConfig]:
+def trainer_models() -> list[str]:
     return [
-        ModelConfig(id="gpt-4", cost_input=30.0, cost_output=60.0),
-        ModelConfig(id="gpt-3.5-turbo", cost_input=0.5, cost_output=1.5),
+        "gpt-4",
+        "gpt-3.5-turbo",
     ]
 
 
@@ -155,14 +155,14 @@ def test_hdbscan_clusterer() -> HDBSCANClusterer:
 
 
 class TestTrainerInitialization:
-    def test_default_initialization(self, trainer_models: list[ModelConfig]) -> None:
+    def test_default_initialization(self, trainer_models: list[str]) -> None:
         trainer = Trainer(models=trainer_models)
         assert trainer.models == trainer_models
         assert trainer.input_col == "input"
         assert trainer.target_col == "targets"
         assert trainer.clusterer is None
 
-    def test_custom_columns(self, trainer_models: list[ModelConfig]) -> None:
+    def test_custom_columns(self, trainer_models: list[str]) -> None:
         trainer = Trainer(
             models=trainer_models,
             input_col="prompt",
@@ -175,7 +175,7 @@ class TestTrainerInitialization:
 class TestTrainerFit:
     def test_fit_with_hdbscan_medium(
         self,
-        trainer_models: list[ModelConfig],
+        trainer_models: list[str],
         medium_dataset: Dataset,
         test_hdbscan_clusterer: HDBSCANClusterer,
     ) -> None:
@@ -186,7 +186,7 @@ class TestTrainerFit:
         assert len(checkpoint.cluster_centers) > 0
 
     def test_fit_with_kmeans_large(
-        self, trainer_models: list[ModelConfig], large_dataset: Dataset
+        self, trainer_models: list[str], large_dataset: Dataset
     ) -> None:
         """KMeans on large dataset with many clusters."""
         trainer = Trainer(
@@ -197,7 +197,7 @@ class TestTrainerFit:
         assert len(checkpoint.cluster_centers) == 10
 
     def test_fit_with_custom_clusterer(
-        self, trainer_models: list[ModelConfig], large_dataset: Dataset
+        self, trainer_models: list[str], large_dataset: Dataset
     ) -> None:
         """Custom clusterer instance."""
         trainer = Trainer(
@@ -216,9 +216,7 @@ class TestTrainerValidation:
         with pytest.raises(ValueError, match="At least one model"):
             trainer.fit(dataset)
 
-    def test_missing_input_column_raises(
-        self, trainer_models: list[ModelConfig]
-    ) -> None:
+    def test_missing_input_column_raises(self, trainer_models: list[str]) -> None:
         """Test that missing input column raises."""
         dataset = Dataset.from_list(
             [{"id": "1", "text": "hello", "targets": {"gpt-4": 1}}]
@@ -231,7 +229,7 @@ class TestTrainerValidation:
 class TestTrainerCheckpoint:
     def test_checkpoint_has_cluster_centers(
         self,
-        trainer_models: list[ModelConfig],
+        trainer_models: list[str],
         medium_dataset: Dataset,
         test_hdbscan_clusterer: HDBSCANClusterer,
     ) -> None:
@@ -241,7 +239,7 @@ class TestTrainerCheckpoint:
 
     def test_checkpoint_has_models(
         self,
-        trainer_models: list[ModelConfig],
+        trainer_models: list[str],
         medium_dataset: Dataset,
         test_hdbscan_clusterer: HDBSCANClusterer,
     ) -> None:
@@ -251,7 +249,7 @@ class TestTrainerCheckpoint:
 
     def test_checkpoint_error_rates_shape(
         self,
-        trainer_models: list[ModelConfig],
+        trainer_models: list[str],
         medium_dataset: Dataset,
         test_hdbscan_clusterer: HDBSCANClusterer,
     ) -> None:
@@ -265,7 +263,7 @@ class TestTrainerCheckpoint:
 class TestTrainerRouterIntegration:
     def test_checkpoint_loadable_by_router(
         self,
-        trainer_models: list[ModelConfig],
+        trainer_models: list[str],
         medium_dataset: Dataset,
         test_hdbscan_clusterer: HDBSCANClusterer,
     ) -> None:
@@ -273,10 +271,10 @@ class TestTrainerRouterIntegration:
         checkpoint = trainer.fit(medium_dataset)
         router = Router(checkpoint=checkpoint, device="cpu")
         result = router.route("Explain backtracking with example")
-        assert result.model_id in {m.id for m in trainer_models}
+        assert result.model_id in set(trainer_models)
 
     def test_router_route_batch(
-        self, trainer_models: list[ModelConfig], large_dataset: Dataset
+        self, trainer_models: list[str], large_dataset: Dataset
     ) -> None:
         trainer = Trainer(
             models=trainer_models,
@@ -288,12 +286,12 @@ class TestTrainerRouterIntegration:
         results = router.route_batch(prompts)
         assert len(results) == 3
         for r in results:
-            assert r.model_id in {m.id for m in trainer_models}
+            assert r.model_id in set(trainer_models)
 
 
 class TestTrainerHyperparameters:
     def test_hdbscan_params(
-        self, trainer_models: list[ModelConfig], medium_dataset: Dataset
+        self, trainer_models: list[str], medium_dataset: Dataset
     ) -> None:
         trainer = Trainer(
             models=trainer_models,
@@ -303,7 +301,7 @@ class TestTrainerHyperparameters:
         assert checkpoint is not None
 
     def test_kmeans_params(
-        self, trainer_models: list[ModelConfig], large_dataset: Dataset
+        self, trainer_models: list[str], large_dataset: Dataset
     ) -> None:
         trainer = Trainer(
             models=trainer_models,
@@ -318,7 +316,7 @@ class TestTrainerHyperparameters:
         assert len(checkpoint.cluster_centers) == 15
 
     def test_reducer_serialized(
-        self, trainer_models: list[ModelConfig], large_dataset: Dataset
+        self, trainer_models: list[str], large_dataset: Dataset
     ) -> None:
         """Test that reducer-backed checkpoints persist reduction metadata."""
         from nordlys.reduction import PCAReducer
@@ -335,7 +333,7 @@ class TestTrainerHyperparameters:
         assert checkpoint.feature_dim == 8
 
     def test_router_restores_reducer(
-        self, trainer_models: list[ModelConfig], large_dataset: Dataset
+        self, trainer_models: list[str], large_dataset: Dataset
     ) -> None:
         """Test that router restores a serialized reducer before routing."""
         from nordlys.reduction import PCAReducer
@@ -351,12 +349,12 @@ class TestTrainerHyperparameters:
         result = router.route("Explain backtracking with example")
 
         assert checkpoint.reduction is not None
-        assert result.model_id in {m.id for m in trainer_models}
+        assert result.model_id in set(trainer_models)
 
 
 class TestTrainerDeterminism:
     def test_same_seed_same_result(
-        self, trainer_models: list[ModelConfig], large_dataset: Dataset
+        self, trainer_models: list[str], large_dataset: Dataset
     ) -> None:
         trainer1 = Trainer(
             models=trainer_models,

@@ -1,49 +1,31 @@
 """Pytest fixtures for nordlys tests."""
 
-from nordlys import ModelConfig
 from nordlys_core import NordlysCheckpoint
 
+import json
 import numpy as np
 import pandas as pd
 import pytest
 
-import json
-
 
 @pytest.fixture
-def sample_models() -> list[ModelConfig]:
-    """Return sample model configurations for testing."""
+def sample_models() -> list[str]:
+    """Return sample model IDs for testing."""
     return [
-        ModelConfig(
-            id="openai/gpt-4",
-            cost_input=30.0,
-            cost_output=60.0,
-        ),
-        ModelConfig(
-            id="anthropic/claude-3-sonnet",
-            cost_input=15.0,
-            cost_output=75.0,
-        ),
-        ModelConfig(
-            id="openai/gpt-3.5-turbo",
-            cost_input=0.5,
-            cost_output=1.5,
-        ),
+        "openai/gpt-4",
+        "anthropic/claude-3-sonnet",
+        "openai/gpt-3.5-turbo",
     ]
 
 
 @pytest.fixture
-def sample_model() -> ModelConfig:
-    """Return a single sample model configuration."""
-    return ModelConfig(
-        id="openai/gpt-4",
-        cost_input=30.0,
-        cost_output=60.0,
-    )
+def sample_model() -> str:
+    """Return a single sample model ID."""
+    return "openai/gpt-4"
 
 
 @pytest.fixture
-def small_training_data(sample_models: list[ModelConfig]) -> pd.DataFrame:
+def small_training_data(sample_models: list[str]) -> pd.DataFrame:
     """Create minimal training DataFrame (20 samples) for fast tests."""
     np.random.seed(42)
     n_samples = 20
@@ -73,7 +55,7 @@ def small_training_data(sample_models: list[ModelConfig]) -> pd.DataFrame:
 
     data: dict[str, list[str] | list[float]] = {"questions": questions}
     for model in sample_models:
-        data[model.id] = np.random.uniform(0.5, 1.0, n_samples).tolist()
+        data[model] = np.random.uniform(0.5, 1.0, n_samples).tolist()
 
     return pd.DataFrame(data)
 
@@ -86,21 +68,18 @@ def synthetic_embeddings() -> np.ndarray:
 
 
 @pytest.fixture
-def sample_checkpoint(sample_models: list[ModelConfig]) -> NordlysCheckpoint:
+def sample_checkpoint(sample_models: list[str]) -> NordlysCheckpoint:
     """Return a small valid checkpoint for Router runtime tests."""
     model_payload = []
     for model in sample_models:
         model_payload.append(
             {
-                "model_id": model.id,
-                "cost_per_1m_input_tokens": model.cost_input,
-                "cost_per_1m_output_tokens": model.cost_output,
-                "error_rates": [0.2, 0.4],
+                "model_id": model,
+                "scores": [0.8, 0.6],
             }
         )
 
     payload = {
-        "version": "3.0",
         "cluster_centers": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
         "models": model_payload,
         "embedding": {

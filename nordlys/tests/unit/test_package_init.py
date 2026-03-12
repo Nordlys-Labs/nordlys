@@ -12,12 +12,6 @@ class TestPackageImports:
 
         assert Router is not None
 
-    def test_import_model_config(self):
-        """Test importing ModelConfig."""
-        from nordlys import ModelConfig
-
-        assert ModelConfig is not None
-
     def test_import_route_result(self):
         """Test importing RouteResult."""
         from nordlys import RouteResult
@@ -63,7 +57,6 @@ class TestPackageMetadata:
             "Router",
             "Dataset",
             "Trainer",
-            "ModelConfig",
             "RouteResult",
             "NordlysCheckpoint",
             "TrainingMetrics",
