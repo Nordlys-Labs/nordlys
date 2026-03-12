@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from nordlys import Dataset, ModelConfig, Trainer
+from nordlys import Dataset, Trainer
 from nordlys.clustering import KMeansClusterer
 from nordlys.embeddings import SentenceTransformers
 
@@ -60,7 +60,7 @@ class TestTrainerEmbedder:
         monkeypatch.setattr("nordlys.trainer.SentenceTransformers", FakeEmbedder)
 
         trainer = Trainer(
-            models=[ModelConfig(id="gpt-4", cost_input=1.0, cost_output=1.0)],
+            models=["gpt-4"],
             embedding_model="my-model",
             embedding_batch_size=32,
             embedding_normalize=False,
@@ -97,7 +97,7 @@ class TestTrainerEmbedder:
         )
         embedder = FakeEmbedder()
         trainer = Trainer(
-            models=[ModelConfig(id="gpt-4", cost_input=1.0, cost_output=1.0)],
+            models=["gpt-4"],
             embedder=embedder,
             clusterer=KMeansClusterer(n_clusters=1, random_state=42),
         )

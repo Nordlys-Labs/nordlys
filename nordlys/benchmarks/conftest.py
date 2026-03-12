@@ -4,45 +4,25 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from nordlys import Dataset, ModelConfig, Router, Trainer
+from nordlys import Dataset, Router, Trainer
 from nordlys.clustering import KMeansClusterer
 from tests.utils.fake_embedder import FakeEmbedder, _to_dataset
 
 
 @pytest.fixture
-def benchmark_models() -> list[ModelConfig]:
-    """Model configurations for benchmarking."""
+def benchmark_models() -> list[str]:
+    """Model IDs for benchmarking."""
     return [
-        ModelConfig(
-            id="openai/gpt-4",
-            cost_input=30.0,
-            cost_output=60.0,
-        ),
-        ModelConfig(
-            id="anthropic/claude-3-sonnet",
-            cost_input=15.0,
-            cost_output=75.0,
-        ),
-        ModelConfig(
-            id="openai/gpt-3.5-turbo",
-            cost_input=0.5,
-            cost_output=1.5,
-        ),
-        ModelConfig(
-            id="anthropic/claude-3-haiku",
-            cost_input=0.25,
-            cost_output=1.25,
-        ),
-        ModelConfig(
-            id="openai/gpt-4-turbo",
-            cost_input=10.0,
-            cost_output=30.0,
-        ),
+        "openai/gpt-4",
+        "anthropic/claude-3-sonnet",
+        "openai/gpt-3.5-turbo",
+        "anthropic/claude-3-haiku",
+        "openai/gpt-4-turbo",
     ]
 
 
 @pytest.fixture
-def small_training_data(benchmark_models: list[ModelConfig]) -> pd.DataFrame:
+def small_training_data(benchmark_models: list[str]) -> pd.DataFrame:
     """Create small training DataFrame (~100 samples) for benchmarks."""
     np.random.seed(42)
     n_samples = 100
@@ -79,13 +59,13 @@ def small_training_data(benchmark_models: list[ModelConfig]) -> pd.DataFrame:
 
     data: dict[str, list[str] | list[float]] = {"questions": questions}
     for model in benchmark_models:
-        data[model.id] = np.random.uniform(0.5, 1.0, n_samples).tolist()
+        data[model] = np.random.uniform(0.5, 1.0, n_samples).tolist()
 
     return pd.DataFrame(data)
 
 
 @pytest.fixture
-def medium_training_data(benchmark_models: list[ModelConfig]) -> pd.DataFrame:
+def medium_training_data(benchmark_models: list[str]) -> pd.DataFrame:
     """Create medium training DataFrame (~1000 samples) for benchmarks."""
     np.random.seed(42)
     n_samples = 1000
@@ -122,13 +102,13 @@ def medium_training_data(benchmark_models: list[ModelConfig]) -> pd.DataFrame:
 
     data: dict[str, list[str] | list[float]] = {"questions": questions}
     for model in benchmark_models:
-        data[model.id] = np.random.uniform(0.5, 1.0, n_samples).tolist()
+        data[model] = np.random.uniform(0.5, 1.0, n_samples).tolist()
 
     return pd.DataFrame(data)
 
 
 @pytest.fixture
-def large_training_data(benchmark_models: list[ModelConfig]) -> pd.DataFrame:
+def large_training_data(benchmark_models: list[str]) -> pd.DataFrame:
     """Create large training DataFrame (~10000 samples) for benchmarks."""
     np.random.seed(42)
     n_samples = 10000
@@ -165,7 +145,7 @@ def large_training_data(benchmark_models: list[ModelConfig]) -> pd.DataFrame:
 
     data: dict[str, list[str] | list[float]] = {"questions": questions}
     for model in benchmark_models:
-        data[model.id] = np.random.uniform(0.5, 1.0, n_samples).tolist()
+        data[model] = np.random.uniform(0.5, 1.0, n_samples).tolist()
 
     return pd.DataFrame(data)
 
@@ -182,7 +162,7 @@ def synthetic_embeddings() -> np.ndarray:
 
 @pytest.fixture
 def fitted_nordlys(
-    benchmark_models: list[ModelConfig],
+    benchmark_models: list[str],
     small_training_data: pd.DataFrame,
 ) -> Router:
     """Pre-fitted Router instance for routing benchmarks."""
@@ -197,20 +177,20 @@ def fitted_nordlys(
 
 @pytest.fixture
 def small_dataset(
-    benchmark_models: list[ModelConfig], small_training_data: pd.DataFrame
+    benchmark_models: list[str], small_training_data: pd.DataFrame
 ) -> Dataset:
     return _to_dataset(small_training_data, benchmark_models)
 
 
 @pytest.fixture
 def medium_dataset(
-    benchmark_models: list[ModelConfig], medium_training_data: pd.DataFrame
+    benchmark_models: list[str], medium_training_data: pd.DataFrame
 ) -> Dataset:
     return _to_dataset(medium_training_data, benchmark_models)
 
 
 @pytest.fixture
 def large_dataset(
-    benchmark_models: list[ModelConfig], large_training_data: pd.DataFrame
+    benchmark_models: list[str], large_training_data: pd.DataFrame
 ) -> Dataset:
     return _to_dataset(large_training_data, benchmark_models)

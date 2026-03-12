@@ -1,31 +1,31 @@
 """Simple example demonstrating the new Router API.
 
 This example shows how to:
-1. Define model configurations
+1. Define model IDs
 2. Create training data
 3. Fit a Router router
 4. Route prompts to optimal models
 5. Inspect clusters and metrics
 """
 
-from nordlys import Dataset, ModelConfig, Router, Trainer
+from nordlys import Dataset, Router, Trainer
 from nordlys.clustering import KMeansClusterer
 
 import numpy as np
 import pandas as pd
 
 # =============================================================================
-# 1. Define models with costs
+# 1. Define model IDs
 # =============================================================================
 models = [
-    ModelConfig(id="openai/gpt-4", cost_input=30.0, cost_output=60.0),
-    ModelConfig(id="anthropic/claude-3-sonnet", cost_input=15.0, cost_output=75.0),
-    ModelConfig(id="openai/gpt-3.5-turbo", cost_input=0.5, cost_output=1.5),
+    "openai/gpt-4",
+    "anthropic/claude-3-sonnet",
+    "openai/gpt-3.5-turbo",
 ]
 
 print("Models defined:")
 for m in models:
-    print(f"  - {m.id}: ${m.cost_average:.2f}/1M tokens")
+    print(f"  - {m}")
 
 # =============================================================================
 # 2. Create synthetic training data
@@ -128,14 +128,13 @@ print("Training checkpoint...")
 print("=" * 60)
 
 rows = []
-model_ids = [m.id for m in models]
 for idx, row in df.iterrows():
-    best_model = max(model_ids, key=lambda mid: float(row[mid]))
+    best_model = max(models, key=lambda mid: float(row[mid]))
     rows.append(
         {
             "id": str(idx),
             "input": str(row["questions"]),
-            "targets": {mid: int(mid == best_model) for mid in model_ids},
+            "targets": {mid: int(mid == best_model) for mid in models},
         }
     )
 

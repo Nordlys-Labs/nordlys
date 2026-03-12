@@ -16,7 +16,6 @@ from typing import Literal
 
 import numpy as np
 from cachetools import LRUCache
-from pydantic import BaseModel, Field
 from sentence_transformers import SentenceTransformer
 
 from nordlys.clustering import (
@@ -33,43 +32,6 @@ logger = logging.getLogger(__name__)
 # Constants
 DEFAULT_MAX_ITER = 300
 DEFAULT_N_INIT = 10
-
-
-class ModelConfig(BaseModel):
-    """Model configuration with costs for Router router.
-
-    This is a simplified version for the new Router API.
-    For the legacy API, use nordlys.models.config.ModelConfig.
-
-    Attributes:
-        id: Model identifier in "provider/model_name" format (e.g., "openai/gpt-4")
-        cost_input: Cost per 1M input tokens
-        cost_output: Cost per 1M output tokens
-    """
-
-    id: str = Field(..., min_length=1, description="Model ID (e.g., 'openai/gpt-4')")
-    cost_input: float = Field(..., ge=0, description="Cost per 1M input tokens")
-    cost_output: float = Field(..., ge=0, description="Cost per 1M output tokens")
-
-    @property
-    def cost_average(self) -> float:
-        """Average cost per 1M tokens."""
-        return (self.cost_input + self.cost_output) / 2
-
-    @property
-    def provider(self) -> str:
-        """Extract provider from model ID."""
-        provider, separator, _ = self.id.partition("/")
-        # If no slash found, separator is empty, so return empty string
-        return provider if separator else ""
-
-    @property
-    def model_name(self) -> str:
-        """Extract model name from model ID."""
-        _, _, model_name = self.id.partition("/")
-        return model_name if model_name else self.id
-
-    model_config = {"frozen": True}
 
 
 @dataclass
@@ -96,28 +58,14 @@ class Router:
     Use ``Trainer.fit(...)`` to create checkpoints; this class does not train.
 
     Example:
-        >>> from nordlys import Router, ModelConfig
-        >>> import pandas as pd
-        >>>
-        >>> # Define models with costs
-        >>> models = [
-        ...     ModelConfig(id="openai/gpt-4", cost_input=30.0, cost_output=60.0),
-        ...     ModelConfig(id="anthropic/claude-3-sonnet", cost_input=15.0, cost_output=75.0),
-        ... ]
-        >>>
-        >>> # Training data: DataFrame with "questions" + model accuracy columns
-        >>> df = pd.DataFrame({
-        ...     "questions": ["What is ML?", "Write code", "Explain databases"],
-        ...     "openai/gpt-4": [0.92, 0.85, 0.88],
-        ...     "anthropic/claude-3-sonnet": [0.88, 0.91, 0.85],
-        ... })
+        >>> from nordlys import Router
         >>>
         >>> # Load from checkpoint file
-        >>> model = Router(checkpoint="router.msgpack")
+        >>> router = Router(checkpoint="router.msgpack")
         >>>
-         >>> # Route prompts
-         >>> result = model.route("Explain quantum computing")
-         >>> print(f"Selected: {result.model_id}")
+        >>> # Route prompts
+        >>> result = router.route("Explain quantum computing")
+        >>> print(f"Selected: {result.model_id}")
     """
 
     def __init__(
@@ -134,14 +82,7 @@ class Router:
             device: Device for C++ core clustering operations ("cpu" or "cuda")
         """
         resolved_checkpoint = self._resolve_checkpoint(checkpoint)
-        models = [
-            ModelConfig(
-                id=m.model_id,
-                cost_input=m.cost_per_1m_input_tokens,
-                cost_output=m.cost_per_1m_output_tokens,
-            )
-            for m in resolved_checkpoint.models
-        ]
+        models = [m.model_id for m in resolved_checkpoint.models]
         embedding_model = resolved_checkpoint.embedding.model
         allow_trust_remote_code = resolved_checkpoint.embedding.trust_remote_code
 
@@ -154,7 +95,7 @@ class Router:
         self._device = device
 
         self._models = models
-        self._model_ids = [m.id for m in models]
+        self._model_ids = models
 
         # Embedding model - loaded at initialization
         self._embedding_model_name = embedding_model
@@ -507,7 +448,7 @@ class Router:
         self._centroids = np.asarray(checkpoint.cluster_centers, dtype=np.float32)
         self._model_accuracies = {
             cluster_id: {
-                model.model_id: 1.0 - model.error_rates[cluster_id]
+                model.model_id: model.scores[cluster_id]  # type: ignore[attr-defined]
                 for model in checkpoint.models
             }
             for cluster_id in range(checkpoint.clustering.n_clusters)

@@ -4,23 +4,23 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from nordlys import ModelConfig, Router, Trainer
+from nordlys import Router, Trainer
 from nordlys.clustering import KMeansClusterer
 from tests.utils.fake_embedder import FakeEmbedder, _to_dataset
 
 
 @pytest.fixture
-def three_models() -> list[ModelConfig]:
+def three_models() -> list[str]:
     """Standard 3-model setup for integration tests."""
     return [
-        ModelConfig(id="openai/gpt-4", cost_input=30.0, cost_output=60.0),
-        ModelConfig(id="openai/gpt-3.5-turbo", cost_input=0.5, cost_output=1.5),
-        ModelConfig(id="anthropic/claude-3-sonnet", cost_input=15.0, cost_output=75.0),
+        "openai/gpt-4",
+        "openai/gpt-3.5-turbo",
+        "anthropic/claude-3-sonnet",
     ]
 
 
 @pytest.fixture
-def training_data_100(three_models: list[ModelConfig]) -> pd.DataFrame:
+def training_data_100(three_models: list[str]) -> pd.DataFrame:
     """100 realistic questions with 3 model accuracy scores."""
     np.random.seed(42)
     n_samples = 100
@@ -131,9 +131,7 @@ def training_data_100(three_models: list[ModelConfig]) -> pd.DataFrame:
 
 
 @pytest.fixture
-def fitted_nordlys(
-    three_models: list[ModelConfig], training_data_100: pd.DataFrame
-) -> Router:
+def fitted_nordlys(three_models: list[str], training_data_100: pd.DataFrame) -> Router:
     """Pre-loaded Router instance for testing."""
     dataset = _to_dataset(training_data_100, three_models)
     trainer = Trainer(

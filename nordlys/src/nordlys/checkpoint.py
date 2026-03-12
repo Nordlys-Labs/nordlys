@@ -23,14 +23,12 @@ def build_checkpoint(
     clustering: dict[str, Any],
     reduction: ReductionPayload | None,
     metrics: dict[str, Any],
-    version: str = "3.0",
 ) -> NordlysCheckpoint:
     """Build a validated ``NordlysCheckpoint`` from normalized sections."""
     n_clusters = int(cluster_centers.shape[0])
     _validate_models(models=models, n_clusters=n_clusters)
 
     payload = {
-        "version": version,
         "cluster_centers": np.asarray(cluster_centers, dtype=np.float32).tolist(),
         "models": models,
         "embedding": embedding,
@@ -47,11 +45,10 @@ def _validate_models(*, models: list[dict[str, Any]], n_clusters: int) -> None:
 
     for model in models:
         model_id = str(model.get("model_id", ""))
-        error_rates = model.get("error_rates")
-        if not isinstance(error_rates, list):
-            raise ValueError(f"Model '{model_id}' missing error_rates list")
-        if len(error_rates) != n_clusters:
+        scores = model.get("scores")
+        if not isinstance(scores, list):
+            raise ValueError(f"Model '{model_id}' missing scores list")
+        if len(scores) != n_clusters:
             raise ValueError(
-                f"Model '{model_id}' has {len(error_rates)} error rates, "
-                f"expected {n_clusters}"
+                f"Model '{model_id}' has {len(scores)} scores, expected {n_clusters}"
             )
