@@ -24,7 +24,12 @@ Usage:
 
 from nordlys.dataset import Dataset
 from nordlys.router import Router, RouteResult
-from nordlys.trainer import Trainer
+from nordlys.trainer import (
+    EvaluationReport,
+    FittedStructure,
+    RoutingPolicy,
+    Trainer,
+)
 
 # Reduction components
 from nordlys import reduction
@@ -56,6 +61,10 @@ __all__ = [
     "Trainer",
     "Router",
     "RouteResult",
+    # Trainer types
+    "FittedStructure",
+    "RoutingPolicy",
+    "EvaluationReport",
     # C++ Core types
     "NordlysCheckpoint",
     "TrainingMetrics",

@@ -139,5 +139,5 @@ def fitted_nordlys(three_models: list[str], training_data_100: pd.DataFrame) -> 
         embedder=FakeEmbedder(),
         clusterer=KMeansClusterer(n_clusters=10, random_state=42),
     )
-    checkpoint = trainer.fit(dataset)
-    return Router(checkpoint=checkpoint)
+    fitted = trainer.fit_structure(dataset)
+    return trainer.compile(fitted, trainer.calibrate(fitted, dataset))

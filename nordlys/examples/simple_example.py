@@ -129,7 +129,7 @@ print("=" * 60)
 
 rows = []
 for idx, row in df.iterrows():
-    best_model = max(models, key=lambda mid: float(row[mid]))
+    best_model = max(models, key=lambda mid: float(row[mid] or 0))
     rows.append(
         {
             "id": str(idx),
@@ -143,8 +143,8 @@ trainer = Trainer(
     models=models,
     clusterer=KMeansClusterer(n_clusters=3, random_state=42),
 )
-checkpoint = trainer.fit(dataset)
-router = Router(checkpoint=checkpoint)
+fitted = trainer.fit_structure(dataset)
+router = trainer.compile(fitted, trainer.calibrate(fitted, dataset))
 
 print(f"\nFitted! {router}")
 
@@ -211,7 +211,10 @@ print("\n" + "=" * 60)
 print("Checkpoint I/O")
 print("=" * 60)
 
-# Save checkpoint to JSON directly
+# Save checkpoint to JSON directly (get from router's internal checkpoint)
+from nordlys_core import NordlysCheckpoint  # noqa: E402
+
+checkpoint = NordlysCheckpoint.from_json_string(router._checkpoint.to_json_string())
 checkpoint.to_json_file("/tmp/nordlys_example.json")
 print("Checkpoint saved to /tmp/nordlys_example.json")
 

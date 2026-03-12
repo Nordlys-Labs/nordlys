@@ -11,29 +11,105 @@ from nordlys.checkpoint import build_checkpoint
 from nordlys.clustering import Clusterer, KMeansClusterer, compute_cluster_metrics
 from nordlys.dataset import Dataset
 from nordlys.embeddings import Embedder, SentenceTransformers
-from nordlys.reduction import Reducer
+from nordlys.reduction import Reducer, restore_reducer
 from nordlys.reduction.base import ReductionPayload
-from nordlys_core import NordlysCheckpoint
+from nordlys.router import Router
+
+
+@dataclass(frozen=True)
+class FittedStructure:
+    """Result of learning task structure from data.
+
+    Attributes:
+        cluster_centers: Centroid vectors of shape (n_clusters, n_features)
+        n_clusters: Number of clusters
+        embedding_config: Embedding model configuration
+        clustering_config: Clustering algorithm configuration
+        reduction: Optional dimensionality reduction payload
+        metrics: Clustering quality metrics
+    """
+
+    cluster_centers: np.ndarray
+    n_clusters: int
+    embedding_config: dict
+    clustering_config: dict
+    reduction: ReductionPayload | None
+    metrics: dict
+
+    @property
+    def centroids(self) -> np.ndarray:
+        """Alias for cluster_centers for backwards compatibility."""
+        return self.cluster_centers
+
+
+@dataclass(frozen=True)
+class RoutingPolicy:
+    """Result of calibrating model quality per cluster.
+
+    Attributes:
+        scores: Dict mapping model_id to list of per-cluster scores (0-1, higher is better)
+        sample_counts: Number of calibration samples per cluster
+    """
+
+    scores: dict[str, list[float]]
+    sample_counts: list[int]
+
+    def model_scores(self, model_id: str) -> list[float]:
+        """Get scores for a specific model."""
+        return self.scores.get(model_id, [])
+
+    def best_model_per_cluster(self) -> list[str]:
+        """Get the best model (highest score) for each cluster."""
+        best = []
+        for cluster_idx in range(len(self.sample_counts)):
+            best_model = None
+            best_score = -1.0
+            for model_id, model_scores in self.scores.items():
+                if cluster_idx < len(model_scores):
+                    if model_scores[cluster_idx] > best_score:
+                        best_score = model_scores[cluster_idx]
+                        best_model = model_id
+            best.append(best_model if best_model is not None else "")
+        return best
+
+
+@dataclass(frozen=True)
+class EvaluationReport:
+    """Result of evaluating a router on held-out data.
+
+    Attributes:
+        routing_decisions: List of route results for each evaluation sample
+        metrics: Evaluation metrics such as accuracy
+    """
+
+    routing_decisions: list
+    metrics: dict
 
 
 @dataclass(frozen=True)
 class Trainer:
     """Train router checkpoints from Dataset objects.
 
-    Canonical path: ``Dataset -> Trainer.fit() -> NordlysCheckpoint``.
+    Canonical path: ``Trainer -> fit_clusters() / score_clusters() / build() -> Router``.
 
     Example:
         >>> from nordlys import Dataset, Trainer
         >>> from nordlys.clustering import KMeansClusterer
-        >>> dataset = Dataset.from_list([
-        ...     {"id": "1", "input": "Fix the parser", "targets": {"gpt-4": 1}},
+        >>> train_ds = Dataset.from_list([
+        ...     {"id": "1", "input": "Fix the parser"},
+        ... ])
+        >>> val_ds = Dataset.from_list([
+        ...     {"id": "2", "input": "Write tests", "targets": {"gpt-4": 1}},
         ... ])
         >>> # Pass your own clusterer
         >>> trainer = Trainer(
         ...     models=["gpt-4"],
         ...     clusterer=KMeansClusterer(n_clusters=10),
         ... )
-        >>> checkpoint = trainer.fit(dataset)
+        >>> fitted = trainer.fit_clusters(train_ds)
+        >>> scored = trainer.score_clusters(fitted, val_ds)
+        >>> router = trainer.build(fitted, scored)
+        >>> result = router.route("Explain quantum computing")
     """
 
     models: list[str]
@@ -54,9 +130,19 @@ class Trainer:
     allow_trust_remote_code: bool = False
     device: Literal["cpu", "cuda"] = "cpu"
 
-    def fit(self, dataset: Dataset) -> NordlysCheckpoint:
-        """Fit clustering pipeline and return a checkpoint."""
-        self._validate(dataset)
+    def fit_structure(self, dataset: Dataset) -> FittedStructure:
+        """Fit clustering on training data.
+
+        This is the first step in a split workflow where you cluster on one dataset
+        and score models on another.
+
+        Args:
+            dataset: Training dataset with 'id' and 'input' columns
+
+        Returns:
+            FittedClustering object containing cluster state
+        """
+        self._validate_fit_clusters(dataset)
 
         embedder = self._make_embedder()
         embeddings = embedder.encode(dataset.column(self.input_col))
@@ -69,13 +155,6 @@ class Trainer:
         labels = clusterer.labels_
         n_clusters = len(centroids)
 
-        scores = self._calc_scores(
-            labels,
-            dataset.column(self.target_col),
-            self.models,
-            n_clusters,
-        )
-
         inertia: float | None = None
         if isinstance(clusterer, KMeansClusterer):
             inertia = clusterer.inertia_
@@ -86,21 +165,11 @@ class Trainer:
             inertia,
         )
 
-        models_payload = [
-            {
-                "model_id": model_id,
-                "scores": scores[model_id],
-            }
-            for model_id in self.models
-        ]
-
-        return build_checkpoint(
+        return FittedStructure(
             cluster_centers=np.asarray(centroids, dtype=np.float32),
-            models=models_payload,
-            embedding={
-                **embedder.checkpoint_config(),
-            },
-            clustering={
+            n_clusters=n_clusters,
+            embedding_config=embedder.checkpoint_config(),
+            clustering_config={
                 "n_clusters": n_clusters,
                 "random_state": self.random_state,
                 "max_iter": 300,
@@ -116,6 +185,171 @@ class Trainer:
                 "inertia": metrics.inertia,
             },
         )
+
+    def assign_clusters(self, fitted: FittedStructure, dataset: Dataset) -> np.ndarray:
+        """Assign dataset instances to clusters using fitted centroids.
+
+        Uses nearest-centroid assignment.
+
+        Args:
+            fitted: Fitted clustering from fit_clusters()
+            dataset: Dataset with 'id' and 'input' columns
+
+        Returns:
+            Array of cluster assignments of shape (n_samples,)
+        """
+        embedder = self._make_embedder()
+        embeddings = embedder.encode(dataset.column(self.input_col))
+
+        # Apply the same reduction as used during fitting
+        reducer = restore_reducer(fitted.reduction)
+        if reducer is not None:
+            embeddings = reducer.transform(embeddings)
+
+        # Compute distances to centroids
+        # embeddings: (n_samples, n_features), centroids: (n_clusters, n_features)
+        # result: (n_samples, n_clusters)
+        centroids = fitted.cluster_centers
+        distances = np.sqrt(
+            np.sum(
+                (embeddings[:, np.newaxis, :] - centroids[np.newaxis, :, :]) ** 2,
+                axis=2,
+            )
+        )
+        labels = np.argmin(distances, axis=1)
+
+        return labels
+
+    def calibrate(self, fitted: FittedStructure, dataset: Dataset) -> RoutingPolicy:
+        """Calibrate routing policy using fitted structure and validation data.
+
+        This computes per-cluster model scores from calibration data.
+
+        Args:
+            fitted: Fitted structure from fit_structure()
+            dataset: Calibration dataset with 'id', 'input', and 'targets' columns
+
+        Returns:
+            RoutingPolicy object with per-cluster model scores
+        """
+        self._validate_score_clusters(dataset)
+
+        # Assign calibration data to clusters
+        labels = self.assign_clusters(fitted, dataset)
+
+        # Compute scores from assigned labels
+        targets = dataset.column(self.target_col)
+        n_clusters = fitted.n_clusters
+
+        scores = self._calc_scores(
+            labels,
+            targets,
+            self.models,
+            n_clusters,
+        )
+
+        # Compute sample counts per cluster
+        sample_counts = [0] * n_clusters
+        for label in labels:
+            if 0 <= label < n_clusters:
+                sample_counts[label] += 1
+
+        return RoutingPolicy(
+            scores=scores,
+            sample_counts=sample_counts,
+        )
+
+    def compile(self, fitted: FittedStructure, policy: RoutingPolicy) -> Router:
+        """Compile a router from structure and policy.
+
+        Args:
+            fitted: Fitted structure from fit_structure()
+            policy: Routing policy from calibrate()
+
+        Returns:
+            Router ready for routing
+        """
+        models_payload = [
+            {
+                "model_id": model_id,
+                "scores": policy.scores[model_id],
+            }
+            for model_id in self.models
+        ]
+
+        checkpoint = build_checkpoint(
+            cluster_centers=fitted.cluster_centers,
+            models=models_payload,
+            embedding=fitted.embedding_config,
+            clustering=fitted.clustering_config,
+            reduction=fitted.reduction,
+            metrics=fitted.metrics,
+        )
+
+        return Router(checkpoint=checkpoint, device=self.device)
+
+    def fit_router(
+        self, structure_dataset: Dataset, calibration_dataset: Dataset
+    ) -> Router:
+        """Convenience method: fit structure, calibrate, compile.
+
+        Args:
+            structure_dataset: Dataset for learning task structure
+            calibration_dataset: Dataset for calibrating model quality per cluster
+
+        Returns:
+            Router ready for routing
+        """
+        fitted = self.fit_structure(structure_dataset)
+        policy = self.calibrate(fitted, calibration_dataset)
+        return self.compile(fitted, policy)
+
+    def _validate_fit_clusters(self, dataset: Dataset) -> None:
+        """Validate dataset for fit_clusters step."""
+        if not self.models:
+            raise ValueError("At least one model is required")
+
+        errors = dataset.validate_schema(
+            required_columns=["id", self.input_col],
+            check_unique_ids=True,
+        )
+        if errors:
+            raise ValueError(f"Dataset validation failed: {errors}")
+
+    def _validate_score_clusters(self, dataset: Dataset) -> None:
+        """Validate dataset for score_clusters step."""
+        allowed_model_ids = set(self.models)
+
+        errors = dataset.validate_schema(
+            required_columns=["id", self.input_col, self.target_col],
+            check_unique_ids=True,
+        )
+        if errors:
+            raise ValueError(f"Dataset validation failed: {errors}")
+
+        targets = dataset.column(self.target_col)
+        target_errors: list[str] = []
+        for idx, value in enumerate(targets):
+            if value is None:
+                continue
+            if not isinstance(value, dict):
+                target_errors.append(f"Row {idx}: targets must be a dict")
+                continue
+            for model_id, score in value.items():
+                if model_id not in allowed_model_ids:
+                    target_errors.append(
+                        f"Row {idx}: unknown model_id '{model_id}'. "
+                        f"Allowed model IDs: {sorted(allowed_model_ids)}"
+                    )
+                if not isinstance(model_id, str):
+                    target_errors.append(f"Row {idx}: model_id must be str")
+                if not isinstance(score, (int, float)):
+                    target_errors.append(
+                        f"Row {idx}: target for {model_id} must be numeric"
+                    )
+
+        if target_errors:
+            raise ValueError(f"Dataset validation failed: {target_errors}")
 
     def _validate(self, dataset: Dataset) -> None:
         if not self.models:

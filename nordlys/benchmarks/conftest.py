@@ -171,8 +171,9 @@ def fitted_nordlys(
         embedder=FakeEmbedder(),
         clusterer=KMeansClusterer(n_clusters=10, random_state=42),
     )
-    checkpoint = trainer.fit(_to_dataset(small_training_data, benchmark_models))
-    return Router(checkpoint=checkpoint)
+    ds = _to_dataset(small_training_data, benchmark_models)
+    fitted = trainer.fit_structure(ds)
+    return trainer.compile(fitted, trainer.calibrate(fitted, ds))
 
 
 @pytest.fixture

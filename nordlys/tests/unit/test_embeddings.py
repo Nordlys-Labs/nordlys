@@ -102,7 +102,11 @@ class TestTrainerEmbedder:
             clusterer=KMeansClusterer(n_clusters=1, random_state=42),
         )
 
-        checkpoint = trainer.fit(dataset)
+        fitted = trainer.fit_structure(dataset)
+        policy = trainer.calibrate(fitted, dataset)
 
-        assert checkpoint is not None
-        assert embedder.calls == 1
+        # Check embedder was used during fitting and calibration
+        # (embedder is called once for fit_structure, once for calibrate's assign_clusters)
+        assert embedder.calls == 2
+        assert fitted is not None
+        assert policy is not None

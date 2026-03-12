@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from nordlys import Dataset, Router, Trainer
+from nordlys import Dataset, Trainer
 from nordlys.clustering import HDBSCANClusterer, KMeansClusterer
 
 
@@ -181,9 +181,9 @@ class TestTrainerFit:
     ) -> None:
         """HDBSCAN on medium dataset."""
         trainer = Trainer(models=trainer_models, clusterer=test_hdbscan_clusterer)
-        checkpoint = trainer.fit(medium_dataset)
-        assert checkpoint is not None
-        assert len(checkpoint.cluster_centers) > 0
+        fitted = trainer.fit_structure(medium_dataset)
+        assert fitted is not None
+        assert fitted.n_clusters > 0
 
     def test_fit_with_kmeans_large(
         self, trainer_models: list[str], large_dataset: Dataset
@@ -193,8 +193,8 @@ class TestTrainerFit:
             models=trainer_models,
             clusterer=KMeansClusterer(n_clusters=10, random_state=42),
         )
-        checkpoint = trainer.fit(large_dataset)
-        assert len(checkpoint.cluster_centers) == 10
+        fitted = trainer.fit_structure(large_dataset)
+        assert fitted.n_clusters == 10
 
     def test_fit_with_custom_clusterer(
         self, trainer_models: list[str], large_dataset: Dataset
@@ -204,8 +204,8 @@ class TestTrainerFit:
             models=trainer_models,
             clusterer=KMeansClusterer(n_clusters=5, random_state=42),
         )
-        checkpoint = trainer.fit(large_dataset)
-        assert len(checkpoint.cluster_centers) == 5
+        fitted = trainer.fit_structure(large_dataset)
+        assert fitted.n_clusters == 5
 
 
 class TestTrainerValidation:
@@ -214,7 +214,7 @@ class TestTrainerValidation:
         trainer = Trainer(models=[])
         dataset = Dataset.from_list([{"id": "1", "input": "test", "targets": {"a": 1}}])
         with pytest.raises(ValueError, match="At least one model"):
-            trainer.fit(dataset)
+            trainer.fit_structure(dataset)
 
     def test_missing_input_column_raises(self, trainer_models: list[str]) -> None:
         """Test that missing input column raises."""
@@ -223,7 +223,7 @@ class TestTrainerValidation:
         )
         trainer = Trainer(models=trainer_models)
         with pytest.raises(ValueError, match="Dataset validation failed"):
-            trainer.fit(dataset)
+            trainer.fit_structure(dataset)
 
 
 class TestTrainerCheckpoint:
@@ -234,8 +234,8 @@ class TestTrainerCheckpoint:
         test_hdbscan_clusterer: HDBSCANClusterer,
     ) -> None:
         trainer = Trainer(models=trainer_models, clusterer=test_hdbscan_clusterer)
-        checkpoint = trainer.fit(medium_dataset)
-        assert len(checkpoint.cluster_centers) > 0
+        fitted = trainer.fit_structure(medium_dataset)
+        assert fitted.n_clusters > 0
 
     def test_checkpoint_has_models(
         self,
@@ -244,8 +244,9 @@ class TestTrainerCheckpoint:
         test_hdbscan_clusterer: HDBSCANClusterer,
     ) -> None:
         trainer = Trainer(models=trainer_models, clusterer=test_hdbscan_clusterer)
-        checkpoint = trainer.fit(medium_dataset)
-        assert len(checkpoint.models) == len(trainer_models)
+        fitted = trainer.fit_structure(medium_dataset)
+        scored = trainer.calibrate(fitted, medium_dataset)
+        assert len(scored.scores) == len(trainer_models)
 
     def test_checkpoint_scores_shape(
         self,
@@ -254,10 +255,11 @@ class TestTrainerCheckpoint:
         test_hdbscan_clusterer: HDBSCANClusterer,
     ) -> None:
         trainer = Trainer(models=trainer_models, clusterer=test_hdbscan_clusterer)
-        checkpoint = trainer.fit(medium_dataset)
-        n_clusters = len(checkpoint.cluster_centers)
-        for model in checkpoint.models:
-            assert len(model.scores) == n_clusters
+        fitted = trainer.fit_structure(medium_dataset)
+        scored = trainer.calibrate(fitted, medium_dataset)
+        n_clusters = fitted.n_clusters
+        for model_scores in scored.scores.values():
+            assert len(model_scores) == n_clusters
 
 
 class TestTrainerRouterIntegration:
@@ -268,8 +270,8 @@ class TestTrainerRouterIntegration:
         test_hdbscan_clusterer: HDBSCANClusterer,
     ) -> None:
         trainer = Trainer(models=trainer_models, clusterer=test_hdbscan_clusterer)
-        checkpoint = trainer.fit(medium_dataset)
-        router = Router(checkpoint=checkpoint, device="cpu")
+        fitted = trainer.fit_structure(medium_dataset)
+        router = trainer.compile(fitted, trainer.calibrate(fitted, medium_dataset))
         result = router.route("Explain backtracking with example")
         assert result.model_id in set(trainer_models)
 
@@ -280,8 +282,8 @@ class TestTrainerRouterIntegration:
             models=trainer_models,
             clusterer=KMeansClusterer(n_clusters=10, random_state=42),
         )
-        checkpoint = trainer.fit(large_dataset)
-        router = Router(checkpoint=checkpoint, device="cpu")
+        fitted = trainer.fit_structure(large_dataset)
+        router = trainer.compile(fitted, trainer.calibrate(fitted, large_dataset))
         prompts = ["Explain quantum", "Write code", "What is ML?"]
         results = router.route_batch(prompts)
         assert len(results) == 3
@@ -297,8 +299,8 @@ class TestTrainerHyperparameters:
             models=trainer_models,
             clusterer=HDBSCANClusterer(min_cluster_size=10, min_samples=3),
         )
-        checkpoint = trainer.fit(medium_dataset)
-        assert checkpoint is not None
+        fitted = trainer.fit_structure(medium_dataset)
+        assert fitted is not None
 
     def test_kmeans_params(
         self, trainer_models: list[str], large_dataset: Dataset
@@ -312,8 +314,8 @@ class TestTrainerHyperparameters:
                 random_state=42,
             ),
         )
-        checkpoint = trainer.fit(large_dataset)
-        assert len(checkpoint.cluster_centers) == 15
+        fitted = trainer.fit_structure(large_dataset)
+        assert fitted.n_clusters == 15
 
     def test_reducer_serialized(
         self, trainer_models: list[str], large_dataset: Dataset
@@ -326,11 +328,10 @@ class TestTrainerHyperparameters:
             clusterer=KMeansClusterer(n_clusters=8, random_state=42),
             reducer=PCAReducer(n_components=8, random_state=42),
         )
-        checkpoint = trainer.fit(large_dataset)
+        fitted = trainer.fit_structure(large_dataset)
 
-        assert checkpoint.reduction is not None
-        assert checkpoint.reduction.kind == "pca"
-        assert checkpoint.feature_dim == 8
+        assert fitted.reduction is not None
+        assert fitted.reduction.kind == "pca"
 
     def test_router_restores_reducer(
         self, trainer_models: list[str], large_dataset: Dataset
@@ -343,12 +344,11 @@ class TestTrainerHyperparameters:
             clusterer=KMeansClusterer(n_clusters=8, random_state=42),
             reducer=PCAReducer(n_components=8, random_state=42),
         )
-        checkpoint = trainer.fit(large_dataset)
-
-        router = Router(checkpoint=checkpoint, device="cpu")
+        fitted = trainer.fit_structure(large_dataset)
+        router = trainer.compile(fitted, trainer.calibrate(fitted, large_dataset))
         result = router.route("Explain backtracking with example")
 
-        assert checkpoint.reduction is not None
+        assert fitted.reduction is not None
         assert result.model_id in set(trainer_models)
 
 
@@ -366,6 +366,8 @@ class TestTrainerDeterminism:
             clusterer=KMeansClusterer(n_clusters=10, random_state=42),
             random_state=42,
         )
-        cp1 = trainer1.fit(large_dataset)
-        cp2 = trainer2.fit(large_dataset)
-        np.testing.assert_array_almost_equal(cp1.cluster_centers, cp2.cluster_centers)
+        fitted1 = trainer1.fit_structure(large_dataset)
+        fitted2 = trainer2.fit_structure(large_dataset)
+        np.testing.assert_array_almost_equal(
+            fitted1.cluster_centers, fitted2.cluster_centers
+        )

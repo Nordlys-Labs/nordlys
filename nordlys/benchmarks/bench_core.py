@@ -8,14 +8,14 @@ from nordlys.clustering import KMeansClusterer
 
 @pytest.mark.benchmark
 def bench_fit_small(benchmark, benchmark_models, small_dataset):
-    """Benchmark Trainer.fit() with small dataset (~100 samples)."""
+    """Benchmark Trainer.fit_structure() with small dataset (~100 samples)."""
 
     def _fit():
         trainer = Trainer(
             models=benchmark_models,
             clusterer=KMeansClusterer(n_clusters=10, random_state=42),
         )
-        return trainer.fit(small_dataset)
+        return trainer.fit_structure(small_dataset)
 
     result = benchmark(_fit)
     assert result is not None
@@ -23,14 +23,14 @@ def bench_fit_small(benchmark, benchmark_models, small_dataset):
 
 @pytest.mark.benchmark
 def bench_fit_medium(benchmark, benchmark_models, medium_dataset):
-    """Benchmark Trainer.fit() with medium dataset (~1000 samples)."""
+    """Benchmark Trainer.fit_structure() with medium dataset (~1000 samples)."""
 
     def _fit():
         trainer = Trainer(
             models=benchmark_models,
             clusterer=KMeansClusterer(n_clusters=20, random_state=42),
         )
-        return trainer.fit(medium_dataset)
+        return trainer.fit_structure(medium_dataset)
 
     result = benchmark(_fit)
     assert result is not None
@@ -38,14 +38,14 @@ def bench_fit_medium(benchmark, benchmark_models, medium_dataset):
 
 @pytest.mark.benchmark
 def bench_fit_large(benchmark, benchmark_models, large_dataset):
-    """Benchmark Trainer.fit() with large dataset (~10000 samples)."""
+    """Benchmark Trainer.fit_structure() with large dataset (~10000 samples)."""
 
     def _fit():
         trainer = Trainer(
             models=benchmark_models,
             clusterer=KMeansClusterer(n_clusters=30, random_state=42),
         )
-        return trainer.fit(large_dataset)
+        return trainer.fit_structure(large_dataset)
 
     result = benchmark(_fit)
     assert result is not None
