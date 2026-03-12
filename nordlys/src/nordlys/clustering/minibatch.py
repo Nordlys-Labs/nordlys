@@ -1,0 +1,134 @@
+"""MiniBatch K-Means clusterer."""
+
+from __future__ import annotations
+
+import numpy as np
+from sklearn.cluster import MiniBatchKMeans
+
+from nordlys.clustering.base import Clusterer
+
+
+class MiniBatchKMeansClusterer(Clusterer):
+    """Mini-Batch K-Means clustering wrapper.
+
+    Thin wrapper over sklearn.cluster.MiniBatchKMeans.
+    Useful for large datasets where full K-Means is too slow.
+
+    Example:
+        >>> clusterer = MiniBatchKMeansClusterer(n_clusters=20)
+        >>> clusterer.fit(embeddings)
+        >>> labels = clusterer.predict(new_embeddings)
+    """
+
+    def __init__(
+        self,
+        n_clusters: int = 20,
+        max_iter: int = 100,
+        batch_size: int = 1024,
+        random_state: int = 42,
+        init_size: int | None = None,
+        max_no_improvement: int | None = None,
+        reassignment_ratio: float = 0.01,
+        **kwargs,
+    ) -> None:
+        """Initialize MiniBatchKMeans clusterer.
+
+        Args:
+            n_clusters: Number of clusters (default: 20)
+            max_iter: Maximum iterations per run (default: 100)
+            batch_size: Size of mini-batches (default: 1024)
+            random_state: Random seed for reproducibility (default: 42)
+            init_size: Number of samples to use for initialization (default: 3 * batch_size)
+            max_no_improvement: Stop if no improvement for N iterations (default: None)
+            reassignment_ratio: Control random cluster reassignments (default: 0.01)
+            **kwargs: Additional arguments passed to MiniBatchKMeans
+        """
+        self.n_clusters = n_clusters
+        self.max_iter = max_iter
+        self.batch_size = batch_size
+        self.random_state = random_state
+        self.init_size = init_size
+        self.max_no_improvement = max_no_improvement
+        self.reassignment_ratio = reassignment_ratio
+        self._kwargs = kwargs
+        self._model: MiniBatchKMeans | None = None
+
+    def _create_model(self) -> MiniBatchKMeans:
+        """Create the underlying MiniBatchKMeans model."""
+        return MiniBatchKMeans(
+            n_clusters=self.n_clusters,
+            max_iter=self.max_iter,
+            batch_size=self.batch_size,
+            random_state=self.random_state,
+            init_size=self.init_size,
+            max_no_improvement=self.max_no_improvement,
+            reassignment_ratio=self.reassignment_ratio,
+            **self._kwargs,
+        )
+
+    def fit(self, embeddings: np.ndarray) -> "MiniBatchKMeansClusterer":
+        """Fit the clusterer on embeddings.
+
+        Args:
+            embeddings: Input embeddings of shape (n_samples, n_features)
+
+        Returns:
+            Self
+        """
+        self._model = self._create_model()
+        self._model.fit(embeddings)
+        return self
+
+    def predict(self, embeddings: np.ndarray) -> np.ndarray:
+        """Predict cluster assignments for embeddings.
+
+        Args:
+            embeddings: Input embeddings of shape (n_samples, n_features)
+
+        Returns:
+            Cluster assignments of shape (n_samples,)
+        """
+        if self._model is None:
+            raise RuntimeError(
+                "Clusterer must be fitted before predict. Call fit() first."
+            )
+        return self._model.predict(embeddings)
+
+    def fit_predict(self, embeddings: np.ndarray) -> np.ndarray:
+        """Fit the clusterer and predict cluster assignments.
+
+        Args:
+            embeddings: Input embeddings of shape (n_samples, n_features)
+
+        Returns:
+            Cluster assignments of shape (n_samples,)
+        """
+        self.fit(embeddings)
+        assert self._model is not None
+        labels = self._model.labels_
+        assert labels is not None
+        return labels
+
+    @property
+    def cluster_centers_(self) -> np.ndarray:
+        """Cluster centers of shape (n_clusters, n_features)."""
+        if self._model is None:
+            raise RuntimeError("Clusterer must be fitted first.")
+        return self._model.cluster_centers_
+
+    @property
+    def labels_(self) -> np.ndarray:
+        """Labels assigned during fit() of shape (n_samples,)."""
+        if self._model is None:
+            raise RuntimeError("Clusterer must be fitted first.")
+        labels = self._model.labels_
+        assert labels is not None
+        return labels
+
+    @property
+    def n_clusters_(self) -> int:
+        """Number of clusters found."""
+        return self.n_clusters
+
+    def __repr__(self) -> str:
+        return f"MiniBatchKMeansClusterer(n_clusters={self.n_clusters})"
