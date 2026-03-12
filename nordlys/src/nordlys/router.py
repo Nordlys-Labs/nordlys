@@ -448,7 +448,7 @@ class Router:
         self._centroids = np.asarray(checkpoint.cluster_centers, dtype=np.float32)
         self._model_accuracies = {
             cluster_id: {
-                model.model_id: 1.0 - model.error_rates[cluster_id]
+                model.model_id: model.scores[cluster_id]  # type: ignore[attr-defined]
                 for model in checkpoint.models
             }
             for cluster_id in range(checkpoint.clustering.n_clusters)
