@@ -18,31 +18,26 @@ std::vector<ModelScore> ModelScorer::score_models(int cluster_id,
   std::vector<ModelScore> scores;
   scores.reserve(models.size());
 
-  // Compute scores based on error rate only
+  // Compute scores - higher is better
   for (const auto& model : models) {
-    if (cluster_id >= static_cast<int>(model.error_rates.size())) {
+    if (cluster_id >= static_cast<int>(model.scores.size())) {
       throw std::invalid_argument(
-          std::format("cluster_id {} is out of bounds for model '{}' which has {} error rates",
-                      cluster_id, model.model_id, model.error_rates.size()));
+          std::format("cluster_id {} is out of bounds for model '{}' which has {} scores",
+                      cluster_id, model.model_id, model.scores.size()));
     }
 
-    float error_rate = model.error_rates[static_cast<std::size_t>(cluster_id)];
-    float cost = model.cost_per_1m_tokens();
+    float score = model.scores[static_cast<std::size_t>(cluster_id)];
 
     // Use string_view to avoid string copy - ModelFeatures are owned by Nordlys
     // and will outlive the scores vector. The string_view references the model_id
     // in the owned ModelFeatures, avoiding a copy until RouteResult is created.
     scores.emplace_back(
         ModelScore{.model_id = model.model_id,  // string_view from owned ModelFeatures (no copy)
-                   .score = error_rate,         // score = error_rate (lower is better)
-                   .error_rate = error_rate,
-                   .accuracy = 1.0f - error_rate,
-                   .cost = cost,
-                   .normalized_cost = 0.0f});  // normalized_cost not used anymore
+                   .score = score});            // higher is better
   }
 
-  // Sort by score (error_rate) - lower is better
-  std::ranges::sort(scores, {}, &ModelScore::score);
+  // Sort by score descending - higher is better
+  std::ranges::sort(scores, std::greater<float>{}, &ModelScore::score);
 
   return scores;
 }

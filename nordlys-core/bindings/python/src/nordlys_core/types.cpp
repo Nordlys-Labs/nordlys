@@ -52,14 +52,9 @@ void register_types(nb::module_& m) {
               "Reducer fitted state serialized as JSON");
 
   // ModelFeatures type
-  nb::class_<ModelFeatures>(m, "ModelFeatures", "Model configuration with error rates")
+  nb::class_<ModelFeatures>(m, "ModelFeatures", "Model configuration with scores")
       .def_ro("model_id", &ModelFeatures::model_id, "Full model ID (e.g., 'openai/gpt-4')")
-      .def_ro("error_rates", &ModelFeatures::error_rates, "Per-cluster error rates")
-      .def_ro("cost_per_1m_input_tokens", &ModelFeatures::cost_per_1m_input_tokens,
-              "Cost per 1M input tokens")
-      .def_ro("cost_per_1m_output_tokens", &ModelFeatures::cost_per_1m_output_tokens,
-              "Cost per 1M output tokens")
+      .def_ro("scores", &ModelFeatures::scores, "Per-cluster scores (higher is better)")
       .def("provider", &ModelFeatures::provider, "Extract provider from model_id")
-      .def("model_name", &ModelFeatures::model_name, "Extract model name from model_id")
-      .def("cost_per_1m_tokens", &ModelFeatures::cost_per_1m_tokens, "Average cost per 1M tokens");
+      .def("model_name", &ModelFeatures::model_name, "Extract model name from model_id");
 }

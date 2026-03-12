@@ -51,9 +51,6 @@ void register_checkpoint(nb::module_& m) {
       // Validation
       .def("validate", &NordlysCheckpoint::validate, "Validate checkpoint data integrity")
 
-      // Version
-      .def_ro("version", &NordlysCheckpoint::version, "Checkpoint format version")
-
       // Core data - convert Matrix to ndarray for Python
       .def_prop_ro(
           "cluster_centers",

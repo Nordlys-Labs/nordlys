@@ -6,18 +6,12 @@
 
 struct ModelScore {
   std::string_view model_id;  // References model_id in owned ModelFeatures (no copy)
-  float score;
-  float error_rate;
-  float accuracy;
-  float cost;
-  float normalized_cost;
+  float score;                // Per-cluster score (higher is better)
 };
 
 struct ModelFeatures {
   std::string model_id;            // e.g., "openai/gpt-4" (single source of truth)
-  std::vector<float> error_rates;  // Per-cluster error rates
-  float cost_per_1m_input_tokens;
-  float cost_per_1m_output_tokens;
+  std::vector<float> scores;       // Per-cluster scores (higher is better)
 
   // Utility methods (computed, not serialized)
   [[nodiscard]] std::string provider() const {
@@ -28,11 +22,6 @@ struct ModelFeatures {
   [[nodiscard]] std::string model_name() const {
     auto pos = model_id.find('/');
     return pos != std::string::npos ? model_id.substr(pos + 1) : model_id;
-  }
-
-  // Average cost per 1M tokens
-  [[nodiscard]] constexpr float cost_per_1m_tokens() const noexcept {
-    return (cost_per_1m_input_tokens + cost_per_1m_output_tokens) / 2.0f;
   }
 };
 
@@ -47,7 +36,7 @@ public:
   ModelScorer(const ModelScorer&) = delete;
   ModelScorer& operator=(const ModelScorer&) = delete;
 
-  // Score and rank models for a given cluster by error rate
+  // Score and rank models for a given cluster by score (higher is better)
   [[nodiscard]] std::vector<ModelScore> score_models(int cluster_id,
                                                      std::span<const ModelFeatures> models) const;
 };

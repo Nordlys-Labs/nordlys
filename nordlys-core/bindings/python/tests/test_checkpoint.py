@@ -57,7 +57,6 @@ class TestNordlysCheckpointCreation:
             NordlysCheckpoint.from_json_string("not valid json")
 
 
-
 class TestNordlysCheckpointSerialization:
     """Test NordlysCheckpoint serialization methods."""
 
@@ -186,12 +185,10 @@ class TestNordlysCheckpointProperties:
         # Access individual model properties
         for model in models:
             assert hasattr(model, "model_id")
-            assert hasattr(model, "error_rates")
-            assert hasattr(model, "cost_per_1m_input_tokens")
-            assert hasattr(model, "cost_per_1m_output_tokens")
+            assert hasattr(model, "scores")
 
     def test_model_features_properties(self, sample_checkpoint_json: str):
-        """Test accessing ModelFeatures properties including error_rates vector."""
+        """Test accessing ModelFeatures properties including scores vector."""
         from nordlys_core import NordlysCheckpoint
 
         checkpoint = NordlysCheckpoint.from_json_string(sample_checkpoint_json)
@@ -200,8 +197,8 @@ class TestNordlysCheckpointProperties:
         model = checkpoint.models[0]
         assert isinstance(model.model_id, str)
 
-        # Access error_rates - this will fail if vector.h is missing
-        error_rates = model.error_rates
-        assert len(error_rates) == checkpoint.n_clusters
-        assert all(isinstance(rate, float) for rate in error_rates)
-        assert all(0.0 <= rate <= 1.0 for rate in error_rates)
+        # Access scores - this will fail if vector.h is missing
+        scores = model.scores
+        assert len(scores) == checkpoint.n_clusters
+        assert all(isinstance(rate, float) for rate in scores)
+        assert all(0.0 <= rate <= 1.0 for rate in scores)

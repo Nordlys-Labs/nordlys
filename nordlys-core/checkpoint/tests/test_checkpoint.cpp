@@ -16,7 +16,6 @@
 #pragma GCC diagnostic ignored "-Wunused-result"
 
 static const char* kTestCheckpointJson = R"({
-  "version": "3.0",
   "cluster_centers": [
     [1.0, 0.0, 0.0, 0.0],
     [0.0, 1.0, 0.0, 0.0],
@@ -25,21 +24,15 @@ static const char* kTestCheckpointJson = R"({
   "models": [
     {
       "model_id": "openai/gpt-4",
-      "cost_per_1m_input_tokens": 30.0,
-      "cost_per_1m_output_tokens": 60.0,
-      "error_rates": [0.1, 0.05, 0.15]
+      "scores": [0.1, 0.05, 0.15]
     },
     {
       "model_id": "anthropic/claude",
-      "cost_per_1m_input_tokens": 15.0,
-      "cost_per_1m_output_tokens": 45.0,
-      "error_rates": [0.08, 0.12, 0.06]
+      "scores": [0.08, 0.12, 0.06]
     },
     {
       "model_id": "google/gemini-pro",
-      "cost_per_1m_input_tokens": 0.5,
-      "cost_per_1m_output_tokens": 1.5,
-      "error_rates": [0.2, 0.18, 0.25]
+      "scores": [0.2, 0.18, 0.25]
     }
   ],
   "embedding": {
@@ -87,13 +80,9 @@ TEST_F(ProfileTest, RoundTripJson) {
   EXPECT_EQ(loaded.models.size(), test_profile.models.size());
   for (size_t i = 0; i < loaded.models.size(); ++i) {
     EXPECT_EQ(loaded.models[i].model_id, test_profile.models[i].model_id);
-    EXPECT_FLOAT_EQ(loaded.models[i].cost_per_1m_input_tokens,
-                    test_profile.models[i].cost_per_1m_input_tokens);
-    EXPECT_FLOAT_EQ(loaded.models[i].cost_per_1m_output_tokens,
-                    test_profile.models[i].cost_per_1m_output_tokens);
-    EXPECT_EQ(loaded.models[i].error_rates.size(), test_profile.models[i].error_rates.size());
-    for (size_t j = 0; j < loaded.models[i].error_rates.size(); ++j) {
-      EXPECT_FLOAT_EQ(loaded.models[i].error_rates[j], test_profile.models[i].error_rates[j]);
+    EXPECT_EQ(loaded.models[i].scores.size(), test_profile.models[i].scores.size());
+    for (size_t j = 0; j < loaded.models[i].scores.size(); ++j) {
+      EXPECT_FLOAT_EQ(loaded.models[i].scores[j], test_profile.models[i].scores[j]);
     }
   }
 }
@@ -117,7 +106,7 @@ TEST_F(ProfileTest, RoundTripMsgpack) {
   EXPECT_EQ(loaded.models.size(), test_profile.models.size());
   for (size_t i = 0; i < loaded.models.size(); ++i) {
     EXPECT_EQ(loaded.models[i].model_id, test_profile.models[i].model_id);
-    EXPECT_EQ(loaded.models[i].error_rates.size(), test_profile.models[i].error_rates.size());
+    EXPECT_EQ(loaded.models[i].scores.size(), test_profile.models[i].scores.size());
   }
 }
 
@@ -152,15 +141,11 @@ TEST_F(ProfileTest, Validation) {
   EXPECT_THROW(invalid_profile.validate(), std::invalid_argument);
 
   invalid_profile = test_profile;
-  invalid_profile.models[0].error_rates.resize(2);
+  invalid_profile.models[0].scores.resize(2);
   EXPECT_THROW(invalid_profile.validate(), std::invalid_argument);
 
   invalid_profile = test_profile;
-  invalid_profile.models[0].error_rates[0] = 1.5f;
-  EXPECT_THROW(invalid_profile.validate(), std::invalid_argument);
-
-  invalid_profile = test_profile;
-  invalid_profile.models[0].cost_per_1m_input_tokens = -1.0f;
+  invalid_profile.models[0].scores[0] = 1.5f;
   EXPECT_THROW(invalid_profile.validate(), std::invalid_argument);
 }
 
@@ -169,17 +154,15 @@ TEST_F(ProfileTest, InvalidJsonParsing) {
   EXPECT_THROW(NordlysCheckpoint::from_json_string(invalid_json), std::exception);
 
   std::string missing_embedding = R"({
-    "version": "3.0",
     "cluster_centers": [[1.0]],
-    "models": [{"model_id": "test/model", "cost_per_1m_input_tokens": 1.0, "cost_per_1m_output_tokens": 1.0, "error_rates": [0.1]}],
+    "models": [{"model_id": "test/model", "scores": [0.1]}],
     "clustering": {"n_clusters": 1}
   })";
   EXPECT_THROW(NordlysCheckpoint::from_json_string(missing_embedding), std::exception);
 
   std::string bad_centers = R"({
-    "version": "3.0",
     "cluster_centers": "not_an_array",
-    "models": [{"model_id": "test/model", "cost_per_1m_input_tokens": 1.0, "cost_per_1m_output_tokens": 1.0, "error_rates": [0.1]}],
+    "models": [{"model_id": "test/model", "scores": [0.1]}],
     "embedding": {"model": "test"},
     "clustering": {"n_clusters": 1}
   })";
@@ -238,11 +221,10 @@ TEST_F(ProfileTest, MoveAssignment) {
 
 TEST_F(ProfileTest, LargeNumberOfModels) {
   std::stringstream ss;
-  ss << R"({"version": "3.0", "cluster_centers": [[1.0, 0.0]], "models": [)";
+  ss << R"({"cluster_centers": [[1.0, 0.0]], "models": [)";
   for (int i = 0; i < 100; ++i) {
     if (i > 0) ss << ",";
-    ss << R"({"model_id": "provider/model)" << i << R"(", "cost_per_1m_input_tokens": )" << i
-       << R"(, "cost_per_1m_output_tokens": )" << (i * 2) << R"(, "error_rates": [0.01]})";
+    ss << R"({"model_id": "provider/model)" << i << R"(", "scores": [0.01]})";
   }
   ss << R"(], "embedding": {"model": "test", "trust_remote_code": false}, )"
      << R"("clustering": {"n_clusters": 1, "random_state": 42, "max_iter": 300, "n_init": 10, "algorithm": "lloyd", "normalization": "l2"}, )"
@@ -256,7 +238,7 @@ TEST_F(ProfileTest, LargeNumberOfModels) {
 
 TEST_F(ProfileTest, ValidationErrorRateOutOfRange) {
   NordlysCheckpoint invalid_profile = test_profile;
-  invalid_profile.models[0].error_rates[0] = -0.1f;
+  invalid_profile.models[0].scores[0] = -0.1f;
   EXPECT_THROW(invalid_profile.validate(), std::invalid_argument);
 }
 

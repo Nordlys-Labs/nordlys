@@ -93,17 +93,12 @@ void from_json(const json& j, ReductionConfig& c) {
 }
 
 void to_json(json& j, const ModelFeatures& f) {
-  j = {{"model_id", f.model_id},
-       {"cost_per_1m_input_tokens", f.cost_per_1m_input_tokens},
-       {"cost_per_1m_output_tokens", f.cost_per_1m_output_tokens},
-       {"error_rates", f.error_rates}};
+  j = {{"model_id", f.model_id}, {"scores", f.scores}};
 }
 
 void from_json(const json& j, ModelFeatures& f) {
   j.at("model_id").get_to(f.model_id);
-  j.at("cost_per_1m_input_tokens").get_to(f.cost_per_1m_input_tokens);
-  j.at("cost_per_1m_output_tokens").get_to(f.cost_per_1m_output_tokens);
-  j.at("error_rates").get_to(f.error_rates);
+  j.at("scores").get_to(f.scores);
 }
 
 NordlysCheckpoint NordlysCheckpoint::from_json(const std::string& path) {
@@ -138,7 +133,6 @@ NordlysCheckpoint NordlysCheckpoint::from_json_string(const std::string& json_st
   }
 
   NordlysCheckpoint checkpoint;
-  checkpoint.version = doc.value("version", std::string(CHECKPOINT_VERSION));
   doc.at("embedding").get_to(checkpoint.embedding);
   doc.at("clustering").get_to(checkpoint.clustering);
   doc.at("models").get_to(checkpoint.models);
@@ -196,8 +190,6 @@ NordlysCheckpoint NordlysCheckpoint::from_json_string(const std::string& json_st
 
 std::string NordlysCheckpoint::to_json_string() const {
   json j;
-
-  j["version"] = version;
 
   j["embedding"] = embedding;
   j["clustering"] = clustering;
@@ -290,9 +282,6 @@ NordlysCheckpoint NordlysCheckpoint::from_msgpack_string(const std::string& data
 
   NordlysCheckpoint checkpoint;
 
-  checkpoint.version
-      = map.contains("version") ? map.at("version").as<std::string>() : std::string(CHECKPOINT_VERSION);
-
   auto emb = map.at("embedding").as<std::map<std::string, msgpack::object>>();
   checkpoint.embedding.model = emb.at("model").as<std::string>();
   checkpoint.embedding.trust_remote_code
@@ -330,9 +319,7 @@ NordlysCheckpoint NordlysCheckpoint::from_msgpack_string(const std::string& data
     auto model_map = model_obj.as<std::map<std::string, msgpack::object>>();
     ModelFeatures model;
     model.model_id = model_map.at("model_id").as<std::string>();
-    model.cost_per_1m_input_tokens = model_map.at("cost_per_1m_input_tokens").as<float>();
-    model.cost_per_1m_output_tokens = model_map.at("cost_per_1m_output_tokens").as<float>();
-    model.error_rates = model_map.at("error_rates").as<std::vector<float>>();
+    model.scores = model_map.at("scores").as<std::vector<float>>();
     checkpoint.models.push_back(std::move(model));
   }
 
@@ -408,10 +395,7 @@ std::string NordlysCheckpoint::to_msgpack_string() const {
   msgpack::sbuffer buffer;
   msgpack::packer<msgpack::sbuffer> pk(&buffer);
 
-  pk.pack_map(7);
-
-  pk.pack("version");
-  pk.pack(version);
+  pk.pack_map(6);
 
   pk.pack("embedding");
   pk.pack_map(2);
@@ -451,15 +435,11 @@ std::string NordlysCheckpoint::to_msgpack_string() const {
   pk.pack("models");
   pk.pack_array(static_cast<uint32_t>(models.size()));
   for (const auto& model : models) {
-    pk.pack_map(4);
+    pk.pack_map(2);
     pk.pack("model_id");
     pk.pack(model.model_id);
-    pk.pack("cost_per_1m_input_tokens");
-    pk.pack(model.cost_per_1m_input_tokens);
-    pk.pack("cost_per_1m_output_tokens");
-    pk.pack(model.cost_per_1m_output_tokens);
-    pk.pack("error_rates");
-    pk.pack(model.error_rates);
+    pk.pack("scores");
+    pk.pack(model.scores);
   }
 
   pk.pack("cluster_centers");
@@ -516,11 +496,6 @@ void NordlysCheckpoint::to_msgpack(const std::string& path) const {
 }
 
 void NordlysCheckpoint::validate() const {
-  if (version != CHECKPOINT_VERSION) {
-    throw std::invalid_argument(
-        std::format("Unsupported checkpoint version '{}'; expected {}", version, CHECKPOINT_VERSION));
-  }
-
   if (clustering.n_clusters <= 0) {
     throw std::invalid_argument(
         std::format("n_clusters must be positive, got {}", clustering.n_clusters));
@@ -552,30 +527,18 @@ void NordlysCheckpoint::validate() const {
   for (size_t i = 0; i < models.size(); ++i) {
     const auto& model = models[i];
 
-    if (model.error_rates.size() != static_cast<size_t>(clustering.n_clusters)) {
+    if (model.scores.size() != static_cast<size_t>(clustering.n_clusters)) {
       throw std::invalid_argument(
-          std::format("Model {} error_rates size ({}) does not match n_clusters ({})", i,
-                      model.error_rates.size(), clustering.n_clusters));
+          std::format("Model {} scores size ({}) does not match n_clusters ({})", i,
+                      model.scores.size(), clustering.n_clusters));
     }
 
-    for (size_t j = 0; j < model.error_rates.size(); ++j) {
-      float error_rate = model.error_rates[j];
-      if (error_rate < 0.0f || error_rate > 1.0f) {
+    for (size_t j = 0; j < model.scores.size(); ++j) {
+      float score = model.scores[j];
+      if (score < 0.0f || score > 1.0f) {
         throw std::invalid_argument(std::format(
-            "Model {} error_rate[{}] ({}) must be in range [0.0, 1.0]", i, j, error_rate));
+            "Model {} score[{}] ({}) must be in range [0.0, 1.0]", i, j, score));
       }
-    }
-
-    if (model.cost_per_1m_input_tokens < 0.0f) {
-      throw std::invalid_argument(
-          std::format("Model {} cost_per_1m_input_tokens ({}) must be non-negative", i,
-                      model.cost_per_1m_input_tokens));
-    }
-
-    if (model.cost_per_1m_output_tokens < 0.0f) {
-      throw std::invalid_argument(
-          std::format("Model {} cost_per_1m_output_tokens ({}) must be non-negative", i,
-                      model.cost_per_1m_output_tokens));
     }
   }
 }

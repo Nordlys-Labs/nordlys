@@ -8,9 +8,8 @@ import numpy as np
 import pytest
 
 
-# Sample checkpoint for testing (v3.0 format)
+# Sample checkpoint for testing
 SAMPLE_CHECKPOINT = {
-    "version": "3.0",
     "cluster_centers": [
         [1.0, 0.0, 0.0, 0.0],
         [0.0, 1.0, 0.0, 0.0],
@@ -19,15 +18,11 @@ SAMPLE_CHECKPOINT = {
     "models": [
         {
             "model_id": "openai/gpt-4",
-            "cost_per_1m_input_tokens": 30.0,
-            "cost_per_1m_output_tokens": 60.0,
-            "error_rates": [0.01, 0.02, 0.015],
+            "scores": [0.99, 0.98, 0.985],
         },
         {
             "model_id": "anthropic/claude-3",
-            "cost_per_1m_input_tokens": 15.0,
-            "cost_per_1m_output_tokens": 75.0,
-            "error_rates": [0.02, 0.01, 0.025],
+            "scores": [0.98, 0.99, 0.975],
         },
     ],
     "embedding": {
