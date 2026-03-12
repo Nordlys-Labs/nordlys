@@ -25,30 +25,30 @@ TEST(ModelScorerTest, SingleModel) {
   EXPECT_EQ(scores[0].model_id, "only_model");
 }
 
-TEST(ModelScorerTest, ScoringByErrorRate) {
+TEST(ModelScorerTest, ScoringByScore) {
   ModelScorer scorer;
 
   std::vector<ModelFeatures> models;
 
   ModelFeatures m1;
   m1.model_id = "expensive/accurate";
-  m1.scores = {0.01f};
+  m1.scores = {0.99f};
 
   ModelFeatures m2;
   m2.model_id = "cheap/less_accurate";
-  m2.scores = {0.10f};
+  m2.scores = {0.90f};
 
   models.push_back(m1);
   models.push_back(m2);
 
   auto scores = scorer.score_models(0, models);
   EXPECT_EQ(scores.size(), 2);
-  // Should rank by error rate (lower is better)
+  // Should rank by score (higher is better)
   EXPECT_EQ(scores[0].model_id, "expensive/accurate");
   EXPECT_EQ(scores[1].model_id, "cheap/less_accurate");
 }
 
-TEST(ModelScorerTest, ZeroCostRange) {
+TEST(ModelScorerTest, ScoreSorting) {
   ModelScorer scorer;
 
   std::vector<ModelFeatures> models;
@@ -65,7 +65,8 @@ TEST(ModelScorerTest, ZeroCostRange) {
 
   auto scores = scorer.score_models(0, models);
   EXPECT_EQ(scores.size(), 2);
-  EXPECT_EQ(scores[0].model_id, "model1");
+  // Higher score should be first
+  EXPECT_EQ(scores[0].model_id, "model2");
 }
 
 TEST(ModelScorerTest, CustomLambdaParams) {

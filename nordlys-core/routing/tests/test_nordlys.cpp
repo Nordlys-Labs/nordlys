@@ -12,7 +12,7 @@
 // Test Fixture for Nordlys Tests
 // ============================================================================
 
-// Test checkpoint JSON for creating valid routers (v3.0 format)
+// Test checkpoint JSON for creating valid routers
 static const char* kTestCheckpointJson = R"({
   "cluster_centers": [
     [1.0, 0.0, 0.0, 0.0],
@@ -22,11 +22,11 @@ static const char* kTestCheckpointJson = R"({
   "models": [
     {
       "model_id": "provider1/gpt-4",
-      "scores": [0.01, 0.02, 0.015]
+      "scores": [0.99, 0.98, 0.985]
     },
     {
       "model_id": "provider2/llama",
-      "scores": [0.05, 0.06, 0.055]
+      "scores": [0.95, 0.94, 0.945]
     }
   ],
   "embedding": {
@@ -399,7 +399,7 @@ TEST_F(NordlysTest, CreateFromJsonString) {
     "models": [
       {
         "model_id": "test/model1",
-        "scores": [0.01, 0.02]
+        "scores": [0.99, 0.98]
       }
     ],
     "embedding": {"model": "test", "trust_remote_code": false},
@@ -475,7 +475,7 @@ TEST_F(NordlysTest, SingleCluster) {
   std::string json_single_cluster = R"({
     "cluster_centers": [[1.0, 0.0, 0.0]],
     "models": [
-      {"model_id": "test/model", "scores": [0.01]}
+      {"model_id": "test/model", "scores": [0.99]}
     ],
     "embedding": {"model": "test", "trust_remote_code": false},
     "clustering": {"n_clusters": 1, "random_state": 42, "max_iter": 300, "n_init": 10, "algorithm": "lloyd", "normalization": "l2"},
@@ -520,7 +520,7 @@ TEST_F(NordlysTest, LargeDimensions) {
     if (c < centers.size() - 1) ss << ",";
   }
   ss << R"(], "models": [
-      {"model_id": "test/model", "scores": [0.01, 0.02]}
+      {"model_id": "test/model", "scores": [0.99, 0.98]}
     ],
     "embedding": {"model": "test", "trust_remote_code": false},
     "clustering": {"n_clusters": 2, "random_state": 42, "max_iter": 300, "n_init": 10, "algorithm": "lloyd", "normalization": "l2"},
