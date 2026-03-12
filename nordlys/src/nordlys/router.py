@@ -16,7 +16,6 @@ from typing import Literal
 
 import numpy as np
 from cachetools import LRUCache
-from pydantic import Field
 from sentence_transformers import SentenceTransformer
 
 from nordlys.clustering import (
