@@ -27,6 +27,7 @@ def build_checkpoint(
     """Build a validated ``NordlysCheckpoint`` from normalized sections."""
     n_clusters = int(cluster_centers.shape[0])
     _validate_models(models=models, n_clusters=n_clusters)
+    _validate_embedding(embedding)
 
     payload = {
         "cluster_centers": np.asarray(cluster_centers, dtype=np.float32).tolist(),
@@ -52,3 +53,17 @@ def _validate_models(*, models: list[dict[str, Any]], n_clusters: int) -> None:
             raise ValueError(
                 f"Model '{model_id}' has {len(scores)} scores, expected {n_clusters}"
             )
+
+
+def _validate_embedding(embedding: dict[str, Any]) -> None:
+    model = embedding.get("model")
+    if not isinstance(model, str) or not model:
+        raise ValueError("Checkpoint embedding must include a non-empty model")
+
+    max_seq_length = embedding.get("max_seq_length", 0)
+    if max_seq_length in (None, 0):
+        return
+    if not isinstance(max_seq_length, int) or max_seq_length <= 0:
+        raise ValueError(
+            "Checkpoint embedding max_seq_length must be a positive integer"
+        )

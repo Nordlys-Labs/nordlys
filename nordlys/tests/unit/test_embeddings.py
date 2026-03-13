@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from nordlys import Dataset, Trainer
 from nordlys.clustering import KMeansClusterer
@@ -41,6 +42,22 @@ class TestSentenceTransformers:
             "model": "fake-model",
             "trust_remote_code": False,
         }
+
+    def test_rejects_non_positive_max_seq_length(self, monkeypatch):
+        class FakeEncoder:
+            def __init__(self, model, device, trust_remote_code):
+                self.model = model
+                self.device = device
+                self.trust_remote_code = trust_remote_code
+                self.tokenizer = type("T", (), {"clean_up_tokenization_spaces": True})()
+
+        monkeypatch.setattr(
+            "nordlys.embeddings.sentence_transformers.SentenceTransformer",
+            FakeEncoder,
+        )
+
+        with pytest.raises(ValueError, match="max_seq_length"):
+            SentenceTransformers(model="fake-model", max_seq_length=0)
 
 
 class TestTrainerEmbedder:

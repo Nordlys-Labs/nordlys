@@ -145,3 +145,33 @@ def test_build_checkpoint_rejects_missing_scores() -> None:
                 "inertia": None,
             },
         )
+
+
+def test_build_checkpoint_rejects_invalid_max_seq_length() -> None:
+    with pytest.raises(ValueError, match="max_seq_length"):
+        build_checkpoint(
+            cluster_centers=np.asarray([[0.0, 1.0]], dtype=np.float32),
+            models=[{"model_id": "gpt-4", "scores": [0.9]}],
+            embedding={
+                "model": "x",
+                "trust_remote_code": False,
+                "embedding_prompt_name": "",
+                "embedding_prompt": "",
+                "max_seq_length": -1,
+            },
+            clustering={
+                "n_clusters": 1,
+                "random_state": 42,
+                "max_iter": 300,
+                "n_init": 10,
+                "algorithm": "lloyd",
+                "normalization": "l2",
+            },
+            reduction=None,
+            metrics={
+                "n_samples": 1,
+                "cluster_sizes": [1],
+                "silhouette_score": None,
+                "inertia": None,
+            },
+        )

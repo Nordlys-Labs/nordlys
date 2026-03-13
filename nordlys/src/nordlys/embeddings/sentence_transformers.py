@@ -60,6 +60,8 @@ class SentenceTransformers(Embedder):
         self.show_progress_bar = show_progress_bar
         self.embedding_prompt_name = embedding_prompt_name
         self.embedding_prompt = embedding_prompt
+        if max_seq_length is not None and max_seq_length <= 0:
+            raise ValueError("max_seq_length must be a positive integer")
         self.max_seq_length = max_seq_length
         self.truncate_dim = truncate_dim
         self.revision = revision

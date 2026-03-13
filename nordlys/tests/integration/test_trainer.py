@@ -67,8 +67,16 @@ def mock_router_embed(monkeypatch: pytest.MonkeyPatch) -> None:
                 center = np.zeros(384, dtype=np.float32)
                 center[group] = 10.0
                 noise = rng.normal(0.0, 0.05, size=384).astype(np.float32)
-                vectors.append(center + noise)
-            return np.asarray(vectors, dtype=np.float32)
+                vector = center + noise
+                if normalize_embeddings:
+                    norm = np.linalg.norm(vector)
+                    if norm > 0:
+                        vector = vector / norm
+                vectors.append(vector)
+            array = np.asarray(vectors, dtype=np.float32)
+            if convert_to_numpy:
+                return array
+            return array.tolist()
 
     monkeypatch.setattr("nordlys.router.SentenceTransformer", FakeSentenceTransformer)
 
