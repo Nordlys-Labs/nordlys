@@ -57,12 +57,19 @@ void from_json(const json& j, TrainingMetrics& m) {
 }
 
 void to_json(json& j, const EmbeddingConfig& c) {
-  j = {{"model", c.model}, {"trust_remote_code", c.trust_remote_code}};
+  j = {{"model", c.model},
+       {"trust_remote_code", c.trust_remote_code},
+       {"embedding_prompt_name", c.embedding_prompt_name},
+       {"embedding_prompt", c.embedding_prompt},
+       {"max_seq_length", c.max_seq_length}};
 }
 
 void from_json(const json& j, EmbeddingConfig& c) {
   j.at("model").get_to(c.model);
   c.trust_remote_code = j.value("trust_remote_code", false);
+  c.embedding_prompt_name = j.value("embedding_prompt_name", "");
+  c.embedding_prompt = j.value("embedding_prompt", "");
+  c.max_seq_length = j.value("max_seq_length", 0);
 }
 
 void to_json(json& j, const ClusteringConfig& c) {
@@ -286,6 +293,14 @@ NordlysCheckpoint NordlysCheckpoint::from_msgpack_string(const std::string& data
   checkpoint.embedding.model = emb.at("model").as<std::string>();
   checkpoint.embedding.trust_remote_code
       = emb.contains("trust_remote_code") ? emb.at("trust_remote_code").as<bool>() : false;
+  checkpoint.embedding.embedding_prompt_name = emb.contains("embedding_prompt_name")
+                                                  ? emb.at("embedding_prompt_name").as<std::string>()
+                                                  : "";
+  checkpoint.embedding.embedding_prompt = emb.contains("embedding_prompt")
+                                             ? emb.at("embedding_prompt").as<std::string>()
+                                             : "";
+  checkpoint.embedding.max_seq_length
+      = emb.contains("max_seq_length") ? emb.at("max_seq_length").as<int>() : 0;
 
   auto clust = map.at("clustering").as<std::map<std::string, msgpack::object>>();
   checkpoint.clustering.n_clusters = clust.at("n_clusters").as<int>();
@@ -398,11 +413,17 @@ std::string NordlysCheckpoint::to_msgpack_string() const {
   pk.pack_map(6);
 
   pk.pack("embedding");
-  pk.pack_map(2);
+  pk.pack_map(5);
   pk.pack("model");
   pk.pack(embedding.model);
   pk.pack("trust_remote_code");
   pk.pack(embedding.trust_remote_code);
+  pk.pack("embedding_prompt_name");
+  pk.pack(embedding.embedding_prompt_name);
+  pk.pack("embedding_prompt");
+  pk.pack(embedding.embedding_prompt);
+  pk.pack("max_seq_length");
+  pk.pack(embedding.max_seq_length);
 
   pk.pack("clustering");
   pk.pack_map(6);

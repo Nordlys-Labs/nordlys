@@ -37,7 +37,10 @@ static const char* kTestCheckpointJson = R"({
   ],
   "embedding": {
     "model": "test-model",
-    "trust_remote_code": false
+    "trust_remote_code": false,
+    "embedding_prompt_name": "query",
+    "embedding_prompt": "Represent this query: ",
+    "max_seq_length": 1024
   },
   "clustering": {
     "n_clusters": 3,
@@ -64,6 +67,9 @@ TEST_F(ProfileTest, RoundTripJson) {
 
   EXPECT_EQ(loaded.clustering.n_clusters, test_profile.clustering.n_clusters);
   EXPECT_EQ(loaded.embedding.model, test_profile.embedding.model);
+  EXPECT_EQ(loaded.embedding.embedding_prompt_name, test_profile.embedding.embedding_prompt_name);
+  EXPECT_EQ(loaded.embedding.embedding_prompt, test_profile.embedding.embedding_prompt);
+  EXPECT_EQ(loaded.embedding.max_seq_length, test_profile.embedding.max_seq_length);
   EXPECT_EQ(loaded.metrics.silhouette_score, test_profile.metrics.silhouette_score);
 
   EXPECT_EQ(loaded.clustering.max_iter, test_profile.clustering.max_iter);
@@ -93,6 +99,9 @@ TEST_F(ProfileTest, RoundTripMsgpack) {
 
   EXPECT_EQ(loaded.clustering.n_clusters, test_profile.clustering.n_clusters);
   EXPECT_EQ(loaded.embedding.model, test_profile.embedding.model);
+  EXPECT_EQ(loaded.embedding.embedding_prompt_name, test_profile.embedding.embedding_prompt_name);
+  EXPECT_EQ(loaded.embedding.embedding_prompt, test_profile.embedding.embedding_prompt);
+  EXPECT_EQ(loaded.embedding.max_seq_length, test_profile.embedding.max_seq_length);
   EXPECT_EQ(loaded.metrics.silhouette_score, test_profile.metrics.silhouette_score);
 
   EXPECT_EQ(test_profile.cluster_centers.rows(), loaded.cluster_centers.rows());
@@ -186,6 +195,9 @@ TEST_F(ProfileTest, ConvenienceAccessors) {
   EXPECT_EQ(test_profile.embedding_model(), "test-model");
   EXPECT_EQ(test_profile.random_state(), 42);
   EXPECT_EQ(test_profile.allow_trust_remote_code(), false);
+  EXPECT_EQ(test_profile.embedding.embedding_prompt_name, "query");
+  EXPECT_EQ(test_profile.embedding.embedding_prompt, "Represent this query: ");
+  EXPECT_EQ(test_profile.embedding.max_seq_length, 1024);
   EXPECT_EQ(test_profile.n_clusters(), 3);
   EXPECT_EQ(test_profile.feature_dim(), 4);
   EXPECT_FLOAT_EQ(test_profile.silhouette_score(), 0.85f);
@@ -226,7 +238,7 @@ TEST_F(ProfileTest, LargeNumberOfModels) {
     if (i > 0) ss << ",";
     ss << R"({"model_id": "provider/model)" << i << R"(", "scores": [0.01]})";
   }
-  ss << R"(], "embedding": {"model": "test", "trust_remote_code": false}, )"
+  ss << R"(], "embedding": {"model": "test", "trust_remote_code": false, "embedding_prompt_name": "", "embedding_prompt": "", "max_seq_length": 0}, )"
      << R"("clustering": {"n_clusters": 1, "random_state": 42, "max_iter": 300, "n_init": 10, "algorithm": "lloyd", "normalization": "l2"}, )"
      << R"("reduction": null, )"
      << R"("metrics": {"silhouette_score": 0.5}})";
