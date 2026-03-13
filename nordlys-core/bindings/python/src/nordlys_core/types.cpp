@@ -33,7 +33,13 @@ void register_types(nb::module_& m) {
   nb::class_<EmbeddingConfig>(m, "EmbeddingConfig", "Embedding configuration")
       .def_ro("model", &EmbeddingConfig::model, "Embedding model ID")
       .def_ro("trust_remote_code", &EmbeddingConfig::trust_remote_code,
-              "Whether to trust remote code");
+              "Whether to trust remote code")
+      .def_ro("embedding_prompt_name", &EmbeddingConfig::embedding_prompt_name,
+              "SentenceTransformers named embedding prompt")
+      .def_ro("embedding_prompt", &EmbeddingConfig::embedding_prompt,
+              "SentenceTransformers literal embedding prompt")
+      .def_ro("max_seq_length", &EmbeddingConfig::max_seq_length,
+              "Maximum sequence length for the embedder");
 
   // ClusteringConfig type
   nb::class_<ClusteringConfig>(m, "ClusteringConfig", "Clustering configuration parameters")

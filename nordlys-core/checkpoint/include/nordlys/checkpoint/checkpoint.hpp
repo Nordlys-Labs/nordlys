@@ -16,6 +16,9 @@ struct TrainingMetrics {
 struct EmbeddingConfig {
   std::string model;
   bool trust_remote_code;
+  std::string embedding_prompt_name;
+  std::string embedding_prompt;
+  int max_seq_length;
 };
 
 struct ClusteringConfig {
