@@ -20,6 +20,9 @@ def test_build_checkpoint_success() -> None:
         embedding={
             "model": "sentence-transformers/all-MiniLM-L6-v2",
             "trust_remote_code": False,
+            "embedding_prompt_name": "query",
+            "embedding_prompt": "Represent this query: ",
+            "max_seq_length": 1024,
         },
         clustering={
             "n_clusters": 2,
@@ -40,6 +43,9 @@ def test_build_checkpoint_success() -> None:
 
     assert checkpoint.reduction is None
     assert checkpoint.clustering.n_clusters == 2
+    assert checkpoint.embedding.embedding_prompt_name == "query"
+    assert checkpoint.embedding.embedding_prompt == "Represent this query: "
+    assert checkpoint.embedding.max_seq_length == 1024
 
 
 def test_build_checkpoint_rejects_missing_models() -> None:
@@ -47,7 +53,13 @@ def test_build_checkpoint_rejects_missing_models() -> None:
         build_checkpoint(
             cluster_centers=np.asarray([[0.0, 1.0]], dtype=np.float32),
             models=[],
-            embedding={"model": "x", "trust_remote_code": False},
+            embedding={
+                "model": "x",
+                "trust_remote_code": False,
+                "embedding_prompt_name": "",
+                "embedding_prompt": "",
+                "max_seq_length": 0,
+            },
             clustering={
                 "n_clusters": 1,
                 "random_state": 42,
@@ -76,7 +88,13 @@ def test_build_checkpoint_rejects_score_length_mismatch() -> None:
                     "scores": [0.9],
                 }
             ],
-            embedding={"model": "x", "trust_remote_code": False},
+            embedding={
+                "model": "x",
+                "trust_remote_code": False,
+                "embedding_prompt_name": "",
+                "embedding_prompt": "",
+                "max_seq_length": 0,
+            },
             clustering={
                 "n_clusters": 2,
                 "random_state": 42,
@@ -104,7 +122,13 @@ def test_build_checkpoint_rejects_missing_scores() -> None:
                     "model_id": "gpt-4",
                 }
             ],
-            embedding={"model": "x", "trust_remote_code": False},
+            embedding={
+                "model": "x",
+                "trust_remote_code": False,
+                "embedding_prompt_name": "",
+                "embedding_prompt": "",
+                "max_seq_length": 0,
+            },
             clustering={
                 "n_clusters": 1,
                 "random_state": 42,

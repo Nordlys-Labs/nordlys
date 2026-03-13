@@ -85,6 +85,10 @@ class Router:
         models = [m.model_id for m in resolved_checkpoint.models]
         embedding_model = resolved_checkpoint.embedding.model
         allow_trust_remote_code = resolved_checkpoint.embedding.trust_remote_code
+        embedding_prompt_name = resolved_checkpoint.embedding.embedding_prompt_name  # type: ignore[attr-defined]
+        embedding_prompt = resolved_checkpoint.embedding.embedding_prompt  # type: ignore[attr-defined]
+        max_seq_length = resolved_checkpoint.embedding.max_seq_length  # type: ignore[attr-defined]
+        normalize_embeddings = resolved_checkpoint.clustering.normalization == "l2"
 
         if embedding_cache_size <= 0:
             raise ValueError("embedding_cache_size must be greater than 0")
@@ -96,6 +100,9 @@ class Router:
 
         self._models = models
         self._model_ids = models
+        self._embedding_prompt_name = embedding_prompt_name or None
+        self._embedding_prompt = embedding_prompt or None
+        self._normalize_embeddings = normalize_embeddings
 
         # Embedding model - loaded at initialization
         self._embedding_model_name = embedding_model
@@ -116,6 +123,8 @@ class Router:
                 trust_remote_code=allow_trust_remote_code,
             )
         self._embedding_model.tokenizer.clean_up_tokenization_spaces = False
+        if max_seq_length > 0:
+            self._embedding_model.max_seq_length = max_seq_length
 
         # Embedding cache - LRU cache for computed embeddings
         self._embedding_cache_size = embedding_cache_size
@@ -145,6 +154,9 @@ class Router:
                 texts_list,
                 convert_to_numpy=True,
                 show_progress_bar=False,  # Disable progress bar for internal calls
+                normalize_embeddings=self._normalize_embeddings,
+                prompt_name=self._embedding_prompt_name,
+                prompt=self._embedding_prompt,
             )
             # Batch update cache
             self._embedding_cache.update(zip(texts, embeddings))
@@ -169,6 +181,9 @@ class Router:
                 texts_to_compute,
                 convert_to_numpy=True,
                 show_progress_bar=False,  # Disable progress bar for internal calls
+                normalize_embeddings=self._normalize_embeddings,
+                prompt_name=self._embedding_prompt_name,
+                prompt=self._embedding_prompt,
             )
 
             # Batch update cache
@@ -214,7 +229,11 @@ class Router:
 
         # Cache miss: compute embedding
         embedding: np.ndarray = self._embedding_model.encode(
-            [text], convert_to_numpy=True
+            [text],
+            convert_to_numpy=True,
+            normalize_embeddings=self._normalize_embeddings,
+            prompt_name=self._embedding_prompt_name,
+            prompt=self._embedding_prompt,
         )[0]
 
         self._embedding_cache[text] = embedding

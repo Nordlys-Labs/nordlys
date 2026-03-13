@@ -45,6 +45,7 @@ def mock_router_embed(monkeypatch: pytest.MonkeyPatch) -> None:
             self.model = model
             self.device = device
             self.trust_remote_code = trust_remote_code
+            self.max_seq_length = 0
             self.tokenizer = type(
                 "Tokenizer", (), {"clean_up_tokenization_spaces": True}
             )()
@@ -54,6 +55,9 @@ def mock_router_embed(monkeypatch: pytest.MonkeyPatch) -> None:
             texts: list[str],
             convert_to_numpy: bool = True,
             show_progress_bar: bool = False,
+            normalize_embeddings: bool = True,
+            prompt_name: str | None = None,
+            prompt: str | None = None,
         ) -> np.ndarray:
             vectors = []
             for text in texts:

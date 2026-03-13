@@ -25,15 +25,13 @@ class SentenceTransformers(Embedder):
         trust_remote_code: bool = False,
         device: Literal["cpu", "cuda"] = "cpu",
         show_progress_bar: bool = False,
-        prompt_name: str | None = None,
-        prompt: str | None = None,
+        embedding_prompt_name: str | None = None,
+        embedding_prompt: str | None = None,
         max_seq_length: int | None = None,
         truncate_dim: int | None = None,
         revision: str | None = None,
         token: str | None = None,
         model_kwargs: dict[str, Any] | None = None,
-        tokenizer_kwargs: dict[str, Any] | None = None,
-        config_kwargs: dict[str, Any] | None = None,
         encode_kwargs: dict[str, Any] | None = None,
     ) -> None:
         """Initialize SentenceTransformers embedder.
@@ -45,15 +43,13 @@ class SentenceTransformers(Embedder):
             trust_remote_code: Allow loading code from model repo
             device: Device to run on (cpu/cuda)
             show_progress_bar: Show progress during encoding
-            prompt_name: Prompt name for the model (if supported)
-            prompt: Custom prompt string to prepend
+            embedding_prompt_name: Named prompt configured by the model
+            embedding_prompt: Literal prompt string used during embedding
             max_seq_length: Maximum sequence length
             truncate_dim: Dimension to truncate to
             revision: Model revision
             token: HuggingFace token
             model_kwargs: Additional kwargs passed to model constructor
-            tokenizer_kwargs: Additional kwargs passed to tokenizer
-            config_kwargs: Additional kwargs passed to config
             encode_kwargs: Additional kwargs passed to encode()
         """
         self.model = model
@@ -62,15 +58,13 @@ class SentenceTransformers(Embedder):
         self.trust_remote_code = trust_remote_code
         self.device = device
         self.show_progress_bar = show_progress_bar
-        self.prompt_name = prompt_name
-        self.prompt = prompt
+        self.embedding_prompt_name = embedding_prompt_name
+        self.embedding_prompt = embedding_prompt
         self.max_seq_length = max_seq_length
         self.truncate_dim = truncate_dim
         self.revision = revision
         self.token = token
         self.model_kwargs = model_kwargs or {}
-        self.tokenizer_kwargs = tokenizer_kwargs or {}
-        self.config_kwargs = config_kwargs or {}
         self.encode_kwargs = encode_kwargs or {}
 
         # Build kwargs for SentenceTransformer constructor
@@ -90,11 +84,9 @@ class SentenceTransformers(Embedder):
             **constructor_kwargs,
         )
 
-        # Configure tokenizer
         self._encoder.tokenizer.clean_up_tokenization_spaces = False
-
-        # Store max_seq_length for encoding
-        self._max_seq_length = max_seq_length
+        if max_seq_length is not None:
+            self._encoder.max_seq_length = max_seq_length
 
     def encode(self, texts: list[str]) -> np.ndarray:
         """Encode texts into embeddings.
@@ -114,18 +106,14 @@ class SentenceTransformers(Embedder):
         }
 
         # Add prompt support
-        if self.prompt_name:
-            encode_kwargs["prompt_name"] = self.prompt_name
-        if self.prompt:
-            encode_kwargs["prompt"] = self.prompt
+        if self.embedding_prompt_name:
+            encode_kwargs["prompt_name"] = self.embedding_prompt_name
+        if self.embedding_prompt:
+            encode_kwargs["prompt"] = self.embedding_prompt
 
         # Add truncate_dim if provided
         if self.truncate_dim:
             encode_kwargs["truncate_dim"] = self.truncate_dim
-
-        # Add max_seq_length if provided (via truncation)
-        if self._max_seq_length:
-            encode_kwargs["truncate"] = True
 
         # Merge user-provided encode kwargs
         encode_kwargs.update(self.encode_kwargs)
@@ -140,10 +128,10 @@ class SentenceTransformers(Embedder):
             "trust_remote_code": self.trust_remote_code,
         }
 
-        if self.prompt_name:
-            config["prompt_name"] = self.prompt_name
-        if self.prompt:
-            config["prompt"] = self.prompt
+        if self.embedding_prompt_name:
+            config["embedding_prompt_name"] = self.embedding_prompt_name
+        if self.embedding_prompt:
+            config["embedding_prompt"] = self.embedding_prompt
         if self.max_seq_length:
             config["max_seq_length"] = self.max_seq_length
         if self.truncate_dim:
