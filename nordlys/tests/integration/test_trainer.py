@@ -45,6 +45,7 @@ def mock_router_embed(monkeypatch: pytest.MonkeyPatch) -> None:
             self.model = model
             self.device = device
             self.trust_remote_code = trust_remote_code
+            self.max_seq_length = 0
             self.tokenizer = type(
                 "Tokenizer", (), {"clean_up_tokenization_spaces": True}
             )()
@@ -54,6 +55,9 @@ def mock_router_embed(monkeypatch: pytest.MonkeyPatch) -> None:
             texts: list[str],
             convert_to_numpy: bool = True,
             show_progress_bar: bool = False,
+            normalize_embeddings: bool = True,
+            prompt_name: str | None = None,
+            prompt: str | None = None,
         ) -> np.ndarray:
             vectors = []
             for text in texts:
@@ -63,8 +67,16 @@ def mock_router_embed(monkeypatch: pytest.MonkeyPatch) -> None:
                 center = np.zeros(384, dtype=np.float32)
                 center[group] = 10.0
                 noise = rng.normal(0.0, 0.05, size=384).astype(np.float32)
-                vectors.append(center + noise)
-            return np.asarray(vectors, dtype=np.float32)
+                vector = center + noise
+                if normalize_embeddings:
+                    norm = np.linalg.norm(vector)
+                    if norm > 0:
+                        vector = vector / norm
+                vectors.append(vector)
+            array = np.asarray(vectors, dtype=np.float32)
+            if convert_to_numpy:
+                return array
+            return array.tolist()
 
     monkeypatch.setattr("nordlys.router.SentenceTransformer", FakeSentenceTransformer)
 

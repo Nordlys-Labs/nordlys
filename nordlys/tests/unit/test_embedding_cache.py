@@ -109,7 +109,11 @@ class TestComputeEmbedding:
         result = nordlys.compute_embedding("test prompt")
 
         mock_model.encode.assert_called_once_with(
-            ["test prompt"], convert_to_numpy=True
+            ["test prompt"],
+            convert_to_numpy=True,
+            normalize_embeddings=True,
+            prompt_name=None,
+            prompt=None,
         )
         np.testing.assert_array_equal(result, mock_embedding)
         assert "test prompt" in nordlys._embedding_cache
@@ -207,7 +211,12 @@ class TestComputeEmbeddingsBatch:
 
         # Model should be called once with all texts
         mock_model.encode.assert_called_once_with(
-            texts, convert_to_numpy=True, show_progress_bar=False
+            texts,
+            convert_to_numpy=True,
+            show_progress_bar=False,
+            normalize_embeddings=True,
+            prompt_name=None,
+            prompt=None,
         )
         assert result.shape == (3, 384)
         np.testing.assert_array_equal(result, mock_embeddings)
@@ -238,7 +247,12 @@ class TestComputeEmbeddingsBatch:
 
         # Model should be called once with only cache misses
         mock_model.encode.assert_called_once_with(
-            ["text2", "text4"], convert_to_numpy=True, show_progress_bar=False
+            ["text2", "text4"],
+            convert_to_numpy=True,
+            show_progress_bar=False,
+            normalize_embeddings=True,
+            prompt_name=None,
+            prompt=None,
         )
         assert result.shape == (4, 384)
 

@@ -85,6 +85,9 @@ def sample_checkpoint(sample_models: list[str]) -> NordlysCheckpoint:
         "embedding": {
             "model": "sentence-transformers/all-MiniLM-L6-v2",
             "trust_remote_code": False,
+            "embedding_prompt_name": "",
+            "embedding_prompt": "",
+            "max_seq_length": 0,
         },
         "clustering": {
             "n_clusters": 2,

@@ -41,6 +41,9 @@ class TestRouterAttributes:
         nordlys = Router(checkpoint=sample_checkpoint)
         assert nordlys._nr_clusters == 2
         assert nordlys._random_state == 42
+        assert nordlys._normalize_embeddings is True
+        assert nordlys._embedding_prompt_name is None
+        assert nordlys._embedding_prompt is None
 
     def test_router_embedding_model_loaded_at_init(self, sample_checkpoint):
         """Test that embedding model is loaded at initialization."""
