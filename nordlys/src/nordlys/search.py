@@ -12,10 +12,12 @@ from typing import Any, Callable, Protocol
 import numpy as np
 
 from nordlys.clustering.agglomerative import AgglomerativeClusterer
+from nordlys.clustering.bisecting import BisectingKMeansClusterer
 from nordlys.clustering.gmm import GMMClusterer
 from nordlys.clustering.hdbscan_clusterer import HDBSCANClusterer
 from nordlys.clustering.kmeans import KMeansClusterer
 from nordlys.clustering.metrics import ClusterMetrics, compute_cluster_metrics
+from nordlys.clustering.minibatch import MiniBatchKMeansClusterer
 from nordlys.clustering.spectral import SpectralClusterer
 
 
@@ -224,6 +226,8 @@ class ParameterSweep:
 
     CLUSTERER_MAP = {
         "kmeans": KMeansClusterer,
+        "minibatch_kmeans": MiniBatchKMeansClusterer,
+        "bisecting_kmeans": BisectingKMeansClusterer,
         "hdbscan": HDBSCANClusterer,
         "gmm": GMMClusterer,
         "agglomerative": AgglomerativeClusterer,

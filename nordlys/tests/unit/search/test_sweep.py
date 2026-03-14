@@ -54,11 +54,11 @@ class TestSweepScorerProtocol:
         assert isinstance(score, float)
 
     def test_silhouette_scorer_values(self, sample_sweep_results):
-        """Silhouette scorer should return values between 0 and 1."""
+        """Silhouette scorer should return values between -1 and 1."""
         scorer = silhouette_scorer()
         for result in sample_sweep_results.results:
             score = scorer(result)
-            assert 0.0 <= score <= 1.0
+            assert -1.0 <= score <= 1.0
 
     def test_cluster_count_scorer_prefers_target(self):
         """Cluster count scorer should prefer results close to target."""

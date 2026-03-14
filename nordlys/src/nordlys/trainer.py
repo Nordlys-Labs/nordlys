@@ -247,13 +247,15 @@ class Trainer:
         reduction_payload: ReductionPayload | None,
     ) -> FittedStructure:
         """Build a FittedStructure from a selected SweepResult."""
+        # Get random_state from result params if present, otherwise use Trainer's
+        seed = result.params.get("random_state", self.random_state)
         return FittedStructure(
             cluster_centers=result.centroids,
             n_clusters=result.n_clusters,
             embedding_config=embedding_config,
             clustering_config={
                 "n_clusters": result.n_clusters,
-                "random_state": 42,
+                "random_state": seed,
                 "max_iter": 300,
                 "n_init": 10,
                 "algorithm": result.algorithm,
