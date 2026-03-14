@@ -322,7 +322,13 @@ class ParameterSweep:
         clusterer_class = self.CLUSTERER_MAP[algo_name]
 
         # Add random_state if supported
-        if algo_name in ["kmeans", "gmm", "spectral"]:
+        if algo_name in [
+            "kmeans",
+            "minibatch_kmeans",
+            "bisecting_kmeans",
+            "gmm",
+            "spectral",
+        ]:
             params = {**params, "random_state": self.random_state}
 
         clusterer = clusterer_class(**params)

@@ -68,6 +68,7 @@ class TestPackageMetadata:
             "ModelFeatures",
             "reduction",
             "clustering",
+            "search",
             "embeddings",
         }
         exports = nordlys.__all__
