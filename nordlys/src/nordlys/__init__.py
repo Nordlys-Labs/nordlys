@@ -37,6 +37,9 @@ from nordlys import reduction
 # Clustering components
 from nordlys import clustering
 
+# Search components
+from nordlys import search
+
 # Embedding components
 from nordlys import embeddings
 
@@ -74,5 +77,6 @@ __all__ = [
     # Modules
     "reduction",
     "clustering",
+    "search",
     "embeddings",
 ]
