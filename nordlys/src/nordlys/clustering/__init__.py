@@ -13,7 +13,6 @@ from nordlys.clustering.metrics import (
     compute_cluster_metrics,
 )
 from nordlys.clustering.spectral import SpectralClusterer
-from nordlys.clustering.sweep import ParameterSweep, SweepResult, SweepResults
 
 __all__ = [
     # Protocol
@@ -30,8 +29,4 @@ __all__ = [
     "ClusterInfo",
     "ClusterMetrics",
     "compute_cluster_metrics",
-    # Sweep
-    "ParameterSweep",
-    "SweepResult",
-    "SweepResults",
 ]

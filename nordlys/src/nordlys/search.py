@@ -1,18 +1,43 @@
-"""Parameter sweep for clustering algorithms."""
+"""Structure search and selection primitives.
+
+This module provides tools for exploring clustering candidates and selecting
+the best structure for routing tasks.
+"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable, Protocol
 
 import numpy as np
 
 from nordlys.clustering.agglomerative import AgglomerativeClusterer
+from nordlys.clustering.bisecting import BisectingKMeansClusterer
 from nordlys.clustering.gmm import GMMClusterer
 from nordlys.clustering.hdbscan_clusterer import HDBSCANClusterer
 from nordlys.clustering.kmeans import KMeansClusterer
 from nordlys.clustering.metrics import ClusterMetrics, compute_cluster_metrics
+from nordlys.clustering.minibatch import MiniBatchKMeansClusterer
 from nordlys.clustering.spectral import SpectralClusterer
+
+
+class SweepScorer(Protocol):
+    """Protocol for scoring sweep results.
+
+    A scorer takes a sweep result and returns a numeric score.
+    Higher scores are considered better.
+    """
+
+    def __call__(self, result: SweepResult) -> float: ...
+
+
+class SweepConstraint(Protocol):
+    """Protocol for filtering sweep results.
+
+    A constraint returns True if the result is acceptable.
+    """
+
+    def __call__(self, result: SweepResult) -> bool: ...
 
 
 @dataclass
@@ -24,6 +49,7 @@ class SweepResult:
         params: Parameters used for clustering
         metrics: Clustering metrics
         labels: Cluster assignments
+        centroids: Cluster centroid vectors of shape (n_clusters, n_features)
         clusterer: The fitted clusterer instance
     """
 
@@ -31,7 +57,13 @@ class SweepResult:
     params: dict[str, Any]
     metrics: ClusterMetrics
     labels: np.ndarray
+    centroids: np.ndarray
     clusterer: Any  # The fitted clusterer
+
+    @property
+    def n_clusters(self) -> int:
+        """Number of clusters in this result."""
+        return self.metrics.n_clusters
 
 
 @dataclass
@@ -44,11 +76,68 @@ class SweepResults:
 
     results: list[SweepResult] = field(default_factory=list)
 
+    def filter(self, constraint: SweepConstraint) -> SweepResults:
+        """Filter results by a constraint.
+
+        Args:
+            constraint: A callable that returns True for acceptable results.
+
+        Returns:
+            New SweepResults containing only results that pass the constraint.
+        """
+        return SweepResults(results=[r for r in self.results if constraint(r)])
+
+    def rank(self, scorer: SweepScorer) -> list[tuple[SweepResult, float]]:
+        """Rank results by a scorer.
+
+        Args:
+            scorer: A callable that returns a numeric score for each result.
+
+        Returns:
+            List of (result, score) tuples sorted by score in descending order.
+        """
+        scored = [(r, scorer(r)) for r in self.results]
+        scored.sort(key=lambda x: x[1], reverse=True)
+        return scored
+
+    def select(
+        self,
+        scorer: SweepScorer,
+        constraints: list[SweepConstraint] | None = None,
+    ) -> SweepResult | None:
+        """Select the best result by scorer, optionally filtered by constraints.
+
+        Args:
+            scorer: A callable that returns a numeric score for each result.
+            constraints: Optional list of constraints. Results must pass all.
+
+        Returns:
+            The highest-scoring result that passes all constraints, or None if no
+            results pass.
+        """
+        candidates = self.results
+
+        # Apply constraints
+        if constraints:
+            for constraint in constraints:
+                candidates = [r for r in candidates if constraint(r)]
+
+        if not candidates:
+            return None
+
+        # Score and sort
+        scored = [(r, scorer(r)) for r in candidates]
+        scored.sort(key=lambda x: x[1], reverse=True)
+        return scored[0][0]
+
     def best_by_silhouette(self) -> SweepResult | None:
         """Get the result with the highest silhouette score."""
         if not self.results:
             return None
-        return max(self.results, key=lambda r: r.metrics.silhouette_score)
+        valid = [r for r in self.results if r.metrics.silhouette_score is not None]
+        if not valid:
+            return None
+        return max(valid, key=lambda r: r.metrics.silhouette_score)
 
     def best_by_n_clusters(self, target: int) -> SweepResult | None:
         """Get the result closest to target number of clusters with best silhouette."""
@@ -57,11 +146,13 @@ class SweepResults:
         # Filter to results with exact n_clusters
         exact_matches = [r for r in self.results if r.metrics.n_clusters == target]
         if exact_matches:
-            return max(exact_matches, key=lambda r: r.metrics.silhouette_score)
+            valid = [r for r in exact_matches if r.metrics.silhouette_score is not None]
+            if valid:
+                return max(valid, key=lambda r: r.metrics.silhouette_score)
         # Fall back to closest
         return min(self.results, key=lambda r: abs(r.metrics.n_clusters - target))
 
-    def filter_by_algorithm(self, algorithm: str) -> "SweepResults":
+    def filter_by_algorithm(self, algorithm: str) -> SweepResults:
         """Filter results by algorithm name."""
         return SweepResults(
             results=[r for r in self.results if r.algorithm == algorithm]
@@ -101,6 +192,13 @@ class ParameterSweep:
         >>> results = sweep.run(embeddings, algorithms=["kmeans", "hdbscan"])
         >>> best = results.best_by_silhouette()
         >>> print(f"Best: {best.algorithm} with silhouette {best.metrics.silhouette_score:.3f}")
+
+        >>> # Using scorer and constraints
+        >>> def my_scorer(result):
+        ...     return result.metrics.silhouette_score or 0
+        >>> def min_clusters(result):
+        ...     return result.metrics.n_clusters >= 5
+        >>> best = results.select(scorer=my_scorer, constraints=[min_clusters])
     """
 
     # Default parameter grids for each algorithm
@@ -128,6 +226,8 @@ class ParameterSweep:
 
     CLUSTERER_MAP = {
         "kmeans": KMeansClusterer,
+        "minibatch_kmeans": MiniBatchKMeansClusterer,
+        "bisecting_kmeans": BisectingKMeansClusterer,
         "hdbscan": HDBSCANClusterer,
         "gmm": GMMClusterer,
         "agglomerative": AgglomerativeClusterer,
@@ -222,13 +322,20 @@ class ParameterSweep:
         clusterer_class = self.CLUSTERER_MAP[algo_name]
 
         # Add random_state if supported
-        if algo_name in ["kmeans", "gmm", "spectral"]:
+        if algo_name in [
+            "kmeans",
+            "minibatch_kmeans",
+            "bisecting_kmeans",
+            "gmm",
+            "spectral",
+        ]:
             params = {**params, "random_state": self.random_state}
 
         clusterer = clusterer_class(**params)
         clusterer.fit(embeddings)
 
         labels = clusterer.labels_
+        centroids = clusterer.cluster_centers_
         inertia = clusterer.inertia_ if isinstance(clusterer, KMeansClusterer) else None
 
         metrics = compute_cluster_metrics(embeddings, labels, inertia)
@@ -238,9 +345,74 @@ class ParameterSweep:
             params=params,
             metrics=metrics,
             labels=labels,
+            centroids=np.asarray(centroids, dtype=np.float32),
             clusterer=clusterer,
         )
 
     def __repr__(self) -> str:
         algos = list(self.param_grids.keys())
         return f"ParameterSweep(algorithms={algos})"
+
+
+# Built-in scorer and constraint factories
+def silhouette_scorer() -> Callable[[SweepResult], float]:
+    """Create a scorer that ranks by silhouette score."""
+
+    def scorer(result: SweepResult) -> float:
+        return result.metrics.silhouette_score or 0.0
+
+    return scorer
+
+
+def cluster_count_scorer(
+    target: int, penalty: float = 0.1
+) -> Callable[[SweepResult], float]:
+    """Create a scorer that prefers results close to a target cluster count.
+
+    Args:
+        target: Target number of clusters
+        penalty: Penalty per cluster of difference (default: 0.1)
+    """
+
+    def scorer(result: SweepResult) -> float:
+        diff = abs(result.metrics.n_clusters - target)
+        base = result.metrics.silhouette_score or 0.0
+        return base - penalty * diff
+
+    return scorer
+
+
+def min_clusters_constraint(min_k: int) -> Callable[[SweepResult], bool]:
+    """Create a constraint that requires at least min_k clusters."""
+
+    def constraint(result: SweepResult) -> bool:
+        return result.metrics.n_clusters >= min_k
+
+    return constraint
+
+
+def max_clusters_constraint(max_k: int) -> Callable[[SweepResult], bool]:
+    """Create a constraint that requires at most max_k clusters."""
+
+    def constraint(result: SweepResult) -> bool:
+        return result.metrics.n_clusters <= max_k
+
+    return constraint
+
+
+def cluster_balance_constraint(max_cv: float = 0.6) -> Callable[[SweepResult], bool]:
+    """Create a constraint that requires cluster balance below max_cv.
+
+    Balance is measured as coefficient of variation (std/mean) of cluster sizes.
+    """
+
+    def constraint(result: SweepResult) -> bool:
+        if not result.metrics.cluster_sizes:
+            return True
+        sizes = np.array(result.metrics.cluster_sizes, dtype=np.float32)
+        if sizes.sum() == 0:
+            return True
+        cv = sizes.std() / sizes.mean()
+        return cv < max_cv
+
+    return constraint

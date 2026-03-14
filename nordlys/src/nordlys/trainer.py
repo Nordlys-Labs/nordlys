@@ -14,6 +14,7 @@ from nordlys.embeddings import Embedder, SentenceTransformers
 from nordlys.reduction import Reducer, restore_reducer
 from nordlys.reduction.base import ReductionPayload
 from nordlys.router import Router
+from nordlys.search import ParameterSweep, SweepResult, SweepScorer, SweepConstraint
 
 
 @dataclass(frozen=True)
@@ -183,6 +184,90 @@ class Trainer:
                 "cluster_sizes": metrics.cluster_sizes,
                 "silhouette_score": metrics.silhouette_score,
                 "inertia": metrics.inertia,
+            },
+        )
+
+    def select_structure(
+        self,
+        dataset: Dataset,
+        sweep: ParameterSweep,
+        scorer: SweepScorer,
+        constraints: list[SweepConstraint] | None = None,
+    ) -> FittedStructure:
+        """Select the best structure by evaluating clustering candidates.
+
+        This is the advanced path for structure selection. It embeds the dataset once,
+        evaluates all clustering candidates from the sweep, and selects the best one
+        according to the provided scorer and constraints.
+
+        Args:
+            dataset: Training dataset with 'id' and 'input' columns
+            sweep: ParameterSweep configured with candidates to evaluate
+            scorer: A callable that scores each SweepResult (higher is better)
+            constraints: Optional list of constraints that results must satisfy
+
+        Returns:
+            FittedStructure containing the selected clustering
+
+        Example:
+            >>> from nordlys.search import ParameterSweep, silhouette_scorer
+            >>> sweep = ParameterSweep(param_grids={
+            ...     "kmeans": {"n_clusters": [8, 12, 16]},
+            ...     "minibatch_kmeans": {"n_clusters": [8, 12, 16]},
+            ... })
+            >>> fitted = trainer.select_structure(
+            ...     dataset=train_ds,
+            ...     sweep=sweep,
+            ...     scorer=silhouette_scorer(),
+            ... )
+        """
+        self._validate_fit_clusters(dataset)
+
+        embedder = self._make_embedder()
+        embeddings = embedder.encode(dataset.column(self.input_col))
+        cluster_input, reduction_payload = self._reduce_or_pass(embeddings)
+
+        results = sweep.run(cluster_input)
+
+        selected = results.select(scorer=scorer, constraints=constraints)
+        if selected is None:
+            raise ValueError(
+                "No clustering candidate satisfied the provided constraints. "
+                "Try relaxing constraints or using a different sweep configuration."
+            )
+
+        return self._fitted_structure_from_sweep_result(
+            selected, embedder.checkpoint_config(), reduction_payload
+        )
+
+    def _fitted_structure_from_sweep_result(
+        self,
+        result: SweepResult,
+        embedding_config: dict,
+        reduction_payload: ReductionPayload | None,
+    ) -> FittedStructure:
+        """Build a FittedStructure from a selected SweepResult."""
+        # Get random_state from result params if present, otherwise use Trainer's
+        seed = result.params.get("random_state", self.random_state)
+        return FittedStructure(
+            cluster_centers=result.centroids,
+            n_clusters=result.n_clusters,
+            embedding_config=embedding_config,
+            clustering_config={
+                "n_clusters": result.n_clusters,
+                "random_state": seed,
+                "max_iter": 300,
+                "n_init": 10,
+                "algorithm": result.algorithm,
+                "params": result.params,
+                "normalization": "l2" if self.embedding_normalize else "none",
+            },
+            reduction=reduction_payload,
+            metrics={
+                "n_samples": result.metrics.n_samples,
+                "cluster_sizes": result.metrics.cluster_sizes,
+                "silhouette_score": result.metrics.silhouette_score,
+                "inertia": result.metrics.inertia,
             },
         )
 
