@@ -7,10 +7,10 @@ the best structure for routing tasks.
 from __future__ import annotations
 
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
-from threading import Lock
 from typing import Any, Callable, Protocol
+
+from joblib import Parallel, delayed
 
 import numpy as np
 
@@ -26,6 +26,51 @@ from nordlys.clustering.spectral import SpectralClusterer
 logger = logging.getLogger(__name__)
 
 SweepTask = tuple[str, dict[str, int | str]]
+
+
+def _evaluate_config_worker(
+    embeddings: np.ndarray,
+    algo_name: str,
+    params: dict[str, Any],
+    random_state: int,
+    clusterer_map: dict[str, type],
+) -> SweepResult:
+    """Worker function for parallel evaluation of clustering configurations.
+
+    This is a module-level function to ensure it can be pickled for joblib.
+    """
+    import numpy as np
+
+    from nordlys.clustering.metrics import compute_cluster_metrics
+
+    clusterer_class = clusterer_map[algo_name]
+
+    if algo_name in [
+        "kmeans",
+        "minibatch_kmeans",
+        "bisecting_kmeans",
+        "gmm",
+        "spectral",
+    ]:
+        params = {**params, "random_state": random_state}
+
+    clusterer = clusterer_class(**params)
+    clusterer.fit(embeddings)
+
+    labels = clusterer.labels_
+    centroids = clusterer.cluster_centers_
+    inertia = clusterer.inertia_ if hasattr(clusterer, "inertia_") else None
+
+    metrics = compute_cluster_metrics(embeddings, labels, inertia)
+
+    return SweepResult(
+        algorithm=algo_name,
+        params=params,
+        metrics=metrics,
+        labels=labels,
+        centroids=np.asarray(centroids, dtype=np.float32),
+        clusterer=clusterer,
+    )
 
 
 class SweepScorer(Protocol):
@@ -144,7 +189,7 @@ class SweepResults:
         valid = [r for r in self.results if r.metrics.silhouette_score is not None]
         if not valid:
             return None
-        return max(valid, key=lambda r: r.metrics.silhouette_score)
+        return max(valid, key=lambda r: r.metrics.silhouette_score)  # type: ignore[arg-type]
 
     def best_by_n_clusters(self, target: int) -> SweepResult | None:
         """Get the result closest to target number of clusters with best silhouette."""
@@ -155,7 +200,7 @@ class SweepResults:
         if exact_matches:
             valid = [r for r in exact_matches if r.metrics.silhouette_score is not None]
             if valid:
-                return max(valid, key=lambda r: r.metrics.silhouette_score)
+                return max(valid, key=lambda r: r.metrics.silhouette_score)  # type: ignore[arg-type]
         # Fall back to closest
         return min(self.results, key=lambda r: abs(r.metrics.n_clusters - target))
 
@@ -336,40 +381,38 @@ class ParameterSweep:
         tasks: list[SweepTask],
         verbose: bool,
     ) -> SweepResults:
-        """Run tasks in parallel using ThreadPoolExecutor.
+        """Run tasks in parallel using joblib with loky backend.
 
-        ThreadPoolExecutor is used instead of ProcessPoolExecutor because NumPy and
-        scikit-learn release the GIL during heavy numeric operations, providing
-        effective parallelism without the overhead of inter-process communication
-        and data serialization. If non-GIL-releasing code is introduced in the
-        future, consider switching to ProcessPoolExecutor.
+        Uses process-based parallelism via joblib's loky backend to avoid the
+        OpenBLAS/OpenMP threading issues that occur with ThreadPoolExecutor
+        when running many BLAS-heavy clustering operations concurrently.
         """
         results = SweepResults()
-        results_lock = Lock()
 
-        # Print at submission time, not completion time
         if verbose:
             for algo_name, params in tasks:
                 print(f"Running {algo_name} with {params}")
 
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            futures = {
-                executor.submit(self._evaluate_config, embeddings, algo_name, params): (
-                    algo_name,
-                    params,
+        def evaluate_task(task: SweepTask) -> SweepResult | None:
+            algo_name, params = task
+            try:
+                return _evaluate_config_worker(
+                    embeddings, algo_name, params, self.random_state, self.CLUSTERER_MAP
                 )
-                for algo_name, params in tasks
-            }
-            for future in as_completed(futures):
-                algo_name, params = futures[future]
-                try:
-                    result = future.result()
-                    with results_lock:
-                        results.results.append(result)
-                except Exception as e:
-                    logger.warning("Failed %s with %s: %s", algo_name, params, e)
-                    if verbose:
-                        print(f"  Failed: {e}")
+            except Exception as e:
+                logger.warning("Failed %s with %s: %s", algo_name, params, e)
+                if verbose:
+                    print(f"  Failed: {e}")
+                return None
+
+        parallel_results = Parallel(n_jobs=self.max_workers, backend="loky")(
+            delayed(evaluate_task)(task) for task in tasks
+        )
+
+        for result in parallel_results:
+            if result is not None:
+                results.results.append(result)
+
         return results
 
     def _generate_combinations(

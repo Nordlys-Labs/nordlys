@@ -459,20 +459,23 @@ class TestParallelExecution:
         assert len(results) == 0
 
     def test_parallel_with_mocked_evaluate(self):
-        """Test parallel execution with mocked _evaluate_config."""
-        from unittest.mock import patch
+        """Test parallel execution uses joblib with loky backend."""
+        import joblib
+        from unittest.mock import patch, MagicMock
 
         embeddings = np.random.rand(50, 10)
 
-        # Create a sweep with a mock that counts calls
-        call_count = {"sequential": 0, "parallel": 0}
-        original_evaluate = ParameterSweep._evaluate_config
+        call_count = {"parallel": 0}
+        original_delayed = joblib.delayed
 
-        def counting_evaluate(self, emb, algo, params):
-            call_count["parallel" if self.max_workers else "sequential"] += 1
-            return original_evaluate(self, emb, algo, params)
+        def counting_delayed(func):
+            def wrapper(*args, **kwargs):
+                call_count["parallel"] += 1
+                return original_delayed(func)(*args, **kwargs)
 
-        with patch.object(ParameterSweep, "_evaluate_config", counting_evaluate):
+            return wrapper
+
+        with patch("nordlys.search.delayed", counting_delayed):
             sweep = ParameterSweep(
                 param_grids={"kmeans": {"n_clusters": [2, 3]}},
                 random_state=42,
