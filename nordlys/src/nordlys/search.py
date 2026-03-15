@@ -6,8 +6,10 @@ the best structure for routing tasks.
 
 from __future__ import annotations
 
+import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
+from threading import Lock
 from typing import Any, Callable, Protocol
 
 import numpy as np
@@ -20,6 +22,8 @@ from nordlys.clustering.kmeans import KMeansClusterer
 from nordlys.clustering.metrics import ClusterMetrics, compute_cluster_metrics
 from nordlys.clustering.minibatch import MiniBatchKMeansClusterer
 from nordlys.clustering.spectral import SpectralClusterer
+
+logger = logging.getLogger(__name__)
 
 SweepTask = tuple[str, dict[str, int | str]]
 
@@ -321,6 +325,7 @@ class ParameterSweep:
                 result = self._evaluate_config(embeddings, algo_name, params)
                 results.results.append(result)
             except Exception as e:
+                logger.warning("Failed %s with %s: %s", algo_name, params, e)
                 if verbose:
                     print(f"  Failed: {e}")
         return results
@@ -331,8 +336,22 @@ class ParameterSweep:
         tasks: list[SweepTask],
         verbose: bool,
     ) -> SweepResults:
-        """Run tasks in parallel using ThreadPoolExecutor."""
+        """Run tasks in parallel using ThreadPoolExecutor.
+
+        ThreadPoolExecutor is used instead of ProcessPoolExecutor because NumPy and
+        scikit-learn release the GIL during heavy numeric operations, providing
+        effective parallelism without the overhead of inter-process communication
+        and data serialization. If non-GIL-releasing code is introduced in the
+        future, consider switching to ProcessPoolExecutor.
+        """
         results = SweepResults()
+        results_lock = Lock()
+
+        # Print at submission time, not completion time
+        if verbose:
+            for algo_name, params in tasks:
+                print(f"Running {algo_name} with {params}")
+
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             futures = {
                 executor.submit(self._evaluate_config, embeddings, algo_name, params): (
@@ -343,12 +362,12 @@ class ParameterSweep:
             }
             for future in as_completed(futures):
                 algo_name, params = futures[future]
-                if verbose:
-                    print(f"Running {algo_name} with {params}")
                 try:
                     result = future.result()
-                    results.results.append(result)
+                    with results_lock:
+                        results.results.append(result)
                 except Exception as e:
+                    logger.warning("Failed %s with %s: %s", algo_name, params, e)
                     if verbose:
                         print(f"  Failed: {e}")
         return results
