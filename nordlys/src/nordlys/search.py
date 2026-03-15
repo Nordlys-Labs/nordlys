@@ -21,8 +21,7 @@ from nordlys.clustering.metrics import ClusterMetrics, compute_cluster_metrics
 from nordlys.clustering.minibatch import MiniBatchKMeansClusterer
 from nordlys.clustering.spectral import SpectralClusterer
 
-
-type SweepTask = tuple[str, dict[str, int | str]]
+SweepTask = tuple[str, dict[str, int | str]]
 
 
 class SweepScorer(Protocol):
