@@ -6,6 +6,7 @@ the best structure for routing tasks.
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from typing import Any, Callable, Protocol
 
@@ -238,15 +239,19 @@ class ParameterSweep:
         self,
         param_grids: dict[str, dict[str, list[Any]]] | None = None,
         random_state: int = 42,
+        max_workers: int | None = None,
     ) -> None:
         """Initialize ParameterSweep.
 
         Args:
             param_grids: Custom parameter grids. If None, uses defaults.
             random_state: Random seed for reproducibility (default: 42)
+            max_workers: Maximum number of parallel workers. If None, runs sequentially.
+                         If 1, runs sequentially. If > 1, runs that many in parallel.
         """
         self.param_grids = param_grids or self.DEFAULT_GRIDS
         self.random_state = random_state
+        self.max_workers = max_workers
 
     def run(
         self,
@@ -267,33 +272,57 @@ class ParameterSweep:
         if algorithms is None:
             algorithms = ["kmeans", "hdbscan", "gmm"]
 
-        results = SweepResults()
-
+        # Build list of all (algorithm, params) combinations to evaluate
+        tasks: list[tuple[str, dict[str, Any]]] = []
         for algo_name in algorithms:
             if algo_name not in self.param_grids:
                 if verbose:
                     print(f"Skipping {algo_name}: no parameter grid defined")
                 continue
-
             if algo_name not in self.CLUSTERER_MAP:
                 if verbose:
                     print(f"Skipping {algo_name}: unknown algorithm")
                 continue
-
             grid = self.param_grids[algo_name]
             param_combinations = self._generate_combinations(grid)
-
             for params in param_combinations:
+                tasks.append((algo_name, params))
+
+        if not tasks:
+            return SweepResults()
+
+        # Run sequentially or in parallel based on max_workers
+        results = SweepResults()
+        if self.max_workers is None or self.max_workers == 1:
+            # Sequential execution
+            for algo_name, params in tasks:
                 if verbose:
                     print(f"Running {algo_name} with {params}")
-
                 try:
                     result = self._evaluate_config(embeddings, algo_name, params)
                     results.results.append(result)
                 except Exception as e:
                     if verbose:
                         print(f"  Failed: {e}")
-                    continue
+        else:
+            # Parallel execution
+            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+                futures = {
+                    executor.submit(
+                        self._evaluate_config, embeddings, algo_name, params
+                    ): (algo_name, params)
+                    for algo_name, params in tasks
+                }
+                for future in as_completed(futures):
+                    algo_name, params = futures[future]
+                    if verbose:
+                        print(f"Running {algo_name} with {params}")
+                    try:
+                        result = future.result()
+                        results.results.append(result)
+                    except Exception as e:
+                        if verbose:
+                            print(f"  Failed: {e}")
 
         return results
 
