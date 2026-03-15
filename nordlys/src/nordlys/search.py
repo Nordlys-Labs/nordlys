@@ -291,39 +291,67 @@ class ParameterSweep:
             for params in param_combinations:
                 tasks.append((algo_name, params))
 
-        # Run sequentially or in parallel based on max_workers
-        results = SweepResults()
+        return self._run_tasks(embeddings, tasks, verbose)
+
+    def _run_tasks(
+        self,
+        embeddings: np.ndarray,
+        tasks: list[SweepTask],
+        verbose: bool,
+    ) -> SweepResults:
+        """Execute sweep tasks sequentially or in parallel."""
+        if not tasks:
+            return SweepResults()
+
         if self.max_workers is None or self.max_workers == 1:
-            # Sequential execution
-            for algo_name, params in tasks:
+            return self._run_sequential(embeddings, tasks, verbose)
+        return self._run_parallel(embeddings, tasks, verbose)
+
+    def _run_sequential(
+        self,
+        embeddings: np.ndarray,
+        tasks: list[SweepTask],
+        verbose: bool,
+    ) -> SweepResults:
+        """Run tasks sequentially."""
+        results = SweepResults()
+        for algo_name, params in tasks:
+            if verbose:
+                print(f"Running {algo_name} with {params}")
+            try:
+                result = self._evaluate_config(embeddings, algo_name, params)
+                results.results.append(result)
+            except Exception as e:
+                if verbose:
+                    print(f"  Failed: {e}")
+        return results
+
+    def _run_parallel(
+        self,
+        embeddings: np.ndarray,
+        tasks: list[SweepTask],
+        verbose: bool,
+    ) -> SweepResults:
+        """Run tasks in parallel using ThreadPoolExecutor."""
+        results = SweepResults()
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            futures = {
+                executor.submit(self._evaluate_config, embeddings, algo_name, params): (
+                    algo_name,
+                    params,
+                )
+                for algo_name, params in tasks
+            }
+            for future in as_completed(futures):
+                algo_name, params = futures[future]
                 if verbose:
                     print(f"Running {algo_name} with {params}")
                 try:
-                    result = self._evaluate_config(embeddings, algo_name, params)
+                    result = future.result()
                     results.results.append(result)
                 except Exception as e:
                     if verbose:
                         print(f"  Failed: {e}")
-        else:
-            # Parallel execution
-            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-                futures = {
-                    executor.submit(
-                        self._evaluate_config, embeddings, algo_name, params
-                    ): (algo_name, params)
-                    for algo_name, params in tasks
-                }
-                for future in as_completed(futures):
-                    algo_name, params = futures[future]
-                    if verbose:
-                        print(f"Running {algo_name} with {params}")
-                    try:
-                        result = future.result()
-                        results.results.append(result)
-                    except Exception as e:
-                        if verbose:
-                            print(f"  Failed: {e}")
-
         return results
 
     def _generate_combinations(
