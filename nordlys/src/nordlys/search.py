@@ -22,6 +22,9 @@ from nordlys.clustering.minibatch import MiniBatchKMeansClusterer
 from nordlys.clustering.spectral import SpectralClusterer
 
 
+type SweepTask = tuple[str, dict[str, int | str]]
+
+
 class SweepScorer(Protocol):
     """Protocol for scoring sweep results.
 
@@ -273,7 +276,7 @@ class ParameterSweep:
             algorithms = ["kmeans", "hdbscan", "gmm"]
 
         # Build list of all (algorithm, params) combinations to evaluate
-        tasks: list[tuple[str, dict[str, Any]]] = []
+        tasks: list[SweepTask] = []
         for algo_name in algorithms:
             if algo_name not in self.param_grids:
                 if verbose:
@@ -287,9 +290,6 @@ class ParameterSweep:
             param_combinations = self._generate_combinations(grid)
             for params in param_combinations:
                 tasks.append((algo_name, params))
-
-        if not tasks:
-            return SweepResults()
 
         # Run sequentially or in parallel based on max_workers
         results = SweepResults()
