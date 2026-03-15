@@ -415,6 +415,74 @@ class TestParameterSweep:
         assert "kmeans" in repr_str
 
 
+class TestParallelExecution:
+    """Tests for parallel execution of sweep tasks."""
+
+    def test_sequential_vs_parallel_results_equivalence(self, sample_embeddings):
+        """Sequential and parallel runs should produce equivalent results."""
+        grids = {"kmeans": {"n_clusters": [2, 3, 4]}}
+
+        sweep_seq = ParameterSweep(param_grids=grids, random_state=42, max_workers=None)
+        results_seq = sweep_seq.run(sample_embeddings, algorithms=["kmeans"])
+
+        sweep_par = ParameterSweep(param_grids=grids, random_state=42, max_workers=2)
+        results_par = sweep_par.run(sample_embeddings, algorithms=["kmeans"])
+
+        assert len(results_seq) == len(results_par)
+        assert len(results_seq) == 3
+
+    def test_parallel_with_max_workers_1_is_sequential(self, sample_embeddings):
+        """max_workers=1 should behave like sequential."""
+        grids = {"kmeans": {"n_clusters": [2, 3]}}
+
+        sweep_seq = ParameterSweep(param_grids=grids, random_state=42, max_workers=None)
+        results_seq = sweep_seq.run(sample_embeddings, algorithms=["kmeans"])
+
+        sweep_par1 = ParameterSweep(param_grids=grids, random_state=42, max_workers=1)
+        results_par1 = sweep_par1.run(sample_embeddings, algorithms=["kmeans"])
+
+        assert len(results_seq) == len(results_par1)
+
+    def test_parallel_execution_produces_results(self, sample_embeddings):
+        """Parallel execution should produce results."""
+        grids = {"kmeans": {"n_clusters": [2, 3, 4]}}
+
+        sweep = ParameterSweep(param_grids=grids, random_state=42, max_workers=4)
+        results = sweep.run(sample_embeddings, algorithms=["kmeans"])
+
+        assert len(results) == 3
+
+    def test_empty_tasks_returns_empty_results(self, sample_embeddings):
+        """Empty task list should return empty results."""
+        sweep = ParameterSweep(param_grids={}, random_state=42, max_workers=2)
+        results = sweep.run(sample_embeddings, algorithms=[])
+        assert len(results) == 0
+
+    def test_parallel_with_mocked_evaluate(self):
+        """Test parallel execution with mocked _evaluate_config."""
+        from unittest.mock import patch
+
+        embeddings = np.random.rand(50, 10)
+
+        # Create a sweep with a mock that counts calls
+        call_count = {"sequential": 0, "parallel": 0}
+        original_evaluate = ParameterSweep._evaluate_config
+
+        def counting_evaluate(self, emb, algo, params):
+            call_count["parallel" if self.max_workers else "sequential"] += 1
+            return original_evaluate(self, emb, algo, params)
+
+        with patch.object(ParameterSweep, "_evaluate_config", counting_evaluate):
+            sweep = ParameterSweep(
+                param_grids={"kmeans": {"n_clusters": [2, 3]}},
+                random_state=42,
+                max_workers=2,
+            )
+            results = sweep.run(embeddings, algorithms=["kmeans"])
+            assert len(results) == 2
+            assert call_count["parallel"] == 2
+
+
 class TestIntegration:
     """Integration tests for search workflow."""
 

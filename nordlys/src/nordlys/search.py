@@ -6,7 +6,10 @@ the best structure for routing tasks.
 
 from __future__ import annotations
 
+import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
+from threading import Lock
 from typing import Any, Callable, Protocol
 
 import numpy as np
@@ -19,6 +22,10 @@ from nordlys.clustering.kmeans import KMeansClusterer
 from nordlys.clustering.metrics import ClusterMetrics, compute_cluster_metrics
 from nordlys.clustering.minibatch import MiniBatchKMeansClusterer
 from nordlys.clustering.spectral import SpectralClusterer
+
+logger = logging.getLogger(__name__)
+
+SweepTask = tuple[str, dict[str, int | str]]
 
 
 class SweepScorer(Protocol):
@@ -238,15 +245,19 @@ class ParameterSweep:
         self,
         param_grids: dict[str, dict[str, list[Any]]] | None = None,
         random_state: int = 42,
+        max_workers: int | None = None,
     ) -> None:
         """Initialize ParameterSweep.
 
         Args:
             param_grids: Custom parameter grids. If None, uses defaults.
             random_state: Random seed for reproducibility (default: 42)
+            max_workers: Maximum number of parallel workers. If None, runs sequentially.
+                         If 1, runs sequentially. If > 1, runs that many in parallel.
         """
         self.param_grids = param_grids or self.DEFAULT_GRIDS
         self.random_state = random_state
+        self.max_workers = max_workers
 
     def run(
         self,
@@ -267,34 +278,98 @@ class ParameterSweep:
         if algorithms is None:
             algorithms = ["kmeans", "hdbscan", "gmm"]
 
-        results = SweepResults()
-
+        # Build list of all (algorithm, params) combinations to evaluate
+        tasks: list[SweepTask] = []
         for algo_name in algorithms:
             if algo_name not in self.param_grids:
                 if verbose:
                     print(f"Skipping {algo_name}: no parameter grid defined")
                 continue
-
             if algo_name not in self.CLUSTERER_MAP:
                 if verbose:
                     print(f"Skipping {algo_name}: unknown algorithm")
                 continue
-
             grid = self.param_grids[algo_name]
             param_combinations = self._generate_combinations(grid)
-
             for params in param_combinations:
-                if verbose:
-                    print(f"Running {algo_name} with {params}")
+                tasks.append((algo_name, params))
 
+        return self._run_tasks(embeddings, tasks, verbose)
+
+    def _run_tasks(
+        self,
+        embeddings: np.ndarray,
+        tasks: list[SweepTask],
+        verbose: bool,
+    ) -> SweepResults:
+        """Execute sweep tasks sequentially or in parallel."""
+        if not tasks:
+            return SweepResults()
+
+        if self.max_workers is None or self.max_workers == 1:
+            return self._run_sequential(embeddings, tasks, verbose)
+        return self._run_parallel(embeddings, tasks, verbose)
+
+    def _run_sequential(
+        self,
+        embeddings: np.ndarray,
+        tasks: list[SweepTask],
+        verbose: bool,
+    ) -> SweepResults:
+        """Run tasks sequentially."""
+        results = SweepResults()
+        for algo_name, params in tasks:
+            if verbose:
+                print(f"Running {algo_name} with {params}")
+            try:
+                result = self._evaluate_config(embeddings, algo_name, params)
+                results.results.append(result)
+            except Exception as e:
+                logger.warning("Failed %s with %s: %s", algo_name, params, e)
+                if verbose:
+                    print(f"  Failed: {e}")
+        return results
+
+    def _run_parallel(
+        self,
+        embeddings: np.ndarray,
+        tasks: list[SweepTask],
+        verbose: bool,
+    ) -> SweepResults:
+        """Run tasks in parallel using ThreadPoolExecutor.
+
+        ThreadPoolExecutor is used instead of ProcessPoolExecutor because NumPy and
+        scikit-learn release the GIL during heavy numeric operations, providing
+        effective parallelism without the overhead of inter-process communication
+        and data serialization. If non-GIL-releasing code is introduced in the
+        future, consider switching to ProcessPoolExecutor.
+        """
+        results = SweepResults()
+        results_lock = Lock()
+
+        # Print at submission time, not completion time
+        if verbose:
+            for algo_name, params in tasks:
+                print(f"Running {algo_name} with {params}")
+
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            futures = {
+                executor.submit(self._evaluate_config, embeddings, algo_name, params): (
+                    algo_name,
+                    params,
+                )
+                for algo_name, params in tasks
+            }
+            for future in as_completed(futures):
+                algo_name, params = futures[future]
                 try:
-                    result = self._evaluate_config(embeddings, algo_name, params)
-                    results.results.append(result)
+                    result = future.result()
+                    with results_lock:
+                        results.results.append(result)
                 except Exception as e:
+                    logger.warning("Failed %s with %s: %s", algo_name, params, e)
                     if verbose:
                         print(f"  Failed: {e}")
-                    continue
-
         return results
 
     def _generate_combinations(
