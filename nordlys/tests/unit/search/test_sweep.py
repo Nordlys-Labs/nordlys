@@ -12,6 +12,8 @@ from nordlys.search import (
     SweepResults,
     cluster_balance_constraint,
     cluster_count_scorer,
+    make_agglomerative_candidates,
+    make_kmeans_candidates,
     max_clusters_constraint,
     min_clusters_constraint,
     silhouette_scorer,
@@ -35,12 +37,10 @@ def sample_embeddings() -> np.ndarray:
 def sample_sweep_results(sample_embeddings) -> SweepResults:
     """Create sample sweep results for testing."""
     sweep = ParameterSweep(
-        param_grids={
-            "kmeans": {"n_clusters": [2, 3, 4]},
-        },
+        candidates=make_kmeans_candidates(n_clusters=[2, 3, 4]),
         random_state=42,
     )
-    return sweep.run(sample_embeddings, algorithms=["kmeans"])
+    return sweep.run(sample_embeddings)
 
 
 class TestSweepScorerProtocol:
@@ -364,53 +364,53 @@ class TestParameterSweep:
         """Sweep should be created with defaults."""
         sweep = ParameterSweep()
         assert sweep.random_state == 42
-        assert sweep.param_grids is not None
+        assert sweep.candidates is not None
+        assert len(sweep.candidates) > 0
 
     def test_custom_creation(self):
         """Sweep should accept custom parameters."""
-        grids = {"kmeans": {"n_clusters": [5, 10]}}
-        sweep = ParameterSweep(param_grids=grids, random_state=123)
+        candidates = make_kmeans_candidates(n_clusters=[5, 10])
+        sweep = ParameterSweep(candidates=candidates, random_state=123)
         assert sweep.random_state == 123
-        assert sweep.param_grids == grids
+        assert len(sweep.candidates) == 2
 
     def test_run_returns_sweep_results(self, sample_embeddings):
         """Run should return SweepResults."""
-        sweep = ParameterSweep(param_grids={"kmeans": {"n_clusters": [2, 3]}})
-        results = sweep.run(sample_embeddings, algorithms=["kmeans"])
+        sweep = ParameterSweep(candidates=make_kmeans_candidates(n_clusters=[2, 3]))
+        results = sweep.run(sample_embeddings)
         assert isinstance(results, SweepResults)
         assert len(results) == 2
 
     def test_run_with_multiple_algorithms(self, sample_embeddings):
         """Run should handle multiple algorithms."""
-        sweep = ParameterSweep(
-            param_grids={
-                "kmeans": {"n_clusters": [2]},
-                "agglomerative": {"n_clusters": [2]},
-            }
-        )
-        results = sweep.run(sample_embeddings, algorithms=["kmeans", "agglomerative"])
-        assert len(results) == 2
+        candidates = [
+            *make_kmeans_candidates(n_clusters=[2]),
+            *make_agglomerative_candidates(n_clusters=[2]),
+        ]
+        sweep = ParameterSweep(candidates=candidates)
+        results = sweep.run(sample_embeddings)
+        assert len(results) == 3  # 1 kmeans + 2 agglomerative (ward + average)
         algorithms = set(r.algorithm for r in results.results)
         assert "kmeans" in algorithms
         assert "agglomerative" in algorithms
 
     def test_run_skips_unknown_algorithm(self, sample_embeddings):
         """Run should skip unknown algorithms."""
-        sweep = ParameterSweep()
-        results = sweep.run(sample_embeddings, algorithms=["unknown_algorithm"])
+        sweep = ParameterSweep(candidates=[])
+        results = sweep.run(sample_embeddings)
         assert len(results) == 0
 
     def test_sweep_result_has_centroids(self, sample_embeddings):
         """Sweep results should have centroids."""
-        sweep = ParameterSweep(param_grids={"kmeans": {"n_clusters": [2]}})
-        results = sweep.run(sample_embeddings, algorithms=["kmeans"])
+        sweep = ParameterSweep(candidates=make_kmeans_candidates(n_clusters=[2]))
+        results = sweep.run(sample_embeddings)
         result = results.results[0]
         assert result.centroids is not None
         assert result.centroids.shape[0] == 2
 
     def test_repr(self):
-        """Repr should show algorithms."""
-        sweep = ParameterSweep(param_grids={"kmeans": {"n_clusters": [2]}})
+        """Repr should show candidates."""
+        sweep = ParameterSweep(candidates=make_kmeans_candidates(n_clusters=[2]))
         repr_str = repr(sweep)
         assert "kmeans" in repr_str
 
@@ -420,42 +420,50 @@ class TestParallelExecution:
 
     def test_sequential_vs_parallel_results_equivalence(self, sample_embeddings):
         """Sequential and parallel runs should produce equivalent results."""
-        grids = {"kmeans": {"n_clusters": [2, 3, 4]}}
+        candidates = make_kmeans_candidates(n_clusters=[2, 3, 4])
 
-        sweep_seq = ParameterSweep(param_grids=grids, random_state=42, max_workers=None)
-        results_seq = sweep_seq.run(sample_embeddings, algorithms=["kmeans"])
+        sweep_seq = ParameterSweep(
+            candidates=candidates, random_state=42, max_workers=None
+        )
+        results_seq = sweep_seq.run(sample_embeddings)
 
-        sweep_par = ParameterSweep(param_grids=grids, random_state=42, max_workers=2)
-        results_par = sweep_par.run(sample_embeddings, algorithms=["kmeans"])
+        sweep_par = ParameterSweep(
+            candidates=candidates, random_state=42, max_workers=2
+        )
+        results_par = sweep_par.run(sample_embeddings)
 
         assert len(results_seq) == len(results_par)
         assert len(results_seq) == 3
 
     def test_parallel_with_max_workers_1_is_sequential(self, sample_embeddings):
         """max_workers=1 should behave like sequential."""
-        grids = {"kmeans": {"n_clusters": [2, 3]}}
+        candidates = make_kmeans_candidates(n_clusters=[2, 3])
 
-        sweep_seq = ParameterSweep(param_grids=grids, random_state=42, max_workers=None)
-        results_seq = sweep_seq.run(sample_embeddings, algorithms=["kmeans"])
+        sweep_seq = ParameterSweep(
+            candidates=candidates, random_state=42, max_workers=None
+        )
+        results_seq = sweep_seq.run(sample_embeddings)
 
-        sweep_par1 = ParameterSweep(param_grids=grids, random_state=42, max_workers=1)
-        results_par1 = sweep_par1.run(sample_embeddings, algorithms=["kmeans"])
+        sweep_par1 = ParameterSweep(
+            candidates=candidates, random_state=42, max_workers=1
+        )
+        results_par1 = sweep_par1.run(sample_embeddings)
 
         assert len(results_seq) == len(results_par1)
 
     def test_parallel_execution_produces_results(self, sample_embeddings):
         """Parallel execution should produce results."""
-        grids = {"kmeans": {"n_clusters": [2, 3, 4]}}
+        candidates = make_kmeans_candidates(n_clusters=[2, 3, 4])
 
-        sweep = ParameterSweep(param_grids=grids, random_state=42, max_workers=4)
-        results = sweep.run(sample_embeddings, algorithms=["kmeans"])
+        sweep = ParameterSweep(candidates=candidates, random_state=42, max_workers=4)
+        results = sweep.run(sample_embeddings)
 
         assert len(results) == 3
 
     def test_empty_tasks_returns_empty_results(self, sample_embeddings):
         """Empty task list should return empty results."""
-        sweep = ParameterSweep(param_grids={}, random_state=42, max_workers=2)
-        results = sweep.run(sample_embeddings, algorithms=[])
+        sweep = ParameterSweep(candidates=[], random_state=42, max_workers=2)
+        results = sweep.run(sample_embeddings)
         assert len(results) == 0
 
     def test_parallel_with_mocked_evaluate(self):
@@ -477,11 +485,11 @@ class TestParallelExecution:
 
         with patch("nordlys.search.delayed", counting_delayed):
             sweep = ParameterSweep(
-                param_grids={"kmeans": {"n_clusters": [2, 3]}},
+                candidates=make_kmeans_candidates(n_clusters=[2, 3]),
                 random_state=42,
                 max_workers=2,
             )
-            results = sweep.run(embeddings, algorithms=["kmeans"])
+            results = sweep.run(embeddings)
             assert len(results) == 2
             assert call_count["parallel"] == 2
 
@@ -504,12 +512,10 @@ class TestIntegration:
 
         # Run sweep
         sweep = ParameterSweep(
-            param_grids={
-                "kmeans": {"n_clusters": [2, 3, 4, 5, 6]},
-            },
+            candidates=make_kmeans_candidates(n_clusters=[2, 3, 4, 5, 6]),
             random_state=42,
         )
-        results = sweep.run(sample_embeddings, algorithms=["kmeans"])
+        results = sweep.run(sample_embeddings)
 
         # Select best
         selected = results.select(
@@ -522,12 +528,10 @@ class TestIntegration:
     def test_built_in_scorers_and_constraints(self, sample_embeddings):
         """Test using built-in scorers and constraints together."""
         sweep = ParameterSweep(
-            param_grids={
-                "kmeans": {"n_clusters": [2, 3, 4]},
-            },
+            candidates=make_kmeans_candidates(n_clusters=[2, 3, 4]),
             random_state=42,
         )
-        results = sweep.run(sample_embeddings, algorithms=["kmeans"])
+        results = sweep.run(sample_embeddings)
 
         # Use built-in scorer
         scorer = silhouette_scorer()
