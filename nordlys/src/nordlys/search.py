@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
+from tempfile import TemporaryDirectory
 from typing import Protocol
 
 import numpy as np
@@ -656,9 +657,13 @@ class ParameterSweep:
                     print(f"  Failed: {e}")
                 return None
 
-        parallel_results = Parallel(n_jobs=self.max_workers, backend="loky")(
-            delayed(evaluate_task)(spec) for spec in candidates
-        )
+        with TemporaryDirectory(prefix="nordlys-sweep-") as temp_dir:
+            parallel_results = Parallel(
+                n_jobs=self.max_workers,
+                backend="loky",
+                temp_folder=temp_dir,
+                mmap_mode="r",
+            )(delayed(evaluate_task)(spec) for spec in candidates)
 
         for result in parallel_results:
             if result is not None:
