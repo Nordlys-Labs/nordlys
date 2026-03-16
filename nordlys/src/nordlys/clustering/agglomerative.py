@@ -23,6 +23,7 @@ class AgglomerativeClusterer(Clusterer):
         n_clusters: int = 20,
         linkage: str = "ward",
         metric: str = "euclidean",
+        random_state: int | None = None,
         **kwargs,
     ) -> None:
         """Initialize Agglomerative clusterer.
@@ -31,11 +32,13 @@ class AgglomerativeClusterer(Clusterer):
             n_clusters: Number of clusters (default: 20)
             linkage: Linkage criterion: "ward", "complete", "average", "single" (default: "ward")
             metric: Distance metric (default: "euclidean"). Note: ward requires euclidean.
+            random_state: Random seed for reproducibility (default: None)
             **kwargs: Additional arguments passed to AgglomerativeClustering
         """
         self.n_clusters = n_clusters
         self.linkage = linkage
         self.metric = metric
+        self.random_state = random_state
         self._kwargs = kwargs
         self._model: AgglomerativeClustering | None = None
         self._cluster_centers: np.ndarray | None = None

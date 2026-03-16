@@ -55,3 +55,8 @@ class Clusterer(ABC):
     def n_clusters_(self) -> int:
         """Number of clusters found."""
         ...
+
+    @property
+    def inertia_(self) -> float | None:
+        """Inertia (sum of squared distances to closest cluster center), or None if not supported."""
+        return None

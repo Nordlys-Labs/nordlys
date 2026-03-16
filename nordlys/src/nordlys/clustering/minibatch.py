@@ -130,5 +130,14 @@ class MiniBatchKMeansClusterer(Clusterer):
         """Number of clusters found."""
         return self.n_clusters
 
+    @property
+    def inertia_(self) -> float:
+        """Sum of squared distances to closest centroid."""
+        if self._model is None:
+            raise RuntimeError("Clusterer must be fitted first.")
+        inertia = self._model.inertia_
+        assert inertia is not None
+        return inertia
+
     def __repr__(self) -> str:
         return f"MiniBatchKMeansClusterer(n_clusters={self.n_clusters})"
