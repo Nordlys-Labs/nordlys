@@ -15,6 +15,7 @@ from joblib import Parallel, delayed
 import numpy as np
 
 from nordlys.clustering.agglomerative import AgglomerativeClusterer
+from nordlys.clustering.base import Clusterer
 from nordlys.clustering.bisecting import BisectingKMeansClusterer
 from nordlys.clustering.gmm import GMMClusterer
 from nordlys.clustering.hdbscan_clusterer import HDBSCANClusterer
@@ -33,7 +34,7 @@ def _evaluate_config_worker(
     algo_name: str,
     params: dict[str, Any],
     random_state: int,
-    clusterer_map: dict[str, type],
+    clusterer_map: dict[str, type[Clusterer]],
 ) -> SweepResult:
     """Worker function for parallel evaluation of clustering configurations.
 
@@ -41,7 +42,6 @@ def _evaluate_config_worker(
     """
     import numpy as np
 
-    from nordlys.clustering.base import Clusterer
     from nordlys.clustering.metrics import compute_cluster_metrics
 
     clusterer_class = clusterer_map[algo_name]
