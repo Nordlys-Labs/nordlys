@@ -7,12 +7,13 @@ the best structure for routing tasks.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Protocol
-
-from joblib import Parallel, delayed
+from typing import Protocol
 
 import numpy as np
+
+from joblib import Parallel, delayed
 
 from nordlys.clustering.agglomerative import AgglomerativeClusterer
 from nordlys.clustering.base import Clusterer
@@ -26,13 +27,18 @@ from nordlys.clustering.spectral import SpectralClusterer
 
 logger = logging.getLogger(__name__)
 
-SweepTask = tuple[str, dict[str, int | str]]
+ParamValue = int | float | str | bool | None
+Params = dict[str, ParamValue]
+ParamGrid = dict[str, list[ParamValue]]
+AlgorithmParamGrids = dict[str, ParamGrid]
+
+SweepTask = tuple[str, Params]
 
 
 def _evaluate_config_worker(
     embeddings: np.ndarray,
     algo_name: str,
-    params: dict[str, Any],
+    params: Params,
     random_state: int,
     clusterer_map: dict[str, type[Clusterer]],
 ) -> SweepResult:
@@ -100,11 +106,11 @@ class SweepResult:
     """
 
     algorithm: str
-    params: dict[str, Any]
+    params: Params
     metrics: ClusterMetrics
     labels: np.ndarray
     centroids: np.ndarray
-    clusterer: Any  # The fitted clusterer
+    clusterer: Clusterer
 
     @property
     def n_clusters(self) -> int:
@@ -254,7 +260,7 @@ class ParameterSweep:
     """
 
     # Default parameter grids for each algorithm
-    DEFAULT_GRIDS: dict[str, dict[str, list[Any]]] = {
+    DEFAULT_GRIDS: AlgorithmParamGrids = {
         "kmeans": {
             "n_clusters": [10, 15, 20, 25, 30],
         },
@@ -288,7 +294,7 @@ class ParameterSweep:
 
     def __init__(
         self,
-        param_grids: dict[str, dict[str, list[Any]]] | None = None,
+        param_grids: AlgorithmParamGrids | None = None,
         random_state: int = 42,
         max_workers: int | None = None,
     ) -> None:
@@ -415,9 +421,7 @@ class ParameterSweep:
 
         return results
 
-    def _generate_combinations(
-        self, grid: dict[str, list[Any]]
-    ) -> list[dict[str, Any]]:
+    def _generate_combinations(self, grid: ParamGrid) -> list[Params]:
         """Generate all combinations of parameters."""
         from itertools import product
 
@@ -434,27 +438,19 @@ class ParameterSweep:
         self,
         embeddings: np.ndarray,
         algo_name: str,
-        params: dict[str, Any],
+        params: Params,
     ) -> SweepResult:
         """Evaluate a single clustering configuration."""
         clusterer_class = self.CLUSTERER_MAP[algo_name]
 
-        # Add random_state if supported
-        if algo_name in [
-            "kmeans",
-            "minibatch_kmeans",
-            "bisecting_kmeans",
-            "gmm",
-            "spectral",
-        ]:
-            params = {**params, "random_state": self.random_state}
+        params = {**params, "random_state": self.random_state}
 
         clusterer = clusterer_class(**params)
         clusterer.fit(embeddings)
 
         labels = clusterer.labels_
         centroids = clusterer.cluster_centers_
-        inertia = clusterer.inertia_ if isinstance(clusterer, KMeansClusterer) else None
+        inertia = clusterer.inertia_
 
         metrics = compute_cluster_metrics(embeddings, labels, inertia)
 

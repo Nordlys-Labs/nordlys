@@ -32,6 +32,7 @@ class HDBSCANClusterer(Clusterer):
         cluster_selection_epsilon: float = 0.0,
         cluster_selection_method: str = "eom",
         prediction_data: bool = True,
+        random_state: int | None = None,
         **kwargs,
     ) -> None:
         """Initialize HDBSCAN clusterer.
@@ -43,6 +44,7 @@ class HDBSCANClusterer(Clusterer):
             cluster_selection_epsilon: Distance threshold for merging (default: 0.0)
             cluster_selection_method: "eom" or "leaf" (default: "eom")
             prediction_data: Generate prediction data for approximate_predict (default: True)
+            random_state: Random seed for reproducibility (default: None)
             **kwargs: Additional arguments passed to HDBSCAN
         """
         self.min_cluster_size = min_cluster_size
@@ -51,6 +53,7 @@ class HDBSCANClusterer(Clusterer):
         self.cluster_selection_epsilon = cluster_selection_epsilon
         self.cluster_selection_method = cluster_selection_method
         self.prediction_data = prediction_data
+        self.random_state = random_state
         self._kwargs = kwargs
         self._model: HDBSCAN | None = None
         self._cluster_centers: np.ndarray | None = None
