@@ -461,7 +461,7 @@ class TestParallelExecution:
     def test_parallel_with_mocked_evaluate(self):
         """Test parallel execution uses joblib with loky backend."""
         import joblib
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import patch
 
         embeddings = np.random.rand(50, 10)
 

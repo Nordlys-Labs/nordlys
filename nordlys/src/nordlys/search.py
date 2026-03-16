@@ -41,25 +41,19 @@ def _evaluate_config_worker(
     """
     import numpy as np
 
+    from nordlys.clustering.base import Clusterer
     from nordlys.clustering.metrics import compute_cluster_metrics
 
     clusterer_class = clusterer_map[algo_name]
 
-    if algo_name in [
-        "kmeans",
-        "minibatch_kmeans",
-        "bisecting_kmeans",
-        "gmm",
-        "spectral",
-    ]:
-        params = {**params, "random_state": random_state}
+    params = {**params, "random_state": random_state}
 
-    clusterer = clusterer_class(**params)
+    clusterer: Clusterer = clusterer_class(**params)
     clusterer.fit(embeddings)
 
     labels = clusterer.labels_
     centroids = clusterer.cluster_centers_
-    inertia = clusterer.inertia_ if hasattr(clusterer, "inertia_") else None
+    inertia = clusterer.inertia_
 
     metrics = compute_cluster_metrics(embeddings, labels, inertia)
 
@@ -189,19 +183,25 @@ class SweepResults:
         valid = [r for r in self.results if r.metrics.silhouette_score is not None]
         if not valid:
             return None
-        return max(valid, key=lambda r: r.metrics.silhouette_score)  # type: ignore[arg-type]
+
+        def get_silhouette(r: SweepResult) -> float:
+            return r.metrics.silhouette_score or 0.0
+
+        return max(valid, key=get_silhouette)
 
     def best_by_n_clusters(self, target: int) -> SweepResult | None:
         """Get the result closest to target number of clusters with best silhouette."""
         if not self.results:
             return None
-        # Filter to results with exact n_clusters
         exact_matches = [r for r in self.results if r.metrics.n_clusters == target]
         if exact_matches:
             valid = [r for r in exact_matches if r.metrics.silhouette_score is not None]
             if valid:
-                return max(valid, key=lambda r: r.metrics.silhouette_score)  # type: ignore[arg-type]
-        # Fall back to closest
+
+                def get_silhouette(r: SweepResult) -> float:
+                    return r.metrics.silhouette_score or 0.0
+
+                return max(valid, key=get_silhouette)
         return min(self.results, key=lambda r: abs(r.metrics.n_clusters - target))
 
     def filter_by_algorithm(self, algorithm: str) -> SweepResults:
