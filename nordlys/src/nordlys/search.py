@@ -13,18 +13,19 @@ from tempfile import TemporaryDirectory
 from typing import Protocol
 
 import numpy as np
-
 from joblib import Parallel, delayed
+from tqdm import tqdm
 
 from nordlys.clustering.agglomerative import AgglomerativeClusterer
 from nordlys.clustering.base import Clusterer
-from nordlys.clustering.bisecting import BisectingKMeansClusterer
+from nordlys.clustering.bisecting_kmeans import BisectingKMeansClusterer
 from nordlys.clustering.gmm import GMMClusterer
 from nordlys.clustering.hdbscan_clusterer import HDBSCANClusterer
 from nordlys.clustering.kmeans import KMeansClusterer
 from nordlys.clustering.metrics import ClusterMetrics, compute_cluster_metrics
-from nordlys.clustering.minibatch import MiniBatchKMeansClusterer
+from nordlys.clustering.minibatch_kmeans import MiniBatchKMeansClusterer
 from nordlys.clustering.spectral import SpectralClusterer
+from nordlys.device import DeviceType, get_device
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +42,7 @@ class CandidateSpec(Protocol):
         """Algorithm name."""
         ...
 
-    def build(self, random_state: int) -> Clusterer:
+    def build(self, random_state: int, device: DeviceType = "cpu") -> Clusterer:
         """Build the clusterer with the given random state."""
         ...
 
@@ -62,12 +63,13 @@ class KMeansSpec:
     def name(self) -> str:
         return "kmeans"
 
-    def build(self, random_state: int) -> KMeansClusterer:
+    def build(self, random_state: int, device: DeviceType = "cpu") -> KMeansClusterer:
         return KMeansClusterer(
             n_clusters=self.n_clusters,
             max_iter=self.max_iter,
             n_init=self.n_init,
             random_state=random_state,
+            device=device,
         )
 
     def params_dict(self) -> dict[str, int | float | str | bool | None]:
@@ -91,13 +93,16 @@ class MiniBatchKMeansSpec:
     def name(self) -> str:
         return "minibatch_kmeans"
 
-    def build(self, random_state: int) -> MiniBatchKMeansClusterer:
+    def build(
+        self, random_state: int, device: DeviceType = "cpu"
+    ) -> MiniBatchKMeansClusterer:
         return MiniBatchKMeansClusterer(
             n_clusters=self.n_clusters,
             max_iter=self.max_iter,
             batch_size=self.batch_size,
             random_state=random_state,
             init_size=self.init_size,
+            device=device,
         )
 
     def params_dict(self) -> dict[str, int | float | str | bool | None]:
@@ -120,12 +125,15 @@ class BisectingKMeansSpec:
     def name(self) -> str:
         return "bisecting_kmeans"
 
-    def build(self, random_state: int) -> BisectingKMeansClusterer:
+    def build(
+        self, random_state: int, device: DeviceType = "cpu"
+    ) -> BisectingKMeansClusterer:
         return BisectingKMeansClusterer(
             n_clusters=self.n_clusters,
             max_iter=self.max_iter,
             batch_size=self.batch_size,
             random_state=random_state,
+            device=device,
         )
 
     def params_dict(self) -> dict[str, int | float | str | bool | None]:
@@ -150,7 +158,7 @@ class HDBSCANSpec:
     def name(self) -> str:
         return "hdbscan"
 
-    def build(self, random_state: int) -> HDBSCANClusterer:
+    def build(self, random_state: int, device: DeviceType = "cpu") -> HDBSCANClusterer:
         return HDBSCANClusterer(
             min_cluster_size=self.min_cluster_size,
             min_samples=self.min_samples,
@@ -181,7 +189,7 @@ class GMMSpec:
     def name(self) -> str:
         return "gmm"
 
-    def build(self, random_state: int) -> GMMClusterer:
+    def build(self, random_state: int, device: DeviceType = "cpu") -> GMMClusterer:
         return GMMClusterer(
             n_components=self.n_components,
             covariance_type=self.covariance_type,
@@ -210,7 +218,9 @@ class AgglomerativeSpec:
     def name(self) -> str:
         return "agglomerative"
 
-    def build(self, random_state: int) -> AgglomerativeClusterer:
+    def build(
+        self, random_state: int, device: DeviceType = "cpu"
+    ) -> AgglomerativeClusterer:
         return AgglomerativeClusterer(
             n_clusters=self.n_clusters,
             linkage=self.linkage,
@@ -238,7 +248,7 @@ class SpectralSpec:
     def name(self) -> str:
         return "spectral"
 
-    def build(self, random_state: int) -> SpectralClusterer:
+    def build(self, random_state: int, device: DeviceType = "cpu") -> SpectralClusterer:
         return SpectralClusterer(
             n_clusters=self.n_clusters,
             affinity=self.affinity,
@@ -557,6 +567,7 @@ class ParameterSweep:
         candidates: Sequence[CandidateSpec] | None = None,
         random_state: int = 42,
         max_workers: int | None = None,
+        device: DeviceType = "cpu",
     ) -> None:
         """Initialize ParameterSweep.
 
@@ -566,12 +577,14 @@ class ParameterSweep:
             random_state: Random seed for reproducibility (default: 42)
             max_workers: Maximum number of parallel workers. If None, runs sequentially.
                          If 1, runs sequentially. If > 1, runs that many in parallel.
+            device: Execution device - "cpu" or "cuda" (default: "cpu")
         """
         self.candidates = (
             list(candidates) if candidates is not None else make_kmeans_candidates()
         )
         self.random_state = random_state
         self.max_workers = max_workers
+        self.device = get_device(device)
 
     def run(
         self,
@@ -615,11 +628,6 @@ class ParameterSweep:
         """Run tasks sequentially."""
         results = SweepResults()
 
-        try:
-            from tqdm import tqdm
-        except ImportError:
-            tqdm = None
-
         iterator = candidates
         if tqdm is not None and verbose:
             iterator = tqdm(
@@ -656,11 +664,6 @@ class ParameterSweep:
         when running many BLAS-heavy clustering operations concurrently.
         """
         results = SweepResults()
-
-        try:
-            from tqdm import tqdm
-        except ImportError:
-            tqdm = None
 
         def evaluate_task(spec: CandidateSpec) -> SweepResult | None:
             try:
@@ -712,7 +715,7 @@ class ParameterSweep:
         spec: CandidateSpec,
     ) -> SweepResult:
         """Evaluate a single clustering candidate."""
-        clusterer = spec.build(self.random_state)
+        clusterer = spec.build(self.random_state, self.device)
         clusterer.fit(embeddings)
 
         labels = clusterer.labels_

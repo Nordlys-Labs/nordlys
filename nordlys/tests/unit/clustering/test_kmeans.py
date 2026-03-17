@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from nordlys.clustering.kmeans import KMeansClusterer
+from nordlys.clustering import KMeansClusterer
 
 
 class TestKMeansInitialization:
@@ -275,3 +275,101 @@ class TestKMeansRepr:
 
         assert "KMeansClusterer" in repr_str
         assert "n_clusters=10" in repr_str
+
+
+class TestKMeansCUDA:
+    """Tests for KMeansClusterer CUDA implementation."""
+
+    @pytest.fixture(autouse=True)
+    def check_cuda_available(self):
+        """Skip tests if CUDA is not available."""
+        pytest.importorskip("cuml")
+
+    def test_cuda_fit_simple_data(self, simple_5d_clusters):
+        """Test CUDA fit on simple well-separated clusters."""
+        clusterer = KMeansClusterer(n_clusters=3, device="cuda")
+        clusterer.fit(simple_5d_clusters)
+
+        assert clusterer._model is not None
+        assert clusterer.labels_.shape == (60,)
+        assert clusterer.cluster_centers_.shape == (3, 5)
+
+    def test_cuda_predict_after_fit(self, simple_5d_clusters):
+        """Test CUDA predict after fitting."""
+        clusterer = KMeansClusterer(n_clusters=3, device="cuda")
+        clusterer.fit(simple_5d_clusters)
+
+        test_data = np.random.randn(10, 5)
+        predictions = clusterer.predict(test_data)
+
+        assert predictions.shape == (10,)
+        assert np.all((predictions >= 0) & (predictions < 3))
+
+    def test_cuda_inertia_available(self, simple_5d_clusters):
+        """Test that inertia is available after CUDA fit."""
+        clusterer = KMeansClusterer(n_clusters=3, device="cuda")
+        clusterer.fit(simple_5d_clusters)
+        assert isinstance(clusterer.inertia_, float)
+        assert clusterer.inertia_ > 0
+
+    def test_cuda_n_iter_available(self, simple_5d_clusters):
+        """Test that n_iter is available after CUDA fit."""
+        clusterer = KMeansClusterer(n_clusters=3, device="cuda")
+        clusterer.fit(simple_5d_clusters)
+        assert isinstance(clusterer.n_iter_, int)
+        assert clusterer.n_iter_ > 0
+
+
+class TestKMeansParity:
+    """Tests for CPU vs CUDA parity."""
+
+    @pytest.fixture(autouse=True)
+    def check_cuda_available(self):
+        """Skip tests if CUDA is not available."""
+        pytest.importorskip("cuml")
+
+    def test_cpu_cuda_labels_parity(self, simple_5d_clusters):
+        """Test that CPU and CUDA produce same labels with same random state."""
+        cpu_clusterer = KMeansClusterer(n_clusters=3, random_state=42, device="cpu")
+        cpu_clusterer.fit(simple_5d_clusters)
+
+        cuda_clusterer = KMeansClusterer(n_clusters=3, random_state=42, device="cuda")
+        cuda_clusterer.fit(simple_5d_clusters)
+
+        np.testing.assert_array_equal(cpu_clusterer.labels_, cuda_clusterer.labels_)
+
+    def test_cpu_cuda_centroids_parity(self, simple_5d_clusters):
+        """Test that CPU and CUDA produce same centroids with same random state."""
+        cpu_clusterer = KMeansClusterer(n_clusters=3, random_state=42, device="cpu")
+        cpu_clusterer.fit(simple_5d_clusters)
+
+        cuda_clusterer = KMeansClusterer(n_clusters=3, random_state=42, device="cuda")
+        cuda_clusterer.fit(simple_5d_clusters)
+
+        np.testing.assert_array_almost_equal(
+            cpu_clusterer.cluster_centers_, cuda_clusterer.cluster_centers_, decimal=4
+        )
+
+    def test_cpu_cuda_inertia_parity(self, simple_5d_clusters):
+        """Test that CPU and CUDA produce similar inertia."""
+        cpu_clusterer = KMeansClusterer(n_clusters=3, random_state=42, device="cpu")
+        cpu_clusterer.fit(simple_5d_clusters)
+
+        cuda_clusterer = KMeansClusterer(n_clusters=3, random_state=42, device="cuda")
+        cuda_clusterer.fit(simple_5d_clusters)
+
+        assert abs(cpu_clusterer.inertia_ - cuda_clusterer.inertia_) < 1.0
+
+    def test_cpu_cuda_predict_parity(self, simple_5d_clusters):
+        """Test that CPU and CUDA produce same predictions."""
+        cpu_clusterer = KMeansClusterer(n_clusters=3, random_state=42, device="cpu")
+        cpu_clusterer.fit(simple_5d_clusters)
+
+        cuda_clusterer = KMeansClusterer(n_clusters=3, random_state=42, device="cuda")
+        cuda_clusterer.fit(simple_5d_clusters)
+
+        test_data = np.random.randn(20, 5)
+        cpu_preds = cpu_clusterer.predict(test_data)
+        cuda_preds = cuda_clusterer.predict(test_data)
+
+        np.testing.assert_array_equal(cpu_preds, cuda_preds)

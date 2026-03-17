@@ -89,7 +89,9 @@ def build_model_folder_map() -> dict[str, str]:
             try:
                 with open(config_path) as f:
                     mapping = json.load(f)
-                logger.info(f"Loaded model folder mapping from {config_path} ({len(mapping)} entries)")
+                logger.info(
+                    f"Loaded model folder mapping from {config_path} ({len(mapping)} entries)"
+                )
                 return mapping
             except (json.JSONDecodeError, OSError) as e:
                 logger.warning(f"Failed to load config file {config_path}: {e}")

@@ -178,9 +178,7 @@ def parse_model_info(model_folder: str) -> tuple[str, str]:
     return provider, model_name
 
 
-def calculate_cluster_stats(
-    assignments: dict[str, int], resolved: set[str]
-) -> dict[int, dict]:
+def calculate_cluster_stats(assignments: dict[str, int], resolved: set[str]) -> dict[int, dict]:
     """Calculate per-cluster statistics."""
     cluster_stats = {}
 
@@ -257,9 +255,7 @@ def profile_single_model(
     return profile
 
 
-def add_model_to_profile(
-    model_folder: str, profiles_dir: Path, profile_path: Path
-) -> None:
+def add_model_to_profile(model_folder: str, profiles_dir: Path, profile_path: Path) -> None:
     """Add a single model from profiles/ to the main profile.json.
 
     Args:
@@ -451,9 +447,7 @@ def main() -> None:
     if not args.model_folder:
         parser.error("--model-folder is required (or use --list-models / --combine)")
 
-    profile_single_model(
-        gh, args.model_folder, args.clusters_dir, args.output_dir, args.eval_type
-    )
+    profile_single_model(gh, args.model_folder, args.clusters_dir, args.output_dir, args.eval_type)
 
 
 if __name__ == "__main__":

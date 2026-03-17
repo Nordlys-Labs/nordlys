@@ -107,7 +107,7 @@ class S3Fetcher:
 
             # Exponential backoff before retry
             if attempt < MAX_RETRIES - 1:
-                backoff = min(INITIAL_BACKOFF * (2 ** attempt), MAX_BACKOFF)
+                backoff = min(INITIAL_BACKOFF * (2**attempt), MAX_BACKOFF)
                 logger.info(f"Retrying in {backoff:.1f}s...")
                 time.sleep(backoff)
 
@@ -117,9 +117,7 @@ class S3Fetcher:
             raise last_error
         return None
 
-    def fetch_instance_data(
-        self, model_folder: str, instance_id: str
-    ) -> FetchResult:
+    def fetch_instance_data(self, model_folder: str, instance_id: str) -> FetchResult:
         """Fetch patch and cost data for an instance.
 
         Args:

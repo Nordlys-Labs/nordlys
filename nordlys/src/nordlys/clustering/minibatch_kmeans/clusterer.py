@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import numpy as np
-from sklearn.cluster import MiniBatchKMeans
 
 from nordlys.clustering.base import Clusterer
+from nordlys.clustering.minibatch_kmeans.cpu import create_sklearn_model, fit as fit_cpu
+from nordlys.clustering.minibatch_kmeans.cuda import fit as fit_cuda
+from nordlys.clustering.minibatch_kmeans.protocol import MiniBatchKMeansModel
+from nordlys.device import DeviceType, get_device, require_cuda
 
 
 class MiniBatchKMeansClusterer(Clusterer):
@@ -13,6 +16,7 @@ class MiniBatchKMeansClusterer(Clusterer):
 
     Thin wrapper over sklearn.cluster.MiniBatchKMeans.
     Useful for large datasets where full K-Means is too slow.
+    Supports both CPU (sklearn) and CUDA (custom implementation) execution.
 
     Example:
         >>> clusterer = MiniBatchKMeansClusterer(n_clusters=20)
@@ -27,8 +31,9 @@ class MiniBatchKMeansClusterer(Clusterer):
         batch_size: int = 1024,
         random_state: int = 42,
         init_size: int | None = None,
-        max_no_improvement: int | None = None,
+        max_no_improvement: int = 10,
         reassignment_ratio: float = 0.01,
+        device: DeviceType = "cpu",
         **kwargs,
     ) -> None:
         """Initialize MiniBatchKMeans clusterer.
@@ -39,10 +44,15 @@ class MiniBatchKMeansClusterer(Clusterer):
             batch_size: Size of mini-batches (default: 1024)
             random_state: Random seed for reproducibility (default: 42)
             init_size: Number of samples to use for initialization (default: 3 * batch_size)
-            max_no_improvement: Stop if no improvement for N iterations (default: None)
+            max_no_improvement: Stop if no improvement for N iterations (default: 10)
             reassignment_ratio: Control random cluster reassignments (default: 0.01)
+            device: Execution device - "cpu" or "cuda" (default: "cpu")
             **kwargs: Additional arguments passed to MiniBatchKMeans
         """
+        match device:
+            case "cuda":
+                require_cuda()
+
         self.n_clusters = n_clusters
         self.max_iter = max_iter
         self.batch_size = batch_size
@@ -50,21 +60,15 @@ class MiniBatchKMeansClusterer(Clusterer):
         self.init_size = init_size
         self.max_no_improvement = max_no_improvement
         self.reassignment_ratio = reassignment_ratio
+        self.device = get_device(device)
         self._kwargs = kwargs
-        self._model: MiniBatchKMeans | None = None
+        self._model: MiniBatchKMeansModel | None = None
 
-    def _create_model(self) -> MiniBatchKMeans:
-        """Create the underlying MiniBatchKMeans model."""
-        return MiniBatchKMeans(
-            n_clusters=self.n_clusters,
-            max_iter=self.max_iter,
-            batch_size=self.batch_size,
-            random_state=self.random_state,
-            init_size=self.init_size,
-            max_no_improvement=self.max_no_improvement,
-            reassignment_ratio=self.reassignment_ratio,
-            **self._kwargs,
-        )
+    def _require_model(self) -> MiniBatchKMeansModel:
+        """Return the fitted model, raising if not fitted."""
+        if self._model is None:
+            raise RuntimeError("Clusterer must be fitted first.")
+        return self._model
 
     def fit(self, embeddings: np.ndarray) -> "MiniBatchKMeansClusterer":
         """Fit the clusterer on embeddings.
@@ -75,8 +79,27 @@ class MiniBatchKMeansClusterer(Clusterer):
         Returns:
             Self
         """
-        self._model = self._create_model()
-        self._model.fit(embeddings)
+        match self.device:
+            case "cuda":
+                self._model = fit_cuda(
+                    n_clusters=self.n_clusters,
+                    max_iter=self.max_iter,
+                    batch_size=self.batch_size,
+                    random_state=self.random_state,
+                    embeddings=embeddings,
+                )
+            case _:
+                model = create_sklearn_model(
+                    n_clusters=self.n_clusters,
+                    max_iter=self.max_iter,
+                    batch_size=self.batch_size,
+                    random_state=self.random_state,
+                    init_size=self.init_size,
+                    max_no_improvement=self.max_no_improvement,
+                    reassignment_ratio=self.reassignment_ratio,
+                    **self._kwargs,
+                )
+                self._model = fit_cpu(model, embeddings)
         return self
 
     def predict(self, embeddings: np.ndarray) -> np.ndarray:
@@ -104,26 +127,17 @@ class MiniBatchKMeansClusterer(Clusterer):
             Cluster assignments of shape (n_samples,)
         """
         self.fit(embeddings)
-        assert self._model is not None
-        labels = self._model.labels_
-        assert labels is not None
-        return labels
+        return self.labels_
 
     @property
     def cluster_centers_(self) -> np.ndarray:
         """Cluster centers of shape (n_clusters, n_features)."""
-        if self._model is None:
-            raise RuntimeError("Clusterer must be fitted first.")
-        return self._model.cluster_centers_
+        return self._require_model().cluster_centers_
 
     @property
     def labels_(self) -> np.ndarray:
         """Labels assigned during fit() of shape (n_samples,)."""
-        if self._model is None:
-            raise RuntimeError("Clusterer must be fitted first.")
-        labels = self._model.labels_
-        assert labels is not None
-        return labels
+        return self._require_model().labels_
 
     @property
     def n_clusters_(self) -> int:
@@ -133,11 +147,7 @@ class MiniBatchKMeansClusterer(Clusterer):
     @property
     def inertia_(self) -> float:
         """Sum of squared distances to closest centroid."""
-        if self._model is None:
-            raise RuntimeError("Clusterer must be fitted first.")
-        inertia = self._model.inertia_
-        assert inertia is not None
-        return inertia
+        return self._require_model().inertia_
 
     def __repr__(self) -> str:
-        return f"MiniBatchKMeansClusterer(n_clusters={self.n_clusters})"
+        return f"MiniBatchKMeansClusterer(n_clusters={self.n_clusters}, device={self.device!r})"

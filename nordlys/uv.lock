@@ -486,6 +486,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "scikit-learn" },
     { name = "sympy" },
+    { name = "tqdm" },
     { name = "umap-learn" },
 ]
 
@@ -539,6 +540,7 @@ requires-dist = [
     { name = "torch", marker = "sys_platform == 'darwin' and extra == 'cu12'", specifier = ">=2.2.0" },
     { name = "torch", marker = "sys_platform != 'darwin' and extra == 'cpu'", specifier = ">=2.2.0", index = "https://download.pytorch.org/whl/cpu", conflict = { package = "nordlys", extra = "cpu" } },
     { name = "torch", marker = "sys_platform != 'darwin' and extra == 'cu12'", specifier = ">=2.2.0", index = "https://download.pytorch.org/whl/cu128", conflict = { package = "nordlys", extra = "cu12" } },
+    { name = "tqdm", specifier = ">=4.66.0" },
     { name = "umap-learn", specifier = ">=0.5.0" },
 ]
 provides-extras = ["cpu", "cu12"]

@@ -25,9 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Run SWE-bench Nordlys routing benchmark"
-    )
+    parser = argparse.ArgumentParser(description="Run SWE-bench Nordlys routing benchmark")
     parser.add_argument(
         "--output",
         type=Path,
@@ -61,9 +59,7 @@ def main() -> None:
     print(f"  Patches missing: {result.patches_missing}")
     print(f"  Total cost: ${result.total_cost:.2f}")
     print(f"\nRouting distribution:")
-    for model_id, count in sorted(
-        result.routing_distribution.items(), key=lambda x: -x[1]
-    ):
+    for model_id, count in sorted(result.routing_distribution.items(), key=lambda x: -x[1]):
         pct = 100 * count / result.total_instances
         cost = result.cost_by_model.get(model_id, 0)
         print(f"    {model_id}: {count} ({pct:.1f}%) - ${cost:.2f}")
