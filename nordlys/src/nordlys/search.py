@@ -6,14 +6,12 @@ the best structure for routing tasks.
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from tempfile import TemporaryDirectory
 from typing import Protocol
 
 import numpy as np
-
 from joblib import Parallel, delayed
 from tqdm import tqdm
 
@@ -26,6 +24,8 @@ from nordlys.clustering.kmeans import KMeansClusterer
 from nordlys.clustering.metrics import ClusterMetrics, compute_cluster_metrics
 from nordlys.clustering.minibatch import MiniBatchKMeansClusterer
 from nordlys.clustering.spectral import SpectralClusterer
+
+import logging
 
 logger = logging.getLogger(__name__)
 
@@ -659,18 +659,21 @@ class ParameterSweep:
                 return None
 
         with TemporaryDirectory(prefix="nordlys-sweep-") as temp_dir:
-            iterator = (
-                tqdm(candidates, desc="Clustering sweep", unit="candidate")
-                if verbose
-                else candidates
-            )
-
             parallel_results = Parallel(
                 n_jobs=self.max_workers,
                 backend="loky",
                 temp_folder=temp_dir,
                 mmap_mode="r",
-            )(delayed(evaluate_task)(spec) for spec in iterator)
+                return_as="generator_unordered",
+            )(delayed(evaluate_task)(spec) for spec in candidates)
+
+            if verbose:
+                parallel_results = tqdm(
+                    parallel_results,
+                    total=len(candidates),
+                    desc="Clustering sweep",
+                    unit="candidate",
+                )
 
             for result in parallel_results:
                 if result is not None:

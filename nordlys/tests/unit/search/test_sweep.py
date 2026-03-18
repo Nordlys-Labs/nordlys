@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import logging
+from io import StringIO
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
@@ -548,3 +551,123 @@ class TestIntegration:
         assert selected is not None
         assert selected.n_clusters >= 2
         assert selected.n_clusters <= 4
+
+
+class TestVerboseOutput:
+    """Tests for verbose output in _run_sequential and _run_parallel."""
+
+    def test_sequential_verbose_with_tqdm(self, sample_embeddings, caplog):
+        """Sequential run with verbose=True should use tqdm."""
+        candidates = make_kmeans_candidates(n_clusters=[2, 3])
+
+        with patch("nordlys.search.tqdm") as mock_tqdm:
+            mock_tqdm_instance = MagicMock()
+            mock_tqdm.return_value = mock_tqdm_instance
+            mock_tqdm_instance.__iter__ = lambda self: iter(candidates)
+
+            sweep = ParameterSweep(candidates=candidates, random_state=42)
+            results = sweep.run(sample_embeddings, verbose=True)
+
+            mock_tqdm.assert_called_once()
+            assert len(results) == 2
+
+    def test_sequential_failure_branch(self, sample_embeddings, caplog):
+        """Sequential run should log failures and exclude them from results."""
+        candidates = make_kmeans_candidates(n_clusters=[2, 3])
+        sweep = ParameterSweep(candidates=candidates, random_state=42)
+
+        with caplog.at_level(logging.WARNING):
+            with patch.object(
+                sweep, "_evaluate_candidate", side_effect=RuntimeError("Test error")
+            ):
+                results = sweep.run(sample_embeddings, verbose=False)
+
+        assert len(results) == 0
+        assert any("Failed" in record.message for record in caplog.records)
+
+    def test_parallel_verbose_with_tqdm(self, sample_embeddings):
+        """Parallel run with verbose=True should wrap generator with tqdm."""
+        candidates = make_kmeans_candidates(n_clusters=[2, 3])
+
+        with patch("nordlys.search.tqdm") as mock_tqdm:
+            mock_tqdm_instance = MagicMock()
+            mock_tqdm.return_value = mock_tqdm_instance
+            mock_tqdm_instance.__iter__ = lambda self: iter([])
+
+            sweep = ParameterSweep(
+                candidates=candidates, random_state=42, max_workers=2
+            )
+
+            original_parallel = sweep._run_parallel
+
+            def patched_parallel(emb, cands, verb):
+                return original_parallel(emb, cands, verb)
+
+            with patch.object(sweep, "_run_parallel", patched_parallel):
+                sweep.run(sample_embeddings, verbose=True)
+
+            mock_tqdm.assert_called_once()
+            call_kwargs = mock_tqdm.call_args[1]
+            assert call_kwargs.get("total") == len(candidates)
+
+    def test_parallel_with_loky_backend(self, sample_embeddings):
+        """Parallel run should use loky backend with temp_folder."""
+        from joblib import Parallel
+
+        candidates = make_kmeans_candidates(n_clusters=[2])
+
+        call_args = {}
+
+        original_parallel = Parallel.__init__
+
+        def capture_init(self, *args, **kwargs):
+            call_args.update(kwargs)
+            return original_parallel(self, *args, **kwargs)
+
+        with patch.object(Parallel, "__init__", capture_init):
+            sweep = ParameterSweep(
+                candidates=candidates, random_state=42, max_workers=2
+            )
+            sweep.run(sample_embeddings, verbose=False)
+
+        assert call_args.get("backend") == "loky"
+        assert "temp_folder" in call_args
+        assert call_args.get("return_as") == "generator_unordered"
+
+    def test_parallel_failure_excluded_from_results(self, sample_embeddings):
+        """Parallel run should exclude failed tasks from results."""
+        candidates = make_kmeans_candidates(n_clusters=[2, 3])
+
+        call_count = {"failures": 0}
+
+        def failing_evaluate_task(embeddings, spec, random_state):
+            from nordlys.search import _evaluate_spec_worker
+
+            try:
+                return _evaluate_spec_worker(embeddings, spec, random_state)
+            except Exception:
+                call_count["failures"] += 1
+                return None
+
+        sweep = ParameterSweep(candidates=candidates, random_state=42, max_workers=2)
+
+        with patch("nordlys.search._evaluate_spec_worker", failing_evaluate_task):
+            results = sweep.run(sample_embeddings, verbose=False)
+
+        assert len(results) == 2
+
+    def test_parallel_generator_materialization(self, sample_embeddings):
+        """Parallel run should materialize the generator after tqdm wrapping."""
+        candidates = make_kmeans_candidates(n_clusters=[2])
+
+        with patch("nordlys.search.tqdm") as mock_tqdm:
+            mock_tqdm_instance = MagicMock()
+            mock_tqdm.return_value = iter([None])
+            mock_tqdm_instance.__iter__ = lambda self: iter([])
+
+            sweep = ParameterSweep(
+                candidates=candidates, random_state=42, max_workers=2
+            )
+            results = sweep.run(sample_embeddings, verbose=True)
+
+            mock_tqdm.assert_called_once()
