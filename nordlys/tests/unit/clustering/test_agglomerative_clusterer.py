@@ -29,11 +29,11 @@ class TestAgglomerativeClusterer:
     def test_agglomerative_init_custom(self):
         """Test AgglomerativeClusterer initialization with custom params."""
         clusterer = AgglomerativeClusterer(
-            n_clusters=10, linkage="complete", metric="manhattan"
+            n_clusters=10, linkage="complete", metric="cityblock"
         )
         assert clusterer.n_clusters == 10
         assert clusterer.linkage == "complete"
-        assert clusterer.metric == "manhattan"
+        assert clusterer.metric == "cityblock"
 
     def test_agglomerative_fit(self, simple_data):
         """Test fit method creates model, stores embeddings, and computes cluster_centers_."""
@@ -108,7 +108,7 @@ class TestAgglomerativeClusterer:
 
     def test_agglomerative_linkage_complete(self, simple_data):
         """Test complete linkage with different metrics."""
-        for metric in ["euclidean", "manhattan", "cosine"]:
+        for metric in ["euclidean", "cityblock", "cosine"]:
             clusterer = AgglomerativeClusterer(
                 n_clusters=3, linkage="complete", metric=metric
             )

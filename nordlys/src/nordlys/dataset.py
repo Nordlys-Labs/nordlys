@@ -12,9 +12,11 @@ import polars as pl
 import random
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, TypeVar, cast
+from typing import TypeVar, cast, Any
 
 T = TypeVar("T")
+
+DatasetRow = dict[str, object]
 
 
 @dataclass

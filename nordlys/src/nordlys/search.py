@@ -9,21 +9,24 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from tempfile import TemporaryDirectory
-from typing import Protocol
+from typing import Literal, Protocol
 
 import numpy as np
 from joblib import Parallel, delayed
 from tqdm import tqdm
 
 from nordlys.clustering.agglomerative import AgglomerativeClusterer
+from nordlys.clustering.agglomerative.protocol import AgglomerativeMetric
 from nordlys.clustering.base import Clusterer
-from nordlys.clustering.bisecting import BisectingKMeansClusterer
+from nordlys.clustering.bisecting_kmeans import BisectingKMeansClusterer
 from nordlys.clustering.gmm import GMMClusterer
 from nordlys.clustering.hdbscan_clusterer import HDBSCANClusterer
 from nordlys.clustering.kmeans import KMeansClusterer
 from nordlys.clustering.metrics import ClusterMetrics, compute_cluster_metrics
-from nordlys.clustering.minibatch import MiniBatchKMeansClusterer
+from nordlys.clustering.minibatch_kmeans import MiniBatchKMeansClusterer
 from nordlys.clustering.spectral import SpectralClusterer
+from nordlys.device import DeviceType, get_device
+
 
 import logging
 
@@ -42,7 +45,7 @@ class CandidateSpec(Protocol):
         """Algorithm name."""
         ...
 
-    def build(self, random_state: int) -> Clusterer:
+    def build(self, random_state: int, device: DeviceType = "cpu") -> Clusterer:
         """Build the clusterer with the given random state."""
         ...
 
@@ -58,17 +61,19 @@ class KMeansSpec:
     n_clusters: int
     max_iter: int = 300
     n_init: int = 10
+    device: DeviceType = "cpu"
 
     @property
     def name(self) -> str:
         return "kmeans"
 
-    def build(self, random_state: int) -> KMeansClusterer:
+    def build(self, random_state: int, device: DeviceType = "cpu") -> KMeansClusterer:
         return KMeansClusterer(
             n_clusters=self.n_clusters,
             max_iter=self.max_iter,
             n_init=self.n_init,
             random_state=random_state,
+            device=self.device,
         )
 
     def params_dict(self) -> dict[str, int | float | str | bool | None]:
@@ -87,18 +92,22 @@ class MiniBatchKMeansSpec:
     max_iter: int = 100
     batch_size: int = 1024
     init_size: int | None = 3 * 1024
+    device: DeviceType = "cpu"
 
     @property
     def name(self) -> str:
         return "minibatch_kmeans"
 
-    def build(self, random_state: int) -> MiniBatchKMeansClusterer:
+    def build(
+        self, random_state: int, device: DeviceType = "cpu"
+    ) -> MiniBatchKMeansClusterer:
         return MiniBatchKMeansClusterer(
             n_clusters=self.n_clusters,
             max_iter=self.max_iter,
             batch_size=self.batch_size,
             random_state=random_state,
             init_size=self.init_size,
+            device=self.device,
         )
 
     def params_dict(self) -> dict[str, int | float | str | bool | None]:
@@ -116,17 +125,21 @@ class BisectingKMeansSpec:
     n_clusters: int
     max_iter: int = 100
     batch_size: int = 1024
+    device: DeviceType = "cpu"
 
     @property
     def name(self) -> str:
         return "bisecting_kmeans"
 
-    def build(self, random_state: int) -> BisectingKMeansClusterer:
+    def build(
+        self, random_state: int, device: DeviceType = "cpu"
+    ) -> BisectingKMeansClusterer:
         return BisectingKMeansClusterer(
             n_clusters=self.n_clusters,
             max_iter=self.max_iter,
             batch_size=self.batch_size,
             random_state=random_state,
+            device=self.device,
         )
 
     def params_dict(self) -> dict[str, int | float | str | bool | None]:
@@ -145,13 +158,15 @@ class HDBSCANSpec:
     min_samples: int | None = None
     metric: str = "euclidean"
     cluster_selection_epsilon: float = 0.0
-    cluster_selection_method: str = "eom"
+    cluster_selection_method: Literal["eom", "leaf"] = "eom"
+    device: DeviceType = "cpu"
 
     @property
     def name(self) -> str:
         return "hdbscan"
 
-    def build(self, random_state: int) -> HDBSCANClusterer:
+    def build(self, random_state: int, device: DeviceType = "cpu") -> HDBSCANClusterer:
+        """Build HDBSCAN clusterer."""
         return HDBSCANClusterer(
             min_cluster_size=self.min_cluster_size,
             min_samples=self.min_samples,
@@ -159,6 +174,7 @@ class HDBSCANSpec:
             cluster_selection_epsilon=self.cluster_selection_epsilon,
             cluster_selection_method=self.cluster_selection_method,
             random_state=random_state,
+            device=self.device,
         )
 
     def params_dict(self) -> dict[str, int | float | str | bool | None]:
@@ -177,18 +193,21 @@ class GMMSpec:
     covariance_type: str = "full"
     max_iter: int = 100
     n_init: int = 1
+    device: DeviceType = "cpu"
 
     @property
     def name(self) -> str:
         return "gmm"
 
-    def build(self, random_state: int) -> GMMClusterer:
+    def build(self, random_state: int, device: DeviceType = "cpu") -> GMMClusterer:
+        """Build GMM clusterer."""
         return GMMClusterer(
             n_components=self.n_components,
             covariance_type=self.covariance_type,
             max_iter=self.max_iter,
             n_init=self.n_init,
             random_state=random_state,
+            device=self.device,
         )
 
     def params_dict(self) -> dict[str, int | float | str | bool | None]:
@@ -205,18 +224,23 @@ class AgglomerativeSpec:
 
     n_clusters: int
     linkage: str = "ward"
-    metric: str = "euclidean"
+    metric: AgglomerativeMetric = "euclidean"
+    device: DeviceType = "cpu"
 
     @property
     def name(self) -> str:
         return "agglomerative"
 
-    def build(self, random_state: int) -> AgglomerativeClusterer:
+    def build(
+        self, random_state: int, device: DeviceType = "cpu"
+    ) -> AgglomerativeClusterer:
+        """Build agglomerative clustering spec."""
         return AgglomerativeClusterer(
             n_clusters=self.n_clusters,
             linkage=self.linkage,
             metric=self.metric,
             random_state=random_state,
+            device=self.device,
         )
 
     def params_dict(self) -> dict[str, int | float | str | bool | None]:
@@ -234,17 +258,20 @@ class SpectralSpec:
     n_clusters: int
     affinity: str = "nearest_neighbors"
     n_neighbors: int = 10
+    device: DeviceType = "cpu"
 
     @property
     def name(self) -> str:
         return "spectral"
 
-    def build(self, random_state: int) -> SpectralClusterer:
+    def build(self, random_state: int, device: DeviceType = "cpu") -> SpectralClusterer:
+        """Build spectral clustering spec."""
         return SpectralClusterer(
             n_clusters=self.n_clusters,
             affinity=self.affinity,
             n_neighbors=self.n_neighbors,
             random_state=random_state,
+            device=self.device,
         )
 
     def params_dict(self) -> dict[str, int | float | str | bool | None]:
@@ -259,12 +286,14 @@ def make_kmeans_candidates(
     n_clusters: list[int] | None = None,
     max_iter: int = 300,
     n_init: int = 10,
+    device: DeviceType = "cpu",
 ) -> list[KMeansSpec]:
     """Generate K-Means candidate specifications."""
     if n_clusters is None:
         n_clusters = [10, 15, 20, 25, 30]
     return [
-        KMeansSpec(n_clusters=k, max_iter=max_iter, n_init=n_init) for k in n_clusters
+        KMeansSpec(n_clusters=k, max_iter=max_iter, n_init=n_init, device=device)
+        for k in n_clusters
     ]
 
 
@@ -272,12 +301,15 @@ def make_minibatch_kmeans_candidates(
     n_clusters: list[int] | None = None,
     max_iter: int = 100,
     batch_size: int = 1024,
+    device: DeviceType = "cpu",
 ) -> list[MiniBatchKMeansSpec]:
     """Generate Mini-Batch K-Means candidate specifications."""
     if n_clusters is None:
         n_clusters = [10, 15, 20, 25, 30]
     return [
-        MiniBatchKMeansSpec(n_clusters=k, max_iter=max_iter, batch_size=batch_size)
+        MiniBatchKMeansSpec(
+            n_clusters=k, max_iter=max_iter, batch_size=batch_size, device=device
+        )
         for k in n_clusters
     ]
 
@@ -286,12 +318,15 @@ def make_bisecting_kmeans_candidates(
     n_clusters: list[int] | None = None,
     max_iter: int = 100,
     batch_size: int = 1024,
+    device: DeviceType = "cpu",
 ) -> list[BisectingKMeansSpec]:
     """Generate Bisecting K-Means candidate specifications."""
     if n_clusters is None:
         n_clusters = [10, 15, 20, 25, 30]
     return [
-        BisectingKMeansSpec(n_clusters=k, max_iter=max_iter, batch_size=batch_size)
+        BisectingKMeansSpec(
+            n_clusters=k, max_iter=max_iter, batch_size=batch_size, device=device
+        )
         for k in n_clusters
     ]
 
@@ -299,6 +334,7 @@ def make_bisecting_kmeans_candidates(
 def make_hdbscan_candidates(
     min_cluster_size: list[int] | None = None,
     min_samples: list[int] | None = None,
+    device: DeviceType = "cpu",
 ) -> list[HDBSCANSpec]:
     """Generate HDBSCAN candidate specifications."""
     if min_cluster_size is None:
@@ -306,7 +342,7 @@ def make_hdbscan_candidates(
     if min_samples is None:
         min_samples = [5, 10, 15]
     return [
-        HDBSCANSpec(min_cluster_size=mcs, min_samples=ms)
+        HDBSCANSpec(min_cluster_size=mcs, min_samples=ms, device=device)
         for mcs in min_cluster_size
         for ms in min_samples
     ]
@@ -317,6 +353,7 @@ def make_gmm_candidates(
     covariance_type: list[str] | None = None,
     max_iter: int = 100,
     n_init: int = 1,
+    device: DeviceType = "cpu",
 ) -> list[GMMSpec]:
     """Generate GMM candidate specifications."""
     if n_components is None:
@@ -324,7 +361,13 @@ def make_gmm_candidates(
     if covariance_type is None:
         covariance_type = ["full", "diag"]
     return [
-        GMMSpec(n_components=nc, covariance_type=ct, max_iter=max_iter, n_init=n_init)
+        GMMSpec(
+            n_components=nc,
+            covariance_type=ct,
+            max_iter=max_iter,
+            n_init=n_init,
+            device=device,
+        )
         for nc in n_components
         for ct in covariance_type
     ]
@@ -333,6 +376,7 @@ def make_gmm_candidates(
 def make_agglomerative_candidates(
     n_clusters: list[int] | None = None,
     linkage: list[str] | None = None,
+    device: DeviceType = "cpu",
 ) -> list[AgglomerativeSpec]:
     """Generate Agglomerative clustering candidate specifications."""
     if n_clusters is None:
@@ -340,7 +384,7 @@ def make_agglomerative_candidates(
     if linkage is None:
         linkage = ["ward", "average"]
     return [
-        AgglomerativeSpec(n_clusters=k, linkage=link)
+        AgglomerativeSpec(n_clusters=k, linkage=link, device=device)
         for k in n_clusters
         for link in linkage
     ]
@@ -350,6 +394,7 @@ def make_spectral_candidates(
     n_clusters: list[int] | None = None,
     affinity: list[str] | None = None,
     n_neighbors: int = 10,
+    device: DeviceType = "cpu",
 ) -> list[SpectralSpec]:
     """Generate Spectral clustering candidate specifications."""
     if n_clusters is None:
@@ -357,7 +402,7 @@ def make_spectral_candidates(
     if affinity is None:
         affinity = ["nearest_neighbors"]
     return [
-        SpectralSpec(n_clusters=k, affinity=a, n_neighbors=n_neighbors)
+        SpectralSpec(n_clusters=k, affinity=a, n_neighbors=n_neighbors, device=device)
         for k in n_clusters
         for a in affinity
     ]
@@ -558,6 +603,7 @@ class ParameterSweep:
         candidates: Sequence[CandidateSpec] | None = None,
         random_state: int = 42,
         max_workers: int | None = None,
+        device: DeviceType = "cpu",
     ) -> None:
         """Initialize ParameterSweep.
 
@@ -567,12 +613,14 @@ class ParameterSweep:
             random_state: Random seed for reproducibility (default: 42)
             max_workers: Maximum number of parallel workers. If None, runs sequentially.
                          If 1, runs sequentially. If > 1, runs that many in parallel.
+            device: Execution device - "cpu" or "cuda" (default: "cpu")
         """
         self.candidates = (
             list(candidates) if candidates is not None else make_kmeans_candidates()
         )
         self.random_state = random_state
         self.max_workers = max_workers
+        self.device = get_device(device)
 
     def run(
         self,
@@ -641,12 +689,7 @@ class ParameterSweep:
         candidates: Sequence[CandidateSpec],
         verbose: bool,
     ) -> SweepResults:
-        """Run tasks in parallel using joblib with loky backend.
-
-        Uses process-based parallelism via joblib's loky backend to avoid the
-        OpenBLAS/OpenMP threading issues that occur with ThreadPoolExecutor
-        when running many BLAS-heavy clustering operations concurrently.
-        """
+        """Run tasks in parallel using joblib with loky backend."""
         results = SweepResults()
 
         def evaluate_task(spec: CandidateSpec) -> SweepResult | None:
@@ -687,7 +730,7 @@ class ParameterSweep:
         spec: CandidateSpec,
     ) -> SweepResult:
         """Evaluate a single clustering candidate."""
-        clusterer = spec.build(self.random_state)
+        clusterer = spec.build(self.random_state, self.device)
         clusterer.fit(embeddings)
 
         labels = clusterer.labels_
