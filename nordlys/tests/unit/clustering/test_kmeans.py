@@ -110,7 +110,7 @@ class TestKMeansPredict:
         clusterer = KMeansClusterer(n_clusters=3)
         test_data = np.random.randn(10, 5)
 
-        with pytest.raises(RuntimeError, match="must be fitted before predict"):
+        with pytest.raises(RuntimeError, match="must be fitted first"):
             clusterer.predict(test_data)
 
     def test_predict_shape(self, simple_5d_clusters):

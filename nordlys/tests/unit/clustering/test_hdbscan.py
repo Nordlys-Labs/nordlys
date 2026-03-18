@@ -100,7 +100,7 @@ class TestHDBSCANPredict:
         clusterer = HDBSCANClusterer(min_cluster_size=5)
         test_data = np.random.randn(10, 5)
 
-        with pytest.raises(RuntimeError, match="must be fitted before predict"):
+        with pytest.raises(RuntimeError, match="must be fitted first"):
             clusterer.predict(test_data)
 
     def test_predict_consistency(self, simple_5d_clusters):

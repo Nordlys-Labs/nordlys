@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from nordlys.clustering.kmeans.protocol import KMeansModel
+
 import numpy as np
 from sklearn.cluster import KMeans
-
-from nordlys.clustering.kmeans.protocol import KMeansModel
 
 
 class SklearnKMeansModel:
@@ -42,9 +42,21 @@ def create_sklearn_model(
     n_init: int,
     random_state: int,
     algorithm: str,
-    **kwargs,
-) -> SklearnKMeansModel:
-    """Create and fit a sklearn KMeans model."""
+    **kwargs: object,
+) -> "SklearnKMeansModel":
+    """Create a sklearn KMeans model (does not fit).
+
+    Args:
+        n_clusters: Number of clusters
+        max_iter: Maximum iterations
+        n_init: Number of initializations
+        random_state: Random seed
+        algorithm: K-means algorithm variant
+        **kwargs: Additional arguments passed to KMeans
+
+    Returns:
+        An unfitted SklearnKMeansModel instance
+    """
     model = KMeans(
         n_clusters=n_clusters,
         max_iter=max_iter,

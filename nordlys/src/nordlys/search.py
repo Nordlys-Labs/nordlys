@@ -6,6 +6,15 @@ the best structure for routing tasks.
 
 from __future__ import annotations
 
+import logging
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass, field
+from tempfile import TemporaryDirectory
+from typing import Protocol
+
+import numpy as np
+from joblib import Parallel, delayed
+
 from nordlys.clustering.agglomerative import AgglomerativeClusterer
 from nordlys.clustering.base import Clusterer
 from nordlys.clustering.bisecting_kmeans import BisectingKMeansClusterer
@@ -17,15 +26,10 @@ from nordlys.clustering.minibatch_kmeans import MiniBatchKMeansClusterer
 from nordlys.clustering.spectral import SpectralClusterer
 from nordlys.device import DeviceType, get_device
 
-import logging
-from collections.abc import Callable, Sequence
-from dataclasses import dataclass, field
-from tempfile import TemporaryDirectory
-from typing import Protocol
-
-import numpy as np
-from joblib import Parallel, delayed
-from tqdm import tqdm
+try:
+    from tqdm import tqdm
+except ImportError:
+    tqdm = None
 
 logger = logging.getLogger(__name__)
 
@@ -159,6 +163,15 @@ class HDBSCANSpec:
         return "hdbscan"
 
     def build(self, random_state: int, device: DeviceType = "cpu") -> HDBSCANClusterer:
+        """Build HDBSCAN clusterer.
+
+        Note: HDBSCAN is CPU-only and does not support CUDA.
+        """
+        if device != "cpu":
+            msg = (
+                f"HDBSCAN does not support CUDA (device={device!r}). Use device='cpu'."
+            )
+            raise ValueError(msg)
         return HDBSCANClusterer(
             min_cluster_size=self.min_cluster_size,
             min_samples=self.min_samples,
@@ -190,6 +203,13 @@ class GMMSpec:
         return "gmm"
 
     def build(self, random_state: int, device: DeviceType = "cpu") -> GMMClusterer:
+        """Build GMM clusterer.
+
+        Note: GMM is CPU-only and does not support CUDA.
+        """
+        if device != "cpu":
+            msg = f"GMM does not support CUDA (device={device!r}). Use device='cpu'."
+            raise ValueError(msg)
         return GMMClusterer(
             n_components=self.n_components,
             covariance_type=self.covariance_type,
@@ -221,6 +241,13 @@ class AgglomerativeSpec:
     def build(
         self, random_state: int, device: DeviceType = "cpu"
     ) -> AgglomerativeClusterer:
+        """Build agglomerative clustering spec.
+
+        Note: Agglomerative is CPU-only and does not support CUDA.
+        """
+        if device != "cpu":
+            msg = f"Agglomerative does not support CUDA (device={device!r}). Use device='cpu'."
+            raise ValueError(msg)
         return AgglomerativeClusterer(
             n_clusters=self.n_clusters,
             linkage=self.linkage,
@@ -249,6 +276,15 @@ class SpectralSpec:
         return "spectral"
 
     def build(self, random_state: int, device: DeviceType = "cpu") -> SpectralClusterer:
+        """Build spectral clustering spec.
+
+        Note: Spectral is CPU-only and does not support CUDA.
+        """
+        if device != "cpu":
+            msg = (
+                f"Spectral does not support CUDA (device={device!r}). Use device='cpu'."
+            )
+            raise ValueError(msg)
         return SpectralClusterer(
             n_clusters=self.n_clusters,
             affinity=self.affinity,

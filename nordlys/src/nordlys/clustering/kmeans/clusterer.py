@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import numpy as np
-
 from nordlys.clustering.base import Clusterer
 from nordlys.clustering.kmeans.cpu import create_sklearn_model, fit as fit_cpu
 from nordlys.clustering.kmeans.cuda import fit as fit_cuda
 from nordlys.clustering.kmeans.protocol import KMeansModel
 from nordlys.device import DeviceType, get_device, require_cuda
+
+import numpy as np
 
 
 class KMeansClusterer(Clusterer):
@@ -110,11 +110,7 @@ class KMeansClusterer(Clusterer):
         Returns:
             Cluster assignments of shape (n_samples,)
         """
-        if self._model is None:
-            raise RuntimeError(
-                "Clusterer must be fitted before predict. Call fit() first."
-            )
-        return self._model.predict(embeddings)
+        return self._require_model().predict(embeddings)
 
     def fit_predict(self, embeddings: np.ndarray) -> np.ndarray:
         """Fit the clusterer and predict cluster assignments.
