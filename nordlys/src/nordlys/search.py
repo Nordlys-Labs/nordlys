@@ -616,13 +616,13 @@ class ParameterSweep:
         results = SweepResults()
 
         try:
-            from tqdm import tqdm
+            from tqdm import tqdm as _tqdm
         except ImportError:
-            tqdm = None
+            _tqdm = None  # type: ignore[assignment]
 
         iterator = candidates
-        if tqdm is not None and verbose:
-            iterator = tqdm(
+        if _tqdm is not None and verbose:
+            iterator = _tqdm(
                 candidates,
                 desc="Clustering sweep",
                 unit="candidate",
@@ -630,7 +630,7 @@ class ParameterSweep:
             )
 
         for spec in iterator:
-            if verbose and tqdm is None:
+            if verbose and _tqdm is None:
                 print(f"Running {spec.name} with {spec.params_dict()}")
             try:
                 result = self._evaluate_candidate(embeddings, spec)
@@ -639,7 +639,7 @@ class ParameterSweep:
                 logger.warning(
                     "Failed %s with %s: %s", spec.name, spec.params_dict(), e
                 )
-                if verbose and tqdm is None:
+                if verbose and _tqdm is None:
                     print(f"  Failed: {e}")
         return results
 
@@ -658,9 +658,9 @@ class ParameterSweep:
         results = SweepResults()
 
         try:
-            from tqdm import tqdm
+            from tqdm import tqdm as _tqdm
         except ImportError:
-            tqdm = None
+            _tqdm = None  # type: ignore[assignment]
 
         def evaluate_task(spec: CandidateSpec) -> SweepResult | None:
             try:
@@ -672,7 +672,7 @@ class ParameterSweep:
                 return None
 
         with TemporaryDirectory(prefix="nordlys-sweep-") as temp_dir:
-            if tqdm is not None and verbose:
+            if _tqdm is not None and verbose:
                 parallel_iter = Parallel(
                     n_jobs=self.max_workers,
                     backend="loky",
@@ -680,7 +680,7 @@ class ParameterSweep:
                     mmap_mode="r",
                 )(
                     delayed(evaluate_task)(spec)
-                    for spec in tqdm(
+                    for spec in _tqdm(
                         candidates, desc="Clustering sweep", unit="candidate"
                     )
                 )
