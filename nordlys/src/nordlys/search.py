@@ -641,7 +641,7 @@ class ParameterSweep:
         results = SweepResults()
 
         iterator = candidates
-        if tqdm is not None and verbose:
+        if verbose:
             iterator = tqdm(
                 candidates,
                 desc="Clustering sweep",
@@ -650,8 +650,6 @@ class ParameterSweep:
             )
 
         for spec in iterator:
-            if verbose and tqdm is None:
-                print(f"Running {spec.name} with {spec.params_dict()}")
             try:
                 result = self._evaluate_candidate(embeddings, spec)
                 results.results.append(result)
@@ -659,8 +657,6 @@ class ParameterSweep:
                 logger.warning(
                     "Failed %s with %s: %s", spec.name, spec.params_dict(), e
                 )
-                if verbose and tqdm is None:
-                    print(f"  Failed: {e}")
         return results
 
     def _run_parallel(
@@ -689,36 +685,25 @@ class ParameterSweep:
                 return None
 
         with TemporaryDirectory(prefix="nordlys-sweep-") as temp_dir:
-            if tqdm is not None and verbose:
-                parallel_iter = Parallel(
-                    n_jobs=self.max_workers,
-                    backend="loky",
-                    temp_folder=temp_dir,
-                    mmap_mode="r",
-                )(
-                    delayed(evaluate_task)(spec)
-                    for spec in tqdm(
-                        candidates, desc="Clustering sweep", unit="candidate"
-                    )
+            parallel_results = Parallel(
+                n_jobs=self.max_workers,
+                backend="loky",
+                temp_folder=temp_dir,
+                mmap_mode="r",
+                return_as="generator_unordered",
+            )(delayed(evaluate_task)(spec) for spec in candidates)
+
+            if verbose:
+                parallel_results = tqdm(
+                    parallel_results,
+                    total=len(candidates),
+                    desc="Clustering sweep",
+                    unit="candidate",
                 )
-                for result in parallel_iter:
-                    if result is not None:
-                        results.results.append(result)
-            else:
-                if verbose:
-                    for spec in candidates:
-                        print(f"Running {spec.name} with {spec.params_dict()}")
 
-                parallel_results = Parallel(
-                    n_jobs=self.max_workers,
-                    backend="loky",
-                    temp_folder=temp_dir,
-                    mmap_mode="r",
-                )(delayed(evaluate_task)(spec) for spec in candidates)
-
-                for result in parallel_results:
-                    if result is not None:
-                        results.results.append(result)
+            for result in parallel_results:
+                if result is not None:
+                    results.results.append(result)
 
         return results
 
