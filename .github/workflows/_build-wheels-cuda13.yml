@@ -1,0 +1,88 @@
+name: Build CUDA 13 Wheels
+
+on:
+  workflow_call:
+    inputs:
+      validate-version:
+        description: 'Validate wheel versions match VERSION file and tag'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  build_wheels_cuda13:
+    name: Build CUDA 13 wheels (linux)
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Extract version from tag (publish only)
+        if: inputs.validate-version
+        id: version
+        shell: bash
+        run: |
+          TAG_VERSION=$(echo "${GITHUB_REF#refs/tags/core-v}" | sed 's/^v//')
+          echo "version=$TAG_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Assert version matches tag (publish only)
+        if: inputs.validate-version
+        shell: bash
+        run: |
+          VERSION=$(cat nordlys-core/VERSION | tr -d '[:space:]')
+          TAG_VERSION=${{ steps.version.outputs.version }}
+          if [ "$VERSION" != "$TAG_VERSION" ]; then
+            echo "Error: VERSION file version ($VERSION) does not match tag ($TAG_VERSION)"
+            exit 1
+          fi
+          echo "Version verified: $VERSION"
+
+      - name: Assert CUDA 13 version matches CPU version (publish only)
+        if: inputs.validate-version
+        shell: bash
+        run: |
+          CPU_VERSION=$(cat nordlys-core/VERSION | tr -d '[:space:]')
+          CUDA13_VERSION=$(cat nordlys-core/VERSION | tr -d '[:space:]')
+          if [ "$CPU_VERSION" != "$CUDA13_VERSION" ]; then
+            echo "Error: CUDA 13 package version ($CUDA13_VERSION) does not match CPU package version ($CPU_VERSION)"
+            exit 1
+          fi
+          echo "Version sync verified: CPU=$CPU_VERSION, CUDA13=$CUDA13_VERSION"
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v3.4.0
+        env:
+          CIBW_BUILD: "cp311-* cp312-* cp313-*"
+          CIBW_SKIP: "*-musllinux_* *-win32 *_i686 *-macosx_* *-win_*"
+          CIBW_BUILD_VERBOSITY: 1
+          CIBW_BUILD_FRONTEND: "build[uv]"
+          CIBW_MANYLINUX_X86_64_IMAGE: "quay.io/pypa/manylinux_2_34_x86_64"
+          CIBW_BEFORE_ALL_LINUX: >
+            dnf install -y wget cmake dnf-plugins-core &&
+            dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo &&
+            dnf clean all &&
+            dnf install -y --setopt=install_weak_deps=False --setopt=tsflags=nodocs cuda-compiler-13-1 cuda-libraries-devel-13-1 libnvjitlink-devel-13-1 &&
+            ln -s /opt/cuda /usr/local/cuda || true &&
+            dnf clean all
+          CIBW_BEFORE_BUILD: "pip install conan && conan profile detect --force"
+          CIBW_ENVIRONMENT: "NORDLYS_ENABLE_CUDA=ON CUDACXX=/opt/cuda/bin/nvcc CMAKE_CUDA_COMPILER=/opt/cuda/bin/nvcc CUDAToolkit_ROOT=/opt/cuda PATH=/opt/cuda/bin:/usr/local/cuda/bin:$PATH LD_LIBRARY_PATH=/opt/cuda/lib64:$LD_LIBRARY_PATH"
+          CIBW_REPAIR_WHEEL_COMMAND_LINUX: >
+            auditwheel repair --strip
+            --exclude libcuda.so.1
+            --exclude libcudart.so.13
+            --exclude libnvrtc.so.13
+            --exclude libnvrtc-builtins.so.13
+            --exclude libcublas.so.13
+            --exclude libcublasLt.so.13
+            --exclude libcusolver.so.13
+            --exclude libcusparse.so.13
+            --exclude libnvjitlink.so.13
+            -w {dest_dir} {wheel}
+        with:
+          package-dir: ./nordlys-core-cu13
+          extras: uv
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: cibw-wheels-cuda13-linux
+          path: ./wheelhouse/*.whl
