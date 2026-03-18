@@ -203,19 +203,14 @@ class GMMSpec:
         return "gmm"
 
     def build(self, random_state: int, device: DeviceType = "cpu") -> GMMClusterer:
-        """Build GMM clusterer.
-
-        Note: GMM is CPU-only and does not support CUDA.
-        """
-        if device != "cpu":
-            msg = f"GMM does not support CUDA (device={device!r}). Use device='cpu'."
-            raise ValueError(msg)
+        """Build GMM clusterer."""
         return GMMClusterer(
             n_components=self.n_components,
             covariance_type=self.covariance_type,
             max_iter=self.max_iter,
             n_init=self.n_init,
             random_state=random_state,
+            device=device,
         )
 
     def params_dict(self) -> dict[str, int | float | str | bool | None]:
@@ -241,18 +236,13 @@ class AgglomerativeSpec:
     def build(
         self, random_state: int, device: DeviceType = "cpu"
     ) -> AgglomerativeClusterer:
-        """Build agglomerative clustering spec.
-
-        Note: Agglomerative is CPU-only and does not support CUDA.
-        """
-        if device != "cpu":
-            msg = f"Agglomerative does not support CUDA (device={device!r}). Use device='cpu'."
-            raise ValueError(msg)
+        """Build agglomerative clustering spec."""
         return AgglomerativeClusterer(
             n_clusters=self.n_clusters,
             linkage=self.linkage,
             metric=self.metric,
             random_state=random_state,
+            device=device,
         )
 
     def params_dict(self) -> dict[str, int | float | str | bool | None]:
@@ -276,20 +266,13 @@ class SpectralSpec:
         return "spectral"
 
     def build(self, random_state: int, device: DeviceType = "cpu") -> SpectralClusterer:
-        """Build spectral clustering spec.
-
-        Note: Spectral is CPU-only and does not support CUDA.
-        """
-        if device != "cpu":
-            msg = (
-                f"Spectral does not support CUDA (device={device!r}). Use device='cpu'."
-            )
-            raise ValueError(msg)
+        """Build spectral clustering spec."""
         return SpectralClusterer(
             n_clusters=self.n_clusters,
             affinity=self.affinity,
             n_neighbors=self.n_neighbors,
             random_state=random_state,
+            device=device,
         )
 
     def params_dict(self) -> dict[str, int | float | str | bool | None]:
@@ -725,7 +708,6 @@ class ParameterSweep:
                         candidates, desc="Clustering sweep", unit="candidate"
                     )
                 )
-
                 for result in parallel_iter:
                     if result is not None:
                         results.results.append(result)
