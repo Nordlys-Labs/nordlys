@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 import numpy as np
 
 from nordlys.clustering.base import Clusterer
@@ -30,7 +32,7 @@ class HDBSCANClusterer(Clusterer):
         min_samples: int | None = None,
         metric: str = "euclidean",
         cluster_selection_epsilon: float = 0.0,
-        cluster_selection_method: str = "eom",
+        cluster_selection_method: Literal["eom", "leaf"] = "eom",
         prediction_data: bool = True,
         random_state: int | None = None,
         device: DeviceType = "cpu",

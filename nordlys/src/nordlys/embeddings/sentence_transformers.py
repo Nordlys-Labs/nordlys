@@ -7,6 +7,7 @@ from typing import Any, Literal
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
+from nordlys.checkpoint_types import EmbeddingConfig
 from nordlys.embeddings.base import Embedder
 
 
@@ -31,8 +32,8 @@ class SentenceTransformers(Embedder):
         truncate_dim: int | None = None,
         revision: str | None = None,
         token: str | None = None,
-        model_kwargs: dict[str, Any] | None = None,
-        encode_kwargs: dict[str, Any] | None = None,
+        model_kwargs: dict[str, object] | None = None,
+        encode_kwargs: dict[str, object] | None = None,
     ) -> None:
         """Initialize SentenceTransformers embedder.
 
@@ -70,7 +71,7 @@ class SentenceTransformers(Embedder):
         self.encode_kwargs = encode_kwargs or {}
 
         # Build kwargs for SentenceTransformer constructor
-        constructor_kwargs: dict[str, Any] = {
+        constructor_kwargs: dict[str, object] = {
             "device": device,
             "trust_remote_code": trust_remote_code,
         }
@@ -83,7 +84,7 @@ class SentenceTransformers(Embedder):
 
         self._encoder = SentenceTransformer(
             model,
-            **constructor_kwargs,
+            **constructor_kwargs,  # type: ignore[arg-type]
         )
 
         self._encoder.tokenizer.clean_up_tokenization_spaces = False
@@ -99,7 +100,6 @@ class SentenceTransformers(Embedder):
         Returns:
             2D numpy array of shape (len(texts), embedding_dim)
         """
-        # Build encode kwargs
         encode_kwargs: dict[str, Any] = {
             "convert_to_numpy": True,
             "show_progress_bar": self.show_progress_bar,
@@ -107,25 +107,21 @@ class SentenceTransformers(Embedder):
             "normalize_embeddings": self.normalize,
         }
 
-        # Add prompt support
         if self.embedding_prompt_name:
             encode_kwargs["prompt_name"] = self.embedding_prompt_name
         if self.embedding_prompt:
             encode_kwargs["prompt"] = self.embedding_prompt
-
-        # Add truncate_dim if provided
         if self.truncate_dim:
             encode_kwargs["truncate_dim"] = self.truncate_dim
 
-        # Merge user-provided encode kwargs
         encode_kwargs.update(self.encode_kwargs)
 
         vectors = self._encoder.encode(texts, **encode_kwargs)
         return np.asarray(vectors, dtype=np.float32)
 
-    def checkpoint_config(self) -> dict[str, Any]:
+    def checkpoint_config(self) -> EmbeddingConfig:
         """Return embedding config stored in checkpoints."""
-        config: dict[str, Any] = {
+        config: EmbeddingConfig = {
             "model": self.model,
             "trust_remote_code": self.trust_remote_code,
         }

@@ -3,11 +3,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, cast
 
 import numpy as np
 
 from nordlys.checkpoint import build_checkpoint
+from nordlys.checkpoint_types import (
+    CheckpointMetrics,
+    CheckpointModelEntry,
+    ClusteringConfig,
+    EmbeddingConfig,
+)
 from nordlys.clustering import Clusterer, KMeansClusterer, compute_cluster_metrics
 from nordlys.dataset import Dataset
 from nordlys.embeddings import Embedder, SentenceTransformers
@@ -32,10 +38,10 @@ class FittedStructure:
 
     cluster_centers: np.ndarray
     n_clusters: int
-    embedding_config: dict
-    clustering_config: dict
+    embedding_config: EmbeddingConfig
+    clustering_config: ClusteringConfig
     reduction: ReductionPayload | None
-    metrics: dict
+    metrics: CheckpointMetrics
 
     @property
     def centroids(self) -> np.ndarray:
@@ -170,21 +176,21 @@ class Trainer:
             cluster_centers=np.asarray(centroids, dtype=np.float32),
             n_clusters=n_clusters,
             embedding_config=embedder.checkpoint_config(),
-            clustering_config={
-                "n_clusters": n_clusters,
-                "random_state": self.random_state,
-                "max_iter": 300,
-                "n_init": 10,
-                "algorithm": "lloyd",
-                "normalization": "l2" if self.embedding_normalize else "none",
-            },
+            clustering_config=ClusteringConfig(
+                n_clusters=n_clusters,
+                random_state=self.random_state,
+                max_iter=300,
+                n_init=10,
+                algorithm="lloyd",
+                normalization="l2" if self.embedding_normalize else "none",
+            ),
             reduction=reduction_payload,
-            metrics={
-                "n_samples": metrics.n_samples,
-                "cluster_sizes": metrics.cluster_sizes,
-                "silhouette_score": metrics.silhouette_score,
-                "inertia": metrics.inertia,
-            },
+            metrics=CheckpointMetrics(
+                n_samples=metrics.n_samples,
+                cluster_sizes=metrics.cluster_sizes,
+                silhouette_score=metrics.silhouette_score,
+                inertia=metrics.inertia,
+            ),
         )
 
     def select_structure(
@@ -243,32 +249,31 @@ class Trainer:
     def _fitted_structure_from_sweep_result(
         self,
         result: SweepResult,
-        embedding_config: dict,
+        embedding_config: EmbeddingConfig,
         reduction_payload: ReductionPayload | None,
     ) -> FittedStructure:
         """Build a FittedStructure from a selected SweepResult."""
-        # Get random_state from result params if present, otherwise use Trainer's
-        seed = result.params.get("random_state", self.random_state)
+        seed_raw = result.params.get("random_state", self.random_state)
+        seed = int(seed_raw) if seed_raw is not None else self.random_state
         return FittedStructure(
             cluster_centers=result.centroids,
             n_clusters=result.n_clusters,
             embedding_config=embedding_config,
-            clustering_config={
-                "n_clusters": result.n_clusters,
-                "random_state": seed,
-                "max_iter": 300,
-                "n_init": 10,
-                "algorithm": result.algorithm,
-                "params": result.params,
-                "normalization": "l2" if self.embedding_normalize else "none",
-            },
+            clustering_config=ClusteringConfig(
+                n_clusters=result.n_clusters,
+                random_state=seed,
+                max_iter=300,
+                n_init=10,
+                algorithm=result.algorithm,
+                normalization="l2" if self.embedding_normalize else "none",
+            ),
             reduction=reduction_payload,
-            metrics={
-                "n_samples": result.metrics.n_samples,
-                "cluster_sizes": result.metrics.cluster_sizes,
-                "silhouette_score": result.metrics.silhouette_score,
-                "inertia": result.metrics.inertia,
-            },
+            metrics=CheckpointMetrics(
+                n_samples=result.metrics.n_samples,
+                cluster_sizes=result.metrics.cluster_sizes,
+                silhouette_score=result.metrics.silhouette_score,
+                inertia=result.metrics.inertia,
+            ),
         )
 
     def assign_clusters(self, fitted: FittedStructure, dataset: Dataset) -> np.ndarray:
@@ -355,10 +360,10 @@ class Trainer:
             Router ready for routing
         """
         models_payload = [
-            {
-                "model_id": model_id,
-                "scores": policy.scores[model_id],
-            }
+            CheckpointModelEntry(
+                model_id=model_id,
+                scores=policy.scores[model_id],
+            )
             for model_id in self.models
         ]
 

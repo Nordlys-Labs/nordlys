@@ -114,11 +114,10 @@ class TestBisectingKMeansCUDA:
     def check_cuda_available(self):
         """Skip tests if CUDA is not available."""
         pytest.importorskip("cuml")
-        try:
-            import cuml
+        pytest.importorskip("cupy")
+        import cupy as cp
 
-            cuml.cuda.device_count()
-        except Exception:
+        if cp.cuda.runtime.getDeviceCount() == 0:
             pytest.skip("No CUDA device available")
 
     def test_cuda_fit_simple_data(self, simple_5d_clusters):
@@ -156,11 +155,10 @@ class TestBisectingKMeansParity:
     def check_cuda_available(self):
         """Skip tests if CUDA is not available."""
         pytest.importorskip("cuml")
-        try:
-            import cuml
+        pytest.importorskip("cupy")
+        import cupy as cp
 
-            cuml.cuda.device_count()
-        except Exception:
+        if cp.cuda.runtime.getDeviceCount() == 0:
             pytest.skip("No CUDA device available")
 
     def test_cpu_cuda_labels_parity(self, simple_5d_clusters):

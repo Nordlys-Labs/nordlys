@@ -7,10 +7,15 @@ emit the same schema.
 from __future__ import annotations
 
 import json
-from typing import Any
 
 import numpy as np
 
+from nordlys.checkpoint_types import (
+    CheckpointMetrics,
+    CheckpointModelEntry,
+    ClusteringConfig,
+    EmbeddingConfig,
+)
 from nordlys.reduction.base import ReductionPayload
 from nordlys_core import NordlysCheckpoint
 
@@ -18,11 +23,11 @@ from nordlys_core import NordlysCheckpoint
 def build_checkpoint(
     *,
     cluster_centers: np.ndarray,
-    models: list[dict[str, Any]],
-    embedding: dict[str, Any],
-    clustering: dict[str, Any],
+    models: list[CheckpointModelEntry],
+    embedding: EmbeddingConfig,
+    clustering: ClusteringConfig,
     reduction: ReductionPayload | None,
-    metrics: dict[str, Any],
+    metrics: CheckpointMetrics,
 ) -> NordlysCheckpoint:
     """Build a validated ``NordlysCheckpoint`` from normalized sections."""
     n_clusters = int(cluster_centers.shape[0])
@@ -40,7 +45,7 @@ def build_checkpoint(
     return NordlysCheckpoint.from_json_string(json.dumps(payload))
 
 
-def _validate_models(*, models: list[dict[str, Any]], n_clusters: int) -> None:
+def _validate_models(*, models: list[CheckpointModelEntry], n_clusters: int) -> None:
     if not models:
         raise ValueError("Checkpoint must contain at least one model")
 
@@ -55,7 +60,7 @@ def _validate_models(*, models: list[dict[str, Any]], n_clusters: int) -> None:
             )
 
 
-def _validate_embedding(embedding: dict[str, Any]) -> None:
+def _validate_embedding(embedding: EmbeddingConfig) -> None:
     model = embedding.get("model")
     if not isinstance(model, str) or not model:
         raise ValueError("Checkpoint embedding must include a non-empty model")

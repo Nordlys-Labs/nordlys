@@ -1,7 +1,11 @@
-"""GPU adapter for Bisecting KMeans using cuML and cupy."""
+"""GPU adapter for Bisecting KMeans using cupy."""
 
 from __future__ import annotations
 
+from nordlys.clustering._cuda_minibatch import (
+    _fit_minibatch_core,
+    greedy_kmeanspp_init,
+)
 from nordlys.clustering.bisecting_kmeans.protocol import BisectingKMeansModel
 
 import numpy as np
@@ -48,9 +52,8 @@ def fit(
     random_state: int,
     embeddings: np.ndarray,
 ) -> BisectingKMeansModel:
-    """Fit using CUDA (cuML + cupy)."""
+    """Fit using CUDA (cupy), matching CPU bisecting semantics."""
     import cupy as cp
-    import cuml
 
     data = cp.asarray(embeddings, dtype=cp.float32)
     n_samples = data.shape[0]
@@ -60,12 +63,14 @@ def fit(
         cluster_centers = cp.mean(data, axis=0, keepdims=True)
         inertia = float(cp.sum((data - cluster_centers) ** 2))
         return CumlBisectingKMeansModel(
-            cp.asnumpy(cluster_centers), cp.asnumpy(labels), inertia
+            cp.asnumpy(cluster_centers), cp.asnumpy(labels).astype(np.int64), inertia
         )
 
     cluster_assignments = cp.zeros(n_samples, dtype=cp.int64)
-    cluster_sizes = [int(n_samples)]
-    centroids = [cp.mean(data, axis=0)]
+    cluster_sizes: list[int] = [int(n_samples)]
+    centroids: list[cp.ndarray] = [cp.mean(data, axis=0)]
+
+    rng = np.random.RandomState(random_state)
 
     while len(centroids) < n_clusters:
         largest_cluster_idx = int(np.argmax(cluster_sizes))
@@ -77,42 +82,19 @@ def fit(
         cluster_indices = cp.where(cluster_assignments == largest_cluster_idx)[0]
         cluster_data = data[cluster_indices]
 
-        init_model = cuml.KMeans(
-            n_clusters=2,
-            max_iter=1,
-            n_init=10,
-            random_state=random_state,
+        init_centers = greedy_kmeanspp_init(
+            cluster_data, n_clusters=2, random_state=rng, x_squared_norms=None
         )
-        init_model.fit(cp.asarray(cluster_data))
-        split_centroids = cp.asarray(init_model.cluster_centers_)
 
-        for iteration in range(max_iter):
-            rng = np.random.RandomState(random_state + iteration)
-            n_cluster = int(cluster_data.shape[0])
-            batch_indices = rng.choice(
-                n_cluster, size=min(batch_size, n_cluster), replace=False
-            )
-            batch = cluster_data[batch_indices]
-
-            squared_distances = cp.sum(
-                (batch[:, cp.newaxis, :] - split_centroids[cp.newaxis, :, :]) ** 2,
-                axis=2,
-            )
-            batch_labels = cp.argmin(squared_distances, axis=1)
-
-            for k in range(2):
-                mask = batch_labels == k
-                if int(cp.sum(mask)) > 0:
-                    learning_rate = 0.01
-                    split_centroids[k] = (1 - learning_rate) * split_centroids[
-                        k
-                    ] + learning_rate * cp.mean(batch[mask], axis=0)
-
-        final_squared_distances = cp.sum(
-            (cluster_data[:, cp.newaxis, :] - split_centroids[cp.newaxis, :, :]) ** 2,
-            axis=2,
+        split_centers, split_labels, _, _ = _fit_minibatch_core(
+            data=cluster_data,
+            init_centers=init_centers,
+            batch_size=min(batch_size, 1024),
+            max_iter=max_iter,
+            max_no_improvement=10,
+            reassignment_ratio=0.01,
+            random_state=rng,
         )
-        split_labels = cp.argmin(final_squared_distances, axis=1)
 
         new_cluster_idx = len(centroids)
 
@@ -120,16 +102,17 @@ def fit(
             if int(split_labels[i]) == 1:
                 cluster_assignments[global_idx] = new_cluster_idx
 
-        split_size_0 = int(cp.sum(split_labels == 0))
-        split_size_1 = int(cp.sum(split_labels == 1))
+        split_size_0 = int(cp.count_nonzero(split_labels == 0))
+        split_size_1 = int(cp.count_nonzero(split_labels == 1))
         cluster_sizes[largest_cluster_idx] = split_size_0
         cluster_sizes.append(split_size_1)
 
-        new_centroids = []
+        new_centroids: list[cp.ndarray] = []
         for c_idx in range(len(centroids)):
             if c_idx == largest_cluster_idx:
                 mask = cluster_assignments == c_idx
-                if int(cp.sum(mask)) > 0:
+                cnt = int(cp.count_nonzero(mask))
+                if cnt > 0:
                     new_centroids.append(cp.mean(data[mask], axis=0))
                 else:
                     new_centroids.append(centroids[c_idx])
@@ -137,10 +120,11 @@ def fit(
                 new_centroids.append(centroids[c_idx])
 
         mask = cluster_assignments == new_cluster_idx
-        if int(cp.sum(mask)) > 0:
+        cnt = int(cp.count_nonzero(mask))
+        if cnt > 0:
             new_centroids.append(cp.mean(data[mask], axis=0))
         else:
-            new_centroids.append(split_centroids[1])
+            new_centroids.append(split_centers[1])
 
         centroids = new_centroids
 

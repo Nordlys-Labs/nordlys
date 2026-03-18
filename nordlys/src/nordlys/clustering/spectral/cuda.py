@@ -117,12 +117,15 @@ def fit(
 
     kmeans = KMeans(n_clusters=n_clusters, n_init=10, random_state=random_state)
     kmeans.fit(embedding)
-    labels = kmeans.labels_
+    kmeans_labels = kmeans.labels_
+    if kmeans_labels is None:
+        raise RuntimeError("KMeans fit failed: labels_ is None")
+    labels = np.asarray(kmeans_labels)
 
     centers = []
     for label in range(n_clusters):
         mask = labels == label
-        if mask.sum() > 0:
+        if int(np.count_nonzero(mask)) > 0:
             centers.append(data[mask].mean(axis=0))
         else:
             centers.append(data[0])

@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from nordlys.clustering.agglomerative.protocol import AgglomerativeModel
+from nordlys.clustering.agglomerative.protocol import (
+    AgglomerativeModel,
+    AgglomerativeMetric,
+)
 
 import numpy as np
 from scipy.cluster.hierarchy import fcluster, linkage as linkage_func
@@ -49,7 +52,7 @@ class CupyAgglomerativeModel:
 def fit(
     n_clusters: int,
     linkage: str,
-    metric: str,
+    metric: AgglomerativeMetric,
     random_state: int,
     embeddings: np.ndarray,
 ) -> AgglomerativeModel:
@@ -76,14 +79,14 @@ def fit(
         Z = linkage_func(pdist_result, method=linkage)
         labels = fcluster(Z, n_clusters, criterion="maxclust") - 1
     else:
-        pdist_result = pdist(data, metric=str(metric))
+        pdist_result = pdist(data, metric=metric)
         Z = linkage_func(pdist_result, method=linkage)
         labels = fcluster(Z, n_clusters, criterion="maxclust") - 1
 
     centers = []
     for label in range(n_clusters):
         mask = labels == label
-        if mask.sum() > 0:
+        if int(np.count_nonzero(mask)) > 0:
             centers.append(data[mask].mean(axis=0))
         else:
             centers.append(data[0])

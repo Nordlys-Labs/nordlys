@@ -55,7 +55,7 @@ def fit(
     min_samples: int | None,
     metric: str,
     cluster_selection_epsilon: float,
-    cluster_selection_method: str,
+    cluster_selection_method: Literal["eom", "leaf"],
     prediction_data: bool,
     random_state: int | None,
     embeddings: np.ndarray,

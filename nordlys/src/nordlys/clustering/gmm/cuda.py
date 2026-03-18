@@ -98,10 +98,10 @@ def fit(
     data = cp.asarray(embeddings, dtype=cp.float32)
     n_samples, n_features = data.shape
 
-    best_labels = None
-    best_means = None
-    best_weights = None
-    best_covariances = None
+    best_labels: np.ndarray | None = None
+    best_means: np.ndarray | None = None
+    best_weights: np.ndarray | None = None
+    best_covariances: np.ndarray | None = None
     best_converged = False
 
     best_score = -np.inf
@@ -177,7 +177,16 @@ def fit(
             best_means = cp.asnumpy(means)
             best_weights = cp.asnumpy(weights)
             best_covariances = cp.asnumpy(covariances)
-            best_converged = iteration < max_iter - 1
+            best_converged = max_iter > 0 and iteration < max_iter - 1
+
+    if (
+        best_labels is None
+        or best_means is None
+        or best_weights is None
+        or best_covariances is None
+        or best_converged is None
+    ):
+        raise RuntimeError("GMM fit failed: no valid solution found")
 
     return CupyGMMModel(
         best_means,

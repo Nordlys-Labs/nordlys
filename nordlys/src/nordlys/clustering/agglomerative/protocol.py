@@ -2,8 +2,27 @@
 
 from __future__ import annotations
 
+from typing import Literal, Protocol, runtime_checkable
+
 import numpy as np
-from typing import Protocol, runtime_checkable
+
+AgglomerativeMetric = Literal[
+    "braycurtis",
+    "canberra",
+    "chebychev",
+    "cityblock",
+    "cosine",
+    "dice",
+    "euclidean",
+    "hamming",
+    "jaccard",
+    "mahalanobis",
+    "minkowski",
+    "russellrao",
+    "seuclidean",
+    "sokalsneath",
+    "sqeuclidean",
+]
 
 
 @runtime_checkable

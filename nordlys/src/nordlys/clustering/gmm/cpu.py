@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 from nordlys.clustering.gmm.protocol import GMMModel
 
 import numpy as np
@@ -9,7 +11,7 @@ from sklearn.mixture import GaussianMixture
 
 
 class SklearnGMMModel:
-    """Adapter for sklearn GaussianMixture."""
+    """Adapter for sklearn GaussianMixture (post-fit only)."""
 
     def __init__(
         self, model: GaussianMixture, embeddings: np.ndarray | None = None
@@ -19,7 +21,7 @@ class SklearnGMMModel:
 
     @property
     def cluster_centers_(self) -> np.ndarray:
-        return self._model.means_
+        return cast(np.ndarray, self._model.means_)
 
     @property
     def labels_(self) -> np.ndarray:
@@ -35,11 +37,11 @@ class SklearnGMMModel:
 
     @property
     def weights_(self) -> np.ndarray:
-        return self._model.weights_
+        return cast(np.ndarray, self._model.weights_)
 
     @property
     def covariances_(self) -> np.ndarray:
-        return self._model.covariances_
+        return cast(np.ndarray, self._model.covariances_)
 
     @property
     def converged_(self) -> bool:
@@ -59,20 +61,8 @@ def create_sklearn_model(
     n_init: int,
     random_state: int,
     **kwargs: object,
-) -> "SklearnGMMModel":
-    """Create a sklearn GMM model (does not fit).
-
-    Args:
-        n_components: Number of mixture components
-        covariance_type: Covariance type: "full", "tied", "diag", "spherical"
-        max_iter: Maximum iterations
-        n_init: Number of initializations
-        random_state: Random seed
-        **kwargs: Additional arguments passed to GaussianMixture
-
-    Returns:
-        An unfitted SklearnGMMModel instance
-    """
+) -> GaussianMixture:
+    """Create an unfitted sklearn GMM model."""
     model = GaussianMixture(
         n_components=n_components,
         covariance_type=covariance_type,
@@ -81,14 +71,13 @@ def create_sklearn_model(
         random_state=random_state,
         **kwargs,
     )
-    return SklearnGMMModel(model, None)
+    return model
 
 
 def fit(
-    model: SklearnGMMModel,
+    model: GaussianMixture,
     embeddings: np.ndarray,
 ) -> GMMModel:
     """Fit the sklearn model and return the adapter."""
-    model._model.fit(embeddings)
-    model._embeddings = embeddings
-    return model
+    model.fit(embeddings)
+    return SklearnGMMModel(model, embeddings)

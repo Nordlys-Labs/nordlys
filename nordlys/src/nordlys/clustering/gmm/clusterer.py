@@ -100,7 +100,7 @@ class GMMClusterer(Clusterer):
                     random_state=self.random_state,
                     embeddings=embeddings,
                 )
-                self._bic = self._compute_bic_cuda(embeddings)
+                self._bic = self._compute_bic_from_model(embeddings)
             case _:
                 model = create_sklearn_model(
                     n_components=self.n_components,
@@ -111,7 +111,8 @@ class GMMClusterer(Clusterer):
                     **self._kwargs,
                 )
                 self._model = fit_cpu(model, embeddings)
-                self._bic = self._model._model.bic(embeddings)
+                # Compute BIC from fitted parameters only
+                self._bic = self._compute_bic_from_model(embeddings)
         self._embeddings = embeddings
         return self
 
@@ -181,9 +182,9 @@ class GMMClusterer(Clusterer):
             raise RuntimeError("Clusterer must be fitted first")
         return self._bic
 
-    def _compute_bic_cuda(self, embeddings: np.ndarray) -> float:
-        """Compute BIC for CUDA-fitted model using stored parameters."""
-        model = self._model
+    def _compute_bic_from_model(self, embeddings: np.ndarray) -> float:
+        """Compute BIC for fitted model using public fitted parameters."""
+        model = self._require_model()
         n_samples = embeddings.shape[0]
         n_features = embeddings.shape[1]
 

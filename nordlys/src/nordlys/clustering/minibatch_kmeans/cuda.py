@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from nordlys.clustering._cuda_minibatch import (
+    _fit_minibatch_core,
+    greedy_kmeanspp_init,
+)
 from nordlys.clustering.minibatch_kmeans.protocol import MiniBatchKMeansModel
 
 import numpy as np
@@ -50,70 +54,31 @@ def fit(
     random_state: int,
     embeddings: np.ndarray,
 ) -> MiniBatchKMeansModel:
-    """Fit using GPU (cupy)."""
+    """Fit using GPU (cupy), matching sklearn MiniBatchKMeans semantics."""
     import cupy as cp
 
     data = cp.asarray(embeddings, dtype=cp.float32)
-    n_samples = data.shape[0]
-
-    centroids = _kmeans_plus_plus_init(data, n_clusters, random_state)
-
-    for iteration in range(max_iter):
-        rng = np.random.RandomState(random_state + iteration)
-        batch_indices = rng.choice(
-            n_samples, size=min(batch_size, n_samples), replace=False
-        )
-        batch = data[batch_indices]
-
-        squared_distances = cp.sum(
-            (batch[:, cp.newaxis, :] - centroids[cp.newaxis, :, :]) ** 2,
-            axis=2,
-        )
-        batch_labels = cp.asarray(np.argmin(cp.asnumpy(squared_distances), axis=1))
-
-        for k in range(n_clusters):
-            mask = batch_labels == k
-            if int(cp.sum(mask)) > 0:
-                learning_rate = 0.01
-                centroids[k] = (1 - learning_rate) * centroids[
-                    k
-                ] + learning_rate * cp.mean(batch[mask], axis=0)
-
-    final_squared_distances = cp.sum(
-        (data[:, cp.newaxis, :] - centroids[cp.newaxis, :, :]) ** 2,
-        axis=2,
-    )
-    final_labels = np.argmin(cp.asnumpy(final_squared_distances), axis=1)
-    inertia = float(
-        final_squared_distances[cp.arange(n_samples), cp.asarray(final_labels)].sum()
-    )
-
-    return CumlMiniBatchKMeansModel(
-        cp.asnumpy(centroids), final_labels, inertia, max_iter
-    )
-
-
-def _kmeans_plus_plus_init(data, n_clusters: int, random_state: int):
-    """Initialize centroids using k-means++ algorithm on GPU."""
-    import cupy as cp
+    n_samples, n_features = data.shape
 
     rng = np.random.RandomState(random_state)
-    n_samples = int(data.shape[0])
 
-    first_idx = rng.randint(0, n_samples)
-    centroids_list = [data[first_idx]]
+    centers = greedy_kmeanspp_init(data, n_clusters, rng, x_squared_norms=None)
 
-    for _ in range(n_clusters - 1):
-        distances = cp.full(n_samples, cp.inf, dtype=cp.float32)
-        for centroid in centroids_list:
-            dist = cp.sum((data - centroid) ** 2, axis=1)
-            distances = cp.minimum(distances, dist)
+    centers, labels, inertia, n_steps = _fit_minibatch_core(
+        data=data,
+        init_centers=centers,
+        batch_size=batch_size,
+        max_iter=max_iter,
+        max_no_improvement=10,
+        reassignment_ratio=0.01,
+        random_state=rng,
+    )
 
-        probabilities = distances / distances.sum()
-        cumsum = cp.cumsum(probabilities)
-        r = rng.random()
-        next_idx = int(cp.searchsorted(cumsum, r)[0])
-        next_idx = min(next_idx, n_samples - 1)
-        centroids_list.append(data[next_idx])
+    n_iter = int(np.ceil((n_steps * min(batch_size, n_samples)) / n_samples))
 
-    return cp.stack(centroids_list)
+    return CumlMiniBatchKMeansModel(
+        cp.asnumpy(centers),
+        cp.asnumpy(labels).astype(np.int64),
+        inertia,
+        n_iter,
+    )

@@ -24,6 +24,16 @@ class GMMModel(Protocol):
         ...
 
     @property
+    def weights_(self) -> np.ndarray:
+        """Mixture weights of shape (n_components,)."""
+        ...
+
+    @property
+    def covariances_(self) -> np.ndarray:
+        """Covariance matrices of shape (n_components, n_features, n_features)."""
+        ...
+
+    @property
     def n_components_(self) -> int:
         """Number of mixture components."""
         ...

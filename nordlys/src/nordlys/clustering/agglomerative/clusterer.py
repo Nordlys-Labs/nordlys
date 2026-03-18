@@ -8,7 +8,10 @@ from nordlys.clustering.agglomerative.cpu import (
     fit as fit_cpu,
 )
 from nordlys.clustering.agglomerative.cuda import fit as fit_cuda
-from nordlys.clustering.agglomerative.protocol import AgglomerativeModel
+from nordlys.clustering.agglomerative.protocol import (
+    AgglomerativeModel,
+    AgglomerativeMetric,
+)
 from nordlys.device import DeviceType, get_device, require_cuda
 
 import numpy as np
@@ -29,7 +32,7 @@ class AgglomerativeClusterer(Clusterer):
         self,
         n_clusters: int = 20,
         linkage: str = "ward",
-        metric: str = "euclidean",
+        metric: AgglomerativeMetric = "euclidean",
         random_state: int | None = None,
         device: DeviceType = "cpu",
         **kwargs,

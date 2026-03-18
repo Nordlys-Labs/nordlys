@@ -10,12 +10,14 @@ import logging
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from tempfile import TemporaryDirectory
-from typing import Protocol
+from typing import Literal, Protocol
 
 import numpy as np
 from joblib import Parallel, delayed
+from tqdm import tqdm
 
 from nordlys.clustering.agglomerative import AgglomerativeClusterer
+from nordlys.clustering.agglomerative.protocol import AgglomerativeMetric
 from nordlys.clustering.base import Clusterer
 from nordlys.clustering.bisecting_kmeans import BisectingKMeansClusterer
 from nordlys.clustering.gmm import GMMClusterer
@@ -25,11 +27,6 @@ from nordlys.clustering.metrics import ClusterMetrics, compute_cluster_metrics
 from nordlys.clustering.minibatch_kmeans import MiniBatchKMeansClusterer
 from nordlys.clustering.spectral import SpectralClusterer
 from nordlys.device import DeviceType, get_device
-
-try:
-    from tqdm import tqdm
-except ImportError:
-    tqdm = None
 
 logger = logging.getLogger(__name__)
 
@@ -156,7 +153,7 @@ class HDBSCANSpec:
     min_samples: int | None = None
     metric: str = "euclidean"
     cluster_selection_epsilon: float = 0.0
-    cluster_selection_method: str = "eom"
+    cluster_selection_method: Literal["eom", "leaf"] = "eom"
 
     @property
     def name(self) -> str:
@@ -220,7 +217,7 @@ class AgglomerativeSpec:
 
     n_clusters: int
     linkage: str = "ward"
-    metric: str = "euclidean"
+    metric: AgglomerativeMetric = "euclidean"
 
     @property
     def name(self) -> str:
@@ -665,12 +662,7 @@ class ParameterSweep:
         candidates: Sequence[CandidateSpec],
         verbose: bool,
     ) -> SweepResults:
-        """Run tasks in parallel using joblib with loky backend.
-
-        Uses process-based parallelism via joblib's loky backend to avoid the
-        OpenBLAS/OpenMP threading issues that occur with ThreadPoolExecutor
-        when running many BLAS-heavy clustering operations concurrently.
-        """
+        """Run tasks in parallel using joblib with loky backend."""
         results = SweepResults()
 
         def evaluate_task(spec: CandidateSpec) -> SweepResult | None:

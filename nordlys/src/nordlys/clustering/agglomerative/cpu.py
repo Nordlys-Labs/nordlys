@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from nordlys.clustering.agglomerative.protocol import AgglomerativeModel
+from nordlys.clustering.agglomerative.protocol import (
+    AgglomerativeModel,
+    AgglomerativeMetric,
+)
 
 import numpy as np
 from sklearn.cluster import AgglomerativeClustering
@@ -16,7 +19,7 @@ class SklearnAgglomerativeModel:
         self,
         model: AgglomerativeClustering,
         cluster_centers: np.ndarray,
-        metric: str,
+        metric: AgglomerativeMetric,
     ) -> None:
         self._model = model
         self._cluster_centers = cluster_centers
@@ -49,7 +52,7 @@ class SklearnAgglomerativeModel:
 def create_sklearn_model(
     n_clusters: int,
     linkage: str,
-    metric: str,
+    metric: AgglomerativeMetric,
     **kwargs: object,
 ) -> "SklearnAgglomerativeModel":
     """Create a sklearn Agglomerative model (does not fit).
