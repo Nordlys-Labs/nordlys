@@ -66,6 +66,7 @@ class GMMClusterer(Clusterer):
         self._kwargs = kwargs
         self._model: GMMModel | None = None
         self._embeddings: np.ndarray | None = None
+        self._bic: float | None = None
 
     def _require_model(self, context: str = "") -> GMMModel:
         """Return the fitted model, raising if not fitted."""
@@ -86,6 +87,9 @@ class GMMClusterer(Clusterer):
         Returns:
             Self
         """
+        embeddings = np.asarray(embeddings, dtype=np.float32)
+        self._embeddings = embeddings
+
         match self.device:
             case "cuda":
                 self._model = fit_cuda(
@@ -96,6 +100,7 @@ class GMMClusterer(Clusterer):
                     random_state=self.random_state,
                     embeddings=embeddings,
                 )
+                self._bic = self._compute_bic_cuda(embeddings)
             case _:
                 model = create_sklearn_model(
                     n_components=self.n_components,
@@ -106,6 +111,7 @@ class GMMClusterer(Clusterer):
                     **self._kwargs,
                 )
                 self._model = fit_cpu(model, embeddings)
+                self._bic = self._model._model.bic(embeddings)
         self._embeddings = embeddings
         return self
 
@@ -171,20 +177,45 @@ class GMMClusterer(Clusterer):
     @property
     def bic_(self) -> float:
         """Bayesian Information Criterion for the fitted model."""
-        from sklearn.mixture import GaussianMixture
-
-        embeddings = self._embeddings
-        if embeddings is None:
+        if self._bic is None:
             raise RuntimeError("Clusterer must be fitted first")
-        gm = GaussianMixture(
-            n_components=self.n_components,
-            covariance_type=self.covariance_type,
-            max_iter=self.max_iter,
-            n_init=self.n_init,
-            random_state=self.random_state,
+        return self._bic
+
+    def _compute_bic_cuda(self, embeddings: np.ndarray) -> float:
+        """Compute BIC for CUDA-fitted model using stored parameters."""
+        model = self._model
+        n_samples = embeddings.shape[0]
+        n_features = embeddings.shape[1]
+
+        weights = model.weights_
+        means = model.cluster_centers_
+        covariances = model.covariances_
+
+        log_likelihood = 0.0
+        for i in range(n_samples):
+            sample_ll = 0.0
+            for k in range(self.n_components):
+                diff = embeddings[i] - means[k]
+                try:
+                    cov_inv = np.linalg.inv(covariances[k])
+                    log_det = np.log(np.linalg.det(covariances[k]))
+                    mahal = diff @ cov_inv @ diff
+                    sample_ll += weights[k] * np.exp(
+                        -0.5 * (n_features * np.log(2 * np.pi) + log_det + mahal)
+                    )
+                except np.linalg.LinAlgError:
+                    sample_ll += 0.0
+            log_likelihood += np.log(sample_ll + 1e-10)
+
+        n_params = (
+            self.n_components * n_features
+            + self.n_components * n_features * (n_features + 1) // 2
+            + self.n_components
+            - 1
         )
-        gm.fit(embeddings)
-        return gm.bic(embeddings)
+        bic = -2 * log_likelihood + n_params * np.log(n_samples)
+
+        return float(bic)
 
     def __repr__(self) -> str:
         return f"GMMClusterer(n_components={self.n_components}, covariance_type='{self.covariance_type}', device={self.device!r})"

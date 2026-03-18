@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+from nordlys.clustering.hdbscan_clusterer.protocol import HDBSCANModel
+
 import logging
 
 import numpy as np
-
-from nordlys.clustering.hdbscan_clusterer.protocol import HDBSCANModel
 
 logger = logging.getLogger(__name__)
 
@@ -17,8 +17,16 @@ class HDBSCANCUDAModel:
     def __init__(
         self,
         cluster_centers: np.ndarray,
+        labels: np.ndarray | None = None,
+        probabilities: np.ndarray | None = None,
     ) -> None:
         self._cluster_centers = cluster_centers
+        self._labels = labels if labels is not None else np.array([], dtype=np.int32)
+        self._probabilities = (
+            probabilities
+            if probabilities is not None
+            else np.array([], dtype=np.float64)
+        )
 
     @property
     def cluster_centers_(self) -> np.ndarray:
@@ -35,6 +43,8 @@ class HDBSCANCUDAModel:
     @property
     def n_clusters_(self) -> int:
         labels = self._labels
+        if len(labels) == 0:
+            return 0
         return len(set(labels)) - (1 if -1 in labels else 0)
 
     @property

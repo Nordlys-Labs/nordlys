@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import numpy as np
-
 from nordlys.clustering.bisecting_kmeans.protocol import BisectingKMeansModel
+
+import numpy as np
 
 
 class CumlBisectingKMeansModel:
@@ -68,7 +68,7 @@ def fit(
     centroids = [cp.mean(data, axis=0)]
 
     while len(centroids) < n_clusters:
-        largest_cluster_idx = int(cp.argmax(cp.array(cluster_sizes)))
+        largest_cluster_idx = int(np.argmax(cluster_sizes))
         largest_cluster_size = cluster_sizes[largest_cluster_idx]
 
         if largest_cluster_size < 2:
@@ -106,7 +106,7 @@ def fit(
                     learning_rate = 0.01
                     split_centroids[k] = (1 - learning_rate) * split_centroids[
                         k
-                    ] + learning_rate * float(cp.mean(batch[mask], axis=0))
+                    ] + learning_rate * cp.mean(batch[mask], axis=0)
 
         final_squared_distances = cp.sum(
             (cluster_data[:, cp.newaxis, :] - split_centroids[cp.newaxis, :, :]) ** 2,
@@ -144,7 +144,7 @@ def fit(
 
         centroids = new_centroids
 
-    unique_labels = sorted(set(int(cp.asnumpy(cluster_assignments))))
+    unique_labels = sorted(set(int(v) for v in cp.asnumpy(cluster_assignments).ravel()))
     if len(unique_labels) != len(centroids):
         centroids = [centroids[label] for label in unique_labels]
 

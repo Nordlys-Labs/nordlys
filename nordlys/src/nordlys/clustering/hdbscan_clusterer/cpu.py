@@ -110,7 +110,7 @@ def _compute_core_distances(
     """Compute distance to k-th nearest neighbor for each point."""
     if metric == "precomputed":
         distances = X
-        return np.partition(distances, min_samples - 1, axis=1)[:, min_samples - 1]
+        return np.partition(distances, min_samples, axis=1)[:, min_samples]
 
     try:
         from sklearn.neighbors import KDTree

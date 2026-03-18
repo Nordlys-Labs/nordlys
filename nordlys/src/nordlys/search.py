@@ -163,15 +163,7 @@ class HDBSCANSpec:
         return "hdbscan"
 
     def build(self, random_state: int, device: DeviceType = "cpu") -> HDBSCANClusterer:
-        """Build HDBSCAN clusterer.
-
-        Note: HDBSCAN is CPU-only and does not support CUDA.
-        """
-        if device != "cpu":
-            msg = (
-                f"HDBSCAN does not support CUDA (device={device!r}). Use device='cpu'."
-            )
-            raise ValueError(msg)
+        """Build HDBSCAN clusterer."""
         return HDBSCANClusterer(
             min_cluster_size=self.min_cluster_size,
             min_samples=self.min_samples,
@@ -179,6 +171,7 @@ class HDBSCANSpec:
             cluster_selection_epsilon=self.cluster_selection_epsilon,
             cluster_selection_method=self.cluster_selection_method,
             random_state=random_state,
+            device=device,
         )
 
     def params_dict(self) -> dict[str, int | float | str | bool | None]:

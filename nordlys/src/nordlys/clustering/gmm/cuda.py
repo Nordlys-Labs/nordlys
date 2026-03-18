@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import numpy as np
-
 from nordlys.clustering.gmm.protocol import GMMModel
+
+import numpy as np
 
 
 class CupyGMMModel:
@@ -57,9 +57,9 @@ class CupyGMMModel:
         covariances = cp.asarray(self._covariances, dtype=cp.float32)
 
         log_resp = _compute_log_resp(X, means, weights, covariances)
-        labels = cp.argmax(log_resp, axis=1)
+        labels = np.argmax(cp.asnumpy(log_resp), axis=1)
 
-        return cp.asnumpy(labels)
+        return labels
 
     def predict_proba(self, embeddings: np.ndarray) -> np.ndarray:
         import cupy as cp
@@ -104,6 +104,8 @@ def fit(
     best_covariances = None
     best_converged = False
 
+    best_score = -np.inf
+
     for init_idx in range(n_init):
         init_rng = cp.random.RandomState(random_state + init_idx)
 
@@ -112,10 +114,10 @@ def fit(
         indices = init_rng.choice(n_samples, n_components, replace=False)
         means = data[indices].copy()
 
-        covariances = (
-            cp.stack([cp.eye(n_features, dtype=cp.float32) * 0.1] * n_components)
-            + cp.var(data, axis=0, keepdims=True).T
-        )
+        data_var = cp.var(data, axis=0)
+        covariances = cp.zeros((n_components, n_features, n_features), dtype=cp.float32)
+        for k in range(n_components):
+            covariances[k] = cp.diag(data_var + 0.1)
 
         old_means = means.copy()
 
@@ -151,11 +153,27 @@ def fit(
                     break
             old_means = means.copy()
 
-        log_resp_np = cp.asnumpy(log_resp)
-        final_labels = np.argmax(log_resp_np, axis=1)
+        final_log_resp = _compute_log_resp(data, means, weights, covariances)
+        log_likelihood = cp.sum(
+            cp.log(
+                cp.sum(
+                    cp.exp(
+                        final_log_resp - cp.max(final_log_resp, axis=1, keepdims=True)
+                    )
+                    + 1e-10,
+                    axis=1,
+                )
+                + 1e-10
+            )
+            + cp.max(final_log_resp, axis=1)
+        )
+        current_score = float(log_likelihood)
 
-        if best_labels is None:
-            best_labels = cp.asnumpy(final_labels)
+        final_labels = np.argmax(cp.asnumpy(final_log_resp), axis=1)
+
+        if current_score > best_score:
+            best_score = current_score
+            best_labels = final_labels
             best_means = cp.asnumpy(means)
             best_weights = cp.asnumpy(weights)
             best_covariances = cp.asnumpy(covariances)

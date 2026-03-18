@@ -61,15 +61,12 @@ cu12 = [
   "torch>=2.2.0",
   "sentence-transformers>=5.2.0,<6",
   "cupy-cuda12x>=13.0.0",
-
 ]
 cu13 = [
   "nordlys-core-cu12>=0.3.1,<1 ; sys_platform == 'linux'",
   "torch>=2.2.0",
   "sentence-transformers>=5.2.0,<6",
   "cupy-cuda13x>=13.0.0",
-
-
 ]
 
 [tool.uv]

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from nordlys.clustering.bisecting_kmeans.protocol import BisectingKMeansModel
+
 import numpy as np
 from sklearn.cluster import MiniBatchKMeans
-
-from nordlys.clustering.bisecting_kmeans.protocol import BisectingKMeansModel
 
 
 class SklearnBisectingKMeansModel:

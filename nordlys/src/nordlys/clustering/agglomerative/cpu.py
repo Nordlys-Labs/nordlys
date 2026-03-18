@@ -6,6 +6,7 @@ from nordlys.clustering.agglomerative.protocol import AgglomerativeModel
 
 import numpy as np
 from sklearn.cluster import AgglomerativeClustering
+from sklearn.metrics import pairwise_distances
 
 
 class SklearnAgglomerativeModel:
@@ -15,9 +16,11 @@ class SklearnAgglomerativeModel:
         self,
         model: AgglomerativeClustering,
         cluster_centers: np.ndarray,
+        metric: str,
     ) -> None:
         self._model = model
         self._cluster_centers = cluster_centers
+        self._metric = metric
 
     @property
     def cluster_centers_(self) -> np.ndarray:
@@ -32,8 +35,13 @@ class SklearnAgglomerativeModel:
         return self._model.n_clusters
 
     def predict(self, embeddings: np.ndarray) -> np.ndarray:
-        distances = np.linalg.norm(
-            embeddings[:, np.newaxis] - self._cluster_centers, axis=2
+        if self._metric not in ("euclidean", "l2", "sqeuclidean"):
+            raise ValueError(
+                f"predict() is not supported for metric '{self._metric}'. "
+                "Only 'euclidean' (or 'l2', 'sqeuclidean') metrics are supported for prediction."
+            )
+        distances = pairwise_distances(
+            embeddings, self._cluster_centers, metric="euclidean"
         )
         return distances.argmin(axis=1)
 
@@ -62,7 +70,7 @@ def create_sklearn_model(
         metric=actual_metric,
         **kwargs,
     )
-    return SklearnAgglomerativeModel(model, np.array([]))
+    return SklearnAgglomerativeModel(model, np.array([]), metric)
 
 
 def fit(

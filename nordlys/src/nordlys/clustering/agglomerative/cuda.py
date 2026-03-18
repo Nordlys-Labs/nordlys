@@ -1,14 +1,16 @@
-"""CUDA adapter for Agglomerative using cupy."""
+"""CUDA adapter for Agglomerative using scipy (CPU fallback due to CUDA version mismatch)."""
 
 from __future__ import annotations
 
-import numpy as np
-
 from nordlys.clustering.agglomerative.protocol import AgglomerativeModel
+
+import numpy as np
+from scipy.cluster.hierarchy import fcluster, linkage as linkage_func
+from scipy.spatial.distance import pdist
 
 
 class CupyAgglomerativeModel:
-    """GPU implementation of Agglomerative using cupy."""
+    """Implementation of Agglomerative using scipy (CPU)."""
 
     def __init__(
         self,
@@ -33,10 +35,15 @@ class CupyAgglomerativeModel:
         return self._n_clusters
 
     def predict(self, embeddings: np.ndarray) -> np.ndarray:
+        data = embeddings
+        centers = self._cluster_centers
+
         distances = np.linalg.norm(
-            embeddings[:, np.newaxis] - self._cluster_centers, axis=2
+            data[:, np.newaxis, :] - centers[np.newaxis, :, :], axis=2
         )
-        return distances.argmin(axis=1)
+        labels = np.argmin(distances, axis=1)
+
+        return labels
 
 
 def fit(
@@ -46,15 +53,13 @@ def fit(
     random_state: int,
     embeddings: np.ndarray,
 ) -> AgglomerativeModel:
-    """Fit using GPU (cupy).
+    """Fit using scipy (CPU) due to CUDA version incompatibility.
 
     Implements agglomerative clustering using:
     1. Compute pairwise distances
-    2. Build linkage matrix using agglomerative clustering
+    2. Build linkage matrix
     3. Cut dendrogram to get n_clusters
     """
-    import cupy as cp
-
     if linkage not in ("ward", "complete", "average", "single"):
         msg = f"Agglomerative CUDA supports linkage='ward', 'complete', 'average', 'single', got '{linkage}'"
         raise ValueError(msg)
@@ -63,37 +68,25 @@ def fit(
         msg = "Ward linkage requires euclidean metric"
         raise ValueError(msg)
 
-    data = cp.asarray(embeddings, dtype=cp.float32)
+    data = embeddings.astype(np.float32)
     n_samples, n_features = data.shape
 
     if linkage == "ward":
-        from scipy.cluster.hierarchy import linkage as scipy_linkage
-        from scipy.spatial.distance import pdist
-
-        pdist_result = pdist(cp.asnumpy(data), metric="euclidean")
-        Z = scipy_linkage(pdist_result, method=linkage)
-        from scipy.cluster.hierarchy import fcluster
-
+        pdist_result = pdist(data, metric="euclidean")
+        Z = linkage_func(pdist_result, method=linkage)
         labels = fcluster(Z, n_clusters, criterion="maxclust") - 1
     else:
-        from scipy.cluster.hierarchy import linkage as scipy_linkage
-        from scipy.spatial.distance import pdist
-
-        pdist_result = pdist(cp.asnumpy(data), metric=metric)
-        Z = scipy_linkage(pdist_result, method=linkage)
-        from scipy.cluster.hierarchy import fcluster
-
+        pdist_result = pdist(data, metric=str(metric))
+        Z = linkage_func(pdist_result, method=linkage)
         labels = fcluster(Z, n_clusters, criterion="maxclust") - 1
-
-    labels = cp.asnumpy(labels)
 
     centers = []
     for label in range(n_clusters):
         mask = labels == label
         if mask.sum() > 0:
-            centers.append(embeddings[mask].mean(axis=0))
+            centers.append(data[mask].mean(axis=0))
         else:
-            centers.append(embeddings[0])
+            centers.append(data[0])
     centers = np.array(centers)
 
     return CupyAgglomerativeModel(centers, labels, n_clusters)

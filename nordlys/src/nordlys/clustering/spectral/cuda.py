@@ -1,14 +1,17 @@
-"""CUDA adapter for Spectral using cupy."""
+"""CUDA adapter for Spectral using scipy (CPU fallback due to CUDA version mismatch)."""
 
 from __future__ import annotations
 
-import numpy as np
-
 from nordlys.clustering.spectral.protocol import SpectralModel
+
+import numpy as np
+from scipy.sparse import csr_matrix
+from sklearn.cluster import KMeans
+from sklearn.neighbors import NearestNeighbors
 
 
 class CupySpectralModel:
-    """GPU implementation of Spectral using cupy."""
+    """Implementation of Spectral using scipy (CPU)."""
 
     def __init__(
         self,
@@ -33,10 +36,15 @@ class CupySpectralModel:
         return self._n_clusters
 
     def predict(self, embeddings: np.ndarray) -> np.ndarray:
+        data = embeddings
+        centers = self._cluster_centers
+
         distances = np.linalg.norm(
-            embeddings[:, np.newaxis] - self._cluster_centers, axis=2
+            data[:, np.newaxis, :] - centers[np.newaxis, :, :], axis=2
         )
-        return distances.argmin(axis=1)
+        labels = np.argmin(distances, axis=1)
+
+        return labels
 
 
 def fit(
@@ -46,7 +54,7 @@ def fit(
     random_state: int,
     embeddings: np.ndarray,
 ) -> SpectralModel:
-    """Fit using GPU (cupy).
+    """Fit using scipy (CPU) due to CUDA version incompatibility.
 
     Implements spectral clustering using:
     1. Build affinity graph (k-nearest neighbors)
@@ -54,55 +62,58 @@ def fit(
     3. Compute eigenvectors
     4. Run k-means on eigenvectors
     """
-    from scipy.sparse import csr_matrix
-    from scipy.sparse.linalg import eigsh
-    from scipy.sparse import eye as scipy_eye
-
     if affinity != "nearest_neighbors":
         msg = f"Spectral CUDA supports only affinity='nearest_neighbors', got '{affinity}'"
         raise ValueError(msg)
 
-    n_samples = embeddings.shape[0]
+    data = embeddings.astype(np.float32)
+    n_samples = data.shape[0]
 
-    from sklearn.neighbors import NearestNeighbors
+    if n_samples == 1:
+        labels = np.zeros(1, dtype=np.int32)
+        centers = data.copy()
+        return CupySpectralModel(centers, labels, 1)
+
+    k = min(n_clusters, n_samples - 1)
 
     nn = NearestNeighbors(n_neighbors=n_neighbors + 1, metric="euclidean")
-    nn.fit(embeddings)
-    knn_indices = nn.kneighbors_graph(embeddings, mode="connectivity")
+    nn.fit(data)
+    knn_indices = nn.kneighbors_graph(data, mode="connectivity")
     knn_indices = knn_indices.toarray()
 
-    dists = np.linalg.norm(
-        embeddings[:, np.newaxis] - embeddings[np.newaxis, :], axis=2
+    pairwise_dists = np.linalg.norm(
+        data[:, np.newaxis, :] - data[np.newaxis, :, :], axis=2
     )
 
-    sigma = np.mean(dists[knn_indices.nonzero()]) + 1e-10
+    sigma = float(np.mean(pairwise_dists[knn_indices > 0])) + 1e-10
 
-    weights = np.exp(-(dists**2) / (2 * sigma**2))
-    weights[knn_indices == 0] = 0
+    weights = np.exp(-(pairwise_dists**2) / (2 * sigma**2))
+    knn_mask = knn_indices.astype(np.float32)
+    weights = weights * knn_mask
     weights = (weights + weights.T) / 2
     np.fill_diagonal(weights, 0)
 
     W = csr_matrix(weights)
-    D = scipy_eye(n_samples, format="csr")
-    D.data = np.array(W.sum(axis=1)).flatten() + 1e-10
+    D = csr_matrix(np.eye(n_samples))
+    d_sum = np.array(W.sum(axis=1)).flatten() + 1e-10
+    D.data = d_sum
 
     D_inv_sqrt = D.copy()
-    D_inv_sqrt.data = 1.0 / np.sqrt(D_inv_sqrt.data + 1e-10)
+    D_inv_sqrt.data = 1.0 / (np.sqrt(D_inv_sqrt.data) + 1e-10)
 
     L = D - W
     L_norm = D_inv_sqrt @ L @ D_inv_sqrt
 
-    k = min(n_clusters, n_samples - 1)
+    from scipy.sparse.linalg import eigsh
+
     eigvals, eigvecs = eigsh(L_norm.astype(np.float64), k=k, which="SM")
 
-    idx = np.argsort(eigvals.real)
-    eigvecs = eigvecs.real[:, idx]
+    idx = np.argsort(np.real(eigvals))
+    eigvecs = np.real(eigvecs)[:, idx]
     embedding = eigvecs[:, :n_clusters]
 
     norm = np.linalg.norm(embedding, axis=1, keepdims=True) + 1e-10
     embedding = embedding / norm
-
-    from sklearn.cluster import KMeans
 
     kmeans = KMeans(n_clusters=n_clusters, n_init=10, random_state=random_state)
     kmeans.fit(embedding)
@@ -112,9 +123,9 @@ def fit(
     for label in range(n_clusters):
         mask = labels == label
         if mask.sum() > 0:
-            centers.append(embeddings[mask].mean(axis=0))
+            centers.append(data[mask].mean(axis=0))
         else:
-            centers.append(embeddings[0])
+            centers.append(data[0])
     centers = np.array(centers)
 
     return CupySpectralModel(centers, labels, n_clusters)

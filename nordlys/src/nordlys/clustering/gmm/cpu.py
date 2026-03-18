@@ -25,7 +25,9 @@ class SklearnGMMModel:
     def labels_(self) -> np.ndarray:
         if self._embeddings is not None:
             return self._model.predict(self._embeddings)
-        return self._model.labels_
+        raise RuntimeError(
+            "Embeddings not stored; call fit() to store them or use predict() instead."
+        )
 
     @property
     def n_components_(self) -> int:
@@ -77,6 +79,7 @@ def create_sklearn_model(
         max_iter=max_iter,
         n_init=n_init,
         random_state=random_state,
+        **kwargs,
     )
     return SklearnGMMModel(model, None)
 

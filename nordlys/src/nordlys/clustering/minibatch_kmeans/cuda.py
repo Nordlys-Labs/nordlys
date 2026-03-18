@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import numpy as np
-
 from nordlys.clustering.minibatch_kmeans.protocol import MiniBatchKMeansModel
+
+import numpy as np
 
 
 class CumlMiniBatchKMeansModel:
@@ -69,7 +69,7 @@ def fit(
             (batch[:, cp.newaxis, :] - centroids[cp.newaxis, :, :]) ** 2,
             axis=2,
         )
-        batch_labels = cp.argmin(squared_distances, axis=1)
+        batch_labels = cp.asarray(np.argmin(cp.asnumpy(squared_distances), axis=1))
 
         for k in range(n_clusters):
             mask = batch_labels == k
@@ -77,17 +77,19 @@ def fit(
                 learning_rate = 0.01
                 centroids[k] = (1 - learning_rate) * centroids[
                     k
-                ] + learning_rate * float(cp.mean(batch[mask], axis=0))
+                ] + learning_rate * cp.mean(batch[mask], axis=0)
 
     final_squared_distances = cp.sum(
         (data[:, cp.newaxis, :] - centroids[cp.newaxis, :, :]) ** 2,
         axis=2,
     )
-    labels = cp.argmin(final_squared_distances, axis=1)
-    inertia = float(final_squared_distances[cp.arange(n_samples), labels].sum())
+    final_labels = np.argmin(cp.asnumpy(final_squared_distances), axis=1)
+    inertia = float(
+        final_squared_distances[cp.arange(n_samples), cp.asarray(final_labels)].sum()
+    )
 
     return CumlMiniBatchKMeansModel(
-        cp.asnumpy(centroids), cp.asnumpy(labels), inertia, max_iter
+        cp.asnumpy(centroids), final_labels, inertia, max_iter
     )
 
 
@@ -102,7 +104,7 @@ def _kmeans_plus_plus_init(data, n_clusters: int, random_state: int):
     centroids_list = [data[first_idx]]
 
     for _ in range(n_clusters - 1):
-        distances = cp.zeros(n_samples, dtype=cp.float32)
+        distances = cp.full(n_samples, cp.inf, dtype=cp.float32)
         for centroid in centroids_list:
             dist = cp.sum((data - centroid) ** 2, axis=1)
             distances = cp.minimum(distances, dist)

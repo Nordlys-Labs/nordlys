@@ -95,6 +95,7 @@ class HDBSCANClusterer(Clusterer):
                     prediction_data=self.prediction_data,
                     random_state=self.random_state,
                     embeddings=embeddings,
+                    **self._kwargs,
                 )
             case _:
                 self._model = fit_cpu(
@@ -106,6 +107,7 @@ class HDBSCANClusterer(Clusterer):
                     prediction_data=self.prediction_data,
                     random_state=self.random_state,
                     embeddings=embeddings,
+                    **self._kwargs,
                 )
         return self
 
