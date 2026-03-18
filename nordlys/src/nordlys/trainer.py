@@ -158,22 +158,26 @@ class Trainer:
         clusterer = self._make_clusterer()
         clusterer.fit(cluster_input)
 
-        centroids = clusterer.cluster_centers_
-        labels = clusterer.labels_
-        n_clusters = len(centroids)
+        raw_centroids = clusterer.cluster_centers_
+        raw_labels = clusterer.labels_
 
         inertia: float | None = None
         if isinstance(clusterer, KMeansClusterer):
             inertia = clusterer.inertia_
 
+        centroids, labels, compact_inertia = self._compact_to_routeable(
+            cluster_input, raw_centroids, raw_labels, inertia
+        )
+        n_clusters = len(centroids)
+
         metrics = compute_cluster_metrics(
             cluster_input,
             labels,
-            inertia,
+            compact_inertia,
         )
 
         return FittedStructure(
-            cluster_centers=np.asarray(centroids, dtype=np.float32),
+            cluster_centers=centroids,
             n_clusters=n_clusters,
             embedding_config=embedder.checkpoint_config(),
             clustering_config=ClusteringConfig(
@@ -242,8 +246,21 @@ class Trainer:
                 "Try relaxing constraints or using a different sweep configuration."
             )
 
+        raw_centroids = selected.centroids
+        raw_labels = selected.labels
+        inertia = selected.metrics.inertia
+
+        centroids, labels, compact_inertia = self._compact_to_routeable(
+            cluster_input, raw_centroids, raw_labels, inertia
+        )
+
         return self._fitted_structure_from_sweep_result(
-            selected, embedder.checkpoint_config(), reduction_payload
+            selected,
+            embedder.checkpoint_config(),
+            reduction_payload,
+            centroids,
+            labels,
+            compact_inertia,
         )
 
     def _fitted_structure_from_sweep_result(
@@ -251,16 +268,20 @@ class Trainer:
         result: SweepResult,
         embedding_config: EmbeddingConfig,
         reduction_payload: ReductionPayload | None,
+        centroids: np.ndarray,
+        labels: np.ndarray,
+        compact_inertia: float | None,
     ) -> FittedStructure:
         """Build a FittedStructure from a selected SweepResult."""
         seed_raw = result.params.get("random_state", self.random_state)
         seed = int(seed_raw) if seed_raw is not None else self.random_state
+        n_clusters = len(centroids)
         return FittedStructure(
-            cluster_centers=result.centroids,
-            n_clusters=result.n_clusters,
+            cluster_centers=centroids,
+            n_clusters=n_clusters,
             embedding_config=embedding_config,
             clustering_config=ClusteringConfig(
-                n_clusters=result.n_clusters,
+                n_clusters=n_clusters,
                 random_state=seed,
                 max_iter=300,
                 n_init=10,
@@ -272,7 +293,7 @@ class Trainer:
                 n_samples=result.metrics.n_samples,
                 cluster_sizes=result.metrics.cluster_sizes,
                 silhouette_score=result.metrics.silhouette_score,
-                inertia=result.metrics.inertia,
+                inertia=compact_inertia,
             ),
         )
 
@@ -516,6 +537,68 @@ class Trainer:
             )
 
         return self.clusterer
+
+    def _compact_to_routeable(
+        self,
+        embeddings: np.ndarray,
+        centroids: np.ndarray,
+        raw_labels: np.ndarray,
+        inertia: float | None,
+    ) -> tuple[np.ndarray, np.ndarray, float | None]:
+        """Prune centroids unreachable at runtime and remap labels.
+
+        Runtime routing uses nearest-centroid assignment, so only centroids that
+        are the closest point for at least one training sample can ever be
+        selected.  This method removes "orphan" centroids and reindexes labels
+        to produce a compact, always-routeable structure.
+
+        Returns:
+            Tuple of (compact_centroids, compact_labels, compact_inertia).
+            compact_inertia is None when the clusterer is not a KMeans variant.
+        """
+        raw_labels = np.asarray(raw_labels)
+        centroids = np.asarray(centroids, dtype=np.float32)
+
+        valid_mask = raw_labels >= 0
+        valid_raw_labels = raw_labels[valid_mask]
+        valid_embeddings = embeddings[valid_mask]
+
+        if len(valid_raw_labels) == 0 or len(centroids) == 0:
+            return (
+                np.empty((0, embeddings.shape[1]), dtype=np.float32),
+                np.full(len(embeddings), -1, dtype=np.intp),
+                None,
+            )
+
+        unique_raw = np.unique(valid_raw_labels)
+        compact_centroids_list: list[np.ndarray] = []
+        for arr_idx, raw_label in enumerate(unique_raw):
+            if raw_label < len(centroids):
+                compact_centroids_list.append(centroids[arr_idx])
+
+        compact_centroids_arr = np.asarray(compact_centroids_list, dtype=np.float32)
+
+        distances = np.sqrt(
+            np.sum(
+                (
+                    valid_embeddings[:, np.newaxis, :]
+                    - compact_centroids_arr[np.newaxis, :, :]
+                )
+                ** 2,
+                axis=2,
+            )
+        )
+        nearest = distances.argmin(axis=1)
+
+        compact_labels = np.full(len(embeddings), -1, dtype=np.intp)
+        compact_labels[valid_mask] = nearest
+
+        compact_inertia: float | None = None
+        if inertia is not None:
+            closest_dists = distances[np.arange(len(valid_embeddings)), nearest]
+            compact_inertia = float((closest_dists**2).sum())
+
+        return compact_centroids_arr, compact_labels, compact_inertia
 
     def _calc_scores(
         self,

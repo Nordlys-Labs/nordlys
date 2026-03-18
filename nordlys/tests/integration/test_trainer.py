@@ -252,23 +252,21 @@ class TestTrainerCheckpoint:
     def test_checkpoint_has_models(
         self,
         trainer_models: list[str],
-        medium_dataset: Dataset,
-        test_hdbscan_clusterer: HDBSCANClusterer,
+        large_dataset: Dataset,
     ) -> None:
-        trainer = Trainer(models=trainer_models, clusterer=test_hdbscan_clusterer)
-        fitted = trainer.fit_structure(medium_dataset)
-        scored = trainer.calibrate(fitted, medium_dataset)
+        trainer = Trainer(models=trainer_models)
+        fitted = trainer.fit_structure(large_dataset)
+        scored = trainer.calibrate(fitted, large_dataset)
         assert len(scored.scores) == len(trainer_models)
 
     def test_checkpoint_scores_shape(
         self,
         trainer_models: list[str],
-        medium_dataset: Dataset,
-        test_hdbscan_clusterer: HDBSCANClusterer,
+        large_dataset: Dataset,
     ) -> None:
-        trainer = Trainer(models=trainer_models, clusterer=test_hdbscan_clusterer)
-        fitted = trainer.fit_structure(medium_dataset)
-        scored = trainer.calibrate(fitted, medium_dataset)
+        trainer = Trainer(models=trainer_models)
+        fitted = trainer.fit_structure(large_dataset)
+        scored = trainer.calibrate(fitted, large_dataset)
         n_clusters = fitted.n_clusters
         for model_scores in scored.scores.values():
             assert len(model_scores) == n_clusters
@@ -278,12 +276,11 @@ class TestTrainerRouterIntegration:
     def test_checkpoint_loadable_by_router(
         self,
         trainer_models: list[str],
-        medium_dataset: Dataset,
-        test_hdbscan_clusterer: HDBSCANClusterer,
+        large_dataset: Dataset,
     ) -> None:
-        trainer = Trainer(models=trainer_models, clusterer=test_hdbscan_clusterer)
-        fitted = trainer.fit_structure(medium_dataset)
-        router = trainer.compile(fitted, trainer.calibrate(fitted, medium_dataset))
+        trainer = Trainer(models=trainer_models)
+        fitted = trainer.fit_structure(large_dataset)
+        router = trainer.compile(fitted, trainer.calibrate(fitted, large_dataset))
         result = router.route("Explain backtracking with example")
         assert result.model_id in set(trainer_models)
 
