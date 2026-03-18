@@ -47,6 +47,14 @@ class KMeansClusterer(Clusterer):
         match device:
             case "cuda":
                 require_cuda()
+                if algorithm != "lloyd":
+                    msg = (
+                        f"KMeansCUDA supports only algorithm='lloyd', got '{algorithm}'"
+                    )
+                    raise ValueError(msg)
+                if kwargs:
+                    msg = f"KMeansCUDA does not support kwargs: {list(kwargs.keys())}"
+                    raise ValueError(msg)
 
         self.n_clusters = n_clusters
         self.max_iter = max_iter

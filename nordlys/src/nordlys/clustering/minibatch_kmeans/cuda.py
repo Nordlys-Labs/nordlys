@@ -1,15 +1,14 @@
-"""CUDA adapter for MiniBatch KMeans."""
+"""GPU adapter for MiniBatch KMeans using cupy."""
 
 from __future__ import annotations
 
 import numpy as np
-from sklearn.cluster import MiniBatchKMeans
 
 from nordlys.clustering.minibatch_kmeans.protocol import MiniBatchKMeansModel
 
 
 class CumlMiniBatchKMeansModel:
-    """CUDA implementation using iterative k-means++ initialization and streaming updates."""
+    """GPU implementation of MiniBatchKMeans using cupy."""
 
     def __init__(
         self,
@@ -37,13 +36,11 @@ class CumlMiniBatchKMeansModel:
 
     def predict(self, embeddings: np.ndarray) -> np.ndarray:
         data = np.asarray(embeddings, dtype=np.float32)
-        distances = np.sqrt(
-            np.sum(
-                (data[:, np.newaxis, :] - self._centroids[np.newaxis, :, :]) ** 2,
-                axis=2,
-            )
+        squared_distances = np.sum(
+            (data[:, np.newaxis, :] - self._centroids[np.newaxis, :, :]) ** 2,
+            axis=2,
         )
-        return np.argmin(distances, axis=1)
+        return np.argmin(squared_distances, axis=1)
 
 
 def fit(
@@ -53,20 +50,13 @@ def fit(
     random_state: int,
     embeddings: np.ndarray,
 ) -> MiniBatchKMeansModel:
-    """Fit using CUDA (custom implementation)."""
-    data = np.asarray(embeddings, dtype=np.float32)
+    """Fit using GPU (cupy)."""
+    import cupy as cp
+
+    data = cp.asarray(embeddings, dtype=cp.float32)
     n_samples = data.shape[0]
 
-    init_model = MiniBatchKMeans(
-        n_clusters=n_clusters,
-        max_iter=1,
-        n_init=10,
-        batch_size=min(batch_size, n_samples),
-        random_state=random_state,
-        init="k-means++",
-    )
-    init_model.fit(data)
-    centroids = init_model.cluster_centers_.copy()
+    centroids = _kmeans_plus_plus_init(data, n_clusters, random_state)
 
     for iteration in range(max_iter):
         rng = np.random.RandomState(random_state + iteration)
@@ -75,26 +65,53 @@ def fit(
         )
         batch = data[batch_indices]
 
-        distances = np.sqrt(
-            np.sum(
-                (batch[:, np.newaxis, :] - centroids[np.newaxis, :, :]) ** 2,
-                axis=2,
-            )
+        squared_distances = cp.sum(
+            (batch[:, cp.newaxis, :] - centroids[cp.newaxis, :, :]) ** 2,
+            axis=2,
         )
-        batch_labels = np.argmin(distances, axis=1)
+        batch_labels = cp.argmin(squared_distances, axis=1)
 
         for k in range(n_clusters):
             mask = batch_labels == k
-            if mask.sum() > 0:
+            if int(cp.sum(mask)) > 0:
                 learning_rate = 0.01
                 centroids[k] = (1 - learning_rate) * centroids[
                     k
-                ] + learning_rate * batch[mask].mean(axis=0)
+                ] + learning_rate * float(cp.mean(batch[mask], axis=0))
 
-    final_distances = np.sqrt(
-        np.sum((data[:, np.newaxis, :] - centroids[np.newaxis, :, :]) ** 2, axis=2)
+    final_squared_distances = cp.sum(
+        (data[:, cp.newaxis, :] - centroids[cp.newaxis, :, :]) ** 2,
+        axis=2,
     )
-    labels = np.argmin(final_distances, axis=1)
-    inertia = float(final_distances[np.arange(n_samples), labels].sum())
+    labels = cp.argmin(final_squared_distances, axis=1)
+    inertia = float(final_squared_distances[cp.arange(n_samples), labels].sum())
 
-    return CumlMiniBatchKMeansModel(centroids, labels, inertia, max_iter)
+    return CumlMiniBatchKMeansModel(
+        cp.asnumpy(centroids), cp.asnumpy(labels), inertia, max_iter
+    )
+
+
+def _kmeans_plus_plus_init(data, n_clusters: int, random_state: int):
+    """Initialize centroids using k-means++ algorithm on GPU."""
+    import cupy as cp
+
+    rng = np.random.RandomState(random_state)
+    n_samples = int(data.shape[0])
+
+    first_idx = rng.randint(0, n_samples)
+    centroids_list = [data[first_idx]]
+
+    for _ in range(n_clusters - 1):
+        distances = cp.zeros(n_samples, dtype=cp.float32)
+        for centroid in centroids_list:
+            dist = cp.sum((data - centroid) ** 2, axis=1)
+            distances = cp.minimum(distances, dist)
+
+        probabilities = distances / distances.sum()
+        cumsum = cp.cumsum(probabilities)
+        r = rng.random()
+        next_idx = int(cp.searchsorted(cumsum, r)[0])
+        next_idx = min(next_idx, n_samples - 1)
+        centroids_list.append(data[next_idx])
+
+    return cp.stack(centroids_list)

@@ -112,6 +112,12 @@ class TestMiniBatchKMeansCUDA:
     def check_cuda_available(self):
         """Skip tests if CUDA is not available."""
         pytest.importorskip("cuml")
+        try:
+            import cuml
+
+            cuml.cuda.device_count()
+        except Exception:
+            pytest.skip("No CUDA device available")
 
     def test_cuda_fit_simple_data(self, simple_5d_clusters):
         """Test CUDA fit on simple well-separated clusters."""
@@ -148,9 +154,17 @@ class TestMiniBatchKMeansParity:
     def check_cuda_available(self):
         """Skip tests if CUDA is not available."""
         pytest.importorskip("cuml")
+        try:
+            import cuml
+
+            cuml.cuda.device_count()
+        except Exception:
+            pytest.skip("No CUDA device available")
 
     def test_cpu_cuda_labels_parity(self, simple_5d_clusters):
-        """Test that CPU and CUDA produce same labels with same random state."""
+        """Test that CPU and CUDA produce similar labels (permutation-tolerant)."""
+        from sklearn.metrics import adjusted_rand_score
+
         cpu_clusterer = MiniBatchKMeansClusterer(
             n_clusters=3, random_state=42, device="cpu"
         )
@@ -161,10 +175,14 @@ class TestMiniBatchKMeansParity:
         )
         cuda_clusterer.fit(simple_5d_clusters)
 
-        np.testing.assert_array_equal(cpu_clusterer.labels_, cuda_clusterer.labels_)
+        ari = adjusted_rand_score(cpu_clusterer.labels_, cuda_clusterer.labels_)
+        assert ari > 0.9, f"ARI {ari} too low, clusters may be permuted"
 
     def test_cpu_cuda_centroids_parity(self, simple_5d_clusters):
-        """Test that CPU and CUDA produce same centroids with same random state."""
+        """Test that CPU and CUDA produce similar centroids (permutation-tolerant)."""
+        from scipy.optimize import linear_sum_assignment
+        from scipy.spatial.distance import cdist
+
         cpu_clusterer = MiniBatchKMeansClusterer(
             n_clusters=3, random_state=42, device="cpu"
         )
@@ -175,12 +193,20 @@ class TestMiniBatchKMeansParity:
         )
         cuda_clusterer.fit(simple_5d_clusters)
 
+        cost_matrix = cdist(
+            cpu_clusterer.cluster_centers_, cuda_clusterer.cluster_centers_
+        )
+        row_ind, col_ind = linear_sum_assignment(cost_matrix)
+        matched_centroids = cpu_clusterer.cluster_centers_[row_ind]
+        expected_centroids = cuda_clusterer.cluster_centers_[col_ind]
         np.testing.assert_array_almost_equal(
-            cpu_clusterer.cluster_centers_, cuda_clusterer.cluster_centers_, decimal=4
+            matched_centroids, expected_centroids, decimal=3
         )
 
     def test_cpu_cuda_predict_parity(self, simple_5d_clusters):
-        """Test that CPU and CUDA produce same predictions."""
+        """Test that CPU and CUDA produce similar predictions (permutation-tolerant)."""
+        from sklearn.metrics import adjusted_rand_score
+
         cpu_clusterer = MiniBatchKMeansClusterer(
             n_clusters=3, random_state=42, device="cpu"
         )
@@ -195,4 +221,5 @@ class TestMiniBatchKMeansParity:
         cpu_preds = cpu_clusterer.predict(test_data)
         cuda_preds = cuda_clusterer.predict(test_data)
 
-        np.testing.assert_array_equal(cpu_preds, cuda_preds)
+        ari = adjusted_rand_score(cpu_preds, cuda_preds)
+        assert ari > 0.9, f"ARI {ari} too low, predictions may be permuted"

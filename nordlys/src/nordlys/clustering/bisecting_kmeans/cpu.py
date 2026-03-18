@@ -50,6 +50,8 @@ def fit(
     batch_size: int,
     random_state: int,
     embeddings: np.ndarray,
+    init_size: int | None = None,
+    max_no_improvement: int = 10,
 ) -> BisectingKMeansModel:
     """Fit using CPU (sklearn)."""
     n_samples = embeddings.shape[0]
@@ -57,7 +59,7 @@ def fit(
     if n_clusters <= 1:
         labels = np.zeros(n_samples, dtype=np.int64)
         cluster_centers = embeddings.mean(axis=0, keepdims=True)
-        inertia = 0.0
+        inertia = float(np.sum((embeddings - cluster_centers) ** 2))
         return SklearnBisectingKMeansModel(cluster_centers, labels, inertia)
 
     cluster_assignments = np.zeros(n_samples, dtype=np.int64)
@@ -126,12 +128,10 @@ def fit(
     )
     cluster_centers = np.stack(centroids)
 
-    distances = np.sqrt(
-        np.sum(
-            (embeddings[:, np.newaxis, :] - cluster_centers[np.newaxis, :, :]) ** 2,
-            axis=2,
-        )
+    squared_distances = np.sum(
+        (embeddings[:, np.newaxis, :] - cluster_centers[np.newaxis, :, :]) ** 2,
+        axis=2,
     )
-    inertia = float(distances[np.arange(n_samples), labels].sum())
+    inertia = float(squared_distances[np.arange(n_samples), labels].sum())
 
     return SklearnBisectingKMeansModel(cluster_centers, labels, inertia)

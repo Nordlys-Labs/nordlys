@@ -17,14 +17,18 @@ class MiniBatchKMeansModel(Protocol):
     @property
     def cluster_centers_(self) -> np.ndarray:
         """Cluster centers of shape (n_clusters, n_features)."""
+        ...
 
     @property
     def labels_(self) -> np.ndarray:
         """Labels assigned during fit of shape (n_samples,)."""
+        ...
 
     @property
     def inertia_(self) -> float:
         """Sum of squared distances to closest centroid."""
+        ...
 
     def predict(self, embeddings: np.ndarray) -> np.ndarray:
         """Predict cluster assignments."""
+        ...

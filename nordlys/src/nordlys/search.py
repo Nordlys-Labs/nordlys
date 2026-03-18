@@ -6,16 +6,6 @@ the best structure for routing tasks.
 
 from __future__ import annotations
 
-import logging
-from collections.abc import Callable, Sequence
-from dataclasses import dataclass, field
-from tempfile import TemporaryDirectory
-from typing import Protocol
-
-import numpy as np
-from joblib import Parallel, delayed
-from tqdm import tqdm
-
 from nordlys.clustering.agglomerative import AgglomerativeClusterer
 from nordlys.clustering.base import Clusterer
 from nordlys.clustering.bisecting_kmeans import BisectingKMeansClusterer
@@ -26,6 +16,16 @@ from nordlys.clustering.metrics import ClusterMetrics, compute_cluster_metrics
 from nordlys.clustering.minibatch_kmeans import MiniBatchKMeansClusterer
 from nordlys.clustering.spectral import SpectralClusterer
 from nordlys.device import DeviceType, get_device
+
+import logging
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass, field
+from tempfile import TemporaryDirectory
+from typing import Protocol
+
+import numpy as np
+from joblib import Parallel, delayed
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -667,7 +667,9 @@ class ParameterSweep:
 
         def evaluate_task(spec: CandidateSpec) -> SweepResult | None:
             try:
-                return _evaluate_spec_worker(embeddings, spec, self.random_state)
+                return _evaluate_spec_worker(
+                    embeddings, spec, self.random_state, self.device
+                )
             except Exception as e:
                 logger.warning(
                     "Failed %s with %s: %s", spec.name, spec.params_dict(), e
@@ -742,6 +744,7 @@ def _evaluate_spec_worker(
     embeddings: np.ndarray,
     spec: CandidateSpec,
     random_state: int,
+    device: DeviceType,
 ) -> SweepResult:
     """Worker function for parallel evaluation of clustering candidates.
 
@@ -751,7 +754,7 @@ def _evaluate_spec_worker(
 
     from nordlys.clustering.metrics import compute_cluster_metrics
 
-    clusterer = spec.build(random_state)
+    clusterer = spec.build(random_state, device)
     clusterer.fit(embeddings)
 
     labels = clusterer.labels_

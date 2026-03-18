@@ -92,6 +92,8 @@ class BisectingKMeansClusterer(Clusterer):
                     max_iter=self.max_iter,
                     batch_size=self.batch_size,
                     random_state=self.random_state,
+                    init_size=self.init_size,
+                    max_no_improvement=self.max_no_improvement,
                     embeddings=embeddings,
                 )
         return self
