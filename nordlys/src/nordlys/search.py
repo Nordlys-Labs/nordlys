@@ -6,15 +6,14 @@ the best structure for routing tasks.
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from tempfile import TemporaryDirectory
 from typing import Protocol
 
 import numpy as np
-
 from joblib import Parallel, delayed
+from tqdm import tqdm
 
 from nordlys.clustering.agglomerative import AgglomerativeClusterer
 from nordlys.clustering.base import Clusterer
@@ -25,6 +24,8 @@ from nordlys.clustering.kmeans import KMeansClusterer
 from nordlys.clustering.metrics import ClusterMetrics, compute_cluster_metrics
 from nordlys.clustering.minibatch import MiniBatchKMeansClusterer
 from nordlys.clustering.spectral import SpectralClusterer
+
+import logging
 
 logger = logging.getLogger(__name__)
 
@@ -614,9 +615,17 @@ class ParameterSweep:
     ) -> SweepResults:
         """Run tasks sequentially."""
         results = SweepResults()
-        for spec in candidates:
-            if verbose:
-                print(f"Running {spec.name} with {spec.params_dict()}")
+
+        iterator = candidates
+        if verbose:
+            iterator = tqdm(
+                candidates,
+                desc="Clustering sweep",
+                unit="candidate",
+                disable=False,
+            )
+
+        for spec in iterator:
             try:
                 result = self._evaluate_candidate(embeddings, spec)
                 results.results.append(result)
@@ -624,8 +633,6 @@ class ParameterSweep:
                 logger.warning(
                     "Failed %s with %s: %s", spec.name, spec.params_dict(), e
                 )
-                if verbose:
-                    print(f"  Failed: {e}")
         return results
 
     def _run_parallel(
@@ -642,10 +649,6 @@ class ParameterSweep:
         """
         results = SweepResults()
 
-        if verbose:
-            for spec in candidates:
-                print(f"Running {spec.name} with {spec.params_dict()}")
-
         def evaluate_task(spec: CandidateSpec) -> SweepResult | None:
             try:
                 return _evaluate_spec_worker(embeddings, spec, self.random_state)
@@ -653,8 +656,6 @@ class ParameterSweep:
                 logger.warning(
                     "Failed %s with %s: %s", spec.name, spec.params_dict(), e
                 )
-                if verbose:
-                    print(f"  Failed: {e}")
                 return None
 
         with TemporaryDirectory(prefix="nordlys-sweep-") as temp_dir:
@@ -663,11 +664,20 @@ class ParameterSweep:
                 backend="loky",
                 temp_folder=temp_dir,
                 mmap_mode="r",
+                return_as="generator_unordered",
             )(delayed(evaluate_task)(spec) for spec in candidates)
 
-        for result in parallel_results:
-            if result is not None:
-                results.results.append(result)
+            if verbose:
+                parallel_results = tqdm(
+                    parallel_results,
+                    total=len(candidates),
+                    desc="Clustering sweep",
+                    unit="candidate",
+                )
+
+            for result in parallel_results:
+                if result is not None:
+                    results.results.append(result)
 
         return results
 
