@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from io import StringIO
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -668,6 +667,6 @@ class TestVerboseOutput:
             sweep = ParameterSweep(
                 candidates=candidates, random_state=42, max_workers=2
             )
-            results = sweep.run(sample_embeddings, verbose=True)
+            sweep.run(sample_embeddings, verbose=True)
 
             mock_tqdm.assert_called_once()
