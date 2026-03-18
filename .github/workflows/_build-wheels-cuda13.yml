@@ -47,10 +47,11 @@ jobs:
           CIBW_MANYLINUX_X86_64_IMAGE: "quay.io/pypa/manylinux_2_34_x86_64"
           CIBW_BEFORE_ALL_LINUX: >
             dnf install -y wget cmake dnf-plugins-core &&
-            wget https://developer.download.nvidia.com/compute/cuda/13.2.0/local_installers/cuda_13.2.0_595.45.04_linux.run &&
-            sh cuda_13.2.0_595.45.04_linux.run --silent --driver --toolkit --toolkitpath=/opt/cuda-13.2 &&
-            ln -s /opt/cuda-13.2 /opt/cuda &&
-            rm cuda_13.2.0_595.45.04_linux.run &&
+            dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo &&
+            dnf clean all &&
+            dnf install -y --setopt=install_weak_deps=False --setopt=tsflags=nodocs cuda-toolkit-13-2 &&
+            ln -s /usr/local/cuda-13.2 /opt/cuda ||
+            ln -s /usr/local/cuda /opt/cuda &&
             dnf clean all
           CIBW_BEFORE_BUILD: "pip install conan && conan profile detect --force"
           CIBW_ENVIRONMENT: "NORDLYS_ENABLE_CUDA=ON CUDACXX=/opt/cuda/bin/nvcc CMAKE_CUDA_COMPILER=/opt/cuda/bin/nvcc CUDAToolkit_ROOT=/opt/cuda PATH=/opt/cuda/bin:/usr/local/cuda/bin:$PATH LD_LIBRARY_PATH=/opt/cuda/lib64:$LD_LIBRARY_PATH"
