@@ -36,8 +36,14 @@ jobs:
     with:
       validate-version: false
 
-  build_wheels_cuda:
+  build_wheels_cuda12:
     needs: [test]
-    uses: ./.github/workflows/_build-wheels-cuda.yml
+    uses: ./.github/workflows/_build-wheels-cuda12.yml
+    with:
+      validate-version: false
+
+  build_wheels_cuda13:
+    needs: [test]
+    uses: ./.github/workflows/_build-wheels-cuda13.yml
     with:
       validate-version: false
