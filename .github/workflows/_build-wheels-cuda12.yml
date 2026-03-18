@@ -1,4 +1,4 @@
-name: Build CUDA Wheels
+name: Build CUDA 12 Wheels
 
 on:
   workflow_call:
@@ -10,8 +10,8 @@ on:
         default: false
 
 jobs:
-  build_wheels_cuda:
-    name: Build CUDA wheels (linux)
+  build_wheels_cuda12:
+    name: Build CUDA 12 wheels (linux)
     runs-on: blacksmith-4vcpu-ubuntu-2404
 
     steps:
@@ -84,5 +84,5 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: cibw-wheels-cuda-linux
+          name: cibw-wheels-cuda12-linux
           path: ./wheelhouse/*.whl
