@@ -29,23 +29,23 @@ jobs:
       validate-version: true
 
   # ============================================
-  # Publish all wheels
+  # Publish nordlys-core (CPU)
   # ============================================
-  publish:
-    needs: [build_wheels_cpu, build_wheels_cuda12, build_wheels_cuda13]
+  publish_cpu:
+    needs: [build_wheels_cpu]
     runs-on: blacksmith-4vcpu-ubuntu-2404
 
     steps:
       - uses: actions/checkout@v6
 
-      - name: Download artifacts
+      - name: Download CPU artifacts
         uses: actions/download-artifact@v8
         with:
-          pattern: cibw-wheels-*
+          pattern: cibw-wheels-cpu-*
           path: dist
           merge-multiple: true
 
-      - name: List wheels
+      - name: List CPU wheels
         run: ls -la dist/
 
       - name: Validate wheel versions
@@ -59,7 +59,83 @@ jobs:
               exit 1
             fi
           done
-          echo "All wheels validated for version $VERSION"
+          echo "All CPU wheels validated for version $VERSION"
 
       - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
+
+  # ============================================
+  # Publish nordlys-core-cu12
+  # ============================================
+  publish_cuda12:
+    needs: [build_wheels_cuda12]
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download CUDA12 artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: cibw-wheels-cuda12-*
+          path: dist
+          merge-multiple: true
+
+      - name: List CUDA12 wheels
+        run: ls -la dist/
+
+      - name: Validate wheel versions
+        shell: bash
+        run: |
+          VERSION=$(cat nordlys-core/VERSION | tr -d '[:space:]')
+          cd dist
+          for file in *.whl; do
+            if [[ "$file" != *"$VERSION"* ]]; then
+              echo "Error: Found wheel without $VERSION: $file"
+              exit 1
+            fi
+          done
+          echo "All CUDA12 wheels validated for version $VERSION"
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
+
+  # ============================================
+  # Publish nordlys-core-cu13
+  # ============================================
+  publish_cuda13:
+    needs: [build_wheels_cuda13]
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download CUDA13 artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: cibw-wheels-cuda13-*
+          path: dist
+          merge-multiple: true
+
+      - name: List CUDA13 wheels
+        run: ls -la dist/
+
+      - name: Validate wheel versions
+        shell: bash
+        run: |
+          VERSION=$(cat nordlys-core/VERSION | tr -d '[:space:]')
+          cd dist
+          for file in *.whl; do
+            if [[ "$file" != *"$VERSION"* ]]; then
+              echo "Error: Found wheel without $VERSION: $file"
+              exit 1
+            fi
+          done
+          echo "All CUDA13 wheels validated for version $VERSION"
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
 
