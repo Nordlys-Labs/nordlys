@@ -86,7 +86,6 @@ def _fit_minibatch_core(
     ewa_inertia = None
     ewa_inertia_min = None
     no_improvement = 0
-    n_since_last_reassign = 0
 
     for step in range(n_steps):
         mb_indices = random_state.randint(0, n_samples, _batch_size)
