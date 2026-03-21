@@ -9,6 +9,7 @@ from nordlys.clustering.gmm.protocol import GMMModel
 from nordlys.device import DeviceType, get_device, require_cuda
 
 import numpy as np
+from scipy.special import logsumexp
 
 
 class GMMClusterer(Clusterer):
@@ -234,19 +235,14 @@ class GMMClusterer(Clusterer):
             ) + np.log(weights[np.newaxis, :] + 1e-10)
         else:
             cov_arr = np.maximum(covariances, 1e-10)
-            log_det = n_features * np.sum(np.log(cov_arr))
+            log_det = n_features * np.log(cov_arr)
             diffs = embeddings[:, np.newaxis, :] - means
             mahal = np.sum(diffs**2, axis=2) / cov_arr
             log_probs = -0.5 * (
-                n_features * np.log(2 * np.pi) + log_det + mahal
+                n_features * np.log(2 * np.pi) + log_det[np.newaxis, :] + mahal
             ) + np.log(weights[np.newaxis, :] + 1e-10)
 
-        log_resp = log_probs - np.max(log_probs, axis=1, keepdims=True)
-        resp = np.exp(log_resp)
-        resp = resp / resp.sum(axis=1, keepdims=True)
-        log_likelihood = np.sum(
-            np.log(np.sum(resp * np.exp(log_probs), axis=1) + 1e-10)
-        )
+        log_likelihood = np.sum(logsumexp(log_probs, axis=1))
 
         if self.covariance_type == "full":
             n_params = (
@@ -265,7 +261,7 @@ class GMMClusterer(Clusterer):
                 - 1
             )
         else:
-            n_params = self.n_components * n_features + self.n_components - 1
+            n_params = self.n_components * n_features + 2 * self.n_components - 1
         bic = -2 * log_likelihood + n_params * np.log(n_samples)
 
         return float(bic)

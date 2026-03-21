@@ -113,6 +113,7 @@ def fit(
     best_score = -np.inf
 
     for init_idx in range(n_init):
+        init_converged = False
         init_rng = cp.random.RandomState(random_state + init_idx)
 
         weights = cp.ones(n_components, dtype=cp.float32) / n_components
@@ -172,7 +173,7 @@ def fit(
             if iteration > 0:
                 mean_change = float(cp.max(cp.abs(means - old_means)))
                 if mean_change < 1e-4:
-                    best_converged = True
+                    init_converged = True
                     break
             old_means = means.copy()
 
@@ -202,7 +203,7 @@ def fit(
             best_means = cp.asnumpy(means)
             best_weights = cp.asnumpy(weights)
             best_covariances = cp.asnumpy(covariances)
-            best_converged = True
+            best_converged = init_converged
 
     if (
         best_labels is None
