@@ -67,7 +67,7 @@ class KMeansSpec:
     def name(self) -> str:
         return "kmeans"
 
-    def build(self, random_state: int, device: DeviceType = "cpu") -> KMeansClusterer:
+    def build(self, random_state: int) -> KMeansClusterer:
         return KMeansClusterer(
             n_clusters=self.n_clusters,
             max_iter=self.max_iter,
@@ -98,9 +98,7 @@ class MiniBatchKMeansSpec:
     def name(self) -> str:
         return "minibatch_kmeans"
 
-    def build(
-        self, random_state: int, device: DeviceType = "cpu"
-    ) -> MiniBatchKMeansClusterer:
+    def build(self, random_state: int) -> MiniBatchKMeansClusterer:
         return MiniBatchKMeansClusterer(
             n_clusters=self.n_clusters,
             max_iter=self.max_iter,
@@ -131,9 +129,7 @@ class BisectingKMeansSpec:
     def name(self) -> str:
         return "bisecting_kmeans"
 
-    def build(
-        self, random_state: int, device: DeviceType = "cpu"
-    ) -> BisectingKMeansClusterer:
+    def build(self, random_state: int) -> BisectingKMeansClusterer:
         return BisectingKMeansClusterer(
             n_clusters=self.n_clusters,
             max_iter=self.max_iter,
@@ -165,7 +161,7 @@ class HDBSCANSpec:
     def name(self) -> str:
         return "hdbscan"
 
-    def build(self, random_state: int, device: DeviceType = "cpu") -> HDBSCANClusterer:
+    def build(self, random_state: int) -> HDBSCANClusterer:
         """Build HDBSCAN clusterer."""
         return HDBSCANClusterer(
             min_cluster_size=self.min_cluster_size,
@@ -199,7 +195,7 @@ class GMMSpec:
     def name(self) -> str:
         return "gmm"
 
-    def build(self, random_state: int, device: DeviceType = "cpu") -> GMMClusterer:
+    def build(self, random_state: int) -> GMMClusterer:
         """Build GMM clusterer."""
         return GMMClusterer(
             n_components=self.n_components,
@@ -231,9 +227,7 @@ class AgglomerativeSpec:
     def name(self) -> str:
         return "agglomerative"
 
-    def build(
-        self, random_state: int, device: DeviceType = "cpu"
-    ) -> AgglomerativeClusterer:
+    def build(self, random_state: int) -> AgglomerativeClusterer:
         """Build agglomerative clustering spec."""
         return AgglomerativeClusterer(
             n_clusters=self.n_clusters,
@@ -264,7 +258,7 @@ class SpectralSpec:
     def name(self) -> str:
         return "spectral"
 
-    def build(self, random_state: int, device: DeviceType = "cpu") -> SpectralClusterer:
+    def build(self, random_state: int) -> SpectralClusterer:
         """Build spectral clustering spec."""
         return SpectralClusterer(
             n_clusters=self.n_clusters,
@@ -730,7 +724,7 @@ class ParameterSweep:
         spec: CandidateSpec,
     ) -> SweepResult:
         """Evaluate a single clustering candidate."""
-        clusterer = spec.build(self.random_state, self.device)
+        clusterer = spec.build(self.random_state)
         clusterer.fit(embeddings)
 
         labels = clusterer.labels_

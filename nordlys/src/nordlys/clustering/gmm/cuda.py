@@ -172,6 +172,7 @@ def fit(
             if iteration > 0:
                 mean_change = float(cp.max(cp.abs(means - old_means)))
                 if mean_change < 1e-4:
+                    best_converged = True
                     break
             old_means = means.copy()
 
@@ -201,14 +202,13 @@ def fit(
             best_means = cp.asnumpy(means)
             best_weights = cp.asnumpy(weights)
             best_covariances = cp.asnumpy(covariances)
-            best_converged = max_iter > 0 and iteration < max_iter - 1
+            best_converged = True
 
     if (
         best_labels is None
         or best_means is None
         or best_weights is None
         or best_covariances is None
-        or best_converged is None
     ):
         raise RuntimeError("GMM fit failed: no valid solution found")
 
