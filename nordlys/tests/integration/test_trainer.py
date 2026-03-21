@@ -219,6 +219,33 @@ class TestTrainerFit:
         fitted = trainer.fit_structure(large_dataset)
         assert fitted.n_clusters == 5
 
+    def test_fit_compiles_reachable_prototypes_for_hdbscan(
+        self,
+        trainer_models: list[str],
+        medium_dataset: Dataset,
+        test_hdbscan_clusterer: HDBSCANClusterer,
+    ) -> None:
+        """Compiled prototype routing keeps every stored prototype reachable."""
+        trainer = Trainer(models=trainer_models, clusterer=test_hdbscan_clusterer)
+        fitted = trainer.fit_structure(medium_dataset)
+
+        labels = trainer.assign_clusters(fitted, medium_dataset)
+
+        assert fitted.n_clusters > 0
+        assert set(labels.tolist()) == set(range(fitted.n_clusters))
+
+    def test_fit_exposes_routing_prototypes_alias(
+        self, trainer_models: list[str], large_dataset: Dataset
+    ) -> None:
+        """Fitted structures expose the runtime routing prototypes explicitly."""
+        trainer = Trainer(
+            models=trainer_models,
+            clusterer=KMeansClusterer(n_clusters=5, random_state=42),
+        )
+        fitted = trainer.fit_structure(large_dataset)
+
+        np.testing.assert_array_equal(fitted.routing_prototypes, fitted.cluster_centers)
+
 
 class TestTrainerValidation:
     def test_empty_models_raises(self) -> None:
