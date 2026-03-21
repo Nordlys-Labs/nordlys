@@ -101,14 +101,6 @@ class MiniBatchKMeansSpec:
     def build(
         self, random_state: int, device: DeviceType = "cpu"
     ) -> MiniBatchKMeansClusterer:
-        if self.device == "cuda":
-            return MiniBatchKMeansClusterer(
-                n_clusters=self.n_clusters,
-                max_iter=self.max_iter,
-                batch_size=self.batch_size,
-                random_state=random_state,
-                device=self.device,
-            )
         return MiniBatchKMeansClusterer(
             n_clusters=self.n_clusters,
             max_iter=self.max_iter,

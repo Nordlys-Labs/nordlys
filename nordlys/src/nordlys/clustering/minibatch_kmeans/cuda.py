@@ -53,6 +53,8 @@ def fit(
     batch_size: int,
     random_state: int,
     embeddings: np.ndarray,
+    max_no_improvement: int = 10,
+    reassignment_ratio: float = 0.01,
 ) -> MiniBatchKMeansModel:
     """Fit using GPU (cupy), matching sklearn MiniBatchKMeans semantics."""
     import cupy as cp
@@ -69,8 +71,8 @@ def fit(
         init_centers=centers,
         batch_size=batch_size,
         max_iter=max_iter,
-        max_no_improvement=10,
-        reassignment_ratio=0.01,
+        max_no_improvement=max_no_improvement,
+        reassignment_ratio=reassignment_ratio,
         random_state=rng,
     )
 

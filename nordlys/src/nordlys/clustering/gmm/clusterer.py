@@ -47,9 +47,9 @@ class GMMClusterer(Clusterer):
         match device:
             case "cuda":
                 require_cuda()
-                if covariance_type != "full":
+                if covariance_type not in ("full", "diag"):
                     msg = (
-                        f"GMM CUDA supports only covariance_type='full', "
+                        f"GMM CUDA supports only covariance_type='full' or 'diag', "
                         f"got '{covariance_type}'"
                     )
                     raise ValueError(msg)
@@ -198,9 +198,16 @@ class GMMClusterer(Clusterer):
             for k in range(self.n_components):
                 diff = embeddings[i] - means[k]
                 try:
-                    cov_inv = np.linalg.inv(covariances[k])
-                    log_det = np.log(np.linalg.det(covariances[k]))
-                    mahal = diff @ cov_inv @ diff
+                    cov = covariances[k]
+                    if self.covariance_type == "full":
+                        sign, log_det = np.linalg.slogdet(cov)
+                        if sign <= 0:
+                            log_det = np.log(np.linalg.det(cov) + 1e-10)
+                        mahal = diff @ np.linalg.inv(cov) @ diff
+                    else:
+                        cov_safe = np.maximum(cov, 1e-10)
+                        log_det = np.sum(np.log(cov_safe))
+                        mahal = np.sum((diff**2) / cov_safe)
                     sample_ll += weights[k] * np.exp(
                         -0.5 * (n_features * np.log(2 * np.pi) + log_det + mahal)
                     )
@@ -208,12 +215,15 @@ class GMMClusterer(Clusterer):
                     sample_ll += 0.0
             log_likelihood += np.log(sample_ll + 1e-10)
 
-        n_params = (
-            self.n_components * n_features
-            + self.n_components * n_features * (n_features + 1) // 2
-            + self.n_components
-            - 1
-        )
+        if self.covariance_type == "full":
+            n_params = (
+                self.n_components * n_features
+                + self.n_components * n_features * (n_features + 1) // 2
+                + self.n_components
+                - 1
+            )
+        else:
+            n_params = 2 * self.n_components * n_features + self.n_components - 1
         bic = -2 * log_likelihood + n_params * np.log(n_samples)
 
         return float(bic)

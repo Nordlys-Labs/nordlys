@@ -52,15 +52,6 @@ class MiniBatchKMeansClusterer(Clusterer):
         match device:
             case "cuda":
                 require_cuda()
-                if init_size is not None:
-                    msg = "MiniBatchKMeansCUDA does not support init_size"
-                    raise ValueError(msg)
-                if max_no_improvement != 10:
-                    msg = "MiniBatchKMeansCUDA does not support max_no_improvement"
-                    raise ValueError(msg)
-                if reassignment_ratio != 0.01:
-                    msg = "MiniBatchKMeansCUDA does not support reassignment_ratio"
-                    raise ValueError(msg)
                 if kwargs:
                     msg = f"MiniBatchKMeansCUDA does not support kwargs: {list(kwargs.keys())}"
                     raise ValueError(msg)
@@ -98,6 +89,8 @@ class MiniBatchKMeansClusterer(Clusterer):
                     max_iter=self.max_iter,
                     batch_size=self.batch_size,
                     random_state=self.random_state,
+                    max_no_improvement=self.max_no_improvement,
+                    reassignment_ratio=self.reassignment_ratio,
                     embeddings=embeddings,
                 )
             case _:
