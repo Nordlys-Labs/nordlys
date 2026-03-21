@@ -54,7 +54,10 @@ class RouteResult:
 class Router:
     """Unified runtime model routing from checkpoints.
 
-    Router selects models using checkpoint centroids and per-cluster error rates.
+    Router selects models using compiled routing prototypes and per-prototype
+    model scores. Training may use different clustering algorithms, but the
+    checkpoint always stores the prototype representation used at runtime.
+
     Use ``Trainer.fit(...)`` to create checkpoints; this class does not train.
 
     Example:

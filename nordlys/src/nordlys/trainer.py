@@ -25,15 +25,15 @@ from nordlys.search import ParameterSweep, SweepResult, SweepScorer, SweepConstr
 
 @dataclass(frozen=True)
 class FittedStructure:
-    """Result of learning task structure from data.
+    """Compiled prototype routing structure learned from data.
 
     Attributes:
-        cluster_centers: Centroid vectors of shape (n_clusters, n_features)
-        n_clusters: Number of clusters
+        cluster_centers: Routing prototypes of shape (n_clusters, n_features)
+        n_clusters: Number of compiled routing prototypes
         embedding_config: Embedding model configuration
         clustering_config: Clustering algorithm configuration
         reduction: Optional dimensionality reduction payload
-        metrics: Clustering quality metrics
+        metrics: Metrics computed against the compiled prototype routing labels
     """
 
     cluster_centers: np.ndarray
@@ -46,6 +46,11 @@ class FittedStructure:
     @property
     def centroids(self) -> np.ndarray:
         """Alias for cluster_centers for backwards compatibility."""
+        return self.cluster_centers
+
+    @property
+    def routing_prototypes(self) -> np.ndarray:
+        """Prototype vectors used by runtime nearest-prototype routing."""
         return self.cluster_centers
 
 
@@ -138,16 +143,17 @@ class Trainer:
     device: Literal["cpu", "cuda"] = "cpu"
 
     def fit_structure(self, dataset: Dataset) -> FittedStructure:
-        """Fit clustering on training data.
+        """Fit clustering and compile it into prototype routing.
 
-        This is the first step in a split workflow where you cluster on one dataset
-        and score models on another.
+        The requested clusterer is used to learn structure on the training data,
+        then the result is compiled into the nearest-prototype representation used
+        by runtime routing. This keeps all algorithms on the same routing path.
 
         Args:
             dataset: Training dataset with 'id' and 'input' columns
 
         Returns:
-            FittedClustering object containing cluster state
+            FittedStructure containing the compiled prototype routing state
         """
         self._validate_fit_clusters(dataset)
 
@@ -165,7 +171,7 @@ class Trainer:
         if isinstance(clusterer, KMeansClusterer):
             inertia = clusterer.inertia_
 
-        centroids, labels, compact_inertia = self._compact_to_routeable(
+        centroids, labels, compact_inertia = self._compile_prototype_routing_structure(
             cluster_input, raw_centroids, raw_labels, inertia
         )
         n_clusters = len(centroids)
@@ -204,7 +210,7 @@ class Trainer:
         scorer: SweepScorer,
         constraints: list[SweepConstraint] | None = None,
     ) -> FittedStructure:
-        """Select the best structure by evaluating clustering candidates.
+        """Select the best structure and compile it into prototype routing.
 
         This is the advanced path for structure selection. It embeds the dataset once,
         evaluates all clustering candidates from the sweep, and selects the best one
@@ -250,7 +256,7 @@ class Trainer:
         raw_labels = selected.labels
         inertia = selected.metrics.inertia
 
-        centroids, labels, compact_inertia = self._compact_to_routeable(
+        centroids, labels, compact_inertia = self._compile_prototype_routing_structure(
             cluster_input, raw_centroids, raw_labels, inertia
         )
 
@@ -298,9 +304,10 @@ class Trainer:
         )
 
     def assign_clusters(self, fitted: FittedStructure, dataset: Dataset) -> np.ndarray:
-        """Assign dataset instances to clusters using fitted centroids.
+        """Assign dataset instances to compiled routing prototypes.
 
-        Uses nearest-centroid assignment.
+        Uses nearest-prototype assignment, which is the runtime routing rule for
+        all compiled structures regardless of the original clustering algorithm.
 
         Args:
             fitted: Fitted clustering from fit_clusters()
@@ -334,7 +341,8 @@ class Trainer:
     def calibrate(self, fitted: FittedStructure, dataset: Dataset) -> RoutingPolicy:
         """Calibrate routing policy using fitted structure and validation data.
 
-        This computes per-cluster model scores from calibration data.
+        This computes per-prototype model scores from calibration data using the
+        same nearest-prototype assignment rule used at runtime.
 
         Args:
             fitted: Fitted structure from fit_structure()
@@ -371,14 +379,14 @@ class Trainer:
         )
 
     def compile(self, fitted: FittedStructure, policy: RoutingPolicy) -> Router:
-        """Compile a router from structure and policy.
+        """Compile a prototype router from structure and policy.
 
         Args:
             fitted: Fitted structure from fit_structure()
             policy: Routing policy from calibrate()
 
         Returns:
-            Router ready for routing
+            Router ready for nearest-prototype routing
         """
         models_payload = [
             CheckpointModelEntry(
@@ -538,23 +546,25 @@ class Trainer:
 
         return self.clusterer
 
-    def _compact_to_routeable(
+    def _compile_prototype_routing_structure(
         self,
         embeddings: np.ndarray,
         centroids: np.ndarray,
         raw_labels: np.ndarray,
         inertia: float | None,
     ) -> tuple[np.ndarray, np.ndarray, float | None]:
-        """Prune centroids unreachable at runtime and remap labels.
+        """Compile raw clustering output into runtime prototype routing.
 
-        Runtime routing uses nearest-centroid assignment, so only centroids that
-        are the closest point for at least one training sample can ever be
-        selected.  This method removes "orphan" centroids and reindexes labels
-        to produce a compact, always-routeable structure.
+        All algorithms are served through nearest-prototype routing. This step
+        takes the clusterer's fitted output, keeps the prototype ordering that
+        corresponds to the fitted labels, and then reassigns the training samples
+        using the runtime nearest-prototype rule. Any prototype that would never
+        be selected by runtime routing is removed and the resulting labels are
+        compacted to a dense 0..k-1 range.
 
         Returns:
-            Tuple of (compact_centroids, compact_labels, compact_inertia).
-            compact_inertia is None when the clusterer is not a KMeans variant.
+            Tuple of (routing_prototypes, routing_labels, routing_inertia).
+            routing_inertia is None when the clusterer is not a KMeans variant.
         """
         raw_labels = np.asarray(raw_labels)
         centroids = np.asarray(centroids, dtype=np.float32)
@@ -578,17 +588,25 @@ class Trainer:
 
         compact_centroids_arr = np.asarray(compact_centroids_list, dtype=np.float32)
 
-        distances = np.sqrt(
-            np.sum(
-                (
-                    valid_embeddings[:, np.newaxis, :]
-                    - compact_centroids_arr[np.newaxis, :, :]
+        while True:
+            distances = np.sqrt(
+                np.sum(
+                    (
+                        valid_embeddings[:, np.newaxis, :]
+                        - compact_centroids_arr[np.newaxis, :, :]
+                    )
+                    ** 2,
+                    axis=2,
                 )
-                ** 2,
-                axis=2,
             )
-        )
-        nearest = distances.argmin(axis=1)
+            nearest = distances.argmin(axis=1)
+
+            used_mask = np.zeros(len(compact_centroids_arr), dtype=bool)
+            used_mask[np.unique(nearest)] = True
+            if bool(np.all(used_mask)):
+                break
+
+            compact_centroids_arr = compact_centroids_arr[used_mask]
 
         compact_labels = np.full(len(embeddings), -1, dtype=np.intp)
         compact_labels[valid_mask] = nearest
