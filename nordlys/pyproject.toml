@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "nordlys"
-version = "0.7.2"
+version = "0.6.0"
 description = "Intelligent LLM Infrastructure with Smart Model Selection"
 authors = [{ name = "Botir Khaltaev", email = "botirkhaltaev@llmadaptive.uk" }]
 requires-python = ">=3.11,< 3.14"
@@ -31,6 +31,7 @@ dependencies = [
   # ML
   "scikit-learn>=1.5.0,<1.7.0",
   # Clustering
+  "hdbscan>=0.8.33,<=0.8.40",
   "umap-learn>=0.5.0",
   "numba>=0.56.0",     # Required for Python 3.11+ compatibility
   # Caching
@@ -59,15 +60,17 @@ cu12 = [
   "nordlys-core-cu12>=0.3.1,<1 ; sys_platform == 'linux'",
   "torch>=2.2.0",
   "sentence-transformers>=5.2.0,<6",
-  "cupy-cuda12x>=13.0.0,<14.0.0",
+  "cupy-cuda12x>=13.0.0",
   "cuml-cu12>=26.2.0",
+
 ]
 cu13 = [
-  "nordlys-core-cu13>=0.3.1,<1 ; sys_platform == 'linux'",
+  "nordlys-core-cu12>=0.3.1,<1 ; sys_platform == 'linux'",
   "torch>=2.2.0",
   "sentence-transformers>=5.2.0,<6",
-  "cupy-cuda13x>=13.0.0,<14.0.0",
+  "cupy-cuda13x>=13.0.0",
   "cuml-cu13>=26.2.0",
+
 ]
 
 [tool.uv]
