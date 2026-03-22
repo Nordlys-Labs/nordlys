@@ -90,7 +90,6 @@ def fit(
         cluster_selection_epsilon=cluster_selection_epsilon,
         cluster_selection_method=cluster_selection_method,
         prediction_data=prediction_data,
-        random_state=random_state,
     )
     model.fit(embeddings)
 
