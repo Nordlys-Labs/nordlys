@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from tempfile import TemporaryDirectory
-from typing import Literal, Protocol, cast
+from typing import Literal, Protocol
 
 import numpy as np
 from joblib import Parallel, delayed
