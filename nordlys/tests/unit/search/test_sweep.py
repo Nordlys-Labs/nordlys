@@ -62,6 +62,29 @@ class TestSweepScorerProtocol:
             score = scorer(result)
             assert -1.0 <= score <= 1.0
 
+    def test_silhouette_scorer_none_returns_minus_inf(self):
+        """Silhouette scorer should return -inf for None silhouette (invalid clustering)."""
+        scorer = silhouette_scorer()
+
+        class DummyMetrics:
+            silhouette_score = None
+            n_clusters = 1
+            cluster_sizes = [100]
+            n_samples = 100
+            inertia = None
+
+        result = SweepResult(
+            algorithm="kmeans",
+            params={"n_clusters": 1},
+            metrics=DummyMetrics(),
+            labels=np.zeros(100),
+            centroids=np.zeros((1, 5)),
+            clusterer=None,
+        )
+
+        score = scorer(result)
+        assert score == float("-inf")
+
     def test_cluster_count_scorer_prefers_target(self):
         """Cluster count scorer should prefer results close to target."""
 
@@ -236,6 +259,72 @@ class TestSweepConstraintProtocol:
             params={"n_clusters": 4},
             metrics=DummyMetrics(),
             labels=np.zeros(100),
+            centroids=np.zeros((4, 5)),
+            clusterer=None,
+        )
+
+        assert not constraint(result)
+
+    def test_cluster_balance_constraint_empty_sizes(self):
+        """Cluster balance constraint should reject empty cluster_sizes."""
+        constraint = cluster_balance_constraint(max_cv=0.6)
+
+        class DummyMetrics:
+            silhouette_score = 0.5
+            n_clusters = 0
+            cluster_sizes = None
+            n_samples = 0
+            inertia = None
+
+        result = SweepResult(
+            algorithm="kmeans",
+            params={"n_clusters": 0},
+            metrics=DummyMetrics(),
+            labels=np.array([]),
+            centroids=np.zeros((0, 5)),
+            clusterer=None,
+        )
+
+        assert not constraint(result)
+
+    def test_cluster_balance_constraint_zero_total_size(self):
+        """Cluster balance constraint should reject zero total size."""
+        constraint = cluster_balance_constraint(max_cv=0.6)
+
+        class DummyMetrics:
+            silhouette_score = 0.5
+            n_clusters = 3
+            cluster_sizes = [0, 0, 0]
+            n_samples = 0
+            inertia = None
+
+        result = SweepResult(
+            algorithm="kmeans",
+            params={"n_clusters": 3},
+            metrics=DummyMetrics(),
+            labels=np.array([]),
+            centroids=np.zeros((3, 5)),
+            clusterer=None,
+        )
+
+        assert not constraint(result)
+
+    def test_cluster_balance_constraint_any_zero_size_cluster(self):
+        """Cluster balance constraint should reject if any cluster has zero size."""
+        constraint = cluster_balance_constraint(max_cv=0.6)
+
+        class DummyMetrics:
+            silhouette_score = 0.5
+            n_clusters = 4
+            cluster_sizes = [25, 0, 25, 25]
+            n_samples = 75
+            inertia = None
+
+        result = SweepResult(
+            algorithm="kmeans",
+            params={"n_clusters": 4},
+            metrics=DummyMetrics(),
+            labels=np.zeros(75),
             centroids=np.zeros((4, 5)),
             clusterer=None,
         )
