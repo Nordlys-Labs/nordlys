@@ -393,25 +393,6 @@ def make_spectral_candidates(
 Params = dict[str, int | float | str | bool | None]
 
 
-class SweepScorer(Protocol):
-    """Protocol for scoring sweep results.
-
-    A scorer takes a sweep result and returns a numeric score.
-    Higher scores are considered better.
-    """
-
-    def __call__(self, result: SweepResult) -> float: ...
-
-
-class SweepConstraint(Protocol):
-    """Protocol for filtering sweep results.
-
-    A constraint returns True if the result is acceptable.
-    """
-
-    def __call__(self, result: SweepResult) -> bool: ...
-
-
 @dataclass
 class SweepResult:
     """Result of a single clustering configuration.
@@ -436,6 +417,10 @@ class SweepResult:
     def n_clusters(self) -> int:
         """Number of clusters in this result."""
         return self.metrics.n_clusters
+
+
+SweepScorer = Callable[[SweepResult], float]
+SweepConstraint = Callable[[SweepResult], bool]
 
 
 @dataclass
@@ -475,7 +460,7 @@ class SweepResults:
     def select(
         self,
         scorer: SweepScorer,
-        constraints: list[SweepConstraint] | None = None,
+        constraints: Sequence[SweepConstraint] | None = None,
     ) -> SweepResult | None:
         """Select the best result by scorer, optionally filtered by constraints.
 
