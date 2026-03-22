@@ -756,10 +756,17 @@ def _evaluate_spec_worker(
 
 # Built-in scorer and constraint factories
 def silhouette_scorer() -> Callable[[SweepResult], float]:
-    """Create a scorer that ranks by silhouette score."""
+    """Create a scorer that ranks by silhouette score.
+
+    Returns -inf for invalid (None) silhouette scores so degenerate clusterings
+    are never preferred over valid ones.
+    """
 
     def scorer(result: SweepResult) -> float:
-        return result.metrics.silhouette_score or 0.0
+        sil = result.metrics.silhouette_score
+        if sil is None:
+            return float("-inf")
+        return sil
 
     return scorer
 
@@ -804,14 +811,18 @@ def cluster_balance_constraint(max_cv: float = 0.6) -> Callable[[SweepResult], b
     """Create a constraint that requires cluster balance below max_cv.
 
     Balance is measured as coefficient of variation (std/mean) of cluster sizes.
+    Rejects degenerate cases (empty clusters, zero total size, or any zero-size cluster).
     """
 
     def constraint(result: SweepResult) -> bool:
         if not result.metrics.cluster_sizes:
-            return True
+            return False
         sizes = np.array(result.metrics.cluster_sizes, dtype=np.float32)
-        if sizes.sum() == 0:
-            return True
+        total = sizes.sum()
+        if total == 0:
+            return False
+        if np.any(sizes == 0):
+            return False
         cv = sizes.std() / sizes.mean()
         return cv < max_cv
 

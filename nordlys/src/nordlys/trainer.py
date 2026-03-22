@@ -582,9 +582,9 @@ class Trainer:
 
         unique_raw = np.unique(valid_raw_labels)
         compact_centroids_list: list[np.ndarray] = []
-        for arr_idx, raw_label in enumerate(unique_raw):
+        for raw_label in unique_raw:
             if raw_label < len(centroids):
-                compact_centroids_list.append(centroids[arr_idx])
+                compact_centroids_list.append(centroids[raw_label])
 
         compact_centroids_arr = np.asarray(compact_centroids_list, dtype=np.float32)
 

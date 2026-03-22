@@ -219,14 +219,14 @@ class TestComputeClusterMetrics:
         assert metrics.inertia == 123.45
 
     def test_single_cluster_silhouette(self):
-        """Test silhouette with single cluster."""
+        """Test silhouette with single cluster returns None (undefined)."""
         embeddings = np.random.randn(20, 5)
         labels = np.zeros(20, dtype=int)  # All same cluster
 
         metrics = compute_cluster_metrics(embeddings, labels)
 
-        # Single cluster has silhouette of 0
-        assert metrics.silhouette_score == 0.0
+        # Single cluster: silhouette is undefined, returns None
+        assert metrics.silhouette_score is None
         assert metrics.n_clusters == 1
 
     def test_with_noise_labels(self, simple_5d_clusters):

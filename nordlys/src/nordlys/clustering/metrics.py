@@ -114,16 +114,15 @@ def compute_cluster_metrics(
 
     # Compute silhouette score (requires at least 2 clusters)
     if n_clusters >= 2:
-        # Only use samples with valid labels
         valid_mask = labels >= 0
         if valid_mask.sum() > n_clusters:
             silhouette = float(
                 sk_silhouette_score(embeddings[valid_mask], labels[valid_mask])
             )
         else:
-            silhouette = 0.0
+            silhouette = None
     else:
-        silhouette = 0.0
+        silhouette = None
 
     return ClusterMetrics(
         silhouette_score=silhouette,
