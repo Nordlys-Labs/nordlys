@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from nordlys.clustering.base import Clusterer
 from nordlys.clustering.spectral.cpu import create_sklearn_model, fit as fit_cpu
-from nordlys.clustering.spectral.cuda import fit as fit_cuda
 from nordlys.clustering.spectral.protocol import SpectralModel
 from nordlys.device import DeviceType, get_device, require_cuda
 
@@ -107,6 +106,8 @@ class SpectralClusterer(Clusterer):
 
         match self.device:
             case "cuda":
+                from nordlys.clustering.spectral.cuda import fit as fit_cuda
+
                 self._model = fit_cuda(
                     n_clusters=self.n_clusters,
                     affinity=self.affinity,
