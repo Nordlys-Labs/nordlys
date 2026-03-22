@@ -7,8 +7,8 @@ import logging
 import numpy as np
 
 import cupy as cp
+from cuml.neighbors import NearestNeighbors
 from cupyx.scipy import sparse as cp_sparse
-from cupyx.scipy.spatial import KDTree
 from cupyx.scipy.sparse.linalg import eigsh
 
 from nordlys.clustering.spectral.protocol import SpectralModel
@@ -61,12 +61,12 @@ def fit(
     affinity: str,
     n_neighbors: int,
     random_state: int,
-    embeddings: cp.ndarray,
+    embeddings: np.ndarray,
 ) -> SpectralModel:
     """GPU spectral clustering via k-NN affinity graph and normalized Laplacian.
 
     Algorithm:
-        1. Build k-NN graph on GPU using CuPy KDTree.
+        1. Build k-NN graph on GPU using cuML NearestNeighbors.
         2. Weight edges with Gaussian kernel using per-edge sigma from kth-NN distance.
         3. Symmetrize the directed k-NN graph.
         4. Compute normalized graph Laplacian on GPU.
@@ -79,7 +79,7 @@ def fit(
         affinity: Must be "nearest_neighbors" (other affinities not supported on GPU).
         n_neighbors: Number of nearest neighbors per side.
         random_state: Random seed for KMeans.
-        embeddings: Input array of shape (n_samples, n_features) on GPU.
+        embeddings: Input array of shape (n_samples, n_features) on host or device.
 
     Returns:
         SpectralModel with GPU arrays for labels and centroids.
@@ -91,17 +91,20 @@ def fit(
     data = cp.asarray(embeddings, dtype=cp.float32)
     n_samples = data.shape[0]
 
-    if n_samples == 1:
-        labels = cp.zeros(1, dtype=cp.int32)
+    if n_clusters >= n_samples:
+        labels = cp.arange(n_samples, dtype=cp.int32)
         centers = data.copy()
-        return CupySpectralModel(centers, labels, 1)
+        return CupySpectralModel(centers, labels, n_samples)
 
     k = min(n_clusters, n_samples - 1)
 
-    tree = KDTree(data)
-    distances, indices = tree.query(data, k=n_neighbors + 1)
-    indices = indices[:, 1:]
-    distances = distances[:, 1:]
+    nn = NearestNeighbors(
+        n_neighbors=n_neighbors + 1, algorithm="brute", metric="euclidean"
+    )
+    nn.fit(data)
+    all_distances, all_indices = nn.kneighbors(n_neighbors=n_neighbors + 1)
+    indices = all_indices[:, 1:]
+    distances = all_distances[:, 1:]
 
     sigma = float(cp.mean(distances)) + 1e-10
     weights = cp.exp(-(distances**2) / (2 * sigma**2))
