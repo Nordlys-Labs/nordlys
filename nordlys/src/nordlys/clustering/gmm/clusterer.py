@@ -193,75 +193,76 @@ class GMMClusterer(Clusterer):
         means = model.cluster_centers_
         covariances = model.covariances_
 
-        if self.covariance_type == "full":
-            log_dets = np.array(
-                [np.linalg.slogdet(covariances[k])[1] for k in range(self.n_components)]
-            )
-            diffs = embeddings[:, np.newaxis, :] - means
-            log_probs = np.zeros((n_samples, self.n_components), dtype=np.float64)
-            for k in range(self.n_components):
-                try:
-                    chol = np.linalg.cholesky(covariances[k])
-                    solve_result = np.linalg.solve(chol, diffs[:, k, :].T).T
-                    mahal = np.sum(solve_result**2, axis=1)
-                    log_probs[:, k] = -0.5 * (
-                        n_features * np.log(2 * np.pi) + log_dets[k] + mahal
-                    ) + np.log(weights[k] + 1e-10)
-                except np.linalg.LinAlgError:
-                    log_probs[:, k] = -np.inf
-        elif self.covariance_type == "diag":
-            cov_safe = np.maximum(covariances, 1e-10)
-            log_dets = np.sum(np.log(cov_safe), axis=1)
-            diffs = embeddings[:, np.newaxis, :] - means
-            mahal = np.sum(diffs**2 / cov_safe, axis=2)
-            log_probs = -0.5 * (
-                n_features * np.log(2 * np.pi) + log_dets[np.newaxis, :] + mahal
-            ) + np.log(weights[np.newaxis, :] + 1e-10)
-        elif self.covariance_type == "tied":
-            cov_safe = np.maximum(covariances, 1e-10)
-            sign, log_det = np.linalg.slogdet(cov_safe)
-            log_det = np.log(np.linalg.det(cov_safe) + 1e-10) if sign <= 0 else log_det
-            diffs = embeddings[:, np.newaxis, :] - means
-            mahal = np.zeros((n_samples, self.n_components), dtype=np.float64)
-            for k in range(self.n_components):
-                try:
-                    chol = np.linalg.cholesky(cov_safe)
-                    solve_result = np.linalg.solve(chol, diffs[:, k, :].T).T
-                    mahal[:, k] = np.sum(solve_result**2, axis=1)
-                except np.linalg.LinAlgError:
-                    mahal[:, k] = np.inf
-            log_probs = -0.5 * (
-                n_features * np.log(2 * np.pi) + log_det + mahal
-            ) + np.log(weights[np.newaxis, :] + 1e-10)
-        else:
-            cov_arr = np.maximum(covariances, 1e-10)
-            log_det = n_features * np.log(cov_arr)
-            diffs = embeddings[:, np.newaxis, :] - means
-            mahal = np.sum(diffs**2, axis=2) / cov_arr
-            log_probs = -0.5 * (
-                n_features * np.log(2 * np.pi) + log_det[np.newaxis, :] + mahal
-            ) + np.log(weights[np.newaxis, :] + 1e-10)
+        match self.covariance_type:
+            case "full":
+                log_dets = np.array(
+                    [
+                        np.linalg.slogdet(covariances[k])[1]
+                        for k in range(self.n_components)
+                    ]
+                )
+                diffs = embeddings[:, np.newaxis, :] - means
+                log_probs = np.zeros((n_samples, self.n_components), dtype=np.float64)
+                for k in range(self.n_components):
+                    try:
+                        chol = np.linalg.cholesky(covariances[k])
+                        solve_result = np.linalg.solve(chol, diffs[:, k, :].T).T
+                        mahal = np.sum(solve_result**2, axis=1)
+                        log_probs[:, k] = -0.5 * (
+                            n_features * np.log(2 * np.pi) + log_dets[k] + mahal
+                        ) + np.log(weights[k] + 1e-10)
+                    except np.linalg.LinAlgError:
+                        log_probs[:, k] = -np.inf
+                n_params = (
+                    self.n_components * n_features
+                    + self.n_components * n_features * (n_features + 1) // 2
+                    + self.n_components
+                    - 1
+                )
+            case "diag":
+                cov_safe = np.maximum(covariances, 1e-10)
+                log_dets = np.sum(np.log(cov_safe), axis=1)
+                diffs = embeddings[:, np.newaxis, :] - means
+                mahal = np.sum(diffs**2 / cov_safe, axis=2)
+                log_probs = -0.5 * (
+                    n_features * np.log(2 * np.pi) + log_dets[np.newaxis, :] + mahal
+                ) + np.log(weights[np.newaxis, :] + 1e-10)
+                n_params = 2 * self.n_components * n_features + self.n_components - 1
+            case "tied":
+                cov_safe = np.maximum(covariances, 1e-10)
+                sign, log_det = np.linalg.slogdet(cov_safe)
+                log_det = (
+                    np.log(np.linalg.det(cov_safe) + 1e-10) if sign <= 0 else log_det
+                )
+                diffs = embeddings[:, np.newaxis, :] - means
+                mahal = np.zeros((n_samples, self.n_components), dtype=np.float64)
+                for k in range(self.n_components):
+                    try:
+                        chol = np.linalg.cholesky(cov_safe)
+                        solve_result = np.linalg.solve(chol, diffs[:, k, :].T).T
+                        mahal[:, k] = np.sum(solve_result**2, axis=1)
+                    except np.linalg.LinAlgError:
+                        mahal[:, k] = np.inf
+                log_probs = -0.5 * (
+                    n_features * np.log(2 * np.pi) + log_det + mahal
+                ) + np.log(weights[np.newaxis, :] + 1e-10)
+                n_params = (
+                    self.n_components * n_features
+                    + n_features * (n_features + 1) // 2
+                    + self.n_components
+                    - 1
+                )
+            case "spherical":
+                cov_arr = np.maximum(covariances, 1e-10)
+                log_det = n_features * np.log(cov_arr)
+                diffs = embeddings[:, np.newaxis, :] - means
+                mahal = np.sum(diffs**2, axis=2) / cov_arr
+                log_probs = -0.5 * (
+                    n_features * np.log(2 * np.pi) + log_det[np.newaxis, :] + mahal
+                ) + np.log(weights[np.newaxis, :] + 1e-10)
+                n_params = self.n_components * n_features + 2 * self.n_components - 1
 
         log_likelihood = np.sum(logsumexp(log_probs, axis=1))
-
-        if self.covariance_type == "full":
-            n_params = (
-                self.n_components * n_features
-                + self.n_components * n_features * (n_features + 1) // 2
-                + self.n_components
-                - 1
-            )
-        elif self.covariance_type == "diag":
-            n_params = 2 * self.n_components * n_features + self.n_components - 1
-        elif self.covariance_type == "tied":
-            n_params = (
-                self.n_components * n_features
-                + n_features * (n_features + 1) // 2
-                + self.n_components
-                - 1
-            )
-        else:
-            n_params = self.n_components * n_features + 2 * self.n_components - 1
         bic = -2 * log_likelihood + n_params * np.log(n_samples)
 
         return float(bic)
