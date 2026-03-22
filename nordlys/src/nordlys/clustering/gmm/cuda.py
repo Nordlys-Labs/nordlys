@@ -17,12 +17,14 @@ class CupyGMMModel:
         weights: np.ndarray,
         covariances: np.ndarray,
         converged: bool,
+        covariance_type: str,
     ) -> None:
         self._means = means
         self._labels = labels
         self._weights = weights
         self._covariances = covariances
         self._converged = converged
+        self._covariance_type = covariance_type
 
     @property
     def cluster_centers_(self) -> np.ndarray:
@@ -56,7 +58,9 @@ class CupyGMMModel:
         weights = cp.asarray(self._weights, dtype=cp.float32)
         covariances = cp.asarray(self._covariances, dtype=cp.float32)
 
-        log_resp = _compute_log_resp(X, means, weights, covariances)
+        log_resp = _compute_log_resp(
+            X, means, weights, covariances, self._covariance_type
+        )
         labels = np.argmax(cp.asnumpy(log_resp), axis=1)
 
         return labels
@@ -69,7 +73,9 @@ class CupyGMMModel:
         weights = cp.asarray(self._weights, dtype=cp.float32)
         covariances = cp.asarray(self._covariances, dtype=cp.float32)
 
-        log_resp = _compute_log_resp(X, means, weights, covariances)
+        log_resp = _compute_log_resp(
+            X, means, weights, covariances, self._covariance_type
+        )
         resp = cp.exp(log_resp - cp.max(log_resp, axis=1, keepdims=True))
         resp = resp / resp.sum(axis=1, keepdims=True)
 
@@ -87,12 +93,12 @@ def fit(
     """Fit using GPU (cupy).
 
     Implements EM algorithm for Gaussian Mixture Models.
-    Supports only 'full' covariance type for simplicity.
+    Supports 'full' and 'diag' covariance types.
     """
     import cupy as cp
 
-    if covariance_type != "full":
-        msg = f"GMM CUDA supports only covariance_type='full', got '{covariance_type}'"
+    if covariance_type not in ("full", "diag"):
+        msg = f"GMM CUDA supports only 'full' or 'diag', got '{covariance_type}'"
         raise ValueError(msg)
 
     data = cp.asarray(embeddings, dtype=cp.float32)
@@ -107,6 +113,7 @@ def fit(
     best_score = -np.inf
 
     for init_idx in range(n_init):
+        init_converged = False
         init_rng = cp.random.RandomState(random_state + init_idx)
 
         weights = cp.ones(n_components, dtype=cp.float32) / n_components
@@ -115,14 +122,22 @@ def fit(
         means = data[indices].copy()
 
         data_var = cp.var(data, axis=0)
-        covariances = cp.zeros((n_components, n_features, n_features), dtype=cp.float32)
-        for k in range(n_components):
-            covariances[k] = cp.diag(data_var + 0.1)
+
+        if covariance_type == "full":
+            covariances = cp.zeros(
+                (n_components, n_features, n_features), dtype=cp.float32
+            )
+            for k in range(n_components):
+                covariances[k] = cp.diag(data_var + 0.1)
+        else:
+            covariances = data_var + 0.1
 
         old_means = means.copy()
 
         for iteration in range(max_iter):
-            log_resp = _compute_log_resp(data, means, weights, covariances)
+            log_resp = _compute_log_resp(
+                data, means, weights, covariances, covariance_type
+            )
             resp = cp.exp(log_resp - cp.max(log_resp, axis=1, keepdims=True))
             resp = resp / resp.sum(axis=1, keepdims=True)
 
@@ -134,14 +149,22 @@ def fit(
             for k in range(n_components):
                 new_means[k] = (resp[:, k : k + 1] * data).sum(axis=0) / Nk[k]
 
-            new_covariances = cp.zeros(
-                (n_components, n_features, n_features), dtype=cp.float32
-            )
-            for k in range(n_components):
-                diff = data - new_means[k]
-                weighted_diff = resp[:, k : k + 1] * diff
-                new_covariances[k] = (weighted_diff.T @ diff) / Nk[k]
-                new_covariances[k] += cp.eye(n_features, dtype=cp.float32) * 1e-6
+            if covariance_type == "full":
+                new_covariances = cp.zeros(
+                    (n_components, n_features, n_features), dtype=cp.float32
+                )
+                for k in range(n_components):
+                    diff = data - new_means[k]
+                    weighted_diff = resp[:, k : k + 1] * diff
+                    new_covariances[k] = (weighted_diff.T @ diff) / Nk[k]
+                    new_covariances[k] += cp.eye(n_features, dtype=cp.float32) * 1e-6
+            else:
+                new_covariances = cp.zeros((n_components, n_features), dtype=cp.float32)
+                for k in range(n_components):
+                    diff = data - new_means[k]
+                    weighted_diff = resp[:, k : k + 1] * diff
+                    new_covariances[k] = (weighted_diff * diff).sum(axis=0) / Nk[k]
+                    new_covariances[k] += 1e-6
 
             weights = new_weights
             means = new_means
@@ -150,10 +173,13 @@ def fit(
             if iteration > 0:
                 mean_change = float(cp.max(cp.abs(means - old_means)))
                 if mean_change < 1e-4:
+                    init_converged = True
                     break
             old_means = means.copy()
 
-        final_log_resp = _compute_log_resp(data, means, weights, covariances)
+        final_log_resp = _compute_log_resp(
+            data, means, weights, covariances, covariance_type
+        )
         log_likelihood = cp.sum(
             cp.log(
                 cp.sum(
@@ -177,14 +203,13 @@ def fit(
             best_means = cp.asnumpy(means)
             best_weights = cp.asnumpy(weights)
             best_covariances = cp.asnumpy(covariances)
-            best_converged = max_iter > 0 and iteration < max_iter - 1
+            best_converged = init_converged
 
     if (
         best_labels is None
         or best_means is None
         or best_weights is None
         or best_covariances is None
-        or best_converged is None
     ):
         raise RuntimeError("GMM fit failed: no valid solution found")
 
@@ -194,10 +219,11 @@ def fit(
         best_weights,
         best_covariances,
         best_converged,
+        covariance_type,
     )
 
 
-def _compute_log_resp(X, means, weights, covariances):
+def _compute_log_resp(X, means, weights, covariances, covariance_type):
     """Compute log responsibilities."""
     import cupy as cp
     from cupy.linalg import solve
@@ -216,19 +242,25 @@ def _compute_log_resp(X, means, weights, covariances):
 
         diff = X - mean
 
-        try:
-            cov_chol = cp.linalg.cholesky(cov)
-            log_det = 2.0 * cp.sum(cp.log(cp.diag(cov_chol)))
-            solve_result = solve(cov_chol, diff.T).T
-        except cp.linalg.LinAlgError:
-            cov_reg = cov + cp.eye(cov.shape[0], dtype=cp.float32) * 1e-4
-            cov_chol = cp.linalg.cholesky(cov_reg)
-            log_det = 2.0 * cp.sum(cp.log(cp.diag(cov_chol)))
-            solve_result = solve(cov_chol, diff.T).T
+        if covariance_type == "full":
+            try:
+                cov_chol = cp.linalg.cholesky(cov)
+                log_det = 2.0 * cp.sum(cp.log(cp.diag(cov_chol)))
+                solve_result = solve(cov_chol, diff.T).T
+            except cp.linalg.LinAlgError:
+                cov_reg = cov + cp.eye(cov.shape[0], dtype=cp.float32) * 1e-4
+                cov_chol = cp.linalg.cholesky(cov_reg)
+                log_det = 2.0 * cp.sum(cp.log(cp.diag(cov_chol)))
+                solve_result = solve(cov_chol, diff.T).T
+            mahalanobis = cp.sum(solve_result**2, axis=1)
+            log_prob = -0.5 * (n_features * cp.log(2 * cp.pi) + log_det + mahalanobis)
+        else:
+            cov_reg = cov + 1e-6
+            log_det = cp.sum(cp.log(cov_reg))
+            solve_result = diff / cov_reg
+            mahalanobis = cp.sum(solve_result**2, axis=1)
+            log_prob = -0.5 * (n_features * cp.log(2 * cp.pi) + log_det + mahalanobis)
 
-        mahalanobis = cp.sum(solve_result**2, axis=1)
-
-        log_prob = -0.5 * (n_features * cp.log(2 * cp.pi) + log_det + mahalanobis)
         log_resp[:, k] = log_prob + log_weights[k]
 
     return log_resp

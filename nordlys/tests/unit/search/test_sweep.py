@@ -639,11 +639,11 @@ class TestVerboseOutput:
 
         call_count = {"failures": 0}
 
-        def failing_evaluate_task(embeddings, spec, random_state):
+        def failing_evaluate_task(embeddings, spec, random_state, device):
             from nordlys.search import _evaluate_spec_worker
 
             try:
-                return _evaluate_spec_worker(embeddings, spec, random_state)
+                return _evaluate_spec_worker(embeddings, spec, random_state, device)
             except Exception:
                 call_count["failures"] += 1
                 return None
