@@ -10,7 +10,7 @@ from nordlys import Router
 class TestCheckpointLoad:
     def test_construct_from_json_path(self, fitted_nordlys, tmp_path):
         path = tmp_path / "router.json"
-        fitted_nordlys._checkpoint.to_json_file(str(path))
+        fitted_nordlys.save(path)
 
         loaded = Router(checkpoint=path)
 
@@ -19,7 +19,7 @@ class TestCheckpointLoad:
 
     def test_construct_from_msgpack_path(self, fitted_nordlys, tmp_path):
         path = tmp_path / "router.msgpack"
-        fitted_nordlys._checkpoint.to_msgpack_file(str(path))
+        fitted_nordlys.checkpoint().to_msgpack_file(str(path))
 
         loaded = Router(checkpoint=path)
 
@@ -28,7 +28,7 @@ class TestCheckpointLoad:
 
     def test_loaded_router_routes_identically(self, fitted_nordlys, tmp_path):
         path = tmp_path / "router.json"
-        fitted_nordlys._checkpoint.to_json_file(str(path))
+        fitted_nordlys.save(path)
 
         before = fitted_nordlys.route("What is machine learning?")
         after = Router(checkpoint=path).route("What is machine learning?")

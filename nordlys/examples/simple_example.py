@@ -211,11 +211,7 @@ print("\n" + "=" * 60)
 print("Checkpoint I/O")
 print("=" * 60)
 
-# Save checkpoint to JSON directly (get from router's internal checkpoint)
-from nordlys_core import NordlysCheckpoint  # noqa: E402
-
-checkpoint = NordlysCheckpoint.from_json_string(router._checkpoint.to_json_string())
-checkpoint.to_json_file("/tmp/nordlys_example.json")
+router.save("/tmp/nordlys_example.json")
 print("Checkpoint saved to /tmp/nordlys_example.json")
 
 # Load router from checkpoint path

@@ -503,6 +503,31 @@ class Router:
             )
         return reduced
 
+    def checkpoint(self) -> NordlysCheckpoint:
+        """Return the loaded checkpoint object.
+
+        Returns:
+            The NordlysCheckpoint backing this router. Treat as read-only;
+            use save() to persist a checkpoint to disk.
+        """
+        return self._checkpoint
+
+    def save(self, path: str | Path) -> Path:
+        """Save the router checkpoint to a JSON file.
+
+        Args:
+            path: Destination file path. Parent directories are created if missing.
+
+        Returns:
+            The resolved destination path.
+        """
+        import json
+
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(self._checkpoint.to_json_string())
+        return path
+
     def __repr__(self) -> str:
         return (
             f"Router(models={len(self._models)}, "
