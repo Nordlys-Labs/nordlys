@@ -23,7 +23,7 @@ jobs:
           - { os: windows, runner: blacksmith-4vcpu-windows-2025, python: "3.13" }
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v7

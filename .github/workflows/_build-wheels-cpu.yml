@@ -23,7 +23,7 @@ jobs:
           - { os: macos-arm, runs-on: macos-latest }
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Extract version from tag (publish only)
         if: inputs.validate-version
