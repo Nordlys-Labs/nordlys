@@ -43,6 +43,17 @@ jobs:
         working-directory: nordlys
         run: uv sync --group dev --extra ${{ matrix.extra || 'cpu' }}
 
+      # nordlys-core-cu12 links libcublas.so.12 by SONAME; the nvidia-*-cu12
+      # wheels that provide it (pulled by torch/cuml) live under site-packages
+      # and are not on the default loader path.
+      - name: Resolve NVIDIA wheel libraries (GPU leg)
+        if: matrix.cuda_visible
+        working-directory: nordlys
+        run: |
+          libs=$(find "$PWD/.venv" -type d -path "*/nvidia/*/lib" -printf "%p:" 2>/dev/null)
+          test -n "$libs" || { echo "::error::no nvidia wheel lib dirs found"; exit 1; }
+          echo "LD_LIBRARY_PATH=${libs}${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
+
       - name: Lint
         if: matrix.lint
         working-directory: nordlys
