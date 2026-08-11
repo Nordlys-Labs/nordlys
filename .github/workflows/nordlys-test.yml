@@ -8,13 +8,17 @@ jobs:
     name: Test (py${{ matrix.python }}, ${{ matrix.os }})
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
+    continue-on-error: ${{ matrix.allow_failure || false }}
     strategy:
       fail-fast: true
       matrix:
         include:
-          - { os: linux, runner: ubuntu-latest, python: "3.11" }
-          - { os: linux, runner: ubuntu-latest, python: "3.12", lint: true }
-          - { os: linux, runner: ubuntu-latest, python: "3.13" }
+          - { os: linux, runner: [self-hosted, modal, ci, "job-${{ github.run_id }}-${{ github.job }}-${{ strategy.job-index }}"], python: "3.11" }
+          - { os: linux, runner: [self-hosted, modal, ci, "job-${{ github.run_id }}-${{ github.job }}-${{ strategy.job-index }}"], python: "3.12", lint: true }
+          - { os: linux, runner: [self-hosted, modal, ci, "job-${{ github.run_id }}-${{ github.job }}-${{ strategy.job-index }}"], python: "3.13" }
+          # T4 Modal pool; CUDA wheels from --extra cu12. Allowed to fail until
+          # the CUDA-guarded tests are proven green (they never ran in CI before).
+          - { os: linux-gpu, runner: [self-hosted, modal, ci-gpu, "job-${{ github.run_id }}-${{ github.job }}-${{ strategy.job-index }}"], python: "3.12", extra: cu12, cuda_visible: "0", allow_failure: true }
           - { os: macos, runner: macos-latest, python: "3.11" }
           - { os: macos, runner: macos-latest, python: "3.12" }
           - { os: macos, runner: macos-latest, python: "3.13" }
@@ -31,9 +35,9 @@ jobs:
           enable-cache: true
           python-version: ${{ matrix.python }}
 
-      - name: Install package (dev + CPU backend)
+      - name: Install package (dev + ${{ matrix.extra || 'cpu' }} backend)
         working-directory: nordlys
-        run: uv sync --group dev --extra cpu
+        run: uv sync --group dev --extra ${{ matrix.extra || 'cpu' }}
 
       - name: Lint
         if: matrix.lint
@@ -50,5 +54,6 @@ jobs:
       - name: Test
         working-directory: nordlys
         env:
-          CUDA_VISIBLE_DEVICES: ""
+          # Unset on the linux-gpu leg (exposes the T4); hidden everywhere else.
+          CUDA_VISIBLE_DEVICES: ${{ matrix.cuda_visible }}
         run: uv run pytest tests -v --tb=short

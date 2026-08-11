@@ -15,7 +15,7 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - { os: linux, runner: blacksmith-4vcpu-ubuntu-2404 }
+          - { os: linux, runner: [self-hosted, modal, ci-core, "job-${{ github.run_id }}-${{ github.job }}-${{ strategy.job-index }}"], conan_home: /cache/conan2 }
           - { os: macos, runner: macos-15 }
 
     steps:
@@ -25,7 +25,14 @@ jobs:
         with:
           python-version: "3.12"
 
+      # Modal legs share a conan Volume via CONAN_HOME; actions/cache is only
+      # used on hosted runners (the Volume already persists across runs there).
+      - name: Point Conan at the shared cache volume
+        if: matrix.conan_home
+        run: echo "CONAN_HOME=${{ matrix.conan_home }}" >> "$GITHUB_ENV"
+
       - name: Cache Conan packages
+        if: runner.environment == 'github-hosted'
         uses: actions/cache@v5
         with:
           path: ~/.conan2
@@ -76,7 +83,7 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - { os: linux, runner: blacksmith-4vcpu-ubuntu-2404 }
+          - { os: linux, runner: [self-hosted, modal, ci-core, "job-${{ github.run_id }}-${{ github.job }}-${{ strategy.job-index }}"], conan_home: /cache/conan2 }
           - { os: macos, runner: macos-15 }
 
     steps:
@@ -86,7 +93,14 @@ jobs:
         with:
           python-version: "3.12"
 
+      # Modal legs share a conan Volume via CONAN_HOME; actions/cache is only
+      # used on hosted runners (the Volume already persists across runs there).
+      - name: Point Conan at the shared cache volume
+        if: matrix.conan_home
+        run: echo "CONAN_HOME=${{ matrix.conan_home }}" >> "$GITHUB_ENV"
+
       - name: Cache Conan packages
+        if: runner.environment == 'github-hosted'
         uses: actions/cache@v5
         with:
           path: ~/.conan2

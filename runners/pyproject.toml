@@ -1,0 +1,12 @@
+[project]
+name = "nordlys-ci-runners"
+version = "0.1.0"
+description = "Modal-deployed self-hosted GitHub Actions runners for nordlys CI"
+requires-python = ">=3.12"
+dependencies = [
+    "modal>=1.5.2,<2",
+    "runner-modal",
+]
+
+[tool.uv.sources]
+runner-modal = { git = "https://github.com/modal-projects/runner-modal.git", tag = "v0.1.0" }
