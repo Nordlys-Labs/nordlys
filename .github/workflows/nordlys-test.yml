@@ -8,13 +8,21 @@ jobs:
     name: Test (py${{ matrix.python }}, ${{ matrix.os }})
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
+    continue-on-error: ${{ matrix.allow_failure || false }}
     strategy:
       fail-fast: true
       matrix:
         include:
-          - { os: linux, runner: ubuntu-latest, python: "3.11" }
-          - { os: linux, runner: ubuntu-latest, python: "3.12", lint: true }
-          - { os: linux, runner: ubuntu-latest, python: "3.13" }
+          # Linux legs run on the Modal "ci" pool (deployed from runners/).
+          # The trailing pin makes the label set unique per leg so each JIT
+          # runner is claimed by exactly one leg. NOTE: ${{ strategy.job-index }}
+          # is not available inside matrix values, so suffixes are literals.
+          - { os: linux, runner: [self-hosted, modal, ci, "job-${{ github.run_id }}-${{ github.job }}-py311"], python: "3.11" }
+          - { os: linux, runner: [self-hosted, modal, ci, "job-${{ github.run_id }}-${{ github.job }}-py312"], python: "3.12", lint: true }
+          - { os: linux, runner: [self-hosted, modal, ci, "job-${{ github.run_id }}-${{ github.job }}-py313"], python: "3.13" }
+          # T4 on the Modal "ci-gpu" pool; CUDA wheels via --extra cu12. Allowed
+          # to fail until the CUDA-guarded tests are proven green (never ran in CI).
+          - { os: linux-gpu, runner: [self-hosted, modal, ci-gpu, "job-${{ github.run_id }}-${{ github.job }}-gpu"], python: "3.12", extra: cu12, cuda_visible: "0", allow_failure: true }
           - { os: macos, runner: macos-latest, python: "3.11" }
           - { os: macos, runner: macos-latest, python: "3.12" }
           - { os: macos, runner: macos-latest, python: "3.13" }
@@ -31,9 +39,20 @@ jobs:
           enable-cache: true
           python-version: ${{ matrix.python }}
 
-      - name: Install package (dev + CPU backend)
+      - name: Install package (dev + ${{ matrix.extra || 'cpu' }} backend)
         working-directory: nordlys
-        run: uv sync --group dev --extra cpu
+        run: uv sync --group dev --extra ${{ matrix.extra || 'cpu' }}
+
+      # nordlys-core-cu12 links libcublas.so.12 by SONAME; the nvidia-*-cu12
+      # wheels that provide it (pulled by torch/cuml) live under site-packages
+      # and are not on the default loader path.
+      - name: Resolve NVIDIA wheel libraries (GPU leg)
+        if: matrix.cuda_visible
+        working-directory: nordlys
+        run: |
+          libs=$(find "$PWD/.venv" -type d -path "*/nvidia/*/lib" -printf "%p:" 2>/dev/null)
+          test -n "$libs" || { echo "::error::no nvidia wheel lib dirs found"; exit 1; }
+          echo "LD_LIBRARY_PATH=${libs}${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
 
       - name: Lint
         if: matrix.lint
@@ -50,5 +69,6 @@ jobs:
       - name: Test
         working-directory: nordlys
         env:
-          CUDA_VISIBLE_DEVICES: ""
+          # Empty hides GPUs (default everywhere); "0" on the linux-gpu leg.
+          CUDA_VISIBLE_DEVICES: ${{ matrix.cuda_visible }}
         run: uv run pytest tests -v --tb=short

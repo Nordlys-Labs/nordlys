@@ -9,6 +9,10 @@ class NordlysCoreConan(ConanFile):
     settings = "os", "compiler", "build_type", "arch"
     generators = "CMakeToolchain", "CMakeDeps"
 
+    # Same as ../../conanfile.py: msgpack's use_boost default pulls boost,
+    # whose macOS recipe is broken (boost/1.91.0) and unused by this project.
+    default_options = {"msgpack-cxx/*:use_boost": False}
+
     def requirements(self):
         self.requires("nlohmann_json/3.12.0")
         self.requires("msgpack-cxx/7.0.0")

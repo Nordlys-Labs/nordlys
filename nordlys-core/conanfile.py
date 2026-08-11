@@ -9,6 +9,11 @@ class NordlysCoreConan(ConanFile):
     settings = "os", "compiler", "build_type", "arch"
     generators = "CMakeToolchain", "CMakeDeps"
 
+    # We use only msgpack's standard API (no boost adaptors). Without this,
+    # msgpack-cxx pulls boost by default, whose macOS recipe is currently
+    # broken (boost/1.91.0: boost_cobalt_io_ssl) and is slow to build anyway.
+    default_options = {"msgpack-cxx/*:use_boost": False}
+
     def requirements(self):
         self.requires("nlohmann_json/3.12.0")
         self.requires("msgpack-cxx/7.0.0")
