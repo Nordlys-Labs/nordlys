@@ -13,8 +13,9 @@ GitHub `workflow_job` webhook → ephemeral Modal Sandbox → one-shot JIT runne
 | `ci_gpu` | `nordlys-ci-gpu` | `self-hosted, modal, ci-gpu` | `nordlys-test.yml` linux-gpu leg (T4, `--extra cu12`) |
 
 One Modal App per pool (one resource profile per `Runner.create`). Workflow
-jobs pin a unique `job-<run_id>-<job>-<index>` label so each JIT runner is
-claimed by exactly one job leg.
+jobs pin a unique `job-<run_id>-<job>-<leg suffix>` label so each JIT runner is
+claimed by exactly one matrix leg (suffixes are literals —
+`${{ strategy.job-index }}` is unavailable inside matrix `include` values).
 
 ## One-time setup
 

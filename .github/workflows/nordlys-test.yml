@@ -13,12 +13,16 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - { os: linux, runner: [self-hosted, modal, ci, "job-${{ github.run_id }}-${{ github.job }}-${{ strategy.job-index }}"], python: "3.11" }
-          - { os: linux, runner: [self-hosted, modal, ci, "job-${{ github.run_id }}-${{ github.job }}-${{ strategy.job-index }}"], python: "3.12", lint: true }
-          - { os: linux, runner: [self-hosted, modal, ci, "job-${{ github.run_id }}-${{ github.job }}-${{ strategy.job-index }}"], python: "3.13" }
-          # T4 Modal pool; CUDA wheels from --extra cu12. Allowed to fail until
-          # the CUDA-guarded tests are proven green (they never ran in CI before).
-          - { os: linux-gpu, runner: [self-hosted, modal, ci-gpu, "job-${{ github.run_id }}-${{ github.job }}-${{ strategy.job-index }}"], python: "3.12", extra: cu12, cuda_visible: "0", allow_failure: true }
+          # Linux legs run on the Modal "ci" pool (deployed from runners/).
+          # The trailing pin makes the label set unique per leg so each JIT
+          # runner is claimed by exactly one leg. NOTE: ${{ strategy.job-index }}
+          # is not available inside matrix values, so suffixes are literals.
+          - { os: linux, runner: [self-hosted, modal, ci, "job-${{ github.run_id }}-${{ github.job }}-py311"], python: "3.11" }
+          - { os: linux, runner: [self-hosted, modal, ci, "job-${{ github.run_id }}-${{ github.job }}-py312"], python: "3.12", lint: true }
+          - { os: linux, runner: [self-hosted, modal, ci, "job-${{ github.run_id }}-${{ github.job }}-py313"], python: "3.13" }
+          # T4 on the Modal "ci-gpu" pool; CUDA wheels via --extra cu12. Allowed
+          # to fail until the CUDA-guarded tests are proven green (never ran in CI).
+          - { os: linux-gpu, runner: [self-hosted, modal, ci-gpu, "job-${{ github.run_id }}-${{ github.job }}-gpu"], python: "3.12", extra: cu12, cuda_visible: "0", allow_failure: true }
           - { os: macos, runner: macos-latest, python: "3.11" }
           - { os: macos, runner: macos-latest, python: "3.12" }
           - { os: macos, runner: macos-latest, python: "3.13" }
@@ -54,6 +58,6 @@ jobs:
       - name: Test
         working-directory: nordlys
         env:
-          # Unset on the linux-gpu leg (exposes the T4); hidden everywhere else.
+          # Empty hides GPUs (default everywhere); "0" on the linux-gpu leg.
           CUDA_VISIBLE_DEVICES: ${{ matrix.cuda_visible }}
         run: uv run pytest tests -v --tb=short

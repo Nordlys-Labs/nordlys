@@ -47,7 +47,7 @@ Lint commands run from `nordlys/` (CI lints that package only):
 
 ## CI Notes
 
-- Linux x86_64 legs run on the Modal pools (`runs-on: [self-hosted, modal, ci|ci-core|ci-gpu, job-<unique pin>]`) deployed from `runners/`. Each matrix leg's pin **must** end in `${{ strategy.job-index }}` or legs collide.
+- Linux x86_64 legs run on the Modal pools (`runs-on: [self-hosted, modal, ci|ci-core|ci-gpu, job-<unique pin>]`) deployed from `runners/`. Each matrix leg's pin **must be unique** (literal suffix like `-py311`); `${{ strategy.job-index }}` is NOT available inside matrix values — never use it there.
 - macOS/Windows legs, cibuildwheel wheel builds, and PyPI publish jobs stay on hosted runners (Modal is Linux-only; cibuildwheel needs nested Docker; publish holds OIDC/PyPI credentials).
 - The `conan_home` matrix field points Modal core legs at the shared `/cache/conan2` Volume; `actions/cache` for conan is skipped on self-hosted runners.
 - The `linux-gpu` leg (T4, `--extra cu12`) is `continue-on-error` until the CUDA-guarded tests are proven green.

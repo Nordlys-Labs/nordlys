@@ -15,7 +15,11 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - { os: linux, runner: [self-hosted, modal, ci-core, "job-${{ github.run_id }}-${{ github.job }}-${{ strategy.job-index }}"], conan_home: /cache/conan2 }
+          # Linux leg runs on the Modal "ci-core" pool (deployed from runners/).
+          # The trailing pin makes the label set unique per leg so each JIT
+          # runner is claimed by exactly one leg. NOTE: ${{ strategy.job-index }}
+          # is not available inside matrix values, so suffixes are literals.
+          - { os: linux, runner: [self-hosted, modal, ci-core, "job-${{ github.run_id }}-${{ github.job }}-linux"], conan_home: /cache/conan2 }
           - { os: macos, runner: macos-15 }
 
     steps:
@@ -25,8 +29,8 @@ jobs:
         with:
           python-version: "3.12"
 
-      # Modal legs share a conan Volume via CONAN_HOME; actions/cache is only
-      # used on hosted runners (the Volume already persists across runs there).
+      # Modal legs share conan cache via the pool Volume at /cache (persisted
+      # across runs); actions/cache only applies to hosted runners.
       - name: Point Conan at the shared cache volume
         if: matrix.conan_home
         run: echo "CONAN_HOME=${{ matrix.conan_home }}" >> "$GITHUB_ENV"
@@ -83,7 +87,7 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - { os: linux, runner: [self-hosted, modal, ci-core, "job-${{ github.run_id }}-${{ github.job }}-${{ strategy.job-index }}"], conan_home: /cache/conan2 }
+          - { os: linux, runner: [self-hosted, modal, ci-core, "job-${{ github.run_id }}-${{ github.job }}-linux"], conan_home: /cache/conan2 }
           - { os: macos, runner: macos-15 }
 
     steps:
@@ -93,8 +97,8 @@ jobs:
         with:
           python-version: "3.12"
 
-      # Modal legs share a conan Volume via CONAN_HOME; actions/cache is only
-      # used on hosted runners (the Volume already persists across runs there).
+      # Modal legs share conan cache via the pool Volume at /cache (persisted
+      # across runs); actions/cache only applies to hosted runners.
       - name: Point Conan at the shared cache volume
         if: matrix.conan_home
         run: echo "CONAN_HOME=${{ matrix.conan_home }}" >> "$GITHUB_ENV"
@@ -114,7 +118,7 @@ jobs:
       - name: Install build tools
         run: uv pip install conan --system
 
-      - name: Setup Conan profile
+      - name: Install Conan profile
         run: conan profile detect --force
 
       - name: Install package in editable mode with test dependencies
