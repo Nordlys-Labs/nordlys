@@ -23,7 +23,7 @@ jobs:
           - { os: macos, runner: macos-15 }
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       # setup-python has no Debian builds for Modal's image; the ci-core job
       # image already ships Python 3.12 (runner-modal default recipe).
@@ -94,7 +94,7 @@ jobs:
           - { os: macos, runner: macos-15 }
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       # setup-python has no Debian builds for Modal's image; the ci-core job
       # image already ships Python 3.12 (runner-modal default recipe).
