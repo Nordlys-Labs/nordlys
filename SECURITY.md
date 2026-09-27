@@ -1,132 +1,29 @@
 # Security Policy
 
-## Supported Versions
+## Supported versions
 
-We actively support the following versions with security updates:
+Security fixes land on the latest release. Older releases are not maintained.
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 1.x.x   | :white_check_mark: |
-| < 1.0   | :x:                |
+## Reporting a vulnerability
 
-## Reporting a Vulnerability
+Open a [GitHub issue](https://github.com/Nordlys-Labs/nordlys/issues/new). Include:
 
-We take security vulnerabilities seriously. If you discover a security vulnerability, please follow these steps:
+- A description of the vulnerability
+- Steps to reproduce
+- The potential impact
+- A suggested fix, if you have one
 
-### How to Report
+This repository is maintained lightly. There is no private disclosure address and no response-time commitment. An issue is the way to report a problem.
 
-1. **DO NOT** create a public GitHub issue for security vulnerabilities
-2. Email us directly at: [security@llmadaptive.uk](mailto:security@llmadaptive.uk)
-3. Include the following information:
-   - Description of the vulnerability
-   - Steps to reproduce the issue
-   - Potential impact assessment
-   - Suggested fix (if known)
-   - Your contact information
+There is no bug bounty. This is a free and open source project.
 
-### What to Expect
+## Practices
 
-- **Acknowledgment**: We will acknowledge your report within 24 hours
-- **Initial Assessment**: We will provide an initial assessment within 72 hours
-- **Regular Updates**: We will keep you informed of our progress
-- **Resolution Timeline**: We aim to resolve critical vulnerabilities within 7 days
+If you run Nordlys:
 
-### Responsible Disclosure
-
-We follow responsible disclosure practices:
-
-- We will work with you to understand and resolve the issue
-- We will not take legal action against researchers who follow this policy
-- We will publicly acknowledge your contribution (unless you prefer to remain anonymous)
-- We unfortunately cannot offer a bug bounty for vulnerabilities. This is a FOSS repo with not much funding backing it.
-
-## Security Best Practices
-
-### For Users
-
-- Keep your installation up to date
-- Use strong, unique API keys
-- Enable HTTPS in production
-- Regularly audit your access logs
-- Follow the principle of least privilege
-
-### For Developers
-
-- Never commit secrets or API keys to version control
+- Stay on the latest release
+- Do not commit secrets or API keys
 - Use environment variables for sensitive configuration
-- Implement proper input validation
-- Follow secure coding practices
 - Keep dependencies updated
 
-## Security Features
-
-### Authentication & Authorization
-
-- API key-based authentication
-- Role-based access control
-- Rate limiting and request throttling
-- Session management
-
-### Data Protection
-
-- Encryption at rest and in transit
-- Secure API communication
-- Data anonymization where applicable
-- Audit logging
-
-### Infrastructure Security
-
-- Container security scanning
-- Network segmentation
-- Regular security updates
-- Monitoring and alerting
-
-## Common Security Considerations
-
-### API Security
-
-- Always use HTTPS in production
-- Validate and sanitize all input
-- Implement proper error handling
-- Use rate limiting to prevent abuse
-
-### Data Handling
-
-- Minimize data collection
-- Implement data retention policies
-- Use secure data storage
-- Follow privacy regulations
-
-### Deployment Security
-
-- Use security scanning tools
-- Keep systems patched
-- Implement proper monitoring
-- Regular security assessments
-
-## Security Updates
-
-Security updates are released as needed and announced through:
-
-- GitHub Security Advisories
-- Release notes
-- Email notifications to registered users
-- Security mailing list
-
-## Contact Information
-
-For security-related questions or concerns:
-
-- Security Team: [security@llmadaptive.uk](mailto:security@llmadaptive.uk)
-- General Support: [support@llmadaptive.uk](mailto:support@llmadaptive.uk)
-- Emergency Contact: [security@llmadaptive.uk](mailto:security@llmadaptive.uk)
-
-## Acknowledgments
-
-We appreciate the security research community and acknowledge those who have helped improve our security:
-
-- [Security researchers will be listed here upon disclosure]
-
----
-
-This security policy is subject to change. Please check this document regularly for updates.
+Security fixes are published in release notes and, when appropriate, GitHub Security Advisories.
