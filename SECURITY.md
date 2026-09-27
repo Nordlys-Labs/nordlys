@@ -38,7 +38,7 @@ We follow responsible disclosure practices:
 - We will work with you to understand and resolve the issue
 - We will not take legal action against researchers who follow this policy
 - We will publicly acknowledge your contribution (unless you prefer to remain anonymous)
-- We may offer a bug bounty for qualifying vulnerabilities
+- We unfortunately cannot offer a bug bounty for vulnerabilities. This is a FOSS repo with not much funding backing it.
 
 ## Security Best Practices
 
